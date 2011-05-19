@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!DOCTYPE boost_serialization>
+<boost_serialization signature="serialization::archive" version="8">
+<stdvImageResolution class_id="0" tracking_level="0" version="0">
+	<count>2</count>
+	<item_version>0</item_version>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>640</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>480</item>
+	</item>
+</stdvImageResolution>
+<stdvRGBKMatrix class_id="2" tracking_level="0" version="0">
+	<count>3</count>
+	<item_version>0</item_version>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>523.50197545526828</item>
+		<item>0</item>
+		<item>319.76224807902793</item>
+	</item>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0</item>
+		<item>523.95660212743121</item>
+		<item>266.32376060011234</item>
+	</item>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0</item>
+		<item>0</item>
+		<item>1</item>
+	</item>
+</stdvRGBKMatrix>
+<stdvRGBDistortionCoeff>
+	<count>5</count>
+	<item_version>0</item_version>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>0.25820232399372117</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>-0.82784297454356659</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>0.00033478402724450713</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>0.0010749234079032411</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>0.88502950995903351</item>
+	</item>
+</stdvRGBDistortionCoeff>
+<stdvIRKMatrix>
+	<count>3</count>
+	<item_version>0</item_version>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>588.53775570764196</item>
+		<item>0</item>
+		<item>322.42301152639857</item>
+	</item>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0</item>
+		<item>588.48953406788917</item>
+		<item>249.04436102113715</item>
+	</item>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0</item>
+		<item>0</item>
+		<item>1</item>
+	</item>
+</stdvIRKMatrix>
+<stdvIRDistortionCoeff>
+	<count>1</count>
+	<item_version>0</item_version>
+	<item>
+		<count>5</count>
+		<item_version>0</item_version>
+		<item>-0.13999755827771276</item>
+		<item>0.62964426974312937</item>
+		<item>-0.0023674937330911694</item>
+		<item>0.0024741480590242315</item>
+		<item>-0.94538080877579389</item>
+	</item>
+</stdvIRDistortionCoeff>
+<stdvRelativeRotaion>
+	<count>3</count>
+	<item_version>0</item_version>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0.99999014727567415</item>
+		<item>-0.0018166007742132814</item>
+		<item>-0.0040503472940901057</item>
+	</item>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0.0018341313711404462</item>
+		<item>0.99998894924540682</item>
+		<item>0.0043286659816363119</item>
+	</item>
+	<item>
+		<count>3</count>
+		<item_version>0</item_version>
+		<item>0.0040424390767225919</item>
+		<item>-0.0043360522015197982</item>
+		<item>0.99998242851442976</item>
+	</item>
+</stdvRelativeRotaion>
+<stdvRelativeTranslation>
+	<count>3</count>
+	<item_version>0</item_version>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>0.026236484878989712</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>-0.00032836264071997492</item>
+	</item>
+	<item>
+		<count>1</count>
+		<item_version>0</item_version>
+		<item>-0.00079652897430161791</item>
+	</item>
+</stdvRelativeTranslation>
+</boost_serialization>
+

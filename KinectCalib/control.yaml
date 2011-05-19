@@ -1,0 +1,26 @@
+- load ir images: 1
+  load rgb images: 1
+  load undistorted ir images: 0
+  load undistorted rgb images: 0
+  export undistorted ir images: 0
+  export undistorted rgb images: 0
+  undistort images: 1
+  calibrate: 1
+  calibrate ir camera offset: 1
+  export to xml: 0
+  import from xml: 0
+ 
+---
+- {No. of Corners X Y: [8, 6]}
+---
+- {Unit length in X Y: [0.03, 0.03]}
+---
+- image directory: /Img/
+---
+- [rgb1.bmp, rgb2.bmp, rgb3.bmp, rgb4.bmp, rgb5.bmp, rgb6.bmp, rgb7.bmp, rgb8.bmp, rgb9.bmp, rgb10.bmp, rgb11.bmp, rgb12.bmp, rgb13.bmp, rgb14.bmp, rgb15.bmp]
+---
+- [ir1.bmp, ir2.bmp, ir3.bmp, ir4.bmp, ir5.bmp, ir6.bmp, ir7.bmp, ir8.bmp, ir9.bmp, ir10.bmp, ir11.bmp, ir12.bmp, ir13.bmp, ir14.bmp, ir15.bmp]
+---
+- [rgbUndistorted1.bmp, rgbUndistorted2.bmp, rgbUndistorted3.bmp, rgbUndistorted4.bmp, rgbUndistorted5.bmp, rgbUndistorted6.bmp, rgbUndistorted7.bmp, rgbUndistorted8.bmp, rgbUndistorted9.bmp, rgbUndistorted10.bmp, rgbUndistorted11.bmp, rgbUndistorted12.bmp, rgbUndistorted13.bmp, rgbUndistorted14.bmp, rgbUndistorted15.bmp]
+---
+- [irUndistorted1.bmp, irUndistorted2.bmp, irUndistorted3.bmp, irUndistorted4.bmp, irUndistorted5.bmp, irUndistorted6.bmp, irUndistorted7.bmp, irUndistorted8.bmp, irUndistorted9.bmp, irUndistorted10.bmp, irUndistorted11.bmp, irUndistorted12.bmp, irUndistorted13.bmp, irUndistorted14.bmp, irUndistorted15.bmp]

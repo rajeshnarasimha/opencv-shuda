@@ -1,0 +1,31 @@
+- load depth maps: 1
+  load rgb images: 1
+  load undistorted depth maps: 0
+  load undistorted rgb images: 0
+  export undistorted rgb images: 0
+  export undistorted depth images: 0
+  undistort images: 1
+  calibrate extrinsics: 1
+  calibrate ir camera offset: 1
+  export to xml: 0
+  import from xml: 0
+  calibrate depth: 1
+ 
+---
+- depth filter threshold: 100000
+---
+- {No. of Corners X Y: [8, 6]}
+---
+- {Unit length in X Y: [0.0299999993294477, 0.0299999993294477]}
+---
+- image directory: /Img/
+---
+- [rgb1.bmp, rgb2.bmp, rgb3.bmp, rgb4.bmp, rgb5.bmp, rgb6.bmp, rgb7.bmp, rgb8.bmp, rgb9.bmp, rgb10.bmp, rgb11.bmp, rgb12.bmp, rgb13.bmp, rgb14.bmp, rgb15.bmp, rgb16.bmp, rgb17.bmp, rgb18.bmp, rgb19.bmp, rgb21.bmp, rgb22.bmp]
+---
+- [depth1.bmp, depth2.bmp, depth3.bmp, depth4.bmp, depth5.bmp, depth6.bmp, depth7.bmp, depth8.bmp, depth9.bmp, depth10.bmp, depth11.bmp, depth12.bmp, depth13.bmp, depth14.bmp, depth15.bmp, depth16.bmp, depth17.bmp, depth18.bmp, depth19.bmp, depth21.bmp, depth22.bmp]
+---
+- [rgbUndistorted1.bmp, rgbUndistorted2.bmp, rgbUndistorted3.bmp, rgbUndistorted4.bmp, rgbUndistorted5.bmp, rgbUndistorted6.bmp, rgbUndistorted7.bmp, rgbUndistorted8.bmp, rgbUndistorted9.bmp, rgbUndistorted10.bmp, rgbUndistorted11.bmp, rgbUndistorted12.bmp, rgbUndistorted13.bmp, rgbUndistorted14.bmp, rgbUndistorted15.bmp, rgbUndistorted16.bmp, rgbUndistorted17.bmp, rgbUndistorted18.bmp, rgbUndistorted19.bmp, rgbUndistorted21.bmp, rgbUndistorted22.bmp]
+---
+- [depthUndistorted1.bmp, depthUndistorted2.bmp, depthUndistorted3.bmp, depthUndistorted4.bmp, depthUndistorted5.bmp, depthUndistorted6.bmp, depthUndistorted7.bmp, depthUndistorted8.bmp, depthUndistorted9.bmp, depthUndistorted10.bmp, depthUndistorted11.bmp, depthUndistorted12.bmp, depthUndistorted13.bmp, depthUndistorted14.bmp, depthUndistorted15.bmp, depthUndistorted16.bmp, depthUndistorted17.bmp, depthUndistorted18.bmp, depthUndistorted19.bmp, depthUndistorted21.bmp, depthUndistorted22.bmp]
+
+#rgb20.bmp,depth20.bmp,rgbUndistorted20.bmp,depthUndistorted20.bmp,
