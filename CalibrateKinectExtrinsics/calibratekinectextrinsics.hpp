@@ -11,13 +11,13 @@
 #include <btl/Utility/Converters.hpp>
 #include <btl/extra/VideoSource/calibratekinect.hpp>
 
-
+/*
 #ifndef RGB_CAMERA
 	#define IR_CAMERA 0
 	#define DEPTH_CAMERA IR_CAMERA //depth camera is ir camera
 	#define RGB_CAMERA 1
 #endif
-
+*/
 //class CCalibrateKinect;
 //#include <btl/Camera/CameraModel.hpp>
 using namespace btl;
@@ -81,7 +81,6 @@ public:
 
 	Eigen::Vector3d 				eiVecT(unsigned int uNthView_, int nCameraType_ ) const;
 	Eigen::Matrix3d  				eiMatR(unsigned int uNthView_, int nCameraType_ ) const;
-	Eigen::Matrix3d					eiMatK(int nCameraType_ ) const;
 	Matrix< double , 3, 4 > 		calcProjMatrix( unsigned int uNthView_, int nCameraType_ ) const;
 	void 							calcAllProjMatrices(int nCameraType_, std::vector< Matrix< double , 3, 4 > >* pveimProjs_ ) const;
 
