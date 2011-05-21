@@ -86,7 +86,7 @@ void create3DPtsDisplayLists()
     	mGLM = mGLM.inverse().eval();
     	glMultMatrixd( mGLM.data() );
 
-		const vector< Vector4d >& vPts = cKinectCalibExt.points(i);
+		const vector< Vector3d >& vPts = cKinectCalibExt.points(i);
 		const vector< unsigned char* >& vColors =  cKinectCalibExt.colors(i);
 	 	glBegin ( GL_POINTS );
     	glPointSize ( 1. );
@@ -133,7 +133,7 @@ void render3DPts(unsigned int uNthView_ )
 			break;
 		case SINGLE_DEPTHVIEW:
 			glCallList( vLists[uNthView_] );
-			BREAK;
+			break;
 		case ALL_DEPTHVIEW:
 			for (unsigned int i = 0; i < cKinectCalibExt.views(); i++)
 				glCallList( vLists[i] );

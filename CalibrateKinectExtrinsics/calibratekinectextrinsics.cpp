@@ -514,6 +514,7 @@ void CCalibrateKinectExtrinsics::calibPhysicalFocalLength()
 
 void CCalibrateKinectExtrinsics::calibDepth()
 {
+	/*
 	vector<Vector4d> veivDifference;
 
 	Matrix3d mK = eiMatK( IR_CAMERA );
@@ -566,7 +567,7 @@ void CCalibrateKinectExtrinsics::calibDepth()
 //	cOD->Go();
 //	_mDK =  cOD->GetX().clone();
 //	PRINT( _mDK );
-
+*/
 	return;
 }
 
@@ -614,13 +615,13 @@ void CCalibrateKinectExtrinsics::calibDepthFreeNect()
 
 	return;
 }
-void CCalibrateKinectExtrinsics::collect3DPtAll(vector< vector< Vector4d > >* pvveiv3DPts_, vector< vector< unsigned char* > >* pvvp3DColors_) const
+void CCalibrateKinectExtrinsics::collect3DPtAll(vector< vector< Vector3d > >* pvveiv3DPts_, vector< vector< unsigned char* > >* pvvp3DColors_) const
 {
 	pvveiv3DPts_->clear();
 	pvvp3DColors_->clear();
 	for (unsigned int i =0; i< views(); i++ )
 	{
-		vector< Vector4d > 		 veiv3DPts;
+		vector< Vector3d > 		 veiv3DPts;
 		vector< unsigned char* > vp3DColors;
 		collect3DPt(i, &veiv3DPts, &vp3DColors);
 		pvveiv3DPts_->push_back(veiv3DPts);
@@ -631,64 +632,44 @@ void CCalibrateKinectExtrinsics::collect3DPtAll(vector< vector< Vector4d > >* pv
 	}
 }
 
-void CCalibrateKinectExtrinsics::collect3DPt(unsigned int uNthView_, vector< Vector4d >* pveiv3DPts_, vector< unsigned char* >* pvp3DColors_) const
+void CCalibrateKinectExtrinsics::collect3DPt(unsigned int uNthView_, vector< Vector3d >* pveiv3DPts_, vector< unsigned char* >* pvp3DColors_) const
 {
- 	Eigen::Matrix3d mK = eiMatK( IR_CAMERA );
-
-    const double u = mK(0,2);
-    const double v = mK(1,2);
-    const double f = ( mK(0,0) + mK(1,1) )/2.;
+	boost::posix_time::ptime cT0 ( microsec_clock::local_time() );
 
 	pveiv3DPts_->clear();
-	pveiv3DPts_->reserve( 300000 );
+	//pveiv3DPts_->reserve( 300000 );
 	pvp3DColors_->clear();
-	pvp3DColors_->reserve( 300000 );
+	//pvp3DColors_->reserve( 300000 );
 
 	//3D Pt in camera coordinate system.
 	//const Mat& img = undistortedDepth ( uNthView_ );
 	//const Mat_<int> img = _vFilteredDepth[uNthView_];
-	const Mat_<unsigned short>& img = _vFilteredUndistDepthInts[uNthView_];
+	const Mat_<unsigned short>& cvmDepth = _vFilteredUndistDepthInts[uNthView_];
 	
-	const Mat& color = undistortedImg ( uNthView_ );
-	//PRINT( img.size() );
-    boost::posix_time::ptime cT0 ( microsec_clock::local_time() );
+	const Mat& cvmRGB = undistortedImg ( uNthView_ );
+
 	//collect the Pt w.r.t. [I|0]
-	Vector4d eivPt;
-	for ( int y = 0; y < img.rows; y++ )
-        for ( int x = 0; x < img.cols; x++ )
+	Vector3d eiv3DPt; //Vector3d eiv2DPt;
+	Vector2i eiv2DPt;
+	const Eigen::Vector3d& vT = eiVecRelativeTranslation();
+    Eigen::Matrix3d mRTrans = eiMatRelativeRotation().transpose();
+
+	for ( int y = 0; y < cvmDepth.rows; y++ )
+        for ( int x = 0; x < cvmDepth.cols; x++ )
         {
-			if ( getPtCameraCoordinate2<double, unsigned short>( x, y, f, u, v, img, &eivPt ) )
+			unprojectCamera2World< double, unsigned short >( x, y, cvmDepth.at<unsigned short>(y,x), eiMatIRK() , &eiv3DPt ); 
 			{
-				pveiv3DPts_->push_back( eivPt );
+				pveiv3DPts_->push_back( eiv3DPt );
+				// this is much slower than the function
+				//eiv2DPt = mRGBK * (mRTrans * ( eiv3DPt.head<3>() - vT )); eiv2DPt /= eiv2DPt(2);
+				projectWorld2Camera<double> ((mRTrans * ( eiv3DPt - vT )), eiMatRGBK(), &eiv2DPt );
+				unsigned char* pColor = getColorPtr< unsigned char >( eiv2DPt(0), eiv2DPt(1), cvmRGB );
+				pvp3DColors_->push_back( pColor );
 			}
         }
 
 	boost::posix_time::ptime cT1 ( microsec_clock::local_time() );
     time_duration cTDAll = cT1 - cT0 ;
-	PRINT( cTDAll );
-	
-	cT0 = microsec_clock::local_time() ;
-	Eigen::Vector3d vT = eiVecRelativeTranslation();
-    Eigen::Matrix3d mR = eiMatRelativeRotation();
-	mR.transposeInPlace();
-
-	//Eigen::Matrix4d eimGLM = setOpenGLModelViewMatrix( mR, vT );
-    //eimGLM = eimGLM.inverse().eval();
-
-	Eigen::Matrix3d mRGBK = eiMatRGBK(); 
-	vector< Vector4d >::iterator it = pveiv3DPts_->begin();
-	Vector3d eiv2DPt ;
-	for ( ; it != pveiv3DPts_->end(); ++it)
-	{
-		//eiv3DPt = eimGLM * (*it);
-		//eiv2DPt = mRGBK * eiv3DPt.head<3>();
-		eiv2DPt = mRGBK * mR * ((*it).head<3>() - vT);
-		eiv2DPt /= eiv2DPt(2);
-		unsigned char* pColor = getColorPtr<unsigned char>( int(eiv2DPt(0)+0.5), int(eiv2DPt(1)+0.5), color );
-		pvp3DColors_->push_back( pColor );
-	}
-	cT1 = microsec_clock::local_time();
-	cTDAll = cT1 - cT0 ;
 	PRINT( cTDAll );
 	
 	/*

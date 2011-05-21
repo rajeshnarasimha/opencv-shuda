@@ -84,7 +84,7 @@ public:
 	Matrix< double , 3, 4 > 		calcProjMatrix( unsigned int uNthView_, int nCameraType_ ) const;
 	void 							calcAllProjMatrices(int nCameraType_, std::vector< Matrix< double , 3, 4 > >* pveimProjs_ ) const;
 
-	const vector< Vector4d >&       points(unsigned int uNthView_) const {return _vveiv3DPts[uNthView_];} 
+	const vector< Vector3d >&       points(unsigned int uNthView_) const {return _vveiv3DPts[uNthView_];} 
 	const vector< unsigned char* >& colors(unsigned int uNthView_) const {return _vvp3DColors[uNthView_];}
 	const  Matrix< double , 3, 4 >& prjMatrix(unsigned int uNthView_, int nCameraType_) const
 	{
@@ -103,8 +103,8 @@ private:
 	void calibDepth();
 	void calibDepthFreeNect();
 	//void exportImages( const boost::filesystem::path& cFullPath_, const vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
-	void collect3DPt(unsigned int uNthView_, vector< Vector4d >* pveiv3DPts_, vector< unsigned char* >* pvp3DColors_) const;
-	void collect3DPtAll(vector< vector< Vector4d > >* pvveiv3DPts_, vector< vector< unsigned char* > >* pvvp3DColors_) const;
+	void collect3DPt(unsigned int uNthView_, vector< Vector3d >* pveiv3DPts_, vector< unsigned char* >* pvp3DColors_) const;
+	void collect3DPtAll(vector< vector< Vector3d > >* pvveiv3DPts_, vector< vector< unsigned char* > >* pvvp3DColors_) const;
 	void createDepth ( unsigned int uNthView_, const Mat& cvmDepth_, Mat_<int>* pcvmDepthNew_ ) const;
 	void filterDepth (const double& dThreshould_, const Mat& cvmDepth_, Mat_<int>* pcvmDepthNew_ ) const;
 	void parseControlYAML();
@@ -141,7 +141,7 @@ private:
     std::vector< std::string > _vstrUndistortedDepthPathName; 
 
 // 3D Pts and colors
- 	vector< vector< Vector4d > > 	   _vveiv3DPts;
+ 	vector< vector< Vector3d > > 	   _vveiv3DPts;
 	vector< vector< unsigned char* > > _vvp3DColors;
 
 // 2D-3D correspondences serialized
