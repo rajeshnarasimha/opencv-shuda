@@ -43,7 +43,7 @@ int main ( int argc, char** argv )
     cvDestroyWindow( "Example2" );*/
 
     //opencv cpp style
-    cv::VideoCapture cap ( 0 ); // open the default camera
+    cv::VideoCapture cap ( 1 ); // open the default camera
 
     if ( !cap.isOpened() ) // check if we succeeded
     {

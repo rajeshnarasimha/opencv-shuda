@@ -18,6 +18,7 @@
 	#define RGB_CAMERA 1
 #endif
 */
+
 //class CCalibrateKinect;
 //#include <btl/Camera/CameraModel.hpp>
 using namespace btl;
@@ -49,7 +50,18 @@ public:
 	 	_nSerializeToXML = 1;
 		_nSerializeFromXML = 1;
 		_nCalibrateDepth = 1;
+		_nCollect3DPts = 1;
     }
+	~CCalibrateKinectExtrinsics()
+	{
+		for( vector< double* >::iterator it = _vpRGBWorld.begin(); it != _vpRGBWorld.end(); it++ ) 
+		{
+			delete [] *it;
+		}
+		_vpRGBWorld.clear();
+		_vvpColor.clear();
+		_vvpRGB.clear();
+	}
 
     virtual void mainFunc(const boost::filesystem::path& cFullPath_ );
     //btl::camera::CameraModelPinhole btlCameraModelPinHoleK() const; 
@@ -58,8 +70,8 @@ public:
     const cv::Mat&                  undistortedImg(unsigned int uNthView_) const {return _vUndistortedImages[uNthView_];}
     const cv::Mat&                  depth (unsigned int uNthView_) const {return _vDepthMaps[uNthView_];}
     const cv::Mat&                  undistortedDepth(unsigned int uNthView_) const {return _vUndistortedDepthMaps[uNthView_];}
-    const std::vector<cv::Point3f>& pattern(unsigned int uNthView_)const {return _vv3DCorners[uNthView_];}
-    const Eigen::Vector2i&          imageResolution()           const {return _vImageResolution;}
+//    const std::vector<cv::Point3f>& pattern(unsigned int uNthView_)const {return _vv3DCorners[uNthView_];}
+    const Eigen::Vector2i&          imageResolution()              const {return _vImageResolution;}
 
 
     Eigen::Matrix3d                 eiMatR(unsigned int uNthView_) const {Eigen::Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmRotationMatrices[uNthView_]); return eiMatR;}
@@ -81,11 +93,10 @@ public:
 
 	Eigen::Vector3d 				eiVecT(unsigned int uNthView_, int nCameraType_ ) const;
 	Eigen::Matrix3d  				eiMatR(unsigned int uNthView_, int nCameraType_ ) const;
-	Matrix< double , 3, 4 > 		calcProjMatrix( unsigned int uNthView_, int nCameraType_ ) const;
+	Matrix< double, 3, 4 > 			calcProjMatrix( unsigned int uNthView_, int nCameraType_ ) const;
 	void 							calcAllProjMatrices(int nCameraType_, std::vector< Matrix< double , 3, 4 > >* pveimProjs_ ) const;
 
 	const vector< Vector3d >&       points(unsigned int uNthView_) const {return _vveiv3DPts[uNthView_];} 
-	const vector< unsigned char* >& colors(unsigned int uNthView_) const {return _vvp3DColors[uNthView_];}
 	const  Matrix< double , 3, 4 >& prjMatrix(unsigned int uNthView_, int nCameraType_) const
 	{
 		switch ( nCameraType_ )
@@ -96,7 +107,9 @@ public:
 				return _veimRGBProjs[uNthView_];
 		}
 	}
-
+	//double* 						pointPtrs() {return _pRGBWorld; }
+	const vector< unsigned char* >& colors(unsigned int uNthView_) const {return _vvpColor[uNthView_];}
+	const double* 					pointPtr(int nView_ ) {return _vpRGBWorld[nView_];}
 private:
     //void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void calibrateExtrinsics ();
@@ -109,7 +122,16 @@ private:
 	void filterDepth (const double& dThreshould_, const Mat& cvmDepth_, Mat_<int>* pcvmDepthNew_ ) const;
 	void parseControlYAML();
 	void convertDepth ();
+	void buildRegistrationTable();
+	void exportTable();
+	void importTable();
 
+	void collect3DPt();
+	/*
+	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
+	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
+	void projectRGB( double* pWorld_,const int& nN_, double* pRGBWorld_ );
+	*/
 
 /**
 * @brief convert rotation vectors into rotation matrices using cv::
@@ -157,11 +179,11 @@ private:
 // depth converter parameters
     cv::Mat_<double> _mDK;
 // patern constancy serialized
-     int _NUM_CORNERS_X;
-     int _NUM_CORNERS_Y;
-     float _X;
-     float _Y;
-	 int _NUM_IMAGES;
+    int _NUM_CORNERS_X;
+    int _NUM_CORNERS_Y;
+    float _X;
+    float _Y;
+	int _NUM_IMAGES;
 // control flags
 	int _nLoadRGB;
 	int _nLoadDepth;
@@ -174,7 +196,24 @@ private:
 	int _nSerializeToXML;
 	int _nSerializeFromXML;
 	int _nCalibrateDepth;
+	int _nCollect3DPts;
 
+	// for checking table: unnecessary as the plain c++ code is fast enough.
+	typedef Eigen::Matrix< short, 2, 1>         		Vector2s_type;
+	typedef std::map< unsigned short, Vector2s_type >   map_type;
+	typedef Eigen::Matrix< map_type, 480, 640  >    	table_type;
+	table_type _mpTable;
+
+	vector<double*>  _vpRGBWorld; //X,Y,Z coordinate in RGB camera reference system
+	vector<vector<unsigned char*> > _vvpColor;
+	vector<vector<double*> > _vvpRGB;
+/*
+	// duplicated camera parameters for speed up the code. because Eigen and cv matrix class is very slow.
+	double _aR[9];	// Relative rotation transpose
+	double _aRT[3]; // aRT* T, the relative translation
+	double _fxIR, _fyIR, _uIR, _vIR;
+	double _fxRGB,_fyRGB,_uRGB,_vRGB;
+	*/
 };
 }//shuda
 

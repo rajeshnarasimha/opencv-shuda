@@ -1,6 +1,7 @@
 #include "calibratekinectextrinsics.hpp"
 #include <boost/serialization/string.hpp>
 #include <boost/serialization/vector.hpp>
+#include <boost/serialization/map.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
 #include <boost/lexical_cast.hpp>
@@ -18,19 +19,20 @@ namespace shuda
 
 void CCalibrateKinectExtrinsics::convertDepth ()
 {
+	PRINT( _dDepthThreshold );
+
 	for(unsigned int i = 0; i < _vstrImagePathName.size(); i++ )
     { 
 		cv::Mat& Depth =_vUndistortedDepthMaps[i];
 		cv::Mat_<unsigned short> DepthInt( _vImageResolution(1), _vImageResolution(0) );
 		cv::Mat_<unsigned short> FilteredDepthInt;
-		PRINT( _dDepthThreshold );
 		for ( int y = 0; y < Depth.rows; y++ )
         for ( int x = 0; x < Depth.cols; x++ )
         {
 			DepthInt.at<unsigned short> ( y, x ) = rawDepth< unsigned short >( x,   y  , Depth );
         }
-		//btl::utility::filterDepth < unsigned short > ( (unsigned short) _dDepthThreshold, DepthInt, &FilteredDepthInt );
-		_vFilteredUndistDepthInts.push_back( DepthInt );
+		btl::utility::filterDepth < unsigned short > ( (unsigned short) _dDepthThreshold, DepthInt, &FilteredDepthInt );
+		_vFilteredUndistDepthInts.push_back( FilteredDepthInt );
     }
 	return;
 }
@@ -42,7 +44,7 @@ void CCalibrateKinectExtrinsics::mainFunc ( const boost::filesystem::path& cFull
 	parseControlYAML();
 
  	//load depth camera intrinsics
-    importKinectIntrinsics();
+    //importKinectIntrinsics();
 	std::cout << "kinect intrinsics imported. \n";
 
 	//load images
@@ -75,7 +77,8 @@ void CCalibrateKinectExtrinsics::mainFunc ( const boost::filesystem::path& cFull
 	    undistortImages( _vDepthMaps,_mIRK,  _mIRInvK,  _mIRDistCoeffs,   &_vUndistortedDepthMaps );
 		std::cout << "image undistorted.\n";
 	}
-	convertDepth ();
+	convertDepth (); //convert from rgb format depth to unsigned short format depth
+					 //and filter the depth to remove noise
 
 	if( 1 == _nExportUndistortedRGB )
 	{
@@ -94,7 +97,7 @@ void CCalibrateKinectExtrinsics::mainFunc ( const boost::filesystem::path& cFull
 	    locate2DCorners(_vImages, _NUM_CORNERS_X, _NUM_CORNERS_Y, &_vv2DCorners );
     	std::cout << "corners located \n" ;
     	//define 3D corners
-    	define3DCorners ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, views(), &_vv3DCorners );
+    	define3DCorners ( pattern(), views(), &_vv3DCorners );
     	std::cout << "3d corners defined \n" ;
 	    //calibration
     	calibrateExtrinsics();
@@ -119,24 +122,21 @@ void CCalibrateKinectExtrinsics::mainFunc ( const boost::filesystem::path& cFull
 	calcAllProjMatrices( RGB_CAMERA,   &_veimRGBProjs );
 	calcAllProjMatrices( IR_CAMERA, &_veimDepthProjs );
 
-/*
-	for( unsigned int i = 0; i< views(); i++ )
-	{
-		Mat_<int> filtered;
-		filterDepth( _dDepthThreshold, _vUndistortedDepthMaps[i], &filtered);
-		_vFilteredDepth.push_back( filtered ); 
-	}
-*/
+	//buildRegistrationTable();
 
 	//collecting 3D Points
-	collect3DPtAll( &_vveiv3DPts, &_vvp3DColors);
+	if( 1 == _nCollect3DPts )
+	{
+		collect3DPt();
+		//collect3DPtAll( &_vveiv3DPts, &_vvp3DColors);
+	}
 
 	if( 1 == _nCalibrateDepth )	
 	{
-		calibDepth(); 
+		//calibDepth(); 
 		cout << "depth calibrated";
 	}
-
+	cout << "mainFunc() done." << endl;
     return;
 }
 void CCalibrateKinectExtrinsics::parseControlYAML()
@@ -177,6 +177,8 @@ void CCalibrateKinectExtrinsics::parseControlYAML()
 			_nSerializeToXML =(*cIt1).second;
 		else if("import from xml" == (*cIt1).first )
 			_nSerializeFromXML =(*cIt1).second;
+		else if("collect 3D points" == (*cIt1).first )
+			_nCollect3DPts =(*cIt1).second;
 	}
 
 	// properties
@@ -257,39 +259,6 @@ void CCalibrateKinectExtrinsics::parseControlYAML()
 	}
 	return;
 }
-/*
-void CCalibrateKinectExtrinsics::loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const
-{
-    pvImgs_->clear(); 
-
-    string strPathName  = cFullPath_.string();
-
-    for(unsigned int i = 0; i < vImgNames_.size(); i++ )
-    { 
-        std::string strRGBFileName = strPathName + vImgNames_[i]; //saved into the folder from which the KinectCalibrationDemo is being run.
-		PRINT( strRGBFileName );
-		CHECK( boost::filesystem::exists ( strRGBFileName ), "Not found: " + strRGBFileName + "\n" );
- 		Mat img = cv::imread( strRGBFileName );
-		cvtColor(img, img, CV_BGR2RGB );
-        pvImgs_->push_back( img );
-    }
-
-    return;
-}
-
-void CCalibrateKinectExtrinsics::exportImages( const boost::filesystem::path& cFullPath_, const vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const
-{
-    string strPathName  = cFullPath_.string();
-
-	for(unsigned int n = 0; n < vImgNames_.size(); n++ )
-    {
-		Mat img = vImgs_[n];
-		cvtColor(img, img, CV_RGB2BGR );
-        cv::imwrite ( strPathName + vImgNames_[n], vImgs_[n] ); 
-    }
-	return;
-}
-*/
 
 void CCalibrateKinectExtrinsics::calibrateExtrinsics ()
 {
@@ -327,11 +296,9 @@ void CCalibrateKinectExtrinsics::calibrateExtrinsics ()
 			*p2D =  _vv2DCorners[n][c].x; p2D++;
 			*p2D =  _vv2DCorners[n][c].y; p2D++;
    		}
-
 		
 	    //calibrateExtrinsics the camera
 		cvFindExtrinsicCameraParams2(p3DCorner, p2DCorner, pK, pD, pR, pT);
-
 
 		Mat_<double> R; R << *pR;
 		Mat_<double> T; T << *pT;
@@ -346,17 +313,7 @@ void CCalibrateKinectExtrinsics::calibrateExtrinsics ()
 
 	return;
 }
-/*
-void CCalibrateKinectExtrinsics::loadControlScript()
-{
-	using namespace shuda;
 
-    // create and open a character archive for input
-    std::ifstream ifs ( "CalibrationThroughImages.xml" );
-    boost::archive::xml_iarchive ia ( ifs );
-
-}
-*/
 void CCalibrateKinectExtrinsics::save()
 {
     using namespace shuda;
@@ -478,8 +435,6 @@ Matrix3d CCalibrateKinectExtrinsics::eiMatR(unsigned int uNthView_, int nCameraT
 	return eimR;
 }
 
-
-
 Matrix< double , 3, 4 > CCalibrateKinectExtrinsics::calcProjMatrix( unsigned int uNthView_, int nCameraType_ ) const
 {
 	Matrix3d eimR = eiMatR(uNthView_, nCameraType_ );
@@ -504,13 +459,6 @@ void CCalibrateKinectExtrinsics::calcAllProjMatrices(int nCameraType_, std::vect
 	}
 	return ;
 }
-
-/*
-void CCalibrateKinectExtrinsics::calibPhysicalFocalLength()
-{
-
-}
-*/
 
 void CCalibrateKinectExtrinsics::calibDepth()
 {
@@ -615,6 +563,179 @@ void CCalibrateKinectExtrinsics::calibDepthFreeNect()
 
 	return;
 }
+
+void CCalibrateKinectExtrinsics::buildRegistrationTable()
+{
+	const unsigned short MINDEPTH =   401; 
+	const unsigned short MAXDEPTH = 10000; 
+
+	Vector3d vPt; 
+	const Eigen::Vector3d& vT = eiVecRelativeTranslation();
+    Eigen::Matrix3d mRTrans = eiMatRelativeRotation().transpose();
+
+	Vector2s_type vRGBPxCurr, vRGBPxPrev, mOffset; 
+	
+	//for ( int y = 0; y < 480; y++ )
+	{
+    //for ( int x = 0; x < 640; x++ )
+	int x = 200; int y = 0;
+	{
+		unprojectCamera2World< double, double >( x, y, MINDEPTH, eiMatIRK() , &vPt ); 
+		projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+		_mpTable( y, x ).insert ( pair< unsigned short, Vector2s_type >( MINDEPTH , vRGBPxCurr ) );
+
+		for ( unsigned short d = MINDEPTH+1; d < MAXDEPTH; d++ )
+        {
+			vRGBPxPrev = vRGBPxCurr;
+			unprojectCamera2World< double, double >( x, y, d, eiMatIRK() , &vPt ); 
+			projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+			mOffset = vRGBPxCurr - vRGBPxPrev;
+			if( 0 != mOffset(0) || 0 != mOffset(1) )
+			{
+				_mpTable( y, x ).insert ( pair< unsigned short, Vector2s_type >( d , vRGBPxCurr ) );
+			}
+        }
+	}
+	PRINT( y );
+	}
+
+	PRINT( _mpTable( 0, 200 ) );
+
+	//exportTable();
+	cout << "exportTable() done."<< endl;
+
+	//importTable();
+	cout << "importTable() done."<< endl;
+	PRINT( _mpTable( 0, 200 ) );
+
+	boost::posix_time::ptime cT0 ( microsec_clock::local_time() );
+	boost::posix_time::ptime cT1 ( microsec_clock::local_time() );
+
+	cT0 = microsec_clock::local_time() ;
+	unprojectCamera2World< double, double >( 200, 0, 3370, eiMatIRK() , &vPt ); 
+	map_type::const_iterator it_mp = _mpTable( 0,200 ).upper_bound( short( 3370 ) );
+	it_mp--;
+	unprojectCamera2World< double, double >( 200, 0, 570, eiMatIRK() , &vPt ); 
+	it_mp = _mpTable( 0,200 ).upper_bound( short( 570 ) );
+	it_mp--;
+	unprojectCamera2World< double, double >( 200, 0, 7370, eiMatIRK() , &vPt ); 
+	it_mp = _mpTable( 0,200 ).upper_bound( short( 7370 ) );
+	it_mp--;
+
+	unprojectCamera2World< double, double >( 200, 0, 3370, eiMatIRK() , &vPt ); 
+	it_mp = _mpTable( 0,200 ).upper_bound( short( 3370 ) );
+	it_mp--;
+	unprojectCamera2World< double, double >( 200, 0, 570, eiMatIRK() , &vPt ); 
+	it_mp = _mpTable( 0,200 ).upper_bound( short( 570 ) );
+	it_mp--;
+	unprojectCamera2World< double, double >( 200, 0, 7370, eiMatIRK() , &vPt ); 
+	it_mp = _mpTable( 0,200 ).upper_bound( short( 7370 ) );
+	it_mp--;
+
+
+	cT1 = microsec_clock::local_time() ;
+	time_duration cTDAll = cT1 - cT0 ;
+	
+	PRINT( (it_mp)->first );
+	PRINT( (it_mp)->second );
+	PRINT( cTDAll );
+
+
+	cT0 = microsec_clock::local_time() ;
+
+	unprojectCamera2World< double, double >( 200,0, 3370, eiMatIRK() , &vPt ); 
+	projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+
+	unprojectCamera2World< double, double >( 200,0, 570, eiMatIRK() , &vPt ); 
+	projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+
+	unprojectCamera2World< double, double >( 200,0, 7370, eiMatIRK() , &vPt ); 
+	projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+
+	unprojectCamera2World< double, double >( 200,0, 3370, eiMatIRK() , &vPt ); 
+	projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+
+	unprojectCamera2World< double, double >( 200,0, 570, eiMatIRK() , &vPt ); 
+	projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+
+	unprojectCamera2World< double, double >( 200,0, 7370, eiMatIRK() , &vPt ); 
+	projectWorld2Camera<double> ((mRTrans * ( vPt - vT )), eiMatRGBK(), &vRGBPxCurr );
+
+
+	cT1 = microsec_clock::local_time() ;
+	cTDAll = cT1 - cT0 ;
+
+	PRINT( vRGBPxCurr );
+	PRINT( cTDAll );
+
+	cout << "map building done." << endl;
+
+}
+
+void CCalibrateKinectExtrinsics::exportTable()
+{
+    // create and open a character archive for output
+    std::ofstream ofs ( "/space/csxsl/src/opencv-shuda/Data/table.xml" );
+    boost::archive::xml_oarchive oa ( ofs );
+
+	typedef vector< short > stdv_type;
+	typedef map< unsigned short, stdv_type > mapstdv_type;
+	typedef vector< mapstdv_type > tablestdv_type;
+	tablestdv_type stvTable;
+	vector< short > stdvPixel;
+	map_type::const_iterator it_mp;
+
+	//convert non-standard table to standard
+	for( int r = 0; r <_mpTable.rows(); r++ )
+	for( int c = 0; c <_mpTable.cols(); c++ )
+	{
+		mapstdv_type mpstd;
+    	for( it_mp = _mpTable(r, c).begin(); it_mp != _mpTable(r, c).end(); it_mp++ )
+		{
+			stdvPixel << it_mp->second; 
+			mpstd.insert( pair<  unsigned short, vector< short > >( it_mp->first, stdvPixel ) );
+		}
+		stvTable.push_back( mpstd );
+	}
+
+	oa << BOOST_SERIALIZATION_NVP ( stvTable );
+
+    return;
+}
+
+void CCalibrateKinectExtrinsics::importTable()
+{
+	typedef vector< short > stdv_type;
+	typedef map< unsigned short, stdv_type > mapstdv_type;
+	typedef vector< mapstdv_type > tablestdv_type;
+	tablestdv_type stvTable;
+
+    // create and open a character archive for output
+    std::ifstream ifs ( "/space/csxsl/src/opencv-shuda/Data/table.xml" );
+	boost::archive::xml_iarchive ia ( ifs );
+
+	ia >> BOOST_SERIALIZATION_NVP ( stvTable );
+
+	Vector2s_type vPixel;
+	mapstdv_type::const_iterator it_mp;
+
+	//convert standard table to non-standard
+	int n=0; int r,c;
+	tablestdv_type::const_iterator it_table = stvTable.begin();
+	for( ;it_table != stvTable.end(); it_table++ )
+	{
+		r = n/640; c = n%640; n++; 
+		_mpTable(r,c).clear();
+    	for( it_mp = it_table->begin(); it_mp != it_table->end(); it_mp++ )
+		{
+			it_mp->second >> vPixel; 
+			_mpTable(r,c).insert( pair< unsigned short, Vector2s_type >( it_mp->first, vPixel ) );
+		}
+	}
+
+    return;
+}
+
 void CCalibrateKinectExtrinsics::collect3DPtAll(vector< vector< Vector3d > >* pvveiv3DPts_, vector< vector< unsigned char* > >* pvvp3DColors_) const
 {
 	pvveiv3DPts_->clear();
@@ -634,121 +755,84 @@ void CCalibrateKinectExtrinsics::collect3DPtAll(vector< vector< Vector3d > >* pv
 
 void CCalibrateKinectExtrinsics::collect3DPt(unsigned int uNthView_, vector< Vector3d >* pveiv3DPts_, vector< unsigned char* >* pvp3DColors_) const
 {
-	boost::posix_time::ptime cT0 ( microsec_clock::local_time() );
 
 	pveiv3DPts_->clear();
-	//pveiv3DPts_->reserve( 300000 );
 	pvp3DColors_->clear();
-	//pvp3DColors_->reserve( 300000 );
+	pveiv3DPts_->resize( 307200 );
+	pvp3DColors_->resize( 307200 );
 
 	//3D Pt in camera coordinate system.
 	//const Mat& img = undistortedDepth ( uNthView_ );
 	//const Mat_<int> img = _vFilteredDepth[uNthView_];
 	const Mat_<unsigned short>& cvmDepth = _vFilteredUndistDepthInts[uNthView_];
-	
-	const Mat& cvmRGB = undistortedImg ( uNthView_ );
+	const Mat&                  cvmRGB   = undistortedImg ( uNthView_ );
 
 	//collect the Pt w.r.t. [I|0]
-	Vector3d eiv3DPt; //Vector3d eiv2DPt;
-	Vector2i eiv2DPt;
+	Eigen::Matrix< short, 2, 1> eiv2DPt;
 	const Eigen::Vector3d& vT = eiVecRelativeTranslation();
     Eigen::Matrix3d mRTrans = eiMatRelativeRotation().transpose();
+	boost::posix_time::ptime cT0 ( microsec_clock::local_time() );
 
+	map_type::const_iterator it_mp;
+
+	vector< Vector3d >::iterator       it_Pt = pveiv3DPts_ ->begin();
+	vector< unsigned char* >::iterator it_Cl = pvp3DColors_->begin();
 	for ( int y = 0; y < cvmDepth.rows; y++ )
         for ( int x = 0; x < cvmDepth.cols; x++ )
         {
-			unprojectCamera2World< double, unsigned short >( x, y, cvmDepth.at<unsigned short>(y,x), eiMatIRK() , &eiv3DPt ); 
-			{
-				pveiv3DPts_->push_back( eiv3DPt );
-				// this is much slower than the function
-				//eiv2DPt = mRGBK * (mRTrans * ( eiv3DPt.head<3>() - vT )); eiv2DPt /= eiv2DPt(2);
-				projectWorld2Camera<double> ((mRTrans * ( eiv3DPt - vT )), eiMatRGBK(), &eiv2DPt );
-				unsigned char* pColor = getColorPtr< unsigned char >( eiv2DPt(0), eiv2DPt(1), cvmRGB );
-				pvp3DColors_->push_back( pColor );
-			}
+			unprojectCamera2World< double, double >( x, y, cvmDepth.at<unsigned short>(y,x), eiMatIRK() , &(*it_Pt) ); 
+			//projectWorld2Camera<double> ((mRTrans * ( (*it_Pt) - vT )), eiMatRGBK(), &eiv2DPt );
+			//(*it_Cl) = getColorPtr< unsigned char >( eiv2DPt(0), eiv2DPt(1), cvmRGB );
+
+			it_mp = _mpTable( y,x ).upper_bound( cvmDepth.at<unsigned short>(y,x) );
+			it_mp--;
+			(*it_Cl) = getColorPtr< unsigned char >( it_mp->second(0), it_mp->second(1), cvmRGB );
+			it_Pt++; it_Cl++;
         }
 
 	boost::posix_time::ptime cT1 ( microsec_clock::local_time() );
     time_duration cTDAll = cT1 - cT0 ;
 	PRINT( cTDAll );
 	
-	/*
-	//convert the Pts to world coordinate system
-    Eigen::Vector3d vT = eiVecT( uNthView_ ,IR_CAMERA );
-    Eigen::Matrix3d mR = eiMatR( uNthView_ ,IR_CAMERA );
-    
-	//cout << "placeCameraInWorldCoordinate() after setup the RT\n";
-    Eigen::Matrix4d eimGLM = setOpenGLModelViewMatrix( mR, vT );
-    eimGLM = eimGLM.inverse().eval();
-	cT0 = microsec_clock::local_time() ;
+	return;
+}
 
-	const Matrix< double , 3, 4 >& eimP = prjMatrix(uNthView_, RGB_CAMERA);
-	vector< Vector4d >::iterator it = pveiv3DPts_->begin();
-	Vector3d eiv2DPt;
-	Vector4d eiv3DPt; eiv3DPt(3) = 1.0;
-	for ( ; it != pveiv3DPts_->end(); ++it)
+
+void CCalibrateKinectExtrinsics::collect3DPt() 
+{
+// register the depth w.r.t. rgb camera
+// the useful output are _vppRGBWorld a vector of registered XYZ coordinates w.r.t. rgb camera in the same order with
+// rgb images. 
+	boost::posix_time::ptime cT0, cT1;
+
+	for(unsigned int uNthView_ = 0; uNthView_ < views(); uNthView_++ )
 	{
-		*it = eimGLM * (*it);
-		//(*it) /= (*it)(3);
-		eiv2DPt = eimP * (*it);
-		eiv2DPt /= eiv2DPt(2);
+		//timer on
+		cT0 =  microsec_clock::local_time(); 
 
-		//This approach is problematic as 
-		//eiv3DPt.head<3>() = mR.transpose() * ((*it).head<3>() - vT ) ;
-		//eiv2DPt = eimP * eiv3DPt;
-		//eiv2DPt /= eiv2DPt(2);
-		//eiv2DPt(0) = 640 - eiv2DPt(0); 
-		unsigned char* pColor = getColorPtr<unsigned char>( int(eiv2DPt(0)+0.5), int(eiv2DPt(1)+0.5), color );
-		pvp3DColors_->push_back( pColor );
+		double*  pRGBWorldRGB = new double[ 307200*3 ];//in order of RGB image. X,Y,Z coordinate of depth w.r.t. RGB camera reference system
+
+		_vpRGBWorld.push_back( pRGBWorldRGB );
+	
+		const unsigned short* pDepth = (const unsigned short*)_vFilteredUndistDepthInts[uNthView_].data;
+
+		registration( pDepth );
+
+		const double* pRegistered = registeredDepth();	
+
+		double*  pM = pRGBWorldRGB ;		// initialize the Registered depth as 0
+		for (int i=0; i< 307200;i++ )
+		{
+			*pM++ = *pRegistered++;
+			*pM++ = *pRegistered++;
+			*pM++ = *pRegistered++;
+		}	
+		//timer off
+		cT1 = microsec_clock::local_time();
+	    time_duration cTDAll = cT1 - cT0 ;
+		PRINT( cTDAll );
 	}
 
-	cT1 = microsec_clock::local_time();
-	cTDAll = cT1 - cT0 ;
-	PRINT( cTDAll );
-*/
-	return;
+	cout<< "color collection done." << endl;
 }
-
-void CCalibrateKinectExtrinsics::createDepth ( unsigned int uNthView_, const Mat& cvmDepth_, Mat_<int>* pcvmDepthNew_ ) const
-{
-	pcvmDepthNew_->create( cvmDepth_.size() );
-	const int nThreshold = 100;
-
-    for ( int y = 0; y < cvmDepth_.rows; y++ )
-        for ( int x = 0; x < cvmDepth_.cols; x++ )
-        {
-			int c = rawDepth< int >( x,   y  , cvmDepth_ );
-			pcvmDepthNew_ ->at<int> (y,x) = c;
-        }
-
-	return;
-}
-
-void CCalibrateKinectExtrinsics::filterDepth (const double& dThreshould_, const Mat& cvmDepth_, Mat_<int>* pcvmDepthNew_ ) const
-{
-	pcvmDepthNew_->create( cvmDepth_.size() );
-
-    for ( int y = 0; y < cvmDepth_.rows; y++ )
-        for ( int x = 0; x < cvmDepth_.cols; x++ )
-        {
-			pcvmDepthNew_->at<int> ( y, x ) = 0;
-			if( x == 0 || x == cvmDepth_.cols-1 || y == 0 || y == cvmDepth_.rows-1 )
-				continue;
-			int c = rawDepth< int >( x,   y  , cvmDepth_ );
-			int cl= rawDepth< int >( x-1, y  , cvmDepth_ );
-			int cr= rawDepth< int >( x+1, y  , cvmDepth_ );
-			int cu= rawDepth< int >( x  , y-1, cvmDepth_ );
-			int cb= rawDepth< int >( x  , y+1, cvmDepth_ );
-			int cul=rawDepth< int >( x-1, y-1, cvmDepth_ );
-			int cur=rawDepth< int >( x+1, y-1, cvmDepth_ );
-			int cbl=rawDepth< int >( x-1, y+1, cvmDepth_ );
-			int cbr=rawDepth< int >( x+1, y+1, cvmDepth_ );
-
-			if( abs( c-cl ) < dThreshould_ && abs( c-cr ) < dThreshould_ && abs( c-cu ) < dThreshould_ && abs( c-cb ) < dThreshould_ &&
-				abs( c-cul) < dThreshould_ && abs( c-cur) < dThreshould_ && abs( c-cbl) < dThreshould_ && abs( c-cbr) < dThreshould_ )
-				pcvmDepthNew_ ->at<int> (y,x) = c;
-        }
-	return;
-}
-
 }//shuda

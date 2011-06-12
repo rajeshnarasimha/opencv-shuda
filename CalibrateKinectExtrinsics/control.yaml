@@ -1,18 +1,19 @@
-- load depth maps: 1
+- load depth maps: 1 
   load rgb images: 1
-  load undistorted depth maps: 0
-  load undistorted rgb images: 0
+  load undistorted depth maps: 1
+  load undistorted rgb images: 1
   export undistorted rgb images: 0
   export undistorted depth images: 0
-  undistort images: 1
+  undistort images: 0
   calibrate extrinsics: 1
-  calibrate ir camera offset: 1
+  calibrate ir camera offset: 0
   export to xml: 0
   import from xml: 0
-  calibrate depth: 1
+  calibrate depth: 0
+  collect 3D points: 1
  
 ---
-- depth filter threshold: 100000
+- depth filter threshold: 10 
 ---
 - {No. of Corners X Y: [8, 6]}
 ---

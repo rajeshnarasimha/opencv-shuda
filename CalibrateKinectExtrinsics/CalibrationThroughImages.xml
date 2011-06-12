@@ -6,7 +6,7 @@
 <_X>0.029999999</_X>
 <_Y>0.029999999</_Y>
 <_vstrImagePathName class_id="0" tracking_level="0" version="0">
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
 	<item>/Img/rgb1.bmp</item>
 	<item>/Img/rgb2.bmp</item>
@@ -27,12 +27,11 @@
 	<item>/Img/rgb17.bmp</item>
 	<item>/Img/rgb18.bmp</item>
 	<item>/Img/rgb19.bmp</item>
-	<item>/Img/rgb20.bmp</item>
 	<item>/Img/rgb21.bmp</item>
 	<item>/Img/rgb22.bmp</item>
 </_vstrImagePathName>
 <_vstrDepthPathName>
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
 	<item>/Img/depth1.bmp</item>
 	<item>/Img/depth2.bmp</item>
@@ -53,11 +52,10 @@
 	<item>/Img/depth17.bmp</item>
 	<item>/Img/depth18.bmp</item>
 	<item>/Img/depth19.bmp</item>
-	<item>/Img/depth20.bmp</item>
 	<item>/Img/depth21.bmp</item>
 	<item>/Img/depth22.bmp</item>
 </_vstrDepthPathName>
-<_uViews>22</_uViews>
+<_uViews>21</_uViews>
 <stdvImageResolution class_id="1" tracking_level="0" version="0">
 	<count>2</count>
 	<item_version>0</item_version>
@@ -73,7 +71,7 @@
 	</item>
 </stdvImageResolution>
 <stdvRotationVectors class_id="3" tracking_level="0" version="0">
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
 	<item class_id="4" tracking_level="0" version="0">
 		<count>3</count>
@@ -442,25 +440,6 @@
 		<item>
 			<count>1</count>
 			<item_version>0</item_version>
-			<item>2.1889450206583785</item>
-		</item>
-		<item>
-			<count>1</count>
-			<item_version>0</item_version>
-			<item>2.464794327316012</item>
-		</item>
-		<item>
-			<count>1</count>
-			<item_version>0</item_version>
-			<item>-0.26983065462843064</item>
-		</item>
-	</item>
-	<item>
-		<count>3</count>
-		<item_version>0</item_version>
-		<item>
-			<count>1</count>
-			<item_version>0</item_version>
 			<item>-1.7380365420155213</item>
 		</item>
 		<item>
@@ -495,7 +474,7 @@
 	</item>
 </stdvRotationVectors>
 <stdvRotationMatrices>
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
 	<item>
 		<count>3</count>
@@ -978,31 +957,6 @@
 		<item>
 			<count>3</count>
 			<item_version>0</item_version>
-			<item>-0.11628767507539184</item>
-			<item>0.96614493921927791</item>
-			<item>-0.23030660660636273</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.99308955026625079</item>
-			<item>0.11679759776730569</item>
-			<item>-0.011465875795700006</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.01582156052783068</item>
-			<item>-0.23004842441704426</item>
-			<item>-0.97305056428003767</item>
-		</item>
-	</item>
-	<item>
-		<count>3</count>
-		<item_version>0</item_version>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
 			<item>-0.26872595731916127</item>
 			<item>0.91820128506659104</item>
 			<item>-0.29102020542388679</item>
@@ -1049,7 +1003,7 @@
 	</item>
 </stdvRotationMatrices>
 <stdvTranslationVectors>
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
 	<item>
 		<count>1</count>
@@ -1266,17 +1220,6 @@
 		<item>
 			<count>3</count>
 			<item_version>0</item_version>
-			<item>-0.078658532337411075</item>
-			<item>-0.097980254573499487</item>
-			<item>1.0901031378074144</item>
-		</item>
-	</item>
-	<item>
-		<count>1</count>
-		<item_version>0</item_version>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
 			<item>0.12266707668385154</item>
 			<item>-0.14253379763970686</item>
 			<item>1.0724111263017346</item>
@@ -1295,7 +1238,7 @@
 	</item>
 </stdvTranslationVectors>
 <stdv2DCorners class_id="6" tracking_level="0" version="0">
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
 	<item class_id="7" tracking_level="0" version="0">
 		<count>48</count>
@@ -6851,298 +6794,6 @@
 		<item>
 			<count>2</count>
 			<item_version>0</item_version>
-			<item>282.36279</item>
-			<item>215.62469</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>296.23242</item>
-			<item>219.26823</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>310.57611</item>
-			<item>221.02956</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>324.30014</item>
-			<item>222.23192</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>338.59973</item>
-			<item>225.61189</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>352.73087</item>
-			<item>225.45815</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>367.59256</item>
-			<item>228.46165</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>381.71661</item>
-			<item>228.84366</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>280.36624</item>
-			<item>233.47534</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>294.04251</item>
-			<item>235.23982</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>308.42697</item>
-			<item>237.08339</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>322.68399</item>
-			<item>238.39037</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>336.7319</item>
-			<item>240.00902</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>351.37759</item>
-			<item>241.84581</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>365.58295</item>
-			<item>243.20078</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>379.8541</item>
-			<item>244.65834</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>278.66235</item>
-			<item>247.87691</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>292.53415</item>
-			<item>249.42419</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>306.92822</item>
-			<item>250.9662</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>320.70087</item>
-			<item>252.86647</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>335.27097</item>
-			<item>254.33485</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>349.39169</item>
-			<item>255.93379</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>363.6116</item>
-			<item>257.73093</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>378.36667</item>
-			<item>259.30539</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>276.78369</item>
-			<item>261.91208</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>291.01755</item>
-			<item>263.80878</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>304.86838</item>
-			<item>265.17557</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>319.43567</item>
-			<item>266.96271</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>333.26135</item>
-			<item>268.71783</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>347.72522</item>
-			<item>270.30188</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>362.30951</item>
-			<item>271.79581</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>376.81018</item>
-			<item>273.85712</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>275.46832</item>
-			<item>276.19449</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>289.39191</item>
-			<item>277.7135</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>303.5994</item>
-			<item>279.60767</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>317.66891</item>
-			<item>281.04037</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>331.85657</item>
-			<item>282.79846</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>346.18137</item>
-			<item>284.7132</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>360.66577</item>
-			<item>286.26926</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>374.83151</item>
-			<item>288.0181</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>273.50284</item>
-			<item>293.27435</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>287.53934</item>
-			<item>292.3696</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>301.87476</item>
-			<item>295.49292</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>315.20123</item>
-			<item>299.32401</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>330.12506</item>
-			<item>299.34744</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>344.40012</item>
-			<item>299.02921</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>358.08328</item>
-			<item>305.33093</item>
-		</item>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
-			<item>373.39572</item>
-			<item>302.60916</item>
-		</item>
-	</item>
-	<item>
-		<count>48</count>
-		<item_version>0</item_version>
-		<item>
-			<count>2</count>
-			<item_version>0</item_version>
 			<item>380.33701</item>
 			<item>196.08228</item>
 		</item>
@@ -7723,348 +7374,8 @@
 	</item>
 </stdv2DCorners>
 <stdv3DCorners>
-	<count>22</count>
+	<count>21</count>
 	<item_version>0</item_version>
-	<item>
-		<count>48</count>
-		<item_version>0</item_version>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.029999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.059999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.089999996</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.12</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.14999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.17999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0</item>
-			<item>0.20999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.029999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.059999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.089999996</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.12</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.14999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.17999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.029999999</item>
-			<item>0.20999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.029999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.059999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.089999996</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.12</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.14999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.17999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.059999999</item>
-			<item>0.20999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.029999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.059999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.089999996</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.12</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.14999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.17999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.089999996</item>
-			<item>0.20999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.029999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.059999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.089999996</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.12</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.14999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.17999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.12</item>
-			<item>0.20999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.029999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.059999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.089999996</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.12</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.14999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.17999999</item>
-			<item>0</item>
-		</item>
-		<item>
-			<count>3</count>
-			<item_version>0</item_version>
-			<item>0.14999999</item>
-			<item>0.20999999</item>
-			<item>0</item>
-		</item>
-	</item>
 	<item>
 		<count>48</count>
 		<item_version>0</item_version>

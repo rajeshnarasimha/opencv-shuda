@@ -71,36 +71,78 @@ CKinectView cView( cKinectCalibExt );
 
 void create3DPtsDisplayLists()
 {
+	//cout << "create3DPtsDisplayLists() start."<< endl;
+
 	for (unsigned int i = 0; i< cKinectCalibExt.views(); i++ )
+	//unsigned int i=0;
 	{
 		GLuint uList = glGenLists(1);
 		glNewList(uList, GL_COMPILE);
 		vLists.push_back( uList );
 
 		glPushMatrix();
-	    Eigen::Vector3d vT = cKinectCalibExt.eiVecT( i ,CCalibrateKinect::IR_CAMERA );
-    	Eigen::Matrix3d mR = cKinectCalibExt.eiMatR( i ,CCalibrateKinect::IR_CAMERA );
+	    Eigen::Vector3d vT = cKinectCalibExt.eiVecT( i ,CCalibrateKinect::RGB_CAMERA );
+    	Eigen::Matrix3d mR = cKinectCalibExt.eiMatR( i ,CCalibrateKinect::RGB_CAMERA );
     
 		//cout << "placeCameraInWorldCoordinate() after setup the RT\n";
     	Eigen::Matrix4d mGLM = setOpenGLModelViewMatrix( mR, vT );
     	mGLM = mGLM.inverse().eval();
     	glMultMatrixd( mGLM.data() );
-
-		const vector< Vector3d >& vPts = cKinectCalibExt.points(i);
-		const vector< unsigned char* >& vColors =  cKinectCalibExt.colors(i);
+/*
+		const vector< double* >& vpRGB = cKinectCalibExt.pointPtr( i );
+		const vector< unsigned char*>& vpColor = cKinectCalibExt.colors( i );
 	 	glBegin ( GL_POINTS );
     	glPointSize ( 1. );
-	    for (unsigned int i = 0; i < vPts.size(); i++ )
-    	{
-			if( vColors[i] ) glColor3ubv( vColors[i] );
-			glVertex3d ( vPts[i](0), -vPts[i](1), -vPts[i](2) );
+
+		vector< double* >::const_iterator it1 = vpRGB.begin();
+		vector< unsigned char*>::const_iterator it2 = vpColor.begin();
+		for (;it1!= vpRGB.end(); it1++, it2++)
+		{
+			double* pT = *it1;
+			glColor3ubv( *it2 );
+			glVertex3d ( *pT, -*(pT+1), -*(pT+2) );
+		}
+    	glEnd();
+*/
+/*
+	    double** ppRGB = cKinectCalibExt.pointPtrPtr( i );
+		const unsigned char* pColor = cKinectCalibExt.undistortedImg( i ).data;
+	 	glBegin ( GL_POINTS );
+    	glPointSize ( 1. );
+		for (int i = 0; i< 307200; i++)
+		{
+			double* pT = *ppRGB++;
+			if( pT )
+			{
+				glColor3ubv( pColor );
+				glVertex3d ( *pT, -*(pT+1), -*(pT+2) );
+			}
+			pColor +=3;
+		}
+    	glEnd();
+*/
+	    const double* pRGB = cKinectCalibExt.pointPtr( i );
+		const unsigned char* pColor = cKinectCalibExt.undistortedImg( i ).data;
+	 	glBegin ( GL_POINTS );
+    	glPointSize ( 1. );
+		for (int i = 0; i< 307200; i++)
+		{
+			double dX = *pRGB++;
+			double dY = *pRGB++;
+			double dZ = *pRGB++;
+			if( abs(dZ) > 0.0000001 )
+			{
+				glColor3ubv( pColor );
+				glVertex3d ( dX, -dY, -dZ );
+			}
+			pColor +=3;
 		}
     	glEnd();
 
 		glPopMatrix();
 		glEndList();
-
 	}
+	//cout << "create3DPtsDisplayLists() done."<< endl;
 	return;
 }
 
@@ -176,19 +218,15 @@ void renderAxis()
 void renderPattern()
 {
     glPushMatrix();
-    const std::vector<cv::Point3f>& vPts = cKinectCalibExt.pattern(0);
+    const std::vector<cv::Point3f>& vPts = cKinectCalibExt.pattern();
     glPointSize( 3 );
     glColor3d( .0 , .8 , .8 );
+    glBegin ( GL_POINTS );
     for (std::vector<cv::Point3f>::const_iterator constItr = vPts.begin(); constItr < vPts.end() ; ++ constItr)
     {
-        Vector3f vPt; vPt << *constItr;
-
-        Vector3d vdPt = vPt.cast<double>();
-
-        glBegin ( GL_POINTS );
-        glVertex3d( vdPt(0), vdPt(1), vdPt(2) );
-        glEnd();
+        glVertex3f( constItr->x, constItr->y, constItr->z );
     }
+    glEnd();
     glPopMatrix();
 	return;
 }
@@ -252,6 +290,7 @@ void reshape ( int nWidth_, int nHeight_ )
     /* setup blending */
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
     glColor4f ( 1.0f, 1.0f, 1.0f, 0.5 );
+	//cout << "reshap() done." << endl;
     return;
 }
 
@@ -496,8 +535,9 @@ int main ( int argc, char** argv )
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( cKinectCalibExt.imageResolution() ( 0 ), cKinectCalibExt.imageResolution() ( 1 ) );
         glutCreateWindow ( "CameraPose" );
+		//cout << "init() start."<< endl;
         init();
-
+		//cout << "init() done."<< endl;
         glutKeyboardFunc( processNormalKeys );
 		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
