@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <utility>
 #include "keyframe.hpp"
+#include <boost/lexical_cast.hpp>
 //camera calibration from a sequence of images
 
 using namespace btl; //for "<<" operator
@@ -66,6 +67,10 @@ Eigen::Matrix3d _mRx;
 bool _bContinuous = true;
 bool _bPrevStatus = true;
 
+bool _bCapture = false;
+
+int _nN = 1;
+
 void processNormalKeys ( unsigned char key, int x, int y )
 {
     switch ( key )
@@ -107,6 +112,9 @@ void processNormalKeys ( unsigned char key, int x, int y )
 	case 's':
 		//single step
 		_bContinuous = !_bContinuous;
+		break;
+	case 'c':
+		_bCapture = true;
 		break;
     }
 
@@ -230,36 +238,74 @@ void mouseMotion ( int nX_, int nY_ )
     glutPostRedisplay();
 }
 
+void init ( )
+{
+	_mRx <<  1., 0., 0., // rotate about the x-axis for 180 degree.
+		    0.,-1., 0.,
+			0., 0.,-1.;
+			
+	_mRAccu.setIdentity();
+	_vTAccu.setZero();
 
+    _mGLMatrix.setIdentity();
+    glClearColor ( 0.0, 0.0, 0.0, 1.0 );
+    glClearDepth ( 1.0 );
+    glDepthFunc  ( GL_LESS );
+    glEnable     ( GL_DEPTH_TEST );
+    glEnable 	 ( GL_SCISSOR_TEST );
+    glEnable     ( GL_BLEND );
+    glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    glShadeModel ( GL_FLAT );
+    glEnable ( GL_LINE_SMOOTH );
+    glEnable ( GL_BLEND );
+    glEnable ( GL_POINT_SMOOTH );
+    glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+
+    glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
+
+// store a frame and detect feature points for tracking.
+    _cVS.getNextFrame();
+    // load as texture
+    _uTextureFirst = _cView.LoadTexture ( _cVS.cvRGB() );
+    // assign the rgb and depth to the current frame.
+    _s1stKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
+    //corner detection and ranking ( first frame )
+    _s1stKF.detectCorners();
+	//construct KD tree
+	_s1stKF.constructKDTree();
+// ( second frame )
+    _uTextureSecond = _cView.LoadTexture ( _cVS.cvRGB() );
+	_s1stKF.save2XML("0");
+    return;
+}
 
 void display ( void )
 {
 // update frame
     _cVS.getNextFrame();
-
 // ( second frame )
-    // preserve previous key frame
-	if( _bPrevStatus ) // if previous status is false preserve that frame and discard current frame
-	{
-		_sMinus2KF = _sPreviousKF;
-	    _sPreviousKF = _sCurrentKF;
-	}
     // assign the rgb and depth to the current frame.
     _sCurrentKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
+
+if( _bCapture )
+{
+	_bCapture = false;
     // detect corners
-    _sPreviousKF.detectCorners();
+    _sCurrentKF.detectCorners();
+
+	vector< int > vPtPairs;
+	_s1stKF.match( _sCurrentKF, &vPtPairs );
+
+	std::string strNum = boost::lexical_cast<string> ( _nN++ );
+	_sCurrentKF.save2XML(strNum.c_str());
+
+	PRINT( vPtPairs.size()/2 );
+}
 	//_sCurrentKF.detectCorners();
-	_bPrevStatus = _sCurrentKF.detectOpticFlowAndRT( _sPreviousKF );
-	if( !_bPrevStatus )
-	{
-		_sPreviousKF.save2XML("0");
-		_sCurrentKF.save2XML("1");
-		cout << "try connect with k-2 frame";
-		_sMinus2KF.detectCorners();
-		_bPrevStatus = _sCurrentKF.detectOpticFlowAndRT( _sMinus2KF );
-	}
     // get optical flow lines
-    vector<unsigned char> vStatus;    Eigen::Matrix3d eimR2;
+    vector<unsigned char> vStatus;    
+	Eigen::Matrix3d eimR2;
     Eigen::Vector3d eivT2;
 
 // render first viewport
@@ -388,47 +434,7 @@ void reshape ( int nWidth_, int nHeight_ )
 }
 
 
-void init ( )
-{
-	_mRx <<  1., 0., 0., // rotate about the x-axis for 180 degree.
-		    0.,-1., 0.,
-			0., 0.,-1.;
-			
-	_mRAccu.setIdentity();
-	_vTAccu.setZero();
 
-    _mGLMatrix.setIdentity();
-    glClearColor ( 0.0, 0.0, 0.0, 1.0 );
-    glClearDepth ( 1.0 );
-    glDepthFunc  ( GL_LESS );
-    glEnable     ( GL_DEPTH_TEST );
-    glEnable 	 ( GL_SCISSOR_TEST );
-    glEnable     ( GL_BLEND );
-    glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-    glShadeModel ( GL_FLAT );
-    glEnable ( GL_LINE_SMOOTH );
-    glEnable ( GL_BLEND );
-    glEnable ( GL_POINT_SMOOTH );
-    glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-
-    glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
-
-// store a frame and detect feature points for tracking.
-    _cVS.getNextFrame();
-    // load as texture
-    _uTextureFirst = _cView.LoadTexture ( _cVS.cvRGB() );
-    // assign the rgb and depth to the current frame.
-    _s1stKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
-    //corner detection and ranking ( first frame )
-    _s1stKF.detectCorners();
-    _sCurrentKF = _s1stKF;
-
-// ( second frame )
-    _uTextureSecond = _cView.LoadTexture ( _cVS.cvRGB() );
-
-    return;
-}
 
 int main ( int argc, char** argv )
 {

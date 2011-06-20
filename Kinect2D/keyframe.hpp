@@ -10,6 +10,14 @@
 #include <boost/archive/xml_oarchive.hpp>
 #include <list>
 
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/imgproc/imgproc.hpp>
+
+
 using namespace btl; //for "<<" operator
 using namespace utility;
 //using namespace extra;
@@ -24,12 +32,58 @@ bool sort_pred ( const pair<double, cv::Point2f>& left, const pair<double, cv::P
     return left.first < right.first;
 }
 
+void findPairs( const vector< cv::KeyPoint >& vObjectKeyPoints_, const vector< float >& vObjectDescriptors_ , const vector< cv::KeyPoint >& vImageKeyPoints_, const vector< float >& vImageDescriptors_, vector< int >* pvPtPairs_ )
+{
+	int nSizeObject = vObjectKeyPoints_.size();
+	int nLengthDescriptorObject = vObjectDescriptors_.size() / nSizeObject;
+	cv::Mat cvmObject( nSizeObject, nLengthDescriptorObject, CV_32F );
+	// copy descriptors
+	float* pObject = cvmObject.ptr<float>(0);
+    for(vector< float >::const_iterator cit_ObjectDescriptor = vObjectDescriptors_.begin(); cit_ObjectDescriptor!=vObjectDescriptors_.end(); cit_ObjectDescriptor++)
+    {
+		*pObject++ = *cit_ObjectDescriptor;
+    }
+
+	int nSizeImage = vImageKeyPoints_.size();
+	int nLengthDescriptorImage = vImageDescriptors_.size() / nSizeImage;
+	cv::Mat cvmImage( nSizeImage, nLengthDescriptorImage, CV_32F );
+	// copy descriptors
+	float* pImage = cvmImage.ptr<float>(0);
+    for(vector< float >::const_iterator cit_ImageDescriptor = vImageDescriptors_.begin(); cit_ImageDescriptor!=vImageDescriptors_.end(); cit_ImageDescriptor++)
+    {
+		*pImage++ = *cit_ImageDescriptor;
+    }
+
+	// find nearest neighbors using FLANN
+    cv::Mat cvmIndices(nSizeObject, 2, CV_32S);
+    cv::Mat cvmDists  (nSizeObject, 2, CV_32F);
+    cv::flann::Index cFlannIndex(cvmImage, cv::flann::KDTreeIndexParams(4));  // using 4 randomized kdtrees
+    cFlannIndex.knnSearch(cvmObject, cvmIndices, cvmDists, 2, cv::flann::SearchParams(64) ); // maximum number of leafs checked
+	cout << " new " << cvmIndices.rows << endl;
+    int* pIndices = cvmIndices.ptr<int>(0);
+    float* pDists = cvmDists.ptr<float>(0);
+    for (int i=0;i<cvmIndices.rows;++i) {
+    	if (pDists[2*i]<0.6*pDists[2*i+1]) {
+    		pvPtPairs_->push_back(i);
+    		pvPtPairs_->push_back(pIndices[2*i]);
+    	}
+    }
+	return;
+}
+
+
 struct SKeyFrame
 {
     cv::Mat _cvmRGB;
     cv::Mat _cvmBW;
 	cv::Mat _cvmBWOrigin;
     double* _pDepth;
+	cv::flann::Index* _pKDTree;
+
+	vector<cv::KeyPoint> _vObjectKeyPoints;
+	vector<float>        _vObjectDescriptors;
+
+
     vector< cv::Point2f > _vCorners;
     Eigen::Matrix3d _eimR; //R & T is the relative pose w.r.t. the coordinate defined by the previous camera system.
     Eigen::Vector3d _eivT;
@@ -57,7 +111,10 @@ struct SKeyFrame
 
 	void save2XML(const string& strN_)
 	{
-		cv::imwrite( "rgb"+ strN_ + ".bmp", _cvmRGB );
+		cv::Mat cvmBGR;
+		cvtColor ( _cvmRGB, cvmBGR, CV_RGB2BGR );
+
+		cv::imwrite( "rgb"+ strN_ + ".bmp", cvmBGR );
 		// create and open a character archive for input
 		string strDepth = "depth"+ strN_ + ".xml";
 	    std::ofstream ofs ( strDepth.c_str() );
@@ -96,184 +153,73 @@ struct SKeyFrame
         // load depth
         memcpy ( _pDepth, pD_, 921600 * sizeof ( double ) );
         // color to grayscale image
-        cvtColor ( _cvmRGB, _cvmBWOrigin, CV_RGB2GRAY );
-		GaussianBlur( _cvmBWOrigin, _cvmBW, Size( 7, 7), 3 );
+        cvtColor ( _cvmRGB, _cvmBW, CV_RGB2GRAY );
+		//GaussianBlur( _cvmBWOrigin, _cvmBW, Size( 7, 7), 3 );
         // clear corners
         _vCorners.clear();
     }
 
     void detectCorners()
     {
-        vector< cv::KeyPoint > vKs2;
-        cv::FAST ( _cvmBW, vKs2, 10, true );
-        //FileStorage fs("KeyPoint", FileStorage::WRITE);
-        //write(fs, "KeyPoint", vKs);
-        vector< cv::Point2f > vPtAll;
-        KeyPoint::convert ( vKs2, vPtAll );
-        // compute the Shi-Tomasi score for all FAST corners
-        vector<pair<double, cv::Point2f> > vCornersAndSTScores;
+		cv::Mat cvmMask;
 
-        for ( vector< cv::Point2f >::const_iterator cit = vPtAll.begin(); cit != vPtAll.end(); cit ++ )
-        {
-            if ( cit->x < 20 || cit->x > 620 || cit->y < 20 || cit->y > 460 ) //remove border points
-            {
-                continue;
-            }
-
-            if ( abs ( _pDepth[ ( int ( cit->y ) * 640 + int ( cit->x ) ) * 3 + 2] ) < 0.0001 ) //remove the corner whose depth is empty
-            {
-                continue;
-            }
-
-            double dST = FindShiTomasiScoreAtPoint< double > ( _cvmBW, 5 , cit->x, cit->y ); // threshould choose the same as used in PTAM
-            vCornersAndSTScores.push_back ( pair< double, cv::Point2f > ( -1.0 * dST, *cit ) );
-        }
-
-        // Sort according to Shi-Tomasi score
-        int nToAdd = 1000;
-        _vCorners.clear();
-        std::sort ( vCornersAndSTScores.begin(), vCornersAndSTScores.end(), sort_pred );
-		//PRINT ( vCornersAndSTScores.size() );
-        for ( unsigned int i = 0; i < vCornersAndSTScores.size() && i < nToAdd; i++ )
-        {
-            _vCorners.push_back (  vCornersAndSTScores[i].second );
-        }
+		cv::SURF cSurf( 500, 4, 2, true );
+    	cSurf( _cvmBW, cvmMask, _vObjectKeyPoints, _vObjectDescriptors );
+		cout << "cSurf() Object:" << _vObjectKeyPoints.size() << endl;
+		cout << "cSurf() Descriptor:" << _vObjectDescriptors.size() << endl;
 
         return;
     }
 
-    bool detectOpticFlowAndRT ( const SKeyFrame& sPrevKF_ )
-    {
+	void constructKDTree()
+	{
+		int nSizeImage = _vObjectKeyPoints.size();
+		int nLengthDescriptorImage = _vObjectDescriptors.size() / nSizeImage;
+		cv::Mat cvmImage( nSizeImage, nLengthDescriptorImage, CV_32F );
+		PRINT( nSizeImage );
+		// copy descriptors
+		float* pImage = cvmImage.ptr<float>(0);
+	    for(vector< float >::const_iterator cit_ImageDescriptor = _vObjectDescriptors.begin(); cit_ImageDescriptor!=_vObjectDescriptors.end(); cit_ImageDescriptor++)
+    	{
+			*pImage++ = *cit_ImageDescriptor;
+	    }
+		PRINT( *cvmImage.ptr<float>(0) );
+		PRINT( *cvmImage.ptr<float>(100) );
+		PRINT( *cvmImage.ptr<float>(1000) );
 
-        if ( sPrevKF_._vCorners.empty() )
-        {
-            return false;
-        }
+    	_pKDTree = new 	cv::flann::Index(cvmImage, cv::flann::KDTreeIndexParams(4));  // using 4 randomized kdtrees
+		return;
+	}
 
-        // get optical flow lines
-        vector<unsigned char> vStatus;
-        vector<float> vErr;
-        calcOpticalFlowPyrLK ( sPrevKF_._cvmBW, _cvmBW, sPrevKF_._vCorners, _vCorners, vStatus, vErr, cv::Size( 15, 15 ), 5, cv::TermCriteria( TermCriteria::COUNT + TermCriteria::EPS, 10, .05 ) );
+	void match(const SKeyFrame& sKF_ ,vector<int>* pvPtPairs_)
+	{
+		const vector< cv::KeyPoint >& vObjectKeyPoints_ = sKF_._vObjectKeyPoints;
+		const vector< float >& vObjectDescriptors_      = sKF_._vObjectDescriptors;
+		int nSizeObject = vObjectKeyPoints_.size();
+		int nLengthDescriptorObject = vObjectDescriptors_.size() / nSizeObject;
+		cv::Mat cvmObject( nSizeObject, nLengthDescriptorObject, CV_32F );
+		// copy descriptors
+		float* pObject = cvmObject.ptr<float>(0);
+	    for(vector< float >::const_iterator cit_ObjectDescriptor = vObjectDescriptors_.begin(); cit_ObjectDescriptor!=vObjectDescriptors_.end(); cit_ObjectDescriptor++)
+    	{
+			*pObject++ = *cit_ObjectDescriptor;
+	    }
+		PRINT( nSizeObject );
+		// find nearest neighbors using FLANN
+    	cv::Mat cvmIndices(nSizeObject, 2, CV_32S);
+	    cv::Mat cvmDists  (nSizeObject, 2, CV_32F);
+    	_pKDTree->knnSearch(cvmObject, cvmIndices, cvmDists, 2, cv::flann::SearchParams(64) ); // maximum number of leafs checked
 
-        int nSize = 0;        _vEffective.clear();
-        for ( vector< Point2f >::const_iterator cit_Curr = _vCorners.begin(); cit_Curr != _vCorners.end(); cit_Curr++ )
-        {
-            int nX = int ( cit_Curr->x + .5 );
-            int nY = int ( cit_Curr->y + .5 );
-
-            if ( abs ( _pDepth[ nY*640*3+nX*3+2 ] ) < 0.0001 )
-            {
-                _vEffective.push_back ( false );
-            }
-            else
-            {
-                _vEffective.push_back ( true );
-                nSize++;
-            }
-        }
-		PRINT ( _vCorners.size() );	
-        PRINT ( nSize );
-        Eigen::MatrixXd eimX ( 3, nSize ), eimY ( 3, nSize );
-        vector< Point2f >::const_iterator cit_Curr = _vCorners.begin();
-        vector< Point2f >::const_iterator cit_Prev = sPrevKF_._vCorners.begin();
-        vector< bool >::const_iterator it3 = _vEffective.begin();
-        int nXCurr, nYCurr, nIdxCurr, nXPrev, nYPrev, nIdxPrev;
-		int nC = 0;
-        for ( int i = 0; cit_Curr != _vCorners.end(); cit_Curr++, cit_Prev++, it3++ )
-        {
-//			PRINT( nC++ );
-            if ( *it3 )// if the current point is effective containing both the depth and 2D corners
-            {
-                nXPrev   = int ( cit_Prev->x + .5 );
-                nYPrev 	 = int ( cit_Prev->y + .5 );
-                nIdxPrev = nYPrev * 640 * 3 + nXPrev * 3;
-                eimX ( 0, i ) = sPrevKF_._pDepth[ nIdxPrev   ];
-                eimX ( 1, i ) = sPrevKF_._pDepth[ nIdxPrev+1 ];
-                eimX ( 2, i ) = sPrevKF_._pDepth[ nIdxPrev+2 ];
-                nXCurr   = int ( cit_Curr->x + .5 );
-                nYCurr   = int ( cit_Curr->y + .5 );
-                nIdxCurr = nYCurr * 640 * 3 + nXCurr * 3;
-                eimY ( 0, i ) = _pDepth[ nIdxCurr   ];
-                eimY ( 1, i ) = _pDepth[ nIdxCurr+1 ];
-                eimY ( 2, i ) = _pDepth[ nIdxCurr+2 ];
-//				PRINT( eimX.col(i) );
-//				PRINT( eimY.col(i) );
-//				PRINT( i );
-                i++;
-            }
-        }
-		//Eigen::MatrixXd eimN = eimX - eimY;
-		//PRINT( eimN );
-//RANSAC
-        if ( nSize > 10 )
-        {
-			double dThreshold = 0.01;
-            Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
-            // random generator
-            boost::mt19937 rng;
-            boost::uniform_real<> gen ( 0, 1 );
-            boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
-			double dError; Eigen::Matrix3d eimR; Eigen::Vector3d eivT; double dS; vector< int > vVoterIdx;
-			Eigen::Matrix3d eimRBest; Eigen::Vector3d eivTBest; vector< int > vVoterIdxBest;
-			int nMax = 0;	vector < int > vRndIdx;
-			for( int n = 0; n<2000; n++ )
-			{
-//				PRINT( n );
-	 			select5Rand( eimX, eimY, dice, &eimXTmp, &eimYTmp );
-				dError = absoluteOrientation < double > (  eimXTmp, eimYTmp, false, &eimR, &eivT, &dS );
-//				PRINT( dError );
-//				PRINT( eimR );
-//				PRINT( eivT );
-				if( dError > dThreshold )
-					continue;
-				//voting
-				int nVotes = voting( eimX, eimY, eimR, eivT, dThreshold, &vVoterIdx );
-//				PRINT( nVotes );
-				if( nVotes > eimX.cols()/3 )
-				{
-					nMax = nVotes;
-					eimRBest = eimR;
-					eivTBest = eivT;
-					vVoterIdxBest = vVoterIdx;
-					break;
-				}
-
-				if( nVotes > nMax );
-				{
-					nMax = nVotes;
-					eimRBest = eimR;
-					eivTBest = eivT;
-					vVoterIdxBest = vVoterIdx;
-				}
-			}
-			PRINT( nMax );
-
-			if( nMax <= 10 )
-			{
-				_eimR.setIdentity();
-				_eivT.setZero();
-				cout << "try increase the threshould"<< endl;
-				return false;
-			}
-			Eigen::MatrixXd eimXInlier( 3, vVoterIdxBest.size() );
-			Eigen::MatrixXd eimYInlier( 3, vVoterIdxBest.size() );
-			selectInlier( eimX, eimY, vVoterIdxBest, &eimXInlier, &eimYInlier );
-//			Eigen::MatrixXd mX(eimX.leftCols<100>());
-//			Eigen::MatrixXd mY( eimY.leftCols<100>());
-			double dS2;
-			double dErrorBest = absoluteOrientation < double > ( eimXInlier , eimYInlier , false, &_eimR, &_eivT, &dS2 );
-	        PRINT ( dErrorBest );
-    	    PRINT ( _eimR );
-        	PRINT ( _eivT );
-        }// end if( nSize > 6 );
-//		else
-//		{
-//			_eimR.setIdentity();
-//			_eivT.setZero();
-//		}
-		return true;
-    }//end function detectOpticFlowAndRT()
-
+    	int* pIndices = cvmIndices.ptr<int>(0);
+	    float* pDists = cvmDists.ptr<float>(0);
+    	for (int i=0;i<cvmIndices.rows;++i) {
+    		if (pDists[2*i]<0.6*pDists[2*i+1]) {
+    			pvPtPairs_->push_back(i);
+	    		pvPtPairs_->push_back(pIndices[2*i]);
+    		}
+	    }
+		return;
+	}
 private:
 	void selectInlier( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const vector< int >& vVoterIdx_, Eigen::MatrixXd* peimXInlier_, Eigen::MatrixXd* peimYInlier_ )
 	{
