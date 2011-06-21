@@ -277,6 +277,7 @@ void init ( )
 // ( second frame )
     _uTextureSecond = _cView.LoadTexture ( _cVS.cvRGB() );
 	_s1stKF.save2XML("0");
+
     return;
 }
 
@@ -294,19 +295,15 @@ if( _bCapture )
     // detect corners
     _sCurrentKF.detectCorners();
 
-	vector< int > vPtPairs;
-	_s1stKF.match( _sCurrentKF, &vPtPairs );
+	_s1stKF.detectCorrespondences( _sCurrentKF );
 
-	std::string strNum = boost::lexical_cast<string> ( _nN++ );
-	_sCurrentKF.save2XML(strNum.c_str());
+	_s1stKF.calcRT( _sCurrentKF );
 
-	PRINT( vPtPairs.size()/2 );
+	//std::string strNum = boost::lexical_cast<string> ( _nN++ );
+	//_sCurrentKF.save2XML( strNum.c_str() );
+
 }
-	//_sCurrentKF.detectCorners();
-    // get optical flow lines
-    vector<unsigned char> vStatus;    
-	Eigen::Matrix3d eimR2;
-    Eigen::Vector3d eivT2;
+
 
 // render first viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -395,22 +392,6 @@ if( _bCapture )
   	    pKF = &_sMinus2KF;
 	}
 
-	if ( _sCurrentKF._vCorners.size() != pKF->_vCorners.size() )
-    {
-        cout << "error";
-    }
-
-    glBegin ( GL_LINES );
-    for ( unsigned int i = 0; i < _sCurrentKF._vCorners.size(); i++ )
-    {
-        glColor3d ( 0, 1, 1 );
-        _cView.renderOnImage ( _sCurrentKF._vCorners[i].x, _sCurrentKF._vCorners[i].y );
-        //glColor3d ( 1, 0, 0 );
-	    _cView.renderOnImage ( pKF->_vCorners[i].x, pKF->_vCorners[i].y );
-	
-    }
-    glEnd();
-    
 	glutSwapBuffers();
 	if( _bContinuous )
 	    glutPostRedisplay();

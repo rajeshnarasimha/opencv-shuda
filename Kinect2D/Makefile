@@ -5,6 +5,7 @@ CCFLAGS = -g -lstdc++
 
 Exe: main.cpp
 	$(CC) -o  Exe main.cpp $(INCLUDES) $(LIBS) $(CCFLAGS) 
+
 Debug: debug.cpp
 	$(CC) -o  Debug debug.cpp $(INCLUDES) $(LIBS) $(CCFLAGS) 
 
