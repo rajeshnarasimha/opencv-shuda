@@ -4,6 +4,7 @@
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include <btl/Utility/Converters.hpp>
+#include <btl/extra/VideoSource/VideoSourceKinect.hpp>
 #include <fstream>
 #include <boost/serialization/vector.hpp>
 #include <boost/archive/xml_iarchive.hpp>
@@ -20,8 +21,8 @@
 
 using namespace btl; //for "<<" operator
 using namespace utility;
-//using namespace extra;
-//using namespace videosource;
+using namespace extra;
+using namespace videosource;
 using namespace Eigen;
 using namespace cv;
 
@@ -36,14 +37,13 @@ struct SKeyFrame
 {
     cv::Mat _cvmRGB;
     cv::Mat _cvmBW;
-    cv::Mat _cvmBWOrigin;
     double* _pDepth;
-
-    cv::Mat _cvmDescriptors;
-    cv::flann::Index* _pKDTree; // this is just an index of _cvmDescriptors;
 
     vector<cv::KeyPoint> _vKeyPoints;
     vector<float>        _vDescriptors;
+    cv::Mat _cvmDescriptors;
+
+    cv::flann::Index* _pKDTree; // this is just an index of _cvmDescriptors;
 
     vector<int> _vPtPairs; // correspondences odd: input KF even: current KF
 
@@ -56,6 +56,8 @@ struct SKeyFrame
         _cvmBW .create ( 480, 640, CV_8UC1 );
         _pDepth = new double[921600];
         _pKDTree = NULL;
+        _eimR.setIdentity();
+        _eivT.setZero();
     }
 
     ~SKeyFrame()
@@ -69,6 +71,26 @@ struct SKeyFrame
         sKF_._cvmRGB.copyTo ( _cvmRGB );
         sKF_._cvmBW .copyTo ( _cvmBW  );
         memcpy ( _pDepth, sKF_._pDepth, 921600 * sizeof ( double ) );
+        _eimR 			= sKF_._eimR;
+        _eivT 			= sKF_._eivT;
+
+        _vDescriptors   = sKF_._vDescriptors;
+        _vPtPairs		= sKF_._vPtPairs;
+		cout << " operator=1" << flush;
+
+		for(vector< KeyPoint >::const_iterator cit = sKF_._vKeyPoints.begin(); cit!= sKF_._vKeyPoints.end(); cit ++ )
+		{
+			_vKeyPoints.push_back( KeyPoint(  cit->pt, cit->size, cit->angle, cit->response, cit->octave, cit->class_id ) );
+		}
+		cout << " operator=2" << flush;
+
+		sKF_._cvmDescriptors.copyTo ( _cvmDescriptors );
+
+        if ( !sKF_._pKDTree )
+        {
+            constructKDTree();
+        }
+		cout << " operator=4" << flush;
     }
 
     void save2XML ( const string& strN_ )
@@ -97,8 +119,7 @@ struct SKeyFrame
     {
         _cvmRGB = cv::imread ( "rgb" + strN_ + ".bmp" );
         // color to grayscale image
-        cvtColor ( _cvmRGB, _cvmBWOrigin, CV_RGB2GRAY );
-        GaussianBlur ( _cvmBWOrigin, _cvmBW, Size ( 11, 11 ), 5 );
+        cvtColor ( _cvmRGB, _cvmBW, CV_RGB2GRAY );
         // create and open a character archive for output
         string strDepth = "depth" + strN_ + ".xml";
         std::ifstream ifs ( strDepth.c_str() );
@@ -122,7 +143,7 @@ struct SKeyFrame
         // color to grayscale image
         cvtColor ( _cvmRGB, _cvmBW, CV_RGB2GRAY );
         // clear corners
-		clear();
+        clear();
     }
 
     void detectCorners()
@@ -164,50 +185,52 @@ struct SKeyFrame
         return;
     }
 
-    void detectCorrespondences ( const SKeyFrame& sKF_ )
+    void detectCorrespondences ( const SKeyFrame& sReferenceKF_ )
     {
-		CHECK( _pKDTree!=NULL, "SKeyFrame::detectCorrespondences(): KDTree not intialized." );
+        CHECK ( sReferenceKF_._pKDTree != NULL, "SKeyFrame::detectCorrespondences(): KDTree not intialized." );
 
         _vPtPairs.clear();
         // find nearest neighbors using FLANN
-        const int nSizeObject = sKF_._cvmDescriptors.rows;
+        const int nSizeObject = _cvmDescriptors.rows;
         cv::Mat cvmIndices ( nSizeObject, 2, CV_32S );
         cv::Mat cvmDists   ( nSizeObject, 2, CV_32F );
-        _pKDTree->knnSearch( sKF_._cvmDescriptors, cvmIndices, cvmDists, 2, cv::flann::SearchParams ( 128 ) ); // maximum number of leafs checked
+        sReferenceKF_._pKDTree->knnSearch ( _cvmDescriptors, cvmIndices, cvmDists, 2, cv::flann::SearchParams ( 128 ) ); // maximum number of leafs checked
         int* pIndices = cvmIndices.ptr<int> ( 0 );
         float* pDists = cvmDists.ptr<float> ( 0 );
+
         for ( int i = 0; i < nSizeObject; ++i )
         {
             if ( pDists[2*i] < 0.6 * pDists[2*i+1] )
             {
-                _vPtPairs.push_back ( i );
-                _vPtPairs.push_back ( pIndices[2*i] );
+                _vPtPairs.push_back ( i );             //current idx
+                _vPtPairs.push_back ( pIndices[2*i] ); //reference idx
             }
         }
 
         return;
     }
 
-    void calcRT ( const SKeyFrame& sCurrentKF_ )
+    void calcRT ( const SKeyFrame& sReferenceKF_ )
     {
-		CHECK( !_vPtPairs.empty(), "SKeyFrame::calcRT() _vPtPairs should not calculated." );
-		//PRINT( _vPtPairs.size() );
+        CHECK ( !_vPtPairs.empty(), "SKeyFrame::calcRT() _vPtPairs should not calculated." );
+        //PRINT( _vPtPairs.size() );
         //calculate the R and T
         vector< int > _vDepthIdxCur, _vDepthIdx1st, _vSelectedPairs;
+
         for ( vector< int >::const_iterator cit = _vPtPairs.begin(); cit != _vPtPairs.end(); )
         {
             int nKeyPointIdxCur = *cit++;
             int nKeyPointIdx1st = *cit++;
 
-            int nXCur = int ( sCurrentKF_._vKeyPoints[ nKeyPointIdxCur ].pt.x + .5 );
-            int nYCur = int ( sCurrentKF_._vKeyPoints[ nKeyPointIdxCur ].pt.y + .5 );
-            int nX1st = int (	  		  _vKeyPoints[ nKeyPointIdx1st ].pt.x + .5 );
-            int nY1st = int (			  _vKeyPoints[ nKeyPointIdx1st ].pt.y + .5 );
+            int nXCur = int ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.x + .5 );
+            int nYCur = int ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.y + .5 );
+            int nX1st = int ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.x + .5 );
+            int nY1st = int ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.y + .5 );
 
             int nDepthIdxCur = nYCur * 640 * 3 + nXCur * 3;
             int nDepthIdx1st = nY1st * 640 * 3 + nX1st * 3;
 
-            if ( abs ( sCurrentKF_._pDepth[ nDepthIdxCur + 2 ] ) > 0.0001 && abs ( _pDepth[ nDepthIdx1st + 2 ] ) > 0.0001 )
+            if ( abs ( _pDepth[ nDepthIdxCur + 2 ] ) > 0.0001 && abs ( sReferenceKF_._pDepth[ nDepthIdx1st + 2 ] ) > 0.0001 )
             {
                 _vDepthIdxCur  .push_back ( nDepthIdxCur );
                 _vDepthIdx1st  .push_back ( nDepthIdx1st );
@@ -215,47 +238,46 @@ struct SKeyFrame
                 _vSelectedPairs.push_back ( nKeyPointIdx1st );
             }
         }
+
         PRINT ( _vSelectedPairs.size() );
+        /*
+            //for display
+            cv::Mat cvmCorr  ( sReferenceKF_._cvmRGB.rows + _cvmRGB.rows, sReferenceKF_._cvmRGB.cols, CV_8UC3 );
+            cv::Mat cvmCorr2 ( sReferenceKF_._cvmRGB.rows + _cvmRGB.rows, sReferenceKF_._cvmRGB.cols, CV_8UC3 );
 
-/*
-        //for display
-        cv::Mat cvmCorr  ( _cvmRGB.rows + sCurrentKF_._cvmRGB.rows, _cvmRGB.cols, CV_8UC3 );
-        cv::Mat cvmCorr2 ( _cvmRGB.rows + sCurrentKF_._cvmRGB.rows, _cvmRGB.cols, CV_8UC3 );
+            cv::Mat roi1 ( cvmCorr, cv::Rect ( 0, 0, _cvmRGB.cols, _cvmRGB.rows ) );
+            cv::Mat roi2 ( cvmCorr, cv::Rect ( 0, _cvmRGB.rows, sReferenceKF_._cvmRGB.cols, sReferenceKF_._cvmRGB.rows ) );
+            _cvmRGB.copyTo ( roi1 );
+            sReferenceKF_._cvmRGB.copyTo ( roi2 );
 
-        cv::Mat roi1 ( cvmCorr, cv::Rect ( 0, 0, sCurrentKF_._cvmRGB.cols, sCurrentKF_._cvmRGB.rows ) );
-        cv::Mat roi2 ( cvmCorr, cv::Rect ( 0, sCurrentKF_._cvmRGB.rows, _cvmRGB.cols, _cvmRGB.rows ) );
-        sCurrentKF_._cvmRGB.copyTo ( roi1 );
-        _cvmRGB.copyTo ( roi2 );
+            static CvScalar colors = {{255, 255, 255}};
+            int i = 0;
+            int nKey;
+            cv::namedWindow ( "myWindow", 1 );
 
-        static CvScalar colors = {{255, 255, 255}};
-        int i = 0;
-        int nKey;
-        cv::namedWindow ( "myWindow", 1 );
-
-        while ( true )
-        {
-            cvmCorr.copyTo ( cvmCorr2 );
-            cv::line ( cvmCorr2, sCurrentKF_._vKeyPoints[ _vSelectedPairs[i] ].pt, cv::Point ( _vKeyPoints [ _vSelectedPairs[i+1] ].pt.x, _vKeyPoints [ _vSelectedPairs[i+1] ].pt.y + sCurrentKF_._cvmRGB.rows ), colors );
-            cv::imshow ( "myWindow", cvmCorr2 );
-            nKey = cv::waitKey ( 30 );
-
-            if ( nKey == 32 )
+            while ( true )
             {
-                i += 2;
+                cvmCorr.copyTo ( cvmCorr2 );
+                cv::line ( cvmCorr2, _vKeyPoints[ _vSelectedPairs[i] ].pt, cv::Point ( sReferenceKF_._vKeyPoints [ _vSelectedPairs[i+1] ].pt.x, sReferenceKF_._vKeyPoints [ _vSelectedPairs[i+1] ].pt.y + _cvmRGB.rows ), colors );
+                cv::imshow ( "myWindow", cvmCorr2 );
+                nKey = cv::waitKey ( 30 );
 
-                if ( i > _vSelectedPairs.size() )
+                if ( nKey == 32 )
+                {
+                    i += 2;
+
+                    if ( i > _vSelectedPairs.size() )
+                    {
+                        break;
+                    }
+                }
+
+                if ( nKey == 27 )
                 {
                     break;
                 }
             }
-
-            if ( nKey == 27 )
-            {
-                break;
-            }
-        }
-*/
-
+        */
         int nSize = _vDepthIdxCur.size();
         Eigen::MatrixXd eimCur ( 3, nSize ), eim1st ( 3, nSize );
         vector<  int >::const_iterator cit_Cur = _vDepthIdxCur.begin();
@@ -263,27 +285,26 @@ struct SKeyFrame
 
         for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_1st++ )
         {
-            eimCur ( 0, i ) = sCurrentKF_._pDepth[ *cit_Cur     ];
-            eimCur ( 1, i ) = sCurrentKF_._pDepth[ *cit_Cur + 1 ];
-            eimCur ( 2, i ) = sCurrentKF_._pDepth[ *cit_Cur + 2 ];
-
-            eim1st ( 0, i ) = 		      _pDepth[ *cit_1st     ];
-            eim1st ( 1, i ) = 			  _pDepth[ *cit_1st + 1 ];
-            eim1st ( 2, i ) = 		      _pDepth[ *cit_1st + 2 ];
+            eimCur ( 0, i ) = 			    _pDepth[ *cit_Cur     ];
+            eimCur ( 1, i ) =  			    _pDepth[ *cit_Cur + 1 ];
+            eimCur ( 2, i ) = 			    _pDepth[ *cit_Cur + 2 ];
+            eim1st ( 0, i ) = sReferenceKF_._pDepth[ *cit_1st     ];
+            eim1st ( 1, i ) = sReferenceKF_._pDepth[ *cit_1st + 1 ];
+            eim1st ( 2, i ) = sReferenceKF_._pDepth[ *cit_1st + 2 ];
             i++;
         }
 
         double dS2;
-        double dErrorBest = absoluteOrientation < double > ( eimCur , eim1st , false, &_eimR, &_eivT, &dS2 );
-        PRINT ( dErrorBest );
-        PRINT ( _eimR );
-        PRINT ( _eivT );
+        double dErrorBest = absoluteOrientation < double > ( eim1st, eimCur ,  false, &_eimR, &_eivT, &dS2 );
+        //PRINT ( dErrorBest );
+        //PRINT ( _eimR );
+        //PRINT ( _eivT );
 
-        for ( int i = 0; i < 2; i++ )
+        //for ( int i = 0; i < 2; i++ )
         {
             if ( nSize > 10 )
             {
-                double dThreshold = dErrorBest * 0.75;
+                double dThreshold = dErrorBest * 1.0;
                 // random generator
                 boost::mt19937 rng;
                 boost::uniform_real<> gen ( 0, 1 );
@@ -300,10 +321,10 @@ struct SKeyFrame
                 vector < int > vRndIdx;
                 Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
 
-                for ( int n = 0; n < 4000; n++ )
+                for ( int n = 0; n < 10000; n++ )
                 {
-                    select5Rand ( eimCur, eim1st, dice, &eimXTmp, &eimYTmp );
-                    dError = absoluteOrientation < double > (  eimXTmp, eimYTmp, false, &eimR, &eivT, &dS );
+                    select5Rand (  eim1st, eimCur, dice, &eimYTmp, &eimXTmp );
+                    dError = absoluteOrientation < double > (  eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
 
                     if ( dError > dThreshold )
                     {
@@ -311,7 +332,7 @@ struct SKeyFrame
                     }
 
                     //voting
-                    int nVotes = voting ( eimCur, eim1st, eimR, eivT, dThreshold, &vVoterIdx );
+                    int nVotes = voting ( eim1st, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
 
                     if ( nVotes > eimCur.cols() *.75 )
                     {
@@ -340,28 +361,68 @@ struct SKeyFrame
 
                 Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
                 Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
-                selectInlier ( eimCur, eim1st, vVoterIdxBest, &eimXInlier, &eimYInlier );
-                dErrorBest = absoluteOrientation < double > ( eimXInlier , eimYInlier , false, &_eimR, &_eivT, &dS2 );
+                selectInlier ( eim1st, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
+                dErrorBest = absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &_eimR, &_eivT, &dS2 );
 
                 PRINT ( nMax );
                 PRINT ( dErrorBest );
                 PRINT ( _eimR );
                 PRINT ( _eivT );
                 nSize = nMax;
-
             }//if
         }//for
+
         return;
     }// calcRT
 
+	void renderCamera(const btl::extra::videosource::CKinectView& cView_, GLuint uTexture_) const
+	{
+		const Eigen::Matrix3d& mR1  = _eimR;
+    	const Eigen::Vector3d& vT1  = _eivT;
+    	Eigen::Matrix4d mGLM1 = setOpenGLModelViewMatrix ( mR1, vT1 );
+	    mGLM1 = mGLM1.inverse().eval();
+    	glPushMatrix();
+	    glMultMatrixd ( mGLM1.data() );
+    	cView_.renderCamera ( uTexture_, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
+		renderDepth();
+	    glPopMatrix();
+	}
+
+    void renderDepth() const
+    {
+		
+        const unsigned char* pColor = _cvmRGB.data;
+        const double* pDepth = _pDepth;
+        glPushMatrix();
+        glPointSize ( 1. );
+        glBegin ( GL_POINTS );
+        for ( int i = 0; i < 307200; i++ )
+        {
+            double dX = *pDepth++;
+            double dY = *pDepth++;
+            double dZ = *pDepth++;
+
+            if ( abs ( dZ ) > 0.0000001 )
+            {
+                glColor3ubv ( pColor );
+                glVertex3d ( dX, -dY, -dZ );
+            }
+
+            pColor += 3;
+
+        }
+        glEnd();
+        glPopMatrix();
+    }
+
 private:
 
-	void clear() 
-	{
-    	_vKeyPoints.clear();
-    	_vDescriptors.clear();
-	    _vPtPairs.clear(); // correspondences odd: input KF even: current KF
-	}
+    void clear()
+    {
+        _vKeyPoints.clear();
+        _vDescriptors.clear();
+        _vPtPairs.clear(); // correspondences odd: input KF even: current KF
+    }
 
     void convert2CVM ( cv::Mat* pcvmDescriptors_ ) const
     {
@@ -376,6 +437,7 @@ private:
             *pImage++ = *cit_Descriptor;
         }
     }
+
     void selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const vector< int >& vVoterIdx_, Eigen::MatrixXd* peimXInlier_, Eigen::MatrixXd* peimYInlier_ )
     {
         CHECK ( vVoterIdx_.size() == peimXInlier_->cols(), " vVoterIdx_.size() must be equal to peimXInlier->cols(). " );

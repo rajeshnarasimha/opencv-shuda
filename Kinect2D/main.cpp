@@ -55,14 +55,15 @@ unsigned short _nWidth, _nHeight;
 GLuint _uTextureFirst;
 GLuint _uTextureSecond;
 
-SKeyFrame _s1stKF;
-SKeyFrame _sCurrentKF;
-SKeyFrame _sPreviousKF;
-SKeyFrame _sMinus2KF;
+SKeyFrame _asKFs[50];
+int _nKFCounter = 1;
+vector< SKeyFrame* > _vKFPtrs;
+
 
 Eigen::Matrix3d _mRAccu; //Accumulated Rotation
-Eigen::Vector3d _vTAccu; //Accumulated Translation	
+Eigen::Vector3d _vTAccu; //Accumulated Translation
 Eigen::Matrix3d _mRx;
+
 
 bool _bContinuous = true;
 bool _bPrevStatus = true;
@@ -98,24 +99,24 @@ void processNormalKeys ( unsigned char key, int x, int y )
         _dYAngle -= 1.0;
         glutPostRedisplay();
         break;
-	case 'r':
-		//reset
-		_mRAccu.setIdentity();
-		_vTAccu.setZero();
-		_bPrevStatus = true;
-		glutPostRedisplay();
-		break;
-	case 'n':
-		//next step
-		glutPostRedisplay();
-		break;
-	case 's':
-		//single step
-		_bContinuous = !_bContinuous;
-		break;
-	case 'c':
-		_bCapture = true;
-		break;
+    case 'r':
+        //reset
+        _mRAccu.setIdentity();
+        _vTAccu.setZero();
+        _bPrevStatus = true;
+        glutPostRedisplay();
+        break;
+    case 'n':
+        //next step
+        glutPostRedisplay();
+        break;
+    case 's':
+        //single step
+        _bContinuous = !_bContinuous;
+        break;
+    case 'c':
+        _bCapture = true;
+        break;
     }
 
     return;
@@ -164,20 +165,27 @@ void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 
     return;
 }
+
 void renderPattern()
 {
     glPushMatrix();
     const std::vector<cv::Point3f>& vPts = _cVS.pattern();
-    glPointSize( 3 );
-    glColor3d( .0 , .8 , .8 );
+    glPointSize ( 3 );
+    glColor3d ( .0 , .8 , .8 );
     glBegin ( GL_POINTS );
-    for (std::vector<cv::Point3f>::const_iterator constItr = vPts.begin(); constItr < vPts.end() ; ++ constItr)
+
+    for ( std::vector<cv::Point3f>::const_iterator constItr = vPts.begin(); constItr < vPts.end() ; ++ constItr )
     {
-        glVertex3f( constItr->x, constItr->y, constItr->z );
+        glVertex3f ( constItr->x,  constItr->z, -constItr->y );
+        glVertex3f ( constItr->x,  constItr->z,  constItr->y );
+        glVertex3f ( -constItr->x,  constItr->z, -constItr->y );
+        glVertex3f ( -constItr->x,  constItr->z,  constItr->y );
+
     }
+
     glEnd();
     glPopMatrix();
-	return;
+    return;
 }
 
 void renderAxis()
@@ -240,12 +248,12 @@ void mouseMotion ( int nX_, int nY_ )
 
 void init ( )
 {
-	_mRx <<  1., 0., 0., // rotate about the x-axis for 180 degree.
-		    0.,-1., 0.,
-			0., 0.,-1.;
-			
-	_mRAccu.setIdentity();
-	_vTAccu.setZero();
+    _mRx <<  1., 0., 0., // rotate about the x-axis for 180 degree.
+         0., -1., 0.,
+         0., 0., -1.;
+
+    _mRAccu.setIdentity();
+    _vTAccu.setZero();
 
     _mGLMatrix.setIdentity();
     glClearColor ( 0.0, 0.0, 0.0, 1.0 );
@@ -268,16 +276,18 @@ void init ( )
     _cVS.getNextFrame();
     // load as texture
     _uTextureFirst = _cView.LoadTexture ( _cVS.cvRGB() );
+	SKeyFrame& s1stKF = _asKFs[0];
     // assign the rgb and depth to the current frame.
-    _s1stKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
+    s1stKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
     //corner detection and ranking ( first frame )
-    _s1stKF.detectCorners();
-	//construct KD tree
-	_s1stKF.constructKDTree();
+    s1stKF.detectCorners();
+    //construct KD tree
+    s1stKF.constructKDTree();
 // ( second frame )
     _uTextureSecond = _cView.LoadTexture ( _cVS.cvRGB() );
-	_s1stKF.save2XML("0");
-
+    //s1stKF.save2XML ( "0" );
+	
+	_vKFPtrs.push_back( &s1stKF );
     return;
 }
 
@@ -287,23 +297,29 @@ void display ( void )
     _cVS.getNextFrame();
 // ( second frame )
     // assign the rgb and depth to the current frame.
-    _sCurrentKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
+	SKeyFrame& sCurrentKF = _asKFs[_nKFCounter];
+    sCurrentKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
 
-if( _bCapture )
-{
-	_bCapture = false;
-    // detect corners
-    _sCurrentKF.detectCorners();
+    if ( _bCapture && _nKFCounter < 50 )
+    {
+		SKeyFrame& s1stKF = _asKFs[0];
+        _bCapture = false;
+        // detect corners
+        sCurrentKF.detectCorners();
 
-	_s1stKF.detectCorrespondences( _sCurrentKF );
+        sCurrentKF.detectCorrespondences ( s1stKF );
 
-	_s1stKF.calcRT( _sCurrentKF );
+        sCurrentKF.calcRT ( s1stKF );
 
-	//std::string strNum = boost::lexical_cast<string> ( _nN++ );
-	//_sCurrentKF.save2XML( strNum.c_str() );
+		_vKFPtrs.push_back( &sCurrentKF );
 
-}
-
+		_nKFCounter++;
+		cout << "new key frame added" << flush;
+    }
+	else
+	{
+		cout << "key frame  
+	}
 
 // render first viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -321,33 +337,15 @@ if( _bCapture )
 
     // render objects
     //glBindTexture(GL_TEXTURE_2D, _uTexture);
-    _cView.renderCamera ( _uTextureFirst, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
-    glPointSize ( 3 );
-    glColor3d ( 1, 0, 0 );
-	//place the second camera
-	//if( _sCurrentKF._eivT.norm() < 0.0001);
-//		 _sCurrentKF._eivT.setZero();
-	_mRAccu *= _sCurrentKF._eimR;
-	_vTAccu = _sCurrentKF._eimR*_vTAccu + _sCurrentKF._eivT;
-//	PRINT( _mRAccu );
-//	PRINT( _vTAccu );
-	Eigen::Matrix3d mR = _mRx*_mRAccu;
-	Eigen::Vector3d vT = _mRx*_vTAccu;
-	Eigen::Matrix4d mGLM = setOpenGLModelViewMatrix( mR, vT );
+    //place the first camera in the world
+    //place the second camera in the world
+	//sCurrentKF.renderCamera( _cView, _uTextureFirst );
+	
+	for( vector< SKeyFrame* >::iterator cit = _vKFPtrs.begin(); cit!= _vKFPtrs.end(); cit++ )
+	{
+		(*cit)->renderCamera( _cView, _uTextureFirst );
+	}
 
-	glPushMatrix();
-    mGLM = mGLM.inverse().eval();
-    glMultMatrixd( mGLM.data() );
-	_cView.renderCamera( _uTextureFirst, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
-	glPopMatrix();
-/*
-    glBegin ( GL_POINTS );
-    for ( vector< Point2f >::const_iterator cit = _s1stKF._vCorners.begin(); cit != _s1stKF._vCorners.end(); cit++ )
-    {
-        _cView.renderOnImage ( cit->x, cit->y );
-    }
-    glEnd();
-*/	
 	renderPattern();
     renderAxis();
 
@@ -361,7 +359,7 @@ if( _bCapture )
     _cView.renderCamera ( _uTextureSecond, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
 
 // rendering
-	/*
+    /*
     //corners at the first frame
     glPointSize ( 3 );
     glColor3d ( 1, 0, 0 );
@@ -371,30 +369,15 @@ if( _bCapture )
         _cView.renderOnImage ( cit->x, cit->y );
     }
     glEnd();
-
-    //corners at the second frame
-    glPointSize ( 1 );
-    glColor3d ( 0, 1, 0 );
-    glBegin ( GL_POINTS );
-    for ( vector< Point2f >::const_iterator cit = _sCurrentKF._vCorners.begin(); cit != _sCurrentKF._vCorners.end(); cit++ )
-    {
-        _cView.renderOnImage ( cit->x, cit->y );
-    }
-    glEnd();
 	*/
 
-	SKeyFrame* pKF;
-	if( _bPrevStatus )
-		pKF = &_sPreviousKF;
-	else
-	{
-		cout << "render k-2 frame ";
-  	    pKF = &_sMinus2KF;
-	}
 
-	glutSwapBuffers();
-	if( _bContinuous )
-	    glutPostRedisplay();
+    glutSwapBuffers();
+
+    if ( _bContinuous )
+    {
+        glutPostRedisplay();
+    }
 
 }
 
