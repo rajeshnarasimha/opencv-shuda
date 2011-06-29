@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <!DOCTYPE boost_serialization>
-<boost_serialization signature="serialization::archive" version="8">
+<boost_serialization signature="serialization::archive" version="9">
 <stdvImageResolution class_id="0" tracking_level="0" version="0">
 	<count>2</count>
 	<item_version>0</item_version>
@@ -21,16 +21,16 @@
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>523.50197545526828</item>
+		<item>522.3689494034918</item>
 		<item>0</item>
-		<item>319.76224807902793</item>
+		<item>319.42437282992154</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
 		<item>0</item>
-		<item>523.95660212743121</item>
-		<item>266.32376060011234</item>
+		<item>522.27982632921874</item>
+		<item>266.24635670096302</item>
 	</item>
 	<item>
 		<count>3</count>
@@ -46,27 +46,27 @@
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.25820232399372117</item>
+		<item>0.25754840713895727</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>-0.82784297454356659</item>
+		<item>-0.82066296041408893</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.00033478402724450713</item>
+		<item>0.00018455102188131621</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.0010749234079032411</item>
+		<item>0.00027806440958329703</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.88502950995903351</item>
+		<item>0.86269131155492795</item>
 	</item>
 </stdvRGBDistortionCoeff>
 <stdvIRKMatrix>
@@ -75,16 +75,16 @@
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>588.53775570764196</item>
+		<item>588.92273559514013</item>
 		<item>0</item>
-		<item>322.42301152639857</item>
+		<item>321.99098952493</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
 		<item>0</item>
-		<item>588.48953406788917</item>
-		<item>249.04436102113715</item>
+		<item>589.02761426597726</item>
+		<item>248.9969125537317</item>
 	</item>
 	<item>
 		<count>3</count>
@@ -100,11 +100,11 @@
 	<item>
 		<count>5</count>
 		<item_version>0</item_version>
-		<item>-0.13999755827771276</item>
-		<item>0.62964426974312937</item>
-		<item>-0.0023674937330911694</item>
-		<item>0.0024741480590242315</item>
-		<item>-0.94538080877579389</item>
+		<item>-0.13758542421599648</item>
+		<item>0.61707840056139862</item>
+		<item>-0.0020600606746695471</item>
+		<item>0.0023580981186576526</item>
+		<item>-0.9165814223318588</item>
 	</item>
 </stdvIRDistortionCoeff>
 <stdvRelativeRotaion>
@@ -113,23 +113,23 @@
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>0.99999014727567415</item>
-		<item>-0.0018166007742132814</item>
-		<item>-0.0040503472940901057</item>
+		<item>0.99998662307085262</item>
+		<item>-0.0020103323548238939</item>
+		<item>-0.0047657363728584382</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>0.0018341313711404462</item>
-		<item>0.99998894924540682</item>
-		<item>0.0043286659816363119</item>
+		<item>0.0020347024717825043</item>
+		<item>0.99998485190382913</item>
+		<item>0.0051142886825307557</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>0.0040424390767225919</item>
-		<item>-0.0043360522015197982</item>
-		<item>0.99998242851442976</item>
+		<item>0.0047553827610151266</item>
+		<item>-0.0051239171246311374</item>
+		<item>0.99997556560552825</item>
 	</item>
 </stdvRelativeRotaion>
 <stdvRelativeTranslation>
@@ -138,17 +138,17 @@
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.026236484878989712</item>
+		<item>0.026567302620235076</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>-0.00032836264071997492</item>
+		<item>-0.0006701983420351451</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>-0.00079652897430161791</item>
+		<item>0.0005948531928212427</item>
 	</item>
 </stdvRelativeTranslation>
 </boost_serialization>

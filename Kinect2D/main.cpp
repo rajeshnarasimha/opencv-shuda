@@ -25,9 +25,9 @@ using namespace cv;
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView ( _cVS );
 
-Eigen::Vector3d _eivCamera ( 1.0, 1.0, 1.0 );
+Eigen::Vector3d _eivCamera ( 0.0, -1.0, -1.0 );
 Eigen::Vector3d _eivCenter ( .0, .0, .0 );
-Eigen::Vector3d _eivUp ( .0, 1.0, 0.0 );
+Eigen::Vector3d _eivUp ( .0, -1.0, 0.0 );
 Matrix4d _mGLMatrix;
 double _dNear = 0.01;
 double _dFar  = 10.;
@@ -56,21 +56,49 @@ GLuint _uTextureFirst;
 GLuint _uTextureSecond;
 
 SKeyFrame _asKFs[50];
-int _nKFCounter = 1;
+int _nKFCounter = 1; //key frame counter
+int _nRFCounter = 0; //reference frame counter
 vector< SKeyFrame* > _vKFPtrs;
-
-
-Eigen::Matrix3d _mRAccu; //Accumulated Rotation
-Eigen::Vector3d _vTAccu; //Accumulated Translation
-Eigen::Matrix3d _mRx;
+vector< int > _vRFIdx;
 
 
 bool _bContinuous = true;
 bool _bPrevStatus = true;
+bool _bDisplayCamera = true;
+bool _bRenderReference = true;
 
 bool _bCapture = false;
 
 int _nN = 1;
+int _nView = 0;
+
+void init();
+
+void resetModelViewParameters()
+{
+    _eivCamera = Vector3d(0., 0., 0.);
+    _eivCenter = Vector3d(0., 0., -1.);
+    _eivUp     = Vector3d(0., 1., 0.);
+
+    _dXAngle = _dYAngle = 0;
+    _dX = _dY = 0;
+    _dZoom = 1;
+}
+
+void specialKeys( int key, int x, int y )
+{
+	switch ( key )
+	{
+	case GLUT_KEY_F2: //display camera
+		_bDisplayCamera = !_bDisplayCamera;
+		glutPostRedisplay();
+		break;
+	case GLUT_KEY_F3:
+		_bRenderReference = !_bRenderReference;
+		glutPostRedisplay();
+		break;
+	}
+}
 
 void processNormalKeys ( unsigned char key, int x, int y )
 {
@@ -101,9 +129,10 @@ void processNormalKeys ( unsigned char key, int x, int y )
         break;
     case 'r':
         //reset
-        _mRAccu.setIdentity();
-        _vTAccu.setZero();
-        _bPrevStatus = true;
+		_nKFCounter=1;
+		_nRFCounter=0;
+		_vKFPtrs.clear();
+        init();
         glutPostRedisplay();
         break;
     case 'n':
@@ -114,9 +143,39 @@ void processNormalKeys ( unsigned char key, int x, int y )
         //single step
         _bContinuous = !_bContinuous;
         break;
-    case 'c':
+    case 'c': 
+		//capture current view as a key frame
         _bCapture = true;
         break;
+	case 'd':
+		//remove last key frame
+		if(_nKFCounter >0 )
+		{
+			if( _nRFCounter ==  _nKFCounter )
+				_nRFCounter--;
+			_nKFCounter--;
+			_vKFPtrs.pop_back();
+		}
+		glutPostRedisplay();
+		break;
+	case 'v':
+		//use current keyframe as a reference
+		if( _nRFCounter <_nKFCounter )
+		{
+			_nRFCounter = _nKFCounter-1;
+			_vRFIdx.push_back( _nRFCounter );
+			SKeyFrame& s1stKF = _asKFs[_nRFCounter];
+			s1stKF._bIsReferenceFrame = true;
+    		//construct KD tree
+    		s1stKF.constructKDTree();
+			glutPostRedisplay();
+		}
+		break;
+	case ',':
+		_mGLMatrix = _vKFPtrs[ _nView ]->setView();
+		resetModelViewParameters();
+		glutPostRedisplay();
+		break;
     }
 
     return;
@@ -248,13 +307,6 @@ void mouseMotion ( int nX_, int nY_ )
 
 void init ( )
 {
-    _mRx <<  1., 0., 0., // rotate about the x-axis for 180 degree.
-         0., -1., 0.,
-         0., 0., -1.;
-
-    _mRAccu.setIdentity();
-    _vTAccu.setZero();
-
     _mGLMatrix.setIdentity();
     glClearColor ( 0.0, 0.0, 0.0, 1.0 );
     glClearDepth ( 1.0 );
@@ -265,10 +317,7 @@ void init ( )
     glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
     glShadeModel ( GL_FLAT );
     glEnable ( GL_LINE_SMOOTH );
-    glEnable ( GL_BLEND );
     glEnable ( GL_POINT_SMOOTH );
-    glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
 
     glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
@@ -277,12 +326,14 @@ void init ( )
     // load as texture
     _uTextureFirst = _cView.LoadTexture ( _cVS.cvRGB() );
 	SKeyFrame& s1stKF = _asKFs[0];
+	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
     s1stKF.assign ( _cVS.cvRGB(), _cVS.registeredDepth() );
     //corner detection and ranking ( first frame )
     s1stKF.detectCorners();
     //construct KD tree
     s1stKF.constructKDTree();
+	s1stKF._bIsReferenceFrame = true;
 // ( second frame )
     _uTextureSecond = _cView.LoadTexture ( _cVS.cvRGB() );
     //s1stKF.save2XML ( "0" );
@@ -302,7 +353,7 @@ void display ( void )
 
     if ( _bCapture && _nKFCounter < 50 )
     {
-		SKeyFrame& s1stKF = _asKFs[0];
+		SKeyFrame& s1stKF = _asKFs[_nRFCounter];
         _bCapture = false;
         // detect corners
         sCurrentKF.detectCorners();
@@ -311,14 +362,16 @@ void display ( void )
 
         sCurrentKF.calcRT ( s1stKF );
 
+ 		sCurrentKF.applyRelativePose( s1stKF );
+
 		_vKFPtrs.push_back( &sCurrentKF );
 
 		_nKFCounter++;
 		cout << "new key frame added" << flush;
     }
-	else
+	else if( _nKFCounter > 49 )
 	{
-		cout << "key frame  
+		cout << "two many key frames to hold" << flush;  
 	}
 
 // render first viewport
@@ -328,6 +381,8 @@ void display ( void )
     // after set the intrinsics and extrinsics
     // load the matrix to set camera pose
     glLoadIdentity();
+	glLoadMatrixd( _mGLMatrix.data() );
+
     gluLookAt ( _eivCamera ( 0 ), _eivCamera ( 1 ), _eivCamera ( 2 ),  _eivCenter ( 0 ), _eivCenter ( 1 ), _eivCenter ( 2 ), _eivUp ( 0 ), _eivUp ( 1 ), _eivUp ( 2 ) );
     glScaled ( _dZoom, _dZoom, _dZoom );
     glRotated ( _dYAngle, 0, 1 , 0 );
@@ -340,14 +395,18 @@ void display ( void )
     //place the first camera in the world
     //place the second camera in the world
 	//sCurrentKF.renderCamera( _cView, _uTextureFirst );
-	
+
+
 	for( vector< SKeyFrame* >::iterator cit = _vKFPtrs.begin(); cit!= _vKFPtrs.end(); cit++ )
 	{
-		(*cit)->renderCamera( _cView, _uTextureFirst );
+		(*cit)->renderCamera( _cView, _uTextureFirst,_bDisplayCamera );
 	}
 
+if(_bRenderReference)
+{
 	renderPattern();
     renderAxis();
+}
 
 // render second viewport
     glViewport ( _nWidth / 2, 0, _nWidth / 2, _nHeight );
@@ -410,6 +469,7 @@ int main ( int argc, char** argv )
         glutCreateWindow ( "CameraPose" );
         init();
         glutKeyboardFunc ( processNormalKeys );
+		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
 

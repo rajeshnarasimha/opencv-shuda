@@ -50,6 +50,8 @@ struct SKeyFrame
     Eigen::Matrix3d _eimR; //R & T is the relative pose w.r.t. the coordinate defined by the previous camera system.
     Eigen::Vector3d _eivT;
 
+	bool _bIsReferenceFrame;
+
     SKeyFrame()
     {
         _cvmRGB.create ( 480, 640, CV_8UC3 );
@@ -58,12 +60,14 @@ struct SKeyFrame
         _pKDTree = NULL;
         _eimR.setIdentity();
         _eivT.setZero();
+		_bIsReferenceFrame = false;
     }
 
     ~SKeyFrame()
     {
         delete [] _pDepth;
-        delete _pKDTree;
+		if( _pKDTree )
+	        delete _pKDTree;
     }
 
     inline SKeyFrame& operator= ( const SKeyFrame& sKF_ )
@@ -73,6 +77,7 @@ struct SKeyFrame
         memcpy ( _pDepth, sKF_._pDepth, 921600 * sizeof ( double ) );
         _eimR 			= sKF_._eimR;
         _eivT 			= sKF_._eivT;
+		_bIsReferenceFrame = sKF_._bIsReferenceFrame;
 
         _vDescriptors   = sKF_._vDescriptors;
         _vPtPairs		= sKF_._vPtPairs;
@@ -144,6 +149,8 @@ struct SKeyFrame
         cvtColor ( _cvmRGB, _cvmBW, CV_RGB2GRAY );
         // clear corners
         clear();
+
+		_bIsReferenceFrame = false;
     }
 
     void detectCorners()
@@ -375,7 +382,13 @@ struct SKeyFrame
         return;
     }// calcRT
 
-	void renderCamera(const btl::extra::videosource::CKinectView& cView_, GLuint uTexture_) const
+	void applyRelativePose( const SKeyFrame& sReferenceKF_ ) 
+	{
+		_eimR = _eimR*sReferenceKF_._eimR;
+		_eivT = _eimR*sReferenceKF_._eivT + _eivT;
+	}
+
+	void renderCamera(const btl::extra::videosource::CKinectView& cView_, GLuint uTexture_, bool bRenderCamera_=true) const
 	{
 		const Eigen::Matrix3d& mR1  = _eimR;
     	const Eigen::Vector3d& vT1  = _eivT;
@@ -383,9 +396,31 @@ struct SKeyFrame
 	    mGLM1 = mGLM1.inverse().eval();
     	glPushMatrix();
 	    glMultMatrixd ( mGLM1.data() );
-    	cView_.renderCamera ( uTexture_, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
+		if( _bIsReferenceFrame )
+		{
+			glColor3d( 1, 0, 0 );
+			glLineWidth(2);
+		}
+		else
+		{
+			glColor3d( 1, 1, 1);
+			glLineWidth(1);
+		}
+		if(bRenderCamera_)
+		{
+			glColor4d( 1,1,1,0.5 );
+	    	cView_.renderCamera ( uTexture_, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
+		}
 		renderDepth();
 	    glPopMatrix();
+	}
+
+	Eigen::Matrix4d setView() const
+	{
+		const Eigen::Matrix3d& mR1  = _eimR;
+    	const Eigen::Vector3d& vT1  = _eivT;
+    	Eigen::Matrix4d mGLM = setOpenGLModelViewMatrix ( mR1, vT1 );
+		return mGLM;
 	}
 
     void renderDepth() const

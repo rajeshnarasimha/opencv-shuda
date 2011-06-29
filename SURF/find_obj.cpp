@@ -75,7 +75,7 @@ void findPairs(  const cv::Mat& cvmObjectDescriptors_ , const cv::Mat& cvmImageD
     for (int i=0;i<cvmIndices.rows;++i) {
     	if (pDists[2*i]<0.6*pDists[2*i+1]) {
     		pvPtPairs_->push_back(i); //obj index
-    		pvPtPairs_->push_back(pIndices[2*i]); //img index
+    		pvPtPairs_->push_back(pIndices[2*i]); //img index>
     	}
     }
 	return;
@@ -108,11 +108,12 @@ int main(int argc, char** argv)
 	cv::cvtColor( cvmObject, cvmGrayObject, CV_BGR2GRAY );
 	cv::cvtColor( cvmImage,  cvmGrayImage,  CV_BGR2GRAY );
 	cv::Mat cvmMask;
+	/*
 //surf
 	vector<cv::KeyPoint> vObjectKeyPoints,  vImageKeyPoints;
 	vector<float>        vObjectDescriptors,vImageDescriptors;
 
-	cv::SURF cSurf( 1000, 4, 2, true );
+	cv::SURF cSurf( 500, 4, 2, true );
     cSurf( cvmGrayObject, cvmMask, vObjectKeyPoints, vObjectDescriptors );
 	cSurf( cvmGrayImage,  cvmMask, vImageKeyPoints,  vImageDescriptors  );
 
@@ -121,9 +122,10 @@ int main(int argc, char** argv)
 
 	vector<int> PtPairs;
 	findPairs( vObjectKeyPoints, vObjectDescriptors, vImageKeyPoints, vImageDescriptors, &PtPairs );
-/*
+*/
+
 //sift
-	cv::SIFT cSift( 0.04, 20.  );
+	cv::SIFT cSift( 0.04, 10. );
 
 	cv::Mat cvmObjectDescriptors, cvmImageDescriptors;
 	vector<cv::KeyPoint> vObjectKeyPointsSift, vImageKeyPointsSift;
@@ -134,9 +136,26 @@ int main(int argc, char** argv)
 	PRINT( cvmObjectDescriptors.rows );
 	PRINT( cvmImageDescriptors.rows );
 
+	cv::namedWindow ( "myObj", 1 );
+    while ( true )
+    {
+		for(int i = 0; i < vObjectKeyPointsSift.size(); i++ )
+	    {
+	        int radius = cvRound(vObjectKeyPointsSift[i].size*1.2/9.*2);
+			cv::circle( cvmObject, vObjectKeyPointsSift[i].pt, radius, colors[0], 1, 8, 0 );
+	    }	
+
+        cv::imshow ( "myObj", cvmObject );
+		int nKey = cv::waitKey ( 30 );
+		if ( nKey == 27 )
+		{
+			break;
+		}
+    }
+
 	vector<int> PtPairs;
 	findPairs( cvmObjectDescriptors, cvmImageDescriptors, &PtPairs );
-*/
+
 	cout << " PtPairs.size()/2 = " << PtPairs.size()/2 << endl;
 
     //for display
@@ -154,19 +173,25 @@ int main(int argc, char** argv)
     while ( true )
     {
 		cvmCorr.copyTo( cvmCorr2 );
-		cv::line( cvmCorr2, vObjectKeyPoints[ PtPairs[i] ].pt, cv::Point(vImageKeyPoints [ PtPairs[i+1] ].pt.x,vImageKeyPoints [ PtPairs[i+1] ].pt.y+cvmGrayObject.rows ), colors[7] );
+		//cv::line( cvmCorr2, vObjectKeyPoints[ PtPairs[i] ].pt, cv::Point(vImageKeyPoints [ PtPairs[i+1] ].pt.x,vImageKeyPoints [ PtPairs[i+1] ].pt.y+cvmGrayObject.rows ), colors[7] );
+		cv::line( cvmCorr2, vObjectKeyPointsSift[ PtPairs[i] ].pt, cv::Point(vImageKeyPointsSift [ PtPairs[i+1] ].pt.x,vImageKeyPointsSift [ PtPairs[i+1] ].pt.y+cvmGrayObject.rows ), colors[7] );
+
 
         cv::imshow ( "myWindow", cvmCorr2 );
 		nKey = cv::waitKey ( 30 );
 		if ( nKey == 32 )
         {
-            i++; i%= PtPairs.size();
+            i+=2; 
+			if( i > PtPairs.size() )
+				break;
         }
 		if ( nKey == 27 )
 		{
 			break;
 		}
     }
+
+
 
     return 0;
 }

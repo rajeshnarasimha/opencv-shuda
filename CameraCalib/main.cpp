@@ -378,7 +378,7 @@ void display ( void )
     for (unsigned int i = 0; i < cC.views(); i++)
     {
         renderCameraWorld(i);
-        renderDepthCameraWorld(i);
+        //renderDepthCameraWorld(i);
     }
 
 
