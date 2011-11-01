@@ -8,8 +8,8 @@
 * 3-17 depth generator added
 * @date 2011-03-17
 */
-#include <btl/extra/VideoSource/calibratekinect.hpp>
-#include <btl/extra/VideoSource/VideoSource.hpp>
+#include <stdexcept>
+#include <calibratekinect.hpp>
 #include <XnCppWrapper.h>
 #include <opencv/highgui.h>
 using namespace xn;
@@ -29,7 +29,7 @@ struct Frame
 };
 
 
-class VideoSourceKinect : public VideoSource, public CCalibrateKinect
+class VideoSourceKinect : public CCalibrateKinect
 {
 
 public:
@@ -38,7 +38,7 @@ public:
 
     virtual ~VideoSourceKinect();
 
-    virtual const ImageRegionConstRGB getNextFrame();
+    void getNextFrame();
 
     // 1. need to call getNextFrame() before hand
     // 2. RGB color channel (rather than BGR as used by cv::imread())
@@ -49,12 +49,14 @@ public:
 		  cv::Mat*            cvDepthPtr()      { return &_cvUndistFilteredDepth; }
 	const cv::Mat& 			  cvBW()      const { return  _cvmUndistBW; }
 	
-
-    struct Exception : public VideoSource::Exception
+    struct Exception : public std::runtime_error
     {
-        Exception ( const std::string& str ) : VideoSource::Exception ( str ) {}
+       Exception(const std::string& str) : std::runtime_error(str) {}
     };
+
+
 protected:
+    Eigen::Vector2i _frameSize;
     Context        _cContext;
     ImageGenerator _cImgGen;
     ImageMetaData  _cImgMD;

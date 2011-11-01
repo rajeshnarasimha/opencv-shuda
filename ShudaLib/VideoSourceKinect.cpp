@@ -5,8 +5,8 @@
 * @version 1.0
 * @date 2011-02-23
 */
-#include <btl/extra/VideoSource/VideoSourceKinect.hpp>
-#include <btl/Utility/Converters.hpp>
+#include <VideoSourceKinect.hpp>
+#include <Converters.hpp>
 #include <iostream>
 #include <cassert>
 #include <string>
@@ -15,7 +15,7 @@
 #define CHECK_RC(rc, what)											            \
 	if (rc != XN_STATUS_OK)											            \
 	{																            \
-		throw VideoSource::Exception(what + std::string(xnGetStatusString(rc)));\
+		throw Exception(what + std::string(xnGetStatusString(rc)));\
 	}
 
 
@@ -60,9 +60,6 @@ VideoSourceKinect::VideoSourceKinect ()
 	//register the depth generator with the image generator
     //nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );
 	//CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
-    
-
-    _frame = ImageRGB ( _frameSize ( 0 ), _frameSize ( 1 ) );
 
     _cvImage.create( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
 	//_cvDepth.create( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
@@ -82,10 +79,10 @@ VideoSourceKinect::VideoSourceKinect ()
 
 VideoSourceKinect::~VideoSourceKinect()
 {
-    _cContext.Shutdown();
+    _cContext.Release();
 }
 
-const ImageRegionConstRGB VideoSourceKinect::getNextFrame()
+void VideoSourceKinect::getNextFrame()
 {
     //get next frame
     //set as _frame
@@ -112,20 +109,13 @@ const ImageRegionConstRGB VideoSourceKinect::getNextFrame()
     {
         for ( unsigned int x = 0; x < _cImgMD.XRes(); x++ )
         {
-            PixelRGB pixel;
             // notice that OpenCV is use BGR order
-            pixel.blue()  = *pcvImage++ = uchar(pRGBImg->nRed);
-            pixel.green() = *pcvImage++ = uchar(pRGBImg->nGreen);
-            pixel.red()   = *pcvImage++ = uchar(pRGBImg->nBlue);
+            *pcvImage++ = uchar(pRGBImg->nRed);
+            *pcvImage++ = uchar(pRGBImg->nGreen);
+            *pcvImage++ = uchar(pRGBImg->nBlue);
 			pRGBImg++;
 
 			*pcvDepth++ = *pDepth++;
-            
-			//pixel.blue()  = 0;
-            //pixel.green() = pDepth[ 2*uIdx     ];
-            //pixel.red()   = pDepth[ 2*uIdx + 1 ];
-
-            _frame[y][x] = pixel;
         }
     }
 
@@ -144,7 +134,7 @@ const ImageRegionConstRGB VideoSourceKinect::getNextFrame()
 //	PRINT( _cTDAll );
 
 	//cout << " getNextFrame() ends."<< endl;
-    return ImageRegionConstRGB ( _frame );
+    return;
 }
 
 } //namespace videosource

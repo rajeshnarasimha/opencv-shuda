@@ -40,7 +40,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <btl/Utility/Converters.hpp>
+#include <Converters.hpp>
 #include <GL/freeglut.h>
 
 namespace btl
