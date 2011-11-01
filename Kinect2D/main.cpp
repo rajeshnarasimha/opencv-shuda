@@ -29,6 +29,7 @@ Eigen::Vector3d _eivCamera ( 0.0, -1.0, -1.0 );
 Eigen::Vector3d _eivCenter ( .0, .0, .0 );
 Eigen::Vector3d _eivUp ( .0, -1.0, 0.0 );
 Matrix4d _mGLMatrix;
+
 double _dNear = 0.01;
 double _dFar  = 10.;
 

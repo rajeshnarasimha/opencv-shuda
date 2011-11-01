@@ -408,7 +408,7 @@ struct SKeyFrame
 		}
 		if(bRenderCamera_)
 		{
-			glColor4d( 1,1,1,0.5 );
+			//glColor4d( 1,1,1,0.5 );
 	    	cView_.renderCamera ( uTexture_, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
 		}
 		renderDepth();

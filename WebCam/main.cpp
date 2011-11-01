@@ -43,7 +43,7 @@ int main ( int argc, char** argv )
     cvDestroyWindow( "Example2" );*/
 
     //opencv cpp style
-    cv::VideoCapture cap ( 1 ); // open the default camera
+    cv::VideoCapture cap ( 0 ); // open the default camera
 
     if ( !cap.isOpened() ) // check if we succeeded
     {
@@ -55,7 +55,7 @@ int main ( int argc, char** argv )
     cv::Mat cvColorFrame;
 
     cap >> frame; // get a new frame from camera
-    cv::VideoWriter cvSav ( string ( "/space/csxsl/src/opencv-shuda/WebCam/sav.avi" ), CV_FOURCC ( 'M', 'J', 'P', 'G' ), 30, frame.size(), true );
+    cv::VideoWriter cvSav ( std::string ( "/space/csxsl/src/opencv-shuda/WebCam/sav.avi" ), CV_FOURCC ( 'M', 'J', 'P', 'G' ), 30, frame.size(), true );
 
     if ( !cvSav.isOpened() )
     {

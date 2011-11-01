@@ -168,11 +168,13 @@ void placeCameraInWorldCoordinate ( unsigned int uNthView_, int nType_, int nMet
         {
             vT = cKinectCalib.eiVecIRT ( uNthView_ );
             mR = cKinectCalib.eiMatIRR ( uNthView_ );
+			//cout << "vT mR are successfully retrieved. method 1 "; 
         }
         else if ( 2 == nMethod_ )
         {
             vT = cKinectCalib.eiMatRelativeRotation() *  cKinectCalib.eiVecRGBT ( uNthView_ ) + cKinectCalib.eiVecRelativeTranslation();
             mR = cKinectCalib.eiMatRelativeRotation() *  cKinectCalib.eiMatRGBR ( uNthView_ );
+			//cout << "vT mR are successfully retrieved. method 2 "; 
         }
 
         uTexture = _vuTexture[0][uNthView_];
@@ -182,6 +184,7 @@ void placeCameraInWorldCoordinate ( unsigned int uNthView_, int nType_, int nMet
         vT = cKinectCalib.eiVecRGBT ( uNthView_ );
         mR = cKinectCalib.eiMatRGBR ( uNthView_ );
         uTexture = _vuTexture[1][uNthView_];
+		//cout << "vT mR for RGB camera retrieved. ";
     }
     else
     {
@@ -369,6 +372,7 @@ void renderCamera ( int nType_ )
 }
 void display ( void )
 {
+	//cout << "display () \n";
     glClearColor ( 0, 0, 0, 1 );
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -388,13 +392,15 @@ void display ( void )
     // render objects
     renderAxis();
     renderPattern();
-
+	//cout << "renderPattern() done.";
     // render cameras
     for ( unsigned int i = 0; i < cKinectCalib.views(); i++ )
     {
         placeCameraInWorldCoordinate ( i, RGB_CAMERA );
+		//cout << "placeCameraInWorldCoordinate(RGB_CAMERA) done.";
         //placeCameraInWorldCoordinate(i, IR_CAMERA );
         placeCameraInWorldCoordinate ( i, IR_CAMERA, 2 );
+		//cout << "placeCameraInWorldCoordinate(IR_CAMERA) done.";
     }
 
     glutSwapBuffers();
@@ -736,12 +742,13 @@ int main ( int argc, char** argv )
     try
     {
         cKinectCalib.mainFunc ( cFullPath );
-
+		cout << "calibration done.\n"<< flush;
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( cKinectCalib.imageResolution() ( 0 ), cKinectCalib.imageResolution() ( 1 ) );
         glutCreateWindow ( "CameraPose" );
         init();
+		cout << "init() done. \n" << flush;
 
         glutKeyboardFunc ( processNormalKeys );
         glutMouseFunc   ( mouseClick );

@@ -2,6 +2,7 @@
 #include <opencv/highgui.h>
 #include <opencv/cv.h>
 #include <iostream>
+/*
 #include <btl/extra/VideoSource/calibratekinect.hpp>
 
 using namespace btl;
@@ -30,7 +31,7 @@ int main( int argc, char** argv )
         }
     }
 }
-/*
+*/
 #include <opencv/highgui.h>
 #include <iostream>
 
@@ -45,4 +46,4 @@ int main( int argc, char** argv )
     cvReleaseImage( &img ); 
     cvDestroyWindow( "Example1" );
 }
-*/
+

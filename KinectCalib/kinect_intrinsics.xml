@@ -21,16 +21,16 @@
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>522.3689494034918</item>
+		<item>523.76950225746123</item>
 		<item>0</item>
-		<item>319.42437282992154</item>
+		<item>319.669055355551</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
 		<item>0</item>
-		<item>522.27982632921874</item>
-		<item>266.24635670096302</item>
+		<item>524.18598328243718</item>
+		<item>266.31684296834675</item>
 	</item>
 	<item>
 		<count>3</count>
@@ -46,27 +46,27 @@
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.25754840713895727</item>
+		<item>0.25806902943483057</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>-0.82066296041408893</item>
+		<item>-0.81964466486029774</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.00018455102188131621</item>
+		<item>0.00041012792327222006</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.00027806440958329703</item>
+		<item>0.00095252468449536268</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.86269131155492795</item>
+		<item>0.86624789053856721</item>
 	</item>
 </stdvRGBDistortionCoeff>
 <stdvIRKMatrix>
@@ -75,16 +75,16 @@
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>588.92273559514013</item>
+		<item>588.63668749953308</item>
 		<item>0</item>
-		<item>321.99098952493</item>
+		<item>322.31724002070359</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
 		<item>0</item>
-		<item>589.02761426597726</item>
-		<item>248.9969125537317</item>
+		<item>588.65046619899226</item>
+		<item>249.23395554634348</item>
 	</item>
 	<item>
 		<count>3</count>
@@ -100,11 +100,11 @@
 	<item>
 		<count>5</count>
 		<item_version>0</item_version>
-		<item>-0.13758542421599648</item>
-		<item>0.61707840056139862</item>
-		<item>-0.0020600606746695471</item>
-		<item>0.0023580981186576526</item>
-		<item>-0.9165814223318588</item>
+		<item>-0.13974347233543613</item>
+		<item>0.63590924129011617</item>
+		<item>-0.0020431731692630716</item>
+		<item>0.0024011678316408899</item>
+		<item>-0.96420264289390856</item>
 	</item>
 </stdvIRDistortionCoeff>
 <stdvRelativeRotaion>
@@ -113,23 +113,23 @@
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>0.99998662307085262</item>
-		<item>-0.0020103323548238939</item>
-		<item>-0.0047657363728584382</item>
+		<item>0.99998669852519717</item>
+		<item>-0.0019475500891430542</item>
+		<item>-0.0047759628690645659</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>0.0020347024717825043</item>
-		<item>0.99998485190382913</item>
-		<item>0.0051142886825307557</item>
+		<item>0.0019675694482154341</item>
+		<item>0.99998928379449481</item>
+		<item>0.0041905807043681837</item>
 	</item>
 	<item>
 		<count>3</count>
 		<item_version>0</item_version>
-		<item>0.0047553827610151266</item>
-		<item>-0.0051239171246311374</item>
-		<item>0.99997556560552825</item>
+		<item>0.0047677503230406032</item>
+		<item>-0.0041999220020915396</item>
+		<item>0.99997981440228756</item>
 	</item>
 </stdvRelativeRotaion>
 <stdvRelativeTranslation>
@@ -138,17 +138,17 @@
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.026567302620235076</item>
+		<item>0.026567272452065763</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>-0.0006701983420351451</item>
+		<item>-0.00041618701654952487</item>
 	</item>
 	<item>
 		<count>1</count>
 		<item_version>0</item_version>
-		<item>0.0005948531928212427</item>
+		<item>-0.00098220090527399587</item>
 	</item>
 </stdvRelativeTranslation>
 </boost_serialization>

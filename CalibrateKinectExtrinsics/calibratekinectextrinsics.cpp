@@ -39,7 +39,7 @@ void CCalibrateKinectExtrinsics::convertDepth ()
 
 void CCalibrateKinectExtrinsics::mainFunc ( const boost::filesystem::path& cFullPath_ )
 {
-	_strFullPath = cFullPath_.file_string();
+	_strFullPath = cFullPath_.string();
 
 	parseControlYAML();
 
