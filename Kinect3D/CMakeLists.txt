@@ -1,8 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (Kinect3D)
 
-include_directories ( "../ShudaLib" )
-link_directories ( "../ShudaLib" )
+include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
+link_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
 
 include_directories ( "/usr/local/include/eigen3" )
 include_directories ( "/usr/include/ni" )
