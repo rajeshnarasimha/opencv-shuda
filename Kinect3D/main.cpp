@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 #include <boost/lexical_cast.hpp>
-#include <btl/Utility/Converters.hpp>
-#include <btl/extra/VideoSource/VideoSourceKinect.hpp>
+#include "Converters.hpp"
+#include "VideoSourceKinect.hpp"
 //camera calibration from a sequence of images
 
 using namespace btl; //for "<<" operator
