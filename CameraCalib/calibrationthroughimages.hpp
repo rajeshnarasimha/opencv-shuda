@@ -8,7 +8,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <btl/Utility/Converters.hpp>
+#include <Converters.hpp>
 //#include <btl/Camera/CameraModel.hpp>
 using namespace btl;
 using namespace utility;
@@ -21,8 +21,8 @@ class CCalibrationThroughImages
 public:
     CCalibrationThroughImages()
     {
-        _NUM_CORNERS_X = 11;
-        _NUM_CORNERS_Y = 7;
+        _NUM_CORNERS_X = 8;
+        _NUM_CORNERS_Y = 6;
         _X = .02f;
         _Y = .02f;
         _dNear = 0.01;

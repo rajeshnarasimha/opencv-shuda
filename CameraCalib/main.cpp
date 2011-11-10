@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include "calibrationthroughimages.hpp"
-#include <btl/Utility/Converters.hpp>
+#include <Converters.hpp>
 #include <GL/freeglut.h>
 //camera calibration from a sequence of images
 
@@ -767,7 +767,7 @@ int main ( int argc, char** argv )
         glutInitWindowSize ( cC.imageResolution() ( 0 ), cC.imageResolution() ( 1 ) );
         glutCreateWindow ( "CameraPose" );
         init();
-
+        cout<< "after init()\n"<<flush;
         glutKeyboardFunc( processNormalKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );

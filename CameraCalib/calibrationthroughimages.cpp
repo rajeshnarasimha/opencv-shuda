@@ -11,7 +11,7 @@ namespace shuda
 void CCalibrationThroughImages::main ( const boost::filesystem::path& cFullPath_ )
 {
     //load depth camera intrinsics
-    initializeDepthIntrinsics();
+    //initializeDepthIntrinsics();
 
     //load images
     loadImages ( cFullPath_ );
@@ -36,13 +36,13 @@ void CCalibrationThroughImages::main ( const boost::filesystem::path& cFullPath_
     undistortImages();
     //std::cout << " undistortImages(); \n";
     
-    undistortDepthMaps();
+    //undistortDepthMaps();
 
     save();
     //std::cout << "saved \n" ; 
 
     load();
-    //std::cout << "loaded \n" ;
+    std::cout << "loaded \n" ;
 
     return;
 }
@@ -67,13 +67,13 @@ void CCalibrationThroughImages::loadImages ( const boost::filesystem::path& cFul
     //check the cFullPathz
     if ( !boost::filesystem::exists ( cFullPath_ ) )
     {
-        CError cE; cE << CErrorInfo ( "Not found: " ) << CErrorInfo ( cFullPath_.file_string() ) << CErrorInfo ( "\n" );
+        CError cE; cE << CErrorInfo ( "Not found: " ) << CErrorInfo ( cFullPath_.string() ) << CErrorInfo ( "\n" );
         throw cE;
     }
 
     if ( !boost::filesystem::is_directory ( cFullPath_ ) )
     {
-        CError cE; cE << CErrorInfo ( "Not a directory: " ) << CErrorInfo ( cFullPath_.file_string() ) << CErrorInfo ( "\n" );
+        CError cE; cE << CErrorInfo ( "Not a directory: " ) << CErrorInfo ( cFullPath_.string() ) << CErrorInfo ( "\n" );
         throw cE;
     }
 
@@ -82,16 +82,20 @@ void CCalibrationThroughImages::loadImages ( const boost::filesystem::path& cFul
 
     string strPathName  = cFullPath_.string();
 
-    for(int i = 1; i < 15; i++ )
+    for(int i = 0; i < 35; i++ )
     {
         string strNum = boost::lexical_cast<string> ( i );
         std::string strRGBFileName = strPathName + "rgb" + strNum + ".bmp"; //saved into the folder from which the KinectCalibrationDemo is being run.
-        std::string strDepFileName = strPathName + "depth" + strNum + ".bmp"; 
+        std::string strDepFileName = strPathName + "ir" + strNum + ".bmp"; 
         _vImages.push_back( cv::imread( strRGBFileName ) );
         _vDepthMaps.push_back( cv::imread( strDepFileName ) );
         _vstrImagePathName.push_back( strRGBFileName );
         _vstrDepthPathName.push_back( strDepFileName );
+        cout << strRGBFileName << " loaded. " << endl << flush;
+        cout << strDepFileName << " loaded. " << endl << flush;
     }
+
+
 
 /*
     //load all images in a folder
@@ -124,6 +128,7 @@ void CCalibrationThroughImages::locate2DCorners()
         cv::Mat& cvFrame = _vImages[i] ;
 
         std::vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
+        /*
         //locate corners roughly
         bool _bChessBoardCornersFoundThisFrame = cv::findChessboardCorners ( cvFrame, boardSize, vCurrentCorners, CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FILTER_QUADS );
 
@@ -133,11 +138,24 @@ void CCalibrationThroughImages::locate2DCorners()
             cE << CErrorInfo ( " No corners are found.\n" );
             throw cE;
         }
+        */
+        //cv::Size patternSize(4,11);
+
+        bool _bChessBoardCornersFoundThisFrame =
+            cv::findCirclesGrid( cvFrame, boardSize, vCurrentCorners, CALIB_CB_CLUSTERING | CALIB_CB_SYMMETRIC_GRID);
+        if ( !_bChessBoardCornersFoundThisFrame )
+        {
+            CError cE;
+            string strNum = boost::lexical_cast<string> ( i );
+            string strError = strNum + " No circles are found.\n";
+            cE << CErrorInfo ( strError.c_str() );
+            throw cE;
+        }
 
         //locate corners in sub-pixel level
         cv::Mat cvFrameGrey;
         cv::cvtColor ( cvFrame, cvFrameGrey, CV_BGR2GRAY );
-        cv::cornerSubPix ( cvFrameGrey, vCurrentCorners, cv::Size ( 11, 11 ), cv::Size ( -1, -1 ), cv::TermCriteria ( CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1 ) );
+        //cv::cornerSubPix ( cvFrameGrey, vCurrentCorners, cv::Size ( 11, 11 ), cv::Size ( -1, -1 ), cv::TermCriteria ( CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1 ) );
         //cv::drawChessboardCorners ( cvFrame, boardSize, vCurrentCorners, _bChessBoardCornersFoundThisFrame );//draw corners
 
         //store the corners inpto a vector
@@ -188,14 +206,14 @@ void CCalibrationThroughImages::calibrate ()
     cv::invert( _mK, _mInvK, DECOMP_SVD );
 
     //output calibration results
-//    std::cout << "Camera calibrated." << std::endl;
-/*    PRINT( _mK );
+    std::cout << "Camera calibrated." << std::endl;
+    PRINT( _mK );
     PRINT( _mDistCoeffs );
     PRINT( dBackProjectError );
     PRINT( _mK.type() );
     PRINT( _mDistCoeffs.type() );
     PRINT( _vmRotationVectors[0].type() );
-    PRINT( _vmTranslationVectors[0].type() ); */
+    PRINT( _vmTranslationVectors[0].type() ); 
 }
 
 /**
