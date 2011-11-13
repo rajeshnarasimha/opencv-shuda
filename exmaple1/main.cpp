@@ -2,24 +2,23 @@
 #include <opencv/highgui.h>
 #include <opencv/cv.h>
 #include <iostream>
+//#include <btl/extra/VideoSource/calibratekinect.hpp>
 /*
-#include <btl/extra/VideoSource/calibratekinect.hpp>
-
 using namespace btl;
 using namespace extra;
 using namespace videosource;
-
+*/
 int main( int argc, char** argv )
 {
 	cv::Mat img = cv::imread( argv[1] );
 	cv::Mat result;
-
+/*
 	CCalibrateKinect _cCalibKinect;
 	_cCalibKinect.importKinectIntrinsics();
 
 	_cCalibKinect.undistortRGB( img, result );
 //	cv::remap ( img, result, mapX, mapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
-
+*/
     cv::namedWindow ( "myWindow", 1 );
     while ( true )
     {
@@ -31,7 +30,7 @@ int main( int argc, char** argv )
         }
     }
 }
-*/
+/*
 #include <opencv/highgui.h>
 #include <iostream>
 
@@ -46,4 +45,5 @@ int main( int argc, char** argv )
     cvReleaseImage( &img ); 
     cvDestroyWindow( "Example1" );
 }
+*/
 
