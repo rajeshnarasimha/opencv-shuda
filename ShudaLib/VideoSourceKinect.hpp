@@ -9,7 +9,7 @@
 * @date 2011-03-17
 */
 #include <stdexcept>
-#include <calibratekinect.hpp>
+#include "calibratekinect.hpp"
 #include <XnCppWrapper.h>
 #include <opencv/highgui.h>
 using namespace xn;

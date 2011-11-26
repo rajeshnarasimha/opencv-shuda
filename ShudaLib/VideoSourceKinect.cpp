@@ -5,8 +5,8 @@
 * @version 1.0
 * @date 2011-02-23
 */
-#include <VideoSourceKinect.hpp>
-#include <Converters.hpp>
+#include "VideoSourceKinect.hpp"
+#include "Converters.hpp"
 #include <iostream>
 #include <cassert>
 #include <string>
