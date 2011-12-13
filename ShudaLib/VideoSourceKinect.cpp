@@ -123,10 +123,17 @@ void VideoSourceKinect::getNextFrame()
 	undistortRGB( _cvImage, _cvUndistImage );
 	undistortRGB( _cvDepth, _cvUndistDepth );
 	cvtColor( _cvUndistImage, _cvmUndistBW, CV_RGB2GRAY );
-	// filter out depth noise
-	btl::utility::filterDepth <unsigned short> ( (unsigned short)_dThreshouldDepth, (Mat_<unsigned short>)_cvUndistDepth, (Mat_<unsigned short>*)&_cvUndistFilteredDepth );
-	// register the depth with rgb image
-	registration( (const unsigned short*)_cvUndistFilteredDepth.data );
+    if( _bFilterEnabled )
+    {
+    	// filter out depth noise
+	    btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (Mat_<unsigned short>)_cvUndistDepth, (Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+    	// register the depth with rgb image
+	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
+    }
+    else
+    {
+        registration( (const unsigned short*)_cvUndistDepth.data );
+    }
 
 // timer off
 //	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
