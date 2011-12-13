@@ -28,7 +28,7 @@ struct Frame
     cv::Mat       _cvDepth;
 };
 
-
+//CCalibrateKinect is help to load camera parameters from 
 class VideoSourceKinect : public CCalibrateKinect
 {
 

@@ -74,6 +74,10 @@ public:
 		}
 	}
 
+//controller
+    void setFilter( bool bFilterEnabled_ ) { _bFilterEnabled = bFilterEnabled_; }
+    void setDepthFilterThreshold( double dThreshold_ ) { _dThresholdDepth = dThreshold_; } // default in 10 
+
 //retriever:
 	const double* 				registeredDepth() const {return _pRGBWorldRGB; }	
     const Mat&                  rgbImage (unsigned int nView_)      const {return _vRGBs[nView_];}
@@ -231,7 +235,8 @@ protected:
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
 //paramters
-	double _dThreshouldDepth;
+	double _dThresholdDepth;
+    bool _bFilterEnabled;
 public:
 
 	// duplicated camera parameters for speed up the code. because Eigen and cv matrix class is very slow.

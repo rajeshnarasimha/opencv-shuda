@@ -1491,9 +1491,9 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 }
 
 template< class T >
-void filterDepth ( const T& dThreshould_, const Mat_ < T >& cvmDepth_, Mat_< T >* pcvmDepthNew_ )
+void filterDepth ( const double& dThreshould_, const Mat_ < T >& cvmDepth_, Mat_< T >* pcvmDepthNew_ )
 {
-//	PRINT( dThreshould_ );
+	//PRINT( dThreshould_ );
     pcvmDepthNew_->create ( cvmDepth_.size() );
 
     for ( int y = 0; y < cvmDepth_.rows; y++ )

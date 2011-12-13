@@ -26,7 +26,8 @@ CCalibrateKinect::CCalibrateKinect()
     importKinectIntrinsics();
 
     //definition of parameters
-    _dThreshouldDepth = 10;
+    _dThresholdDepth = 10;
+    _bFilterEnabled = false;
 
     // allocate memory for later use ( registrate the depth with rgb image
     _pPxDIR   = new unsigned short[ 307200*3 ]; //2D coordinate along with depth for ir image
