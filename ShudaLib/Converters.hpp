@@ -1506,38 +1506,39 @@ void filterDepth ( const double& dThreshould_, const Mat_ < T >& cvmDepth_, Mat_
                 continue;
             }
 
-            int c = cvmDepth_.template at< T > ( y, x   );
-            int cl = cvmDepth_.template at< T > ( y, x - 1 );
+            T c = cvmDepth_.template at< T > ( y, x   );
+            T cl = cvmDepth_.template at< T > ( y, x - 1 );
 
-            if ( abs ( c - cl ) < dThreshould_ )
+            if ( fabs ( c - cl ) < dThreshould_ )
             {
-                int cr = cvmDepth_.template at< T > ( y, x + 1 );
+                //PRINT( fabs( c-cl ) );
+                T cr = cvmDepth_.template at< T > ( y, x + 1 );
 
-                if ( abs ( c - cr ) < dThreshould_ )
+                if ( fabs ( c - cr ) < dThreshould_ )
                 {
-                    int cu = cvmDepth_.template at< T > ( y - 1, x );
+                    T cu = cvmDepth_.template at< T > ( y - 1, x );
 
-                    if ( abs ( c - cu ) < dThreshould_ )
+                    if ( fabs ( c - cu ) < dThreshould_ )
                     {
-                        int cb = cvmDepth_.template at< T > ( y + 1, x );
+                        T cb = cvmDepth_.template at< T > ( y + 1, x );
 
-                        if ( abs ( c - cb ) < dThreshould_ )
+                        if ( fabs ( c - cb ) < dThreshould_ )
                         {
-                            int cul = cvmDepth_.template at< T > ( y - 1, x - 1 );
+                            T cul = cvmDepth_.template at< T > ( y - 1, x - 1 );
 
-                            if ( abs ( c - cul ) < dThreshould_ )
+                            if ( fabs ( c - cul ) < dThreshould_ )
                             {
-                                int cur = cvmDepth_.template at< T > ( y - 1, x + 1 );
+                                T cur = cvmDepth_.template at< T > ( y - 1, x + 1 );
 
-                                if ( abs ( c - cur ) < dThreshould_ )
+                                if ( fabs ( c - cur ) < dThreshould_ )
                                 {
-                                    int cbl = cvmDepth_.template at< T > ( y + 1, x - 1 );
+                                    T cbl = cvmDepth_.template at< T > ( y + 1, x - 1 );
 
-                                    if ( abs ( c - cbl ) < dThreshould_ )
+                                    if ( fabs ( c - cbl ) < dThreshould_ )
                                     {
-                                        int cbr = cvmDepth_.template at< T > ( y + 1, x + 1 );
+                                        T cbr = cvmDepth_.template at< T > ( y + 1, x + 1 );
 
-                                        if ( abs ( c - cbr ) < dThreshould_ )
+                                        if ( fabs ( c - cbr ) < dThreshould_ )
                                         {
                                             pcvmDepthNew_ ->template at< T > ( y, x ) = c;
                                             //PRINT( y );
@@ -1554,6 +1555,7 @@ void filterDepth ( const double& dThreshould_, const Mat_ < T >& cvmDepth_, Mat_
 
     return;
 }
+
 template< class T >
 T FindShiTomasiScoreAtPoint ( cv::Mat& img_, const int& nHalfBoxSize_ , const int& nX_, const int& nY_ )
 {
@@ -1583,6 +1585,54 @@ T FindShiTomasiScoreAtPoint ( cv::Mat& img_, const int& nHalfBoxSize_ , const in
     // Find and return smaller eigenvalue:
     return 0.5 * ( dXX + dYY - sqrt ( ( dXX + dYY ) * ( dXX + dYY ) - 4 * ( dXX * dYY - dXY * dXY ) ) );
 };
+
+template< class T1, class T2>
+void convert2DisparityDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisparity_)
+{
+    const T1* pInputDepth = (T1*)cvDepth_.data;
+    T2* pOutputDisparity = (T2*)pcvDisparity_->data;
+    for ( unsigned int y = 0; y < cvDepth_.rows; y++ )
+    {
+        for ( unsigned int x = 0; x < cvDepth_.cols; x++ )
+        {
+            *pOutputDisparity++ = 1./(*pInputDepth++);
+        }
+    }
+    return;
+}
+
+template< class T1, class T2>
+void convert2DepthDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisparity_)
+{
+    const T1* pInputDepth = (T1*)cvDepth_.data;
+    T2* pOutputDisparity = (T2*)pcvDisparity_->data;
+    for ( unsigned int y = 0; y < cvDepth_.rows; y++ )
+    {
+        for ( unsigned int x = 0; x < cvDepth_.cols; x++ )
+        {
+            *pOutputDisparity++ = (T2)(1./(*pInputDepth++)+.5);
+        }
+    }
+    return;
+}
+
+template< class T > 
+void bilateralFiltering( const cv::Mat_<T>& cvmSrc_, double dSigmaSpace_, double dSigmaRange_, cv::Mat_<T>* pcvmDst_)
+{
+    unsigned int uSize = (unsigned int)(dSigmaSpace_+.5)*2;
+    cv::Mat_<T> cmSpaceKernel(uSize,uSize);
+    
+    
+    return;
+}
+
+
+
+template< class T >
+void gaussianKernel( double dSigmaSpace, unsigned int& uSize_, cv::Mat_<T>* pcvmKernel_ )
+{
+    
+}
 
 
 //template< class T >

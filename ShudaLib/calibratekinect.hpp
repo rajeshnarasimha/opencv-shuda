@@ -75,7 +75,6 @@ public:
 	}
 
 //controller
-    void setFilter( bool bFilterEnabled_ ) { _bFilterEnabled = bFilterEnabled_; }
     void setDepthFilterThreshold( double dThreshold_ ) { _dThresholdDepth = dThreshold_; } // default in 10 
 
 //retriever:
@@ -236,7 +235,6 @@ protected:
 	boost::posix_time::time_duration _cTDAll;
 //paramters
 	double _dThresholdDepth;
-    bool _bFilterEnabled;
 public:
 
 	// duplicated camera parameters for speed up the code. because Eigen and cv matrix class is very slow.

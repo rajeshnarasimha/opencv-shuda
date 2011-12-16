@@ -82,7 +82,7 @@ void CCalibrationThroughImages::loadImages ( const boost::filesystem::path& cFul
 
     string strPathName  = cFullPath_.string();
 
-    for(int i = 0; i < 35; i++ )
+    for(int i = 1; i < 35; i++ )
     {
         string strNum = boost::lexical_cast<string> ( i );
         std::string strRGBFileName = strPathName + "rgb" + strNum + ".bmp"; //saved into the folder from which the KinectCalibrationDemo is being run.
