@@ -3,8 +3,8 @@
 
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
-#include <btl/Utility/Converters.hpp>
-#include <btl/extra/VideoSource/VideoSourceKinect.hpp>
+#include <Converters.hpp>
+#include <VideoSourceKinect.hpp>
 #include <fstream>
 #include <boost/serialization/vector.hpp>
 #include <boost/archive/xml_iarchive.hpp>

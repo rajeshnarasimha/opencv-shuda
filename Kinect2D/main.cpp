@@ -2,9 +2,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <boost/lexical_cast.hpp>
-#include <btl/Utility/Converters.hpp>
-#include <btl/extra/VideoSource/VideoSourceKinect.hpp>
+#include <Converters.hpp>
+#include <VideoSourceKinect.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <algorithm>
 #include <utility>

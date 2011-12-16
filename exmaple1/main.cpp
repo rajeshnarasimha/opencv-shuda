@@ -2,6 +2,9 @@
 #include <opencv/highgui.h>
 #include <opencv/cv.h>
 #include <iostream>
+#include "Converters.hpp"
+using namespace btl::utility;
+
 //#include <btl/extra/VideoSource/calibratekinect.hpp>
 /*
 using namespace btl;
@@ -12,7 +15,15 @@ int main( int argc, char** argv )
 {
 	cv::Mat img = cv::imread( argv[1] );
 	cv::Mat result;
-/*
+    cv::Mat cvmKernel;//(21,21,CV_64F);
+    cvmKernel = getGaussianKernel(21, -10. );
+
+    PRINT( cvmKernel );
+    PRINT( cvmKernel.rows );
+    PRINT( cvmKernel.cols );
+
+    cv::GaussianBlur(img, result, cv::Size(21,21), 0, 0);
+/* 
 	CCalibrateKinect _cCalibKinect;
 	_cCalibKinect.importKinectIntrinsics();
 

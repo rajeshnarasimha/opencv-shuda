@@ -1,5 +1,6 @@
 // open an avi file 
 // ./Exe filename.avi
+// it also capable of open a .mkv file
 
 #include <opencv/highgui.h>
 

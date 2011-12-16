@@ -3,8 +3,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <btl/extra/VideoSource/calibratekinect.hpp>
-#include <btl/Utility/Converters.hpp>
+#include "calibratekinect.hpp"
+#include "Converters.hpp"
 #include <GL/freeglut.h>
 //camera calibration from a sequence of images
 
@@ -78,7 +78,6 @@ GLuint LoadTexture ( const cv::Mat& img )
 void init ( void )
 {
     _mGLMatrix = Matrix4d::Identity();
-
 
     for ( unsigned int n = 0; n < cKinectCalib.views(); n++ )
     {
@@ -158,7 +157,6 @@ void placeCameraInWorldCoordinate ( unsigned int uNthView_, int nType_, int nMet
 {
     GLuint uTexture;
 
-    glPushMatrix();
     Eigen::Vector3d vT;
     Eigen::Matrix3d mR;
 
@@ -168,13 +166,13 @@ void placeCameraInWorldCoordinate ( unsigned int uNthView_, int nType_, int nMet
         {
             vT = cKinectCalib.eiVecIRT ( uNthView_ );
             mR = cKinectCalib.eiMatIRR ( uNthView_ );
-			//cout << "vT mR are successfully retrieved. method 1 "; 
+            //cout << "vT mR are successfully retrieved. method 1 ";
         }
         else if ( 2 == nMethod_ )
         {
             vT = cKinectCalib.eiMatRelativeRotation() *  cKinectCalib.eiVecRGBT ( uNthView_ ) + cKinectCalib.eiVecRelativeTranslation();
             mR = cKinectCalib.eiMatRelativeRotation() *  cKinectCalib.eiMatRGBR ( uNthView_ );
-			//cout << "vT mR are successfully retrieved. method 2 "; 
+            //cout << "vT mR are successfully retrieved. method 2 ";
         }
 
         uTexture = _vuTexture[0][uNthView_];
@@ -184,21 +182,22 @@ void placeCameraInWorldCoordinate ( unsigned int uNthView_, int nType_, int nMet
         vT = cKinectCalib.eiVecRGBT ( uNthView_ );
         mR = cKinectCalib.eiMatRGBR ( uNthView_ );
         uTexture = _vuTexture[1][uNthView_];
-		//cout << "vT mR for RGB camera retrieved. ";
+        //cout << "vT mR for RGB camera retrieved. ";
     }
     else
     {
         THROW ( " Unrecognized camera type.\n" );
     }
+    glPushMatrix(); //save current model view matrix
 
     Eigen::Matrix4d mGLM = setOpenGLModelViewMatrix ( mR, vT );
     mGLM = mGLM.inverse().eval();
-    glMultMatrixd ( mGLM.data() );
+    glMultMatrixd ( mGLM.data() ); // C*M^{-1} this supposes to rotate the camera rendered around the origin to its places 
 
     glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
     glBindTexture ( GL_TEXTURE_2D, uTexture );
     //render camera
-    renderCamera ( nType_ );
+    renderCamera ( nType_ ); // render a camera around the origin
     glPopMatrix();
 }
 
@@ -220,26 +219,18 @@ void renderCamera ( int nType_ )
     }
 
     const double u = mK ( 0, 2 );
-
     const double v = mK ( 1, 2 );
-
     const double f = ( mK ( 0, 0 ) + mK ( 1, 1 ) ) / 2.;
-
     const double dW = cKinectCalib.imageResolution() ( 0 );
-
     const double dH = cKinectCalib.imageResolution() ( 1 );
 
     // Draw principle point
-    double dPhysicalFocalLength = .02;
-
+    double dPhysicalFocalLength = .03;
     double dT =  v;
 
     dT /= f;
-
     dT *= dPhysicalFocalLength;
-
     double dB =  v - dH;
-
     dB /= f;
 
     dB *= dPhysicalFocalLength;
@@ -372,7 +363,7 @@ void renderCamera ( int nType_ )
 }
 void display ( void )
 {
-	//cout << "display () \n";
+    //cout << "display () \n";
     glClearColor ( 0, 0, 0, 1 );
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -392,15 +383,15 @@ void display ( void )
     // render objects
     renderAxis();
     renderPattern();
-	//cout << "renderPattern() done.";
+    //cout << "renderPattern() done.";
     // render cameras
-    for ( unsigned int i = 0; i < cKinectCalib.views(); i++ )
+    for ( unsigned int i = 0; i <cKinectCalib.views(); i++ ) // cKinectCalib.views();
     {
         placeCameraInWorldCoordinate ( i, RGB_CAMERA );
-		//cout << "placeCameraInWorldCoordinate(RGB_CAMERA) done.";
+        //cout << "placeCameraInWorldCoordinate(RGB_CAMERA) done.";
         //placeCameraInWorldCoordinate(i, IR_CAMERA );
         placeCameraInWorldCoordinate ( i, IR_CAMERA, 2 );
-		//cout << "placeCameraInWorldCoordinate(IR_CAMERA) done.";
+        //cout << "placeCameraInWorldCoordinate(IR_CAMERA) done.";
     }
 
     glutSwapBuffers();
@@ -500,7 +491,6 @@ void setExtrinsics ( unsigned int uNthView_, int nType_, int nMethod_ = 1 )
         vT = cKinectCalib.eiVecRGBT ( uNthView_ );
         mR = cKinectCalib.eiMatRGBR ( uNthView_ );
     }
-
 
     _mGLMatrix = setOpenGLModelViewMatrix ( mR, vT );
 
@@ -742,13 +732,13 @@ int main ( int argc, char** argv )
     try
     {
         cKinectCalib.mainFunc ( cFullPath );
-		cout << "calibration done.\n"<< flush;
+        cout << "calibration done.\n"<< flush;
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( cKinectCalib.imageResolution() ( 0 ), cKinectCalib.imageResolution() ( 1 ) );
         glutCreateWindow ( "CameraPose" );
         init();
-		cout << "init() done. \n" << flush;
+        cout << "init() done. \n" << flush;
 
         glutKeyboardFunc ( processNormalKeys );
         glutMouseFunc   ( mouseClick );
