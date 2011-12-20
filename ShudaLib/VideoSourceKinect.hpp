@@ -54,7 +54,7 @@ public:
        Exception(const std::string& str) : std::runtime_error(str) {}
     };
 
-    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW } _eMethod;
+    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW } _eMethod;
 
 protected:
     Eigen::Vector2i _frameSize;
@@ -71,6 +71,11 @@ protected:
 	cv::Mat 	  _cvUndistDepth;
 	cv::Mat 	  _cvUndistFilteredDepth;
 	cv::Mat 	  _cvmUndistBW;
+public:
+    std::vector< Eigen::Vector3d > _vPts;
+    std::vector< Eigen::Vector3d > _vNormals;
+    vector<const unsigned char*> _vColors;
+    cv::Mat _cvColor;
 
 };
 
