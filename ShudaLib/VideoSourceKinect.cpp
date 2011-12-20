@@ -74,6 +74,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	//_pcvUndistImage =new cv::Mat( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
     //_pcvUndistDepth= new cv::Mat( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
     _eMethod = C1_CONTINUITY;
+    _cvColor.create( 480, 640, CV_8UC3 );
 	cout << " Done. " << endl;
 }
 
@@ -157,8 +158,12 @@ void VideoSourceKinect::getNextFrame()
     	    btl::utility::convert2DepthDomain< double, unsigned short >( cvThersholdDisparity,(Mat_<unsigned short>*)&_cvUndistFilteredDepth );
               // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
-
-            //registration( (const unsigned short*)_cvUndistDepth.data );
+            break;
+        case NEW:
+            // filter out depth noise
+            //cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(5,5), 0, 0); // filter size has to be an odd number.
+            registration( (const unsigned short*)_cvUndistDepth.data );
+            normalEstimation<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
             break;
     }
 
