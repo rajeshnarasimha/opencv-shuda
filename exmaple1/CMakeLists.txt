@@ -1,20 +1,36 @@
-cmake_minimum_required (VERSION 2.6)
-project (ImageViewer)
+PROJECT( example )
+cmake_minimum_required(VERSION 2.8)
+FIND_PACKAGE( OpenCV REQUIRED )
+ADD_EXECUTABLE( example main.cpp )
+TARGET_LINK_LIBRARIES( example ${OpenCV_LIBS} )
+install( TARGETS example DESTINATION "${PROJECT_SOURCE_DIR}" )
 
-#include_directories ( "d:/MinGW/msys/1.0/home/sdli/install/opencv/build/include" )
-#link_directories ( "d:/MinGW/msys/1.0/home/sdli/install/opencv/build/x86/mingw/lib" )
-include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
-link_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
-link_directories ( "/usr/lib" )
-include_directories ( "/usr/local/include/eigen3" )
+
+
+#cmake_minimum_required (VERSION 2.6)
+#project (example)
+
+#find_package (OpenCV COMPONENTS opencv_highgui232)
+#if ( NOT OpenCV_FOUND )
+#  message(FATAL_ERROR "Package OpenCV and component opencv_highgui required, but not found!")
+#endif( NOT OpenCV_FOUND )
+
+
+#if (OpenCV_FOUND)
+#	include_directories(${OpenCV_INCLUDE_DIRS})
+#	add_executable(AVIPlayer main.cpp)
+#	target_link_libraries (AVIPlayer opencv_highgui232)
+#endif (OpenCV_FOUND)
+
+#include_directories ( "C:/csxsl/install/opencv_231/build/install/install/include" )
+#link_directories ( "C:/csxsl/install/opencv_231/build/install/lib/Debug" "C:/csxsl/install/opencv_231/build/lib/Release" )
+
+
+
 
 # set collection of libraries
-#set ( EXTRA_LIBS ${EXTRA_LIBS} opencv_highgui231.dll opencv_core231.dll)
-set ( EXTRA_LIBS ${EXTRA_LIBS} ShudaLib opencv_core opencv_highgui opencv_calib3d opencv_features2d opencv_video opencv_imgproc )
+#set ( EXTRA_LIBS ${EXTRA_LIBS} opencv_highgui231.dll)
 
-add_executable(ImageViewer main.cpp)
+#add_executable(AVIPlayer main.cpp)
 # link with the 3d party libraries
-target_link_libraries( ImageViewer ${EXTRA_LIBS} )
-
-
-
+#target_link_libraries( AVIPlayer ${EXTRA_LIBS} )
