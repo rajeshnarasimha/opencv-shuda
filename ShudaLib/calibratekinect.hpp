@@ -126,6 +126,7 @@ public:
     const string                depthPathName(unsigned int nView_)  const {return _vstrIRPathName[nView_];}
     void exportKinectIntrinsics();
     void importKinectIntrinsics();
+	void importKinectIntrinsicsYML();
     void undistortImages(const vector< Mat >& vImages_,  const Mat_<double>& cvmK_, const Mat_<double>& cvmInvK_, const Mat_<double>& cvmDistCoeffs_, vector< Mat >* pvRGBUndistorted ) const;
 	void undistortRGB(const Mat& cvmRGB_, Mat& Undistorted_ ) const;
 	void undistortIR (const Mat& cvmIR_, Mat& Undistorted_ ) const;
@@ -151,7 +152,6 @@ protected:
     void convertRV2RM(const vector< Mat >& vMat_, vector< Mat >* pvMat_ ) const;
 	void generateMapXY4UndistortRGB();
 	void generateMapXY4UndistortIR ();
-	void computeFundamental();
 
     virtual void save();
     virtual void load();

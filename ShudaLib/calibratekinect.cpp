@@ -7,7 +7,7 @@
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <map>
-
+using namespace cv;
 
 namespace btl
 {
@@ -23,7 +23,8 @@ CCalibrateKinect::CCalibrateKinect()
     _X = .03f;
     _Y = .03f;
 
-    importKinectIntrinsics();
+    //importKinectIntrinsics();// obsolete
+	importKinectIntrinsicsYML();
 
     //definition of parameters
     _dThresholdDepth = 10;
@@ -338,7 +339,8 @@ void CCalibrateKinect::mainFunc ( const boost::filesystem::path& cFullPath_ )
 
     exportKinectIntrinsics();
 	cout << " intrinsics exported \n" ;
-    importKinectIntrinsics();
+    //importKinectIntrinsics();//obsolete
+	importKinectIntrinsicsYML();
 	cout << " intrinsics imported \n" ;
     return;
 }
@@ -772,7 +774,51 @@ void CCalibrateKinect::load()
 
     return;
 }
+/*
+void CCalibrateKinect::exportKinectIntrinsicsYML()
+{
+	//cout << " exportKinectIntrinsics() \n"<< flush;
+	// create and open a character archive for output
+	std::ofstream ofs ( "kinect_intrinsics.xml" );
+	boost::archive::xml_oarchive oa ( ofs );
 
+	//convert non-standard variables into vectors
+
+	//rgb
+	vector< vector< double > > stdvRGBKMatrix;
+	vector< vector< double > > stdvRGBDistortionCoeff;
+	//ir
+	vector< vector< double > > stdvIRKMatrix;
+	vector< vector< double > > stdvIRDistortionCoeff;
+	//both
+	vector< vector< int > >    stdvImageResolution;
+	vector< vector< double > > stdvRelativeRotaion;
+	vector< vector< double > > stdvRelativeTranslation;
+
+	//rgb
+	stdvRGBKMatrix          << _mRGBK;
+	stdvRGBDistortionCoeff  << _mRGBDistCoeffs;
+	//ir
+	stdvIRKMatrix           << _mIRK;
+	stdvIRDistortionCoeff   << _mIRDistCoeffs;
+	//both
+	stdvImageResolution     << _vImageResolution;
+	stdvRelativeRotaion     << _cvmRelativeRotation;
+	stdvRelativeTranslation << _cvmRelativeTranslation;
+
+
+	oa << BOOST_SERIALIZATION_NVP ( stdvImageResolution );
+	oa << BOOST_SERIALIZATION_NVP ( stdvRGBKMatrix );
+	oa << BOOST_SERIALIZATION_NVP ( stdvRGBDistortionCoeff );
+	oa << BOOST_SERIALIZATION_NVP ( stdvIRKMatrix );
+	oa << BOOST_SERIALIZATION_NVP ( stdvIRDistortionCoeff );
+	oa << BOOST_SERIALIZATION_NVP ( stdvRelativeRotaion );
+	oa << BOOST_SERIALIZATION_NVP ( stdvRelativeTranslation );
+
+
+	return;
+}
+*/
 void CCalibrateKinect::exportKinectIntrinsics()
 {
 	//cout << " exportKinectIntrinsics() \n"<< flush;
@@ -816,16 +862,15 @@ void CCalibrateKinect::exportKinectIntrinsics()
 
     return;
 }
-void CCalibrateKinect::computeFundamental()
-{
-
-    return;
-}
 
 void CCalibrateKinect::importKinectIntrinsics()
 {
     // create and open a character archive for output
+#if __linux__
     std::ifstream ifs ( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.xml" );
+#else if _WIN32 || _WIN64
+	std::ifstream ifs ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.xml" );
+#endif
     boost::archive::xml_iarchive ia ( ifs );
 
     //convert non-standard variables into vectors
@@ -860,6 +905,52 @@ void CCalibrateKinect::importKinectIntrinsics()
     stdvImageResolution     >> _vImageResolution;
     stdvRelativeRotaion     >> _cvmRelativeRotation;
     stdvRelativeTranslation >> _cvmRelativeTranslation;
+
+    cv::invert ( _mRGBK, _mRGBInvK, DECOMP_SVD );
+    cv::invert ( _mIRK,  _mIRInvK,  DECOMP_SVD );
+
+    generateMapXY4UndistortRGB();
+    generateMapXY4UndistortIR();
+
+    _eimRGBK << _mRGBK;
+    _eimRGBInvK << _mRGBInvK;
+    _eimIRK  << _mIRK;
+    _eimIRInvK << _mIRInvK;
+    _eimRelativeRotation << _cvmRelativeRotation;
+    _eivRelativeTranslation << _cvmRelativeTranslation;
+
+    /*
+    	PRINT( _mRGBK );
+    	PRINT( _mRGBInvK );
+    	PRINT( _mRGBDistCoeffs );
+    	PRINT( _vImageResolution );
+    	PRINT( _mIRK );
+    	PRINT( _mIRInvK );
+    	PRINT( _mIRDistCoeffs );
+    */
+    return;
+}
+
+void CCalibrateKinect::importKinectIntrinsicsYML()
+{
+    // create and open a character archive for output
+#if __linux__
+    cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", FileStorage::READ );
+#else if _WIN32 || _WIN64
+	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", FileStorage::READ );
+#endif
+
+	cFSRead ["mRGBK"] >> _mRGBK;
+	cFSRead ["mRGBDistCoeffs"] >> _mRGBDistCoeffs;
+	cv::Mat_<int> _cvmImageResolution; std::vector<int> vTemp;
+	cFSRead ["cvmImageResolution"] >> _cvmImageResolution;
+	_cvmImageResolution >> vTemp;	vTemp >> _vImageResolution;
+	cFSRead ["mIRK"] >> _mIRK;
+	cFSRead ["mIRDistCoeffs"] >> _mIRDistCoeffs;
+	cFSRead ["cvmRelativeRotation"] >> _cvmRelativeRotation;
+	cFSRead ["cvmRelativeTranslation"] >> _cvmRelativeTranslation;
+
+	cFSRead.release();
 
     cv::invert ( _mRGBK, _mRGBInvK, DECOMP_SVD );
     cv::invert ( _mIRK,  _mIRInvK,  DECOMP_SVD );

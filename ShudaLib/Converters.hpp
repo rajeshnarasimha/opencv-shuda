@@ -27,6 +27,7 @@
 #include <boost/preprocessor/stringize.hpp>
 
 
+
 namespace btl
 {
 namespace utility
@@ -35,6 +36,7 @@ using namespace cv;
 using namespace std;
 using namespace Eigen;
 
+#define SMALL 1e-20 // a small value
 // based on boost stringize.hpp
 #define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << a << std::flush << std::endl;
 
@@ -356,7 +358,7 @@ Eigen::Matrix< T, ROW, 1 >& operator << ( Eigen::Matrix< T, ROW, 1 >& eiVec_, co
 }
 
 template < class T, int ROW >
-const vector< T >&  operator >> ( const vector< T >& vVec_, Eigen::Matrix< T, ROW, 1 >& eiVec_ )
+void  operator >> ( const vector< T >& vVec_, Eigen::Matrix< T, ROW, 1 >& eiVec_ )
 {
     eiVec_ << vVec_;
 }
@@ -535,6 +537,49 @@ vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const Mat_<
     }
 
     return vvVec_;
+}
+
+template < class T >
+Mat_< T >& operator << ( Mat_< T >& cvMat_,  const  vector< T >& vVec_ )
+{
+
+	if ( vVec_.empty() )
+	{
+		CError cE;
+		cE << CErrorInfo ( " the input vector<> cannot be empty.\n" );
+		throw cE;
+	}
+
+	cvMat_.create ( ( int ) vVec_.size(), 1 );
+
+	for ( int r = 0; r < ( int ) vVec_.size(); r++ )
+	{
+		cvMat_.template at< T > ( r, 0 ) = vVec_[r];
+	}
+
+	return cvMat_;
+}
+
+template < class T >
+void operator >> (  const  vector< T >& vVec_, Mat_< T >& cvMat_ )
+{
+	cvMat_ << vVec_;
+}
+
+template < class T >
+void operator << (  vector< T >& vVec_, const  Mat_< T >& cvMat_ )
+{
+	vVec_.clear();
+	for ( int r = 0; r < ( int ) cvMat_.rows*cvMat_.cols; r++ )
+	{
+		vVec_.push_back( cvMat_.template at< T > ( r, 0 ) );
+	}
+}
+
+template < class T >
+void operator >> (   const  Mat_< T >& cvMat_, vector< T >& vVec_  )
+{
+	vVec_ << cvMat_;
 }
 
 template < class T >
@@ -961,6 +1006,7 @@ template <class T>
 const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< Point3_< T > > >& vvPt_ )
 {
     vvPt_ << vvvVec_;
+	return vvvVec_;
 }
 
 // 2.1 vector -> Point_
@@ -982,6 +1028,7 @@ template <class T>
 const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< Point_< T > > >& vvPt_ )
 {
     vvPt_ << vvvVec_;
+	return vvvVec_;
 }
 
 // 3.1 vector < < > > -> Eigen::Dynamic, Matrix
@@ -996,6 +1043,7 @@ template < class T , int ROW, int COL>
 const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, Eigen::Matrix< T, ROW, COL >& eiMat_ )
 {
     eiMat_ << vvVec_;
+	return vvVec_;
 }
 
 // 4.1 vector -> Mat_
@@ -1003,6 +1051,7 @@ template < class T >
 const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_,  Mat_< T >& cvMat_ )
 {
     cvMat_ << vvVec_;
+	return vvVec_;
 }
 
 // 4.2 vector< < < > > > -> vector< Mat_<> >
@@ -1017,6 +1066,7 @@ template < class T >
 const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< Mat >& vmMat_ )
 {
     vmMat_ << vvvVec_;
+	return vvvVec_;
 }
 
 template< class T >
@@ -1509,36 +1559,36 @@ void filterDepth ( const double& dThreshould_, const Mat_ < T >& cvmDepth_, Mat_
             T c = cvmDepth_.template at< T > ( y, x   );
             T cl = cvmDepth_.template at< T > ( y, x - 1 );
 
-            if ( fabs ( c - cl ) < dThreshould_ )
+            if ( fabs ( double( c - cl ) ) < dThreshould_ )
             {
                 //PRINT( fabs( c-cl ) );
                 T cr = cvmDepth_.template at< T > ( y, x + 1 );
 
-                if ( fabs ( c - cr ) < dThreshould_ )
+                if ( fabs ( double( c - cr ) )< dThreshould_ )
                 {
                     T cu = cvmDepth_.template at< T > ( y - 1, x );
 
-                    if ( fabs ( c - cu ) < dThreshould_ )
+                    if ( fabs ( double( c - cu ) ) < dThreshould_ )
                     {
                         T cb = cvmDepth_.template at< T > ( y + 1, x );
 
-                        if ( fabs ( c - cb ) < dThreshould_ )
+                        if ( fabs ( double( c - cb ) ) < dThreshould_ )
                         {
                             T cul = cvmDepth_.template at< T > ( y - 1, x - 1 );
 
-                            if ( fabs ( c - cul ) < dThreshould_ )
+                            if ( fabs ( double( c - cul ) ) < dThreshould_ )
                             {
                                 T cur = cvmDepth_.template at< T > ( y - 1, x + 1 );
 
-                                if ( fabs ( c - cur ) < dThreshould_ )
+                                if ( fabs ( double( c - cur ) ) < dThreshould_ )
                                 {
                                     T cbl = cvmDepth_.template at< T > ( y + 1, x - 1 );
 
-                                    if ( fabs ( c - cbl ) < dThreshould_ )
+                                    if ( fabs ( double( c - cbl ) ) < dThreshould_ )
                                     {
                                         T cbr = cvmDepth_.template at< T > ( y + 1, x + 1 );
 
-                                        if ( fabs ( c - cbr ) < dThreshould_ )
+                                        if ( fabs ( double( c - cbr ) ) < dThreshould_ )
                                         {
                                             pcvmDepthNew_ ->template at< T > ( y, x ) = c;
                                             //PRINT( y );
@@ -1686,6 +1736,25 @@ void normalEstimation( const T1* pDepth_, const T2* pColor_, const unsigned int&
             pColor_+=3;
         }
     return;
+}
+
+template< class T>
+T matNormL1 ( const std::vector< T >& vMat1_, const std::vector< T >& vMat2_ )
+{
+	T tAccumDiff = 0;
+	for(unsigned int i=0; i < vMat1_.size(); i++ )
+	{
+		T tDiff = vMat1_[i] - vMat2_[i];
+		tDiff = tDiff >= 0? tDiff:-tDiff;
+		tAccumDiff += tDiff;
+	}
+	return tAccumDiff;
+}
+
+template< class T>
+T matNormL1 ( const cv::Mat_< T >& cvMat1_, const cv::Mat_< T >& cvMat2_ )
+{
+	return (T) cv::norm( cvMat1_ - cvMat2_, cv::NORM_L1 );
 }
 
 //template< class T >
