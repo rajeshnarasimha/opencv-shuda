@@ -410,7 +410,11 @@ bool COptim::GoldenSection(Mat_<double>& X, const Mat_<double>& D, double& lambd
 				if (u-a<tol2 || c-u<tol2)
 				{
 					// too close to the bracket end-points,
+#ifdef __linux__
 					d = copysign(tol1, xm-x);
+#else if _WIN32 || _WIN64
+					d = _copysign(tol1, xm-x);
+#endif
 				}
 			}
 		}
@@ -421,7 +425,12 @@ bool COptim::GoldenSection(Mat_<double>& X, const Mat_<double>& D, double& lambd
 		}
 
 		// ensure the new point is not too close to the current point
+#ifdef __linux__
 		u = (fabs(d)>=tol1 ? x+d : x + copysign(tol1, d));
+#else if _WIN32 || _WIN64
+		u = (fabs(d)>=tol1 ? x+d : x + _copysign(tol1, d));
+#endif
+		
 		fu = Func(X+(D*u));
 		if (fu<=fx)
 		{
@@ -503,7 +512,12 @@ void COptim::MnBrak(double& a, double& b, double& c, double& fa, double& fb, dou
 		// find the minimum at u by parabolic interpolation
 		r = (b-a)*(fb-fc);
 		q = (b-c)*(fb-fa);
+#ifdef __linux__
 		u = b - ((b-c)*q-(b-a)*r)/(2.0* copysign(std::max(fabs(q-r), OPTIM_TINY), q-r));
+#else if _WIN32 || _WIN64
+		u = b - ((b-c)*q-(b-a)*r)/(2.0* _copysign(std::max(fabs(q-r), OPTIM_TINY), q-r));
+#endif
+		
 
 		ulim = b + OPTIM_SLTD*(c-b);
 
