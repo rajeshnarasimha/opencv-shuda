@@ -29,7 +29,7 @@ int main()
 	}
 
 	{
-		std::cout << "test1: Mat_<> << vector<> " << std::endl;
+		std::cout << "test1: cv::Mat_<> << vector<> " << std::endl;
 		std::vector< int > vTest;
 		for(int i=0; i<3; i++ )
 		{
@@ -39,7 +39,7 @@ int main()
 		cv::Mat_< int > cvmTest;
 		cvmTest << vTest;
 		PRINT( cvmTest );
-		std::cout << "test2:  vector<> >> Mat_<> " << std::endl;
+		std::cout << "test2:  vector<> >> cv::Mat_<> " << std::endl;
 		for(int i=0; i<3; i++ )
 		{
 			vTest.push_back(i);
@@ -50,7 +50,7 @@ int main()
 	}
 
 	{
-		std::cout << "test3: Mat_<> >> vector<> " << std::endl;
+		std::cout << "test3: cv::Mat_<> >> vector<> " << std::endl;
 		cv::Mat_< int > cvmTest( 3,1, CV_32S );
 		for(int i=0; i<3; i++ )
 		{
@@ -63,7 +63,7 @@ int main()
 		PRINT( vTest );
 
 
-		std::cout << "test4: vector<> << Mat_<> " << std::endl;
+		std::cout << "test4: vector<> << cv::Mat_<> " << std::endl;
 		for(int i=0; i<3; i++ )
 		{
 			cvmTest.at<int>(i,0) = i+1;
@@ -211,8 +211,8 @@ using namespace btl::utility;
 
 int main()
 {
-    Mat cvmDepth = cv::imread ( "depthUndistorted0.bmp" );
-	Mat_<double> mDK= ( Mat_<double>(3, 1) << 1.16600151976717, 2842.513906334149, 0.1205634721557855 );
+    cv::Mat cvmDepth = cv::imread ( "depthUndistorted0.bmp" );
+	Mat_<double> mDK= ( cv::Mat_<double>(3, 1) << 1.16600151976717, 2842.513906334149, 0.1205634721557855 );
 	PRINT( mDK );
 	double dDepth = depthInMeters<double> ( 545, 156, cvmDepth, mDK, 1 );
     PRINT( dDepth );
@@ -223,8 +223,8 @@ int main()
 }
 */
 /*
-//test << converting from Mat_<double> to CvMat
-//test << converting from CvMat to Mat_<double>
+//test << converting from cv::Mat_<double> to CvMat
+//test << converting from CvMat to cv::Mat_<double>
 #include <btl/Utility/Converters.hpp>
 #include <opencv/highgui.h>
 #include <opencv/cv.h>
@@ -236,7 +236,7 @@ int main()
 {
 	try{
 
-	Mat_<double> cppK; cppK = ( Mat_<double>(3,3) << 1,2,3,4,5,6,7,8,9 );
+	Mat_<double> cppK; cppK = ( cv::Mat_<double>(3,3) << 1,2,3,4,5,6,7,8,9 );
 	PRINT( cppK );
 
   	CvMat* pcK = cvCreateMat( cppK.rows, cppK.cols, CV_64F );
