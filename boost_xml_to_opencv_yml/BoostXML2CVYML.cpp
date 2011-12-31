@@ -8,7 +8,7 @@
 
 using namespace btl::utility;
 
-#define SMALL 1e-20
+
 
 int main(int, char** argv)
 {
@@ -100,57 +100,52 @@ int main(int, char** argv)
 	cFSRead ["cvmRelativeRotation"] >> _cvmRelativeRotation2;
 	cFSRead ["cvmRelativeTranslation"] >> _cvmRelativeTranslation2;
 
-	double dDif = cv::norm( _mRGBK - _mRGBK2, cv::NORM_L1 );
+	cFSRead.release()
+
 	int nFail = 0;
-	if( dDif > SMALL )
+	if( cv::norm( _mRGBK - _mRGBK2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _mRGBK );
 		PRINT( _mRGBK2 );
 		nFail++;
 	}
 
-	dDif = cv::norm( _mRGBDistCoeffs - _mRGBDistCoeffs2, cv::NORM_L1 );
-	if( dDif > SMALL )
+	if( cv::norm( _mRGBDistCoeffs - _mRGBDistCoeffs2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _mRGBDistCoeffs );
 		PRINT( _mRGBDistCoeffs2 );
 		nFail++;
 	}
 
-	dDif = cv::norm( _cvmImageResolution - _cvmImageResolution2, cv::NORM_L1 );
-	if( dDif > SMALL )
+	if( cv::norm( _cvmImageResolution - _cvmImageResolution2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _cvmImageResolution );
 		PRINT( _cvmImageResolution2 );
 		nFail++;
 	}
 
-	dDif = cv::norm( _mIRK - _mIRK2, cv::NORM_L1 );
-	if( dDif > SMALL )
+	if( cv::norm( _mIRK - _mIRK2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _mIRK );
 		PRINT( _mIRK2 );
 		nFail++;
 	}
 
-	dDif = cv::norm( _mIRDistCoeffs - _mIRDistCoeffs2, cv::NORM_L1 );
-	if( dDif > SMALL )
+	if( cv::norm( _mIRDistCoeffs - _mIRDistCoeffs2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _mIRDistCoeffs );
 		PRINT( _mIRDistCoeffs2 );
 		nFail++;
 	}
 
-	dDif = cv::norm( _cvmRelativeRotation - _cvmRelativeRotation2, cv::NORM_L1 );
-	if( dDif > SMALL )
+	if( cv::norm( _cvmRelativeRotation - _cvmRelativeRotation2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _cvmRelativeRotation );
 		PRINT( _cvmRelativeRotation2 );
 		nFail++;
 	}
 
-	dDif = cv::norm( _cvmRelativeTranslation - _cvmRelativeTranslation2, cv::NORM_L1 );
-	if( dDif > SMALL )
+	if( cv::norm( _cvmRelativeTranslation - _cvmRelativeTranslation2, cv::NORM_L1 ) > SMALL )
 	{
 		PRINT( _cvmRelativeTranslation );
 		PRINT( _cvmRelativeTranslation2 );
