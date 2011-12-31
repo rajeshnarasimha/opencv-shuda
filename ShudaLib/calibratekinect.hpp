@@ -52,7 +52,7 @@ namespace videosource
 
 using namespace btl;
 using namespace utility;
-using namespace cv;
+//using namespace cv;
 using namespace Eigen;
 
 class CCalibrateKinect
@@ -79,46 +79,46 @@ public:
 
 //retriever:
 	const double* 				registeredDepth() const {return _pRGBWorldRGB; }	
-    const Mat&                  rgbImage (unsigned int nView_)      const {return _vRGBs[nView_];}
-    const Mat&                  rgbUndistorted(unsigned int nView_) const {return _vRGBUndistorted[nView_];}
-	const Mat&                  irImage (unsigned int nView_)       const {return _vIRs[nView_];}
-    const Mat&                  irUndistorted(unsigned int nView_)  const {return _vIRUndistorted[nView_];}
+    const cv::Mat&                  rgbImage (unsigned int nView_)      const {return _vRGBs[nView_];}
+    const cv::Mat&                  rgbUndistorted(unsigned int nView_) const {return _vRGBUndistorted[nView_];}
+	const cv::Mat&                  irImage (unsigned int nView_)       const {return _vIRs[nView_];}
+    const cv::Mat&                  irUndistorted(unsigned int nView_)  const {return _vIRUndistorted[nView_];}
     const vector<cv::Point3f>&  pattern()        					const {return _vPatterCorners3D;}
     const Vector2i&             imageResolution()                   const {return _vImageResolution;}
     const Matrix3d&             eiMatRGBK()                         const {return _eimRGBK;}
-    const Mat&                  cvMatRGBK()                         const {return _mRGBK;}
+    const cv::Mat&                  cvMatRGBK()                         const {return _mRGBK;}
     const Matrix3d&             eiMatIRK()                          const {return _eimIRK;}
-    const Mat&                  cvMatIRK()                          const {return _mIRK;}
+    const cv::Mat&                  cvMatIRK()                          const {return _mIRK;}
 	Matrix3d					eiMatK(int nCameraType_ ) const;
 
-    const Mat&                  cvMatRGBDistort()                   const {return _mRGBDistCoeffs;}
-    const Mat&                  cvMatIRDistort()                    const {return _mIRDistCoeffs;}
-    Matrix3d                    eiMatRGBR(unsigned int nView_)      const {Matrix3d eiMatR; eiMatR << Mat_<double>(_vmRGBRotationMatrices[nView_]); return eiMatR;}
-    const Mat&                  cvMatRGBR(unsigned int nView_)      const {return _vmRGBRotationMatrices[nView_];}
-    const Mat&                  cvVecRGBR(unsigned int nView_)      const {return _vmRGBRotationVectors[nView_];}
+    const cv::Mat&                  cvMatRGBDistort()                   const {return _mRGBDistCoeffs;}
+    const cv::Mat&                  cvMatIRDistort()                    const {return _mIRDistCoeffs;}
+    Matrix3d                    eiMatRGBR(unsigned int nView_)      const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmRGBRotationMatrices[nView_]); return eiMatR;}
+    const cv::Mat&                  cvMatRGBR(unsigned int nView_)      const {return _vmRGBRotationMatrices[nView_];}
+    const cv::Mat&                  cvVecRGBR(unsigned int nView_)      const {return _vmRGBRotationVectors[nView_];}
     Vector3d                    eiVecRGBT(unsigned int nView_)      const 
     {
         Vector3d eiVecT; 
-        Mat mVec = _vmRGBTranslationVectors[nView_];//.t();
-        eiVecT << Mat_<double>(mVec);
+        cv::Mat mVec = _vmRGBTranslationVectors[nView_];//.t();
+        eiVecT << cv::Mat_<double>(mVec);
         return eiVecT;
     }
-    const Mat&                  cvMatRGBT(unsigned int nView_)      const {return _vmRGBTranslationVectors[nView_];}
-    Matrix3d                    eiMatIRR(unsigned int nView_)       const {Matrix3d eiMatR; eiMatR << Mat_<double>(_vmIRRotationMatrices[nView_]); return eiMatR;}
-    const Mat&                  cvMatIRR(unsigned int nView_)       const {return _vmIRRotationMatrices[nView_];}
-    const Mat&                  cvVecIRR(unsigned int nView_)       const {return _vmIRRotationVectors[nView_];}
+    const cv::Mat&                  cvMatRGBT(unsigned int nView_)      const {return _vmRGBTranslationVectors[nView_];}
+    Matrix3d                    eiMatIRR(unsigned int nView_)       const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmIRRotationMatrices[nView_]); return eiMatR;}
+    const cv::Mat&                  cvMatIRR(unsigned int nView_)       const {return _vmIRRotationMatrices[nView_];}
+    const cv::Mat&                  cvVecIRR(unsigned int nView_)       const {return _vmIRRotationVectors[nView_];}
 
     Vector3d                    eiVecIRT(unsigned int nView_)       const 
     {
         Vector3d eiVecT; 
-        Mat mVec = _vmIRTranslationVectors[nView_];//.t();
-        eiVecT << Mat_<double>(mVec);
+        cv::Mat mVec = _vmIRTranslationVectors[nView_];//.t();
+        eiVecT << cv::Mat_<double>(mVec);
         return eiVecT;
     }
-    const Mat&                  cvMatIRT(unsigned int nView_)       const {return _vmRGBTranslationVectors[nView_];}
-    const Mat&                  cvMatRelativeRotation()             const {return _cvmRelativeRotation;}
+    const cv::Mat&                  cvMatIRT(unsigned int nView_)       const {return _vmRGBTranslationVectors[nView_];}
+    const cv::Mat&                  cvMatRelativeRotation()             const {return _cvmRelativeRotation;}
     const Matrix3d&             eiMatRelativeRotation()             const {return _eimRelativeRotation;}
-    const Mat&                  cvMatRelativeTranslation()          const {return _cvmRelativeTranslation;}
+    const cv::Mat&                  cvMatRelativeTranslation()          const {return _cvmRelativeTranslation;}
     const Vector3d&             eiVecRelativeTranslation()          const {return _eivRelativeTranslation;}
 
     const unsigned int&         views()                             const {return _uViews;}
@@ -127,9 +127,9 @@ public:
     void exportKinectIntrinsics();
     void importKinectIntrinsics();
 	void importKinectIntrinsicsYML();
-    void undistortImages(const vector< Mat >& vImages_,  const Mat_<double>& cvmK_, const Mat_<double>& cvmInvK_, const Mat_<double>& cvmDistCoeffs_, vector< Mat >* pvRGBUndistorted ) const;
-	void undistortRGB(const Mat& cvmRGB_, Mat& Undistorted_ ) const;
-	void undistortIR (const Mat& cvmIR_, Mat& Undistorted_ ) const;
+    void undistortImages(const vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, vector< cv::Mat >* pvRGBUndistorted ) const;
+	void undistortRGB(const cv::Mat& cvmRGB_, cv::Mat& Undistorted_ ) const;
+	void undistortIR (const cv::Mat& cvmIR_, cv::Mat& Undistorted_ ) const;
 
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void exportImages(const boost::filesystem::path& cFullPath_, const vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
@@ -140,7 +140,7 @@ public:
 	void projectRGB( double* pWorld_,const int& nN_, double* ppRGBWorld_ );
 
 protected:	
-	void locate2DCorners(const vector< Mat >& vImages_,  const int& nX_, const int& nY_, vector< vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
+	void locate2DCorners(const vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, vector< vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
 	void definePattern (  const float& fX_, const float& fY_, const int& nX_, const int& nY_, const int& nPatternType_, vector<cv::Point3f>* pv3DPatternCorners_ ) const;
 	void define3DCorners ( const vector<cv::Point3f>& vPattern_, const unsigned int& nViews_, vector< vector<cv::Point3f> >* pvv3DCorners_  ) const;
 
@@ -149,7 +149,7 @@ protected:
 /**
 * @brief convert rotation vectors into rotation matrices using cv::
 */
-    void convertRV2RM(const vector< Mat >& vMat_, vector< Mat >* pvMat_ ) const;
+    void convertRV2RM(const vector< cv::Mat >& vMat_, vector< cv::Mat >* pvMat_ ) const;
 	void generateMapXY4UndistortRGB();
 	void generateMapXY4UndistortIR ();
 
@@ -161,10 +161,10 @@ private:
 // others
     unsigned int  _uViews;
 // images
-    vector< Mat > _vRGBs;
-    vector< Mat > _vRGBUndistorted;
-    vector< Mat > _vIRs;
-    vector< Mat > _vIRUndistorted;
+    vector< cv::Mat > _vRGBs;
+    vector< cv::Mat > _vRGBUndistorted;
+    vector< cv::Mat > _vIRs;
+    vector< cv::Mat > _vIRUndistorted;
     vector< string > _vstrRGBPathName; //serialized
     vector< string > _vstrIRPathName;
 	vector< string > _vstrUndistortedRGBPathName; //serialized
@@ -177,13 +177,13 @@ private:
     vector< vector<cv::Point3f> > _vv3DCorners;
 // camera extrinsics serialized (double type)
     //rgb
-    vector< Mat > _vmRGBRotationVectors;
-    vector< Mat > _vmRGBRotationMatrices;
-    vector< Mat > _vmRGBTranslationVectors;
+    vector< cv::Mat > _vmRGBRotationVectors;
+    vector< cv::Mat > _vmRGBRotationMatrices;
+    vector< cv::Mat > _vmRGBTranslationVectors;
     //ir
-    vector< Mat > _vmIRRotationVectors;
-    vector< Mat > _vmIRRotationMatrices;
-    vector< Mat > _vmIRTranslationVectors;
+    vector< cv::Mat > _vmIRRotationVectors;
+    vector< cv::Mat > _vmIRRotationMatrices;
+    vector< cv::Mat > _vmIRTranslationVectors;
 // patern constancy serialized
     int _NUM_CORNERS_X;
     int _NUM_CORNERS_Y;
@@ -208,27 +208,27 @@ protected:
     Vector2i      _vImageResolution; //x,y;
 // camera intrinsics serialized
     //rgb
-    Mat_<double> _mRGBK; 
-    Mat_<double> _mRGBInvK; // not serialized
-    Mat_<double> _mRGBDistCoeffs;
+    cv::Mat_<double> _mRGBK; 
+    cv::Mat_<double> _mRGBInvK; // not serialized
+    cv::Mat_<double> _mRGBDistCoeffs;
 	Matrix3d	 _eimRGBK;
 	Matrix3d     _eimRGBInvK;
     //ir
-    Mat_<double> _mIRK; 
-    Mat_<double> _mIRInvK; 
-    Mat_<double> _mIRDistCoeffs;
+    cv::Mat_<double> _mIRK; 
+    cv::Mat_<double> _mIRInvK; 
+    cv::Mat_<double> _mIRDistCoeffs;
 	Matrix3d	 _eimIRK;
 	Matrix3d     _eimIRInvK;
 
     //relative pose
-    Mat_<double> _cvmRelativeRotation;
-    Mat_<double> _cvmRelativeTranslation;   
+    cv::Mat_<double> _cvmRelativeRotation;
+    cv::Mat_<double> _cvmRelativeTranslation;   
 	Matrix3d     _eimRelativeRotation;
 	Vector3d     _eivRelativeTranslation;
 
-	Mat          _cvmMapXYRGB; //for undistortion
-	Mat          _cvmMapXYIR; //for undistortion
-	Mat			 _cvmMapY; //useless just for calling cv::remap
+	cv::Mat          _cvmMapXYRGB; //for undistortion
+	cv::Mat          _cvmMapXYIR; //for undistortion
+	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
 
 //timer
 	boost::posix_time::ptime _cT0, _cT1;

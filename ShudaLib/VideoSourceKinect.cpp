@@ -138,14 +138,14 @@ void VideoSourceKinect::getNextFrame()
     	    registration( (const unsigned short*)_cvUndistDepth.data );
             break;
         case C1_CONTINUITY:
-            btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (Mat_<unsigned short>)_cvUndistDepth, (Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+            btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)_cvUndistDepth, (cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
             break;
         case GAUSSIAN_C1:
         	// filter out depth noise
             cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(3,3), 0, 0); // filter size has to be an odd number.
-	        btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (Mat_<unsigned short>)cvmFilter, (Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+	        btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)cvmFilter, (cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
             break;
@@ -154,8 +154,8 @@ void VideoSourceKinect::getNextFrame()
             // apply some bilateral gaussian filtering
             cv::GaussianBlur(cvDisparity, cvFilterDisparity, cv::Size(3,3), 0, 0);
             dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
-            btl::utility::filterDepth <double> ( dDispThreshold, (Mat_<double>)cvFilterDisparity, (Mat_<double>*)&cvThersholdDisparity );
-    	    btl::utility::convert2DepthDomain< double, unsigned short >( cvThersholdDisparity,(Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+            btl::utility::filterDepth <double> ( dDispThreshold, ( cv::Mat_<double>)cvFilterDisparity, ( cv::Mat_<double>*)&cvThersholdDisparity );
+    	    btl::utility::convert2DepthDomain< double, unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
               // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
             break;

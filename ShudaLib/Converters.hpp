@@ -32,7 +32,7 @@ namespace btl
 {
 namespace utility
 {
-using namespace cv;
+//using namespace cv;
 using namespace std;
 using namespace Eigen;
 
@@ -66,73 +66,73 @@ Eigen::Matrix< T , 4, 4 > setOpenGLModelViewMatrix ( const Eigen::Matrix< T, 3, 
 //converters ////////////////////////////////////////////////////////////////////
 // operator >>
 // other -> vector
-// 1.1 Point3_ -> vector
+// 1.1 cv::Point3_ -> vector
 template <class T>
-vector< T >& operator << ( vector< T >& vVec_, const Point3_< T >& cvPt_ );
+vector< T >& operator << ( vector< T >& vVec_, const cv::Point3_< T >& cvPt_ );
 
-// 1.2 vector < Point3_ > -> vector< < > >
+// 1.2 vector < cv::Point3_ > -> vector< < > >
 template <class T>
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< Point3_ < T > >& cvPt3_ );
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< cv::Point3_ < T > >& cvPt3_ );
 
-// 1.3 vector < vector < Point3_ > > -> vector< < < > > >
+// 1.3 vector < vector < cv::Point3_ > > -> vector< < < > > >
 template <class T>
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< Point3_ < T > > >& vvPt3_ );
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< cv::Point3_ < T > > >& vvPt3_ );
 
-// 2.1 Point_ -> vector
+// 2.1 cv::Point_ -> vector
 template <class T>
-vector< T >& operator << ( vector< T >& vVec_, const Point_< T >& cvPt_ );
+vector< T >& operator << ( vector< T >& vVec_, const cv::Point_< T >& cvPt_ );
 
-// 2.2 vector < Point_ > -> vector< < > >
+// 2.2 vector < cv::Point_ > -> vector< < > >
 template <class T>
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< Point_< T > >& cvPt_ );
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< cv::Point_< T > >& cvPt_ );
 
-// 2.3 vector < vector < Point_ > > -> vector< < < > > >
+// 2.3 vector < vector < cv::Point_ > > -> vector< < < > > >
 template <class T>
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< Point_< T > > >& vPt_ );
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< cv::Point_< T > > >& vPt_ );
 
 // 3.  Static Matrix -> vector < < > >
 template < class T , int ROW, int COL >
 vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const Eigen::Matrix< T, ROW, COL >& eiMat_ );
 
-// 4.1 Mat_ -> vector
+// 4.1 cv::Mat_ -> vector
 template < class T >
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const Mat_< T >& cvMat_ );
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const cv::Mat_< T >& cvMat_ );
 
-// 4.2 vector< Mat_<> > -> vector
+// 4.2 vector< cv::Mat_<> > -> vector
 template < class T >
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< Mat_< T > >& vmMat_ );
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< cv::Mat_< T > >& vmMat_ );
 
-// 5.1 vector< Mat > -> vector
+// 5.1 vector< cv::Mat > -> vector
 template < class T >
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< Mat >& vmMat_ );
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< cv::Mat >& vmMat_ );
 
 
 
 // operator <<
 // vector -> other
-// 1.1 vector -> Point3_
+// 1.1 vector -> cv::Point3_
 template <class T>
-Point3_< T >& operator << ( Point3_< T >& cvPt_, const vector< T >& vVec_ );
+cv::Point3_< T >& operator << ( cv::Point3_< T >& cvPt_, const vector< T >& vVec_ );
 
-// 1.2 vector < < > > -> vector< Point3_ >
+// 1.2 vector < < > > -> vector< cv::Point3_ >
 template <class T>
-vector< Point3_< T > >& operator << ( vector< Point3_< T > >& cvPt_, const vector< vector< T > >& vvVec_ );
+vector< cv::Point3_< T > >& operator << ( vector< cv::Point3_< T > >& cvPt_, const vector< vector< T > >& vvVec_ );
 
-// 1.3 vector < < < > > > -> vector < < Point3_ > >
+// 1.3 vector < < < > > > -> vector < < cv::Point3_ > >
 template <class T>
-vector< vector< Point3_< T > > >& operator << ( vector< vector< Point3_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ );
+vector< vector< cv::Point3_< T > > >& operator << ( vector< vector< cv::Point3_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ );
 
-// 2.1 vector -> Point_
+// 2.1 vector -> cv::Point_
 template <class T>
-Point_< T >& operator << ( Point_< T >& cvPt_, const vector< T >& vVec_ );
+cv::Point_< T >& operator << ( cv::Point_< T >& cvPt_, const vector< T >& vVec_ );
 
-// 2.2 vector < < > > -> vector< Point_ >
+// 2.2 vector < < > > -> vector< cv::Point_ >
 template <class T>
-vector< Point_< T > >& operator << ( vector< Point_< T > >& cvPt_, const vector< vector< T > >& vvVec_ );
+vector< cv::Point_< T > >& operator << ( vector< cv::Point_< T > >& cvPt_, const vector< vector< T > >& vvVec_ );
 
-// 2.3 vector < < < > > > -> vector< < Point_ > >
+// 2.3 vector < < < > > > -> vector< < cv::Point_ > >
 template <class T>
-vector< vector< Point_< T > > >& operator << ( vector< vector< Point_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ );
+vector< vector< cv::Point_< T > > >& operator << ( vector< vector< cv::Point_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ );
 
 // 3.1 vector < < > > -> Eigen::Dynamic, Matrix
 template < class T >
@@ -142,35 +142,35 @@ Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic >& operator << ( Eigen::Matrix<
 template < class T , int ROW, int COL>
 Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiMat_, const vector< vector< T > >& vvVec_ );
 
-// 4.1 vector -> Mat_ -> vector
+// 4.1 vector -> cv::Mat_ -> vector
 template < class T >
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const Mat_< T >& cvMat_ );
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const cv::Mat_< T >& cvMat_ );
 
-// 4.2 vector< < < > > > -> vector< Mat_<> >
+// 4.2 vector< < < > > > -> vector< cv::Mat_<> >
 template < class T >
-vector< Mat_< T > >& operator << ( vector< Mat_< T > >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ );
+vector< cv::Mat_< T > >& operator << ( vector< cv::Mat_< T > >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ );
 
-// 5.1 vector< < < > > > -> vector< Mat >
+// 5.1 vector< < < > > > -> vector< cv::Mat >
 template < class T >
-vector< Mat >& operator << ( vector< Mat >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ );
+vector< cv::Mat >& operator << ( vector< cv::Mat >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ );
 
 
 
 // operator <<
 // other -> other
-// 1.1 Mat -> Static Matrix
+// 1.1 cv::Mat -> Static Matrix
 template < class T, int ROW, int COL  >
-Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_, const Mat_< T >& cvVec_ );
-// 1.2 Static Matrix -> Mat
+Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_, const cv::Mat_< T >& cvVec_ );
+// 1.2 Static Matrix -> cv::Mat
 template < class T, int ROW, int COL  >
-Mat_< T >& operator << ( Mat_< T >& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ );
-// 1.3 Static Matrix -> Mat_;
+cv::Mat_< T >& operator << ( cv::Mat_< T >& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ );
+// 1.3 Static Matrix -> cv::Mat_;
 template < class T, int ROW, int COL  >
-Mat& operator << ( Mat& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ );
+cv::Mat& operator << ( cv::Mat& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ );
 
-// 2.1 Point3_ -> Vector
+// 2.1 cv::Point3_ -> Vector
 template < class T >
-Eigen::Matrix<T, 3, 1> & operator << ( Eigen::Matrix< T, 3, 1 >& eiVec_, const Point3_< T >& cvVec_ );
+Eigen::Matrix<T, 3, 1> & operator << ( Eigen::Matrix< T, 3, 1 >& eiVec_, const cv::Point3_< T >& cvVec_ );
 
 // 3.1 CvMat -> cv::Mat_
 template < class T >
@@ -184,74 +184,74 @@ CvMat& operator << ( CvMat& cM_, const cv::Mat_< T >& cppM_ );
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // operator >>
 // other -> vector
-// 1.1 Point3_ -> vector
+// 1.1 cv::Point3_ -> vector
 template <class T>
-const Point3_< T >& operator >> ( const Point3_< T >& cvPt_, vector< T >& vVec_ );
+const cv::Point3_< T >& operator >> ( const cv::Point3_< T >& cvPt_, vector< T >& vVec_ );
 
-// 1.2 vector < Point3_ > -> vector< < > >
+// 1.2 vector < cv::Point3_ > -> vector< < > >
 template <class T>
-const vector< Point3_ < T > >& operator >> ( const vector< Point3_ < T > >& vPt3_, vector< vector< T > >& vvVec_ );
+const vector< cv::Point3_ < T > >& operator >> ( const vector< cv::Point3_ < T > >& vPt3_, vector< vector< T > >& vvVec_ );
 
-// 1.3 vector < vector < Point3_ > > -> vector< < < > > >
+// 1.3 vector < vector < cv::Point3_ > > -> vector< < < > > >
 template <class T>
-const vector< vector< Point3_ < T > > >& operator >> ( const vector< vector< Point3_ < T > > >& vvPt3_, vector< vector< vector< T > > >& vvvVec_ );
+const vector< vector< cv::Point3_ < T > > >& operator >> ( const vector< vector< cv::Point3_ < T > > >& vvPt3_, vector< vector< vector< T > > >& vvvVec_ );
 
-// 2.1 Point_ -> vector
+// 2.1 cv::Point_ -> vector
 template <class T>
-const Point_< T >& operator >> ( const Point_< T >& cvPt_, vector< T >& vVec_ );
+const cv::Point_< T >& operator >> ( const cv::Point_< T >& cvPt_, vector< T >& vVec_ );
 
-// 2.2 vector < Point_ > -> vector< < > >
+// 2.2 vector < cv::Point_ > -> vector< < > >
 template <class T>
-const vector< Point_< T > >& operator >> ( const vector< Point_< T > >& vPt_, vector< vector< T > >& vvVec_ );
+const vector< cv::Point_< T > >& operator >> ( const vector< cv::Point_< T > >& vPt_, vector< vector< T > >& vvVec_ );
 
-// 2.3 vector < vector < Point_ > > -> vector< < < > > >
+// 2.3 vector < vector < cv::Point_ > > -> vector< < < > > >
 template <class T>
-const vector< Point_< T > >&  operator >> ( const vector< Point_< T > >& vPt_, vector< vector< vector< T > > >& vvvVec_ );
+const vector< cv::Point_< T > >&  operator >> ( const vector< cv::Point_< T > >& vPt_, vector< vector< vector< T > > >& vvvVec_ );
 
 // 3.  Static Matrix -> vector < < > >
 template < class T , int ROW, int COL >
 const Eigen::Matrix< T, ROW, COL >& operator >> ( const Eigen::Matrix< T, ROW, COL >& eiMat_, vector< vector< T > >& vvVec_ );
 
-// 4.1 Mat_ -> vector
+// 4.1 cv::Mat_ -> vector
 template < class T >
-const Mat_< T >& operator >> ( const Mat_< T >& cvMat_, vector< vector< T > >& vvVec_ );
+const cv::Mat_< T >& operator >> ( const cv::Mat_< T >& cvMat_, vector< vector< T > >& vvVec_ );
 
-// 4.2 vector< Mat_<> > -> vector
+// 4.2 vector< cv::Mat_<> > -> vector
 template < class T >
-const vector< Mat_< T > >& operator >> ( const vector< Mat_< T > >& vmMat_, vector< vector< vector< T > > >& vvvVec_ );
+const vector< cv::Mat_< T > >& operator >> ( const vector< cv::Mat_< T > >& vmMat_, vector< vector< vector< T > > >& vvvVec_ );
 
-// 5.1 vector< Mat > -> vector
+// 5.1 vector< cv::Mat > -> vector
 template < class T >
-const vector< Mat >& operator >> ( const vector< Mat >& vmMat_, vector< vector< vector< T > > >& vvvVec_ );
+const vector< cv::Mat >& operator >> ( const vector< cv::Mat >& vmMat_, vector< vector< vector< T > > >& vvvVec_ );
 
 
 
 
 
 // vector -> other
-// 1.1 vector -> Point3_
+// 1.1 vector -> cv::Point3_
 template <class T>
-const vector< T >& operator >> ( const vector< T >& vVec_, Point3_< T >& cvPt_ );
+const vector< T >& operator >> ( const vector< T >& vVec_, cv::Point3_< T >& cvPt_ );
 
-// 1.2 vector < < > > -> vector< Point3_ >
+// 1.2 vector < < > > -> vector< cv::Point3_ >
 template <class T>
-const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, vector< Point3_< T > >& cvPt_ );
+const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, vector< cv::Point3_< T > >& cvPt_ );
 
-// 1.3 vector < < < > > > -> vector < < Point3_ > >
+// 1.3 vector < < < > > > -> vector < < cv::Point3_ > >
 template <class T>
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< Point3_< T > > >& vvPt_ );
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< cv::Point3_< T > > >& vvPt_ );
 
-// 2.1 vector -> Point_
+// 2.1 vector -> cv::Point_
 template <class T>
-const vector< T >& operator >> ( const vector< T >& vVec_, Point_< T >& cvPt_ );
+const vector< T >& operator >> ( const vector< T >& vVec_, cv::Point_< T >& cvPt_ );
 
-// 2.2 vector < < > > -> vector< Point_ >
+// 2.2 vector < < > > -> vector< cv::Point_ >
 template <class T>
-const vector< vector< T > >& operator >> (  const vector< vector< T > >& vvVec_, vector< Point_< T > >& cvPt_ );
+const vector< vector< T > >& operator >> (  const vector< vector< T > >& vvVec_, vector< cv::Point_< T > >& cvPt_ );
 
-// 2.3 vector < < < > > > -> vector< < Point_ > >
+// 2.3 vector < < < > > > -> vector< < cv::Point_ > >
 template <class T>
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< Point_< T > > >& vvPt_ );
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< cv::Point_< T > > >& vvPt_ );
 
 // 3.1 vector < < > > -> Eigen::Dynamic, Matrix
 template < class T >
@@ -261,17 +261,17 @@ const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, 
 template < class T , int ROW, int COL>
 const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, Eigen::Matrix< T, ROW, COL >& eiMat_ );
 
-// 4.1 vector -> Mat_ -> vector
+// 4.1 vector -> cv::Mat_ -> vector
 template < class T >
-const Mat_< T >& operator >> ( const Mat_< T >& cvMat_, vector< vector< T > >& vvVec_ );
+const cv::Mat_< T >& operator >> ( const cv::Mat_< T >& cvMat_, vector< vector< T > >& vvVec_ );
 
-// 4.2 vector< < < > > > -> vector< Mat_<> >
+// 4.2 vector< < < > > > -> vector< cv::Mat_<> >
 template < class T >
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< Mat_< T > >& vmMat_ );
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< cv::Mat_< T > >& vmMat_ );
 
-// 5.1 vector< < < > > > -> vector< Mat >
+// 5.1 vector< < < > > > -> vector< cv::Mat >
 template < class T >
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< Mat >& vmMat_ );
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< cv::Mat >& vmMat_ );
 
 
 
@@ -282,7 +282,7 @@ const vector< vector< vector< T > > >& operator >> ( const vector< vector< vecto
 
 //not implemented
 //template < class T, int ROW, int COL  >
-//Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_, const MatExpr& cvVec_);
+//Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_, const cv::MatExpr& cvVec_);
 
 //print vector
 template <class T>
@@ -434,7 +434,7 @@ Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiMat_
 }
 
 template <class T>
-vector< T >& operator << ( vector< T >& vVec_, const Point3_< T >& cvPt_ )
+vector< T >& operator << ( vector< T >& vVec_, const cv::Point3_< T >& cvPt_ )
 {
     vVec_.clear();
     vVec_.push_back ( cvPt_.x );
@@ -444,7 +444,7 @@ vector< T >& operator << ( vector< T >& vVec_, const Point3_< T >& cvPt_ )
 }
 
 template <class T>
-Point3_< T >& operator << ( Point3_< T >& cvPt_, const vector< T >& vVec_ )
+cv::Point3_< T >& operator << ( cv::Point3_< T >& cvPt_, const vector< T >& vVec_ )
 {
     if ( vVec_.empty() )
     {
@@ -453,7 +453,7 @@ Point3_< T >& operator << ( Point3_< T >& cvPt_, const vector< T >& vVec_ )
     else if ( 3 != vVec_.size() )
     {
         CError cE;
-        cE << CErrorInfo ( " vector<> is inconsistent with Point3_. \n" );
+        cE << CErrorInfo ( " vector<> is inconsistent with cv::Point3_. \n" );
         throw cE;
     }
     else
@@ -465,9 +465,9 @@ Point3_< T >& operator << ( Point3_< T >& cvPt_, const vector< T >& vVec_ )
 
     return cvPt_;
 }
-//vector -> Point_
+//vector -> cv::Point_
 template <class T>
-Point_< T >& operator << ( Point_< T >& cvPt_, const vector< T >& vVec_ )
+cv::Point_< T >& operator << ( cv::Point_< T >& cvPt_, const vector< T >& vVec_ )
 {
     if ( vVec_.empty() )
     {
@@ -476,7 +476,7 @@ Point_< T >& operator << ( Point_< T >& cvPt_, const vector< T >& vVec_ )
     else if ( 2 != vVec_.size() )
     {
         CError cE;
-        cE << CErrorInfo ( " vector<> is inconsistent with Point3_. \n" );
+        cE << CErrorInfo ( " vector<> is inconsistent with cv::Point3_. \n" );
         throw cE;
     }
     else
@@ -489,7 +489,7 @@ Point_< T >& operator << ( Point_< T >& cvPt_, const vector< T >& vVec_ )
 }
 //Point_ -> vector
 template <class T>
-vector< T >& operator << ( vector< T >& vVec_, const Point_< T >& cvPt_ )
+vector< T >& operator << ( vector< T >& vVec_, const cv::Point_< T >& cvPt_ )
 {
     vVec_.clear();
     vVec_.push_back ( cvPt_.x );
@@ -500,12 +500,12 @@ vector< T >& operator << ( vector< T >& vVec_, const Point_< T >& cvPt_ )
 
 
 template < class T, int ROW, int COL  >
-Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_, const Mat_< T >& cvVec_ )
+Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_, const cv::Mat_< T >& cvVec_ )
 {
     if ( ROW != cvVec_.rows || COL != cvVec_.cols )
     {
         CError cE;
-        cE << CErrorInfo ( " Mat dimension is inconsistent with Vector3d . \n" );
+        cE << CErrorInfo ( " cv::Mat dimension is inconsistent with Vector3d . \n" );
         //PRINT( cvVec_.cols ); PRINT( cvVec_.rows );
         throw cE;
     }
@@ -518,9 +518,9 @@ Eigen::Matrix< T, ROW, COL >& operator << ( Eigen::Matrix< T, ROW, COL >& eiVec_
 
     return eiVec_;
 }
-// 4.1 vector -> Mat_ -> vector
+// 4.1 vector -> cv::Mat_ -> vector
 template < class T >
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const Mat_< T >& cvMat_ )
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const cv::Mat_< T >& cvMat_ )
 {
     vvVec_.clear();
 
@@ -540,7 +540,7 @@ vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_,  const Mat_<
 }
 
 template < class T >
-Mat_< T >& operator << ( Mat_< T >& cvMat_,  const  vector< T >& vVec_ )
+cv::Mat_< T >& operator << ( cv::Mat_< T >& cvMat_,  const  vector< T >& vVec_ )
 {
 
 	if ( vVec_.empty() )
@@ -561,13 +561,13 @@ Mat_< T >& operator << ( Mat_< T >& cvMat_,  const  vector< T >& vVec_ )
 }
 
 template < class T >
-void operator >> (  const  vector< T >& vVec_, Mat_< T >& cvMat_ )
+void operator >> (  const  vector< T >& vVec_, cv::Mat_< T >& cvMat_ )
 {
 	cvMat_ << vVec_;
 }
 
 template < class T >
-void operator << (  vector< T >& vVec_, const  Mat_< T >& cvMat_ )
+void operator << (  vector< T >& vVec_, const  cv::Mat_< T >& cvMat_ )
 {
 	vVec_.clear();
 	for ( int r = 0; r < ( int ) cvMat_.rows*cvMat_.cols; r++ )
@@ -577,13 +577,13 @@ void operator << (  vector< T >& vVec_, const  Mat_< T >& cvMat_ )
 }
 
 template < class T >
-void operator >> (   const  Mat_< T >& cvMat_, vector< T >& vVec_  )
+void operator >> (   const  cv::Mat_< T >& cvMat_, vector< T >& vVec_  )
 {
 	vVec_ << cvMat_;
 }
 
 template < class T >
-Mat_< T >& operator << ( Mat_< T >& cvMat_,  const  vector< vector< T > >& vvVec_ )
+cv::Mat_< T >& operator << ( cv::Mat_< T >& cvMat_,  const  vector< vector< T > >& vvVec_ )
 {
 
     if ( vvVec_.empty() || vvVec_[0].empty() )
@@ -607,10 +607,10 @@ Mat_< T >& operator << ( Mat_< T >& cvMat_,  const  vector< vector< T > >& vvVec
 }
 
 template < class T >
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< Mat_< T > >& vmMat_ )
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< cv::Mat_< T > >& vmMat_ )
 {
     vvvVec_.clear();
-    typename vector< Mat_< T > >::const_iterator constItr = vmMat_.begin();
+    typename vector< cv::Mat_< T > >::const_iterator constItr = vmMat_.begin();
 
     for ( ; constItr != vmMat_.end(); ++constItr )
     {
@@ -623,15 +623,15 @@ vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& 
 }
 
 template < class T >
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< Mat >& vmMat_ )
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_,  const vector< cv::Mat >& vmMat_ )
 {
-    vector< Mat_< T > > vmTmp;
+    vector< cv::Mat_< T > > vmTmp;
 
-    typename vector< Mat >::const_iterator constItr = vmMat_.begin();
+    typename vector< cv::Mat >::const_iterator constItr = vmMat_.begin();
 
     for ( ; constItr != vmMat_.end(); ++constItr )
     {
-        vmTmp.push_back ( Mat_< T > ( *constItr ) );
+        vmTmp.push_back ( cv::Mat_< T > ( *constItr ) );
     }
 
     vvvVec_ << vmTmp;
@@ -640,14 +640,14 @@ vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& 
 
 
 template < class T >
-vector< Mat_< T > >& operator << ( vector< Mat_< T > >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ )
+vector< cv::Mat_< T > >& operator << ( vector< cv::Mat_< T > >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ )
 {
     vmMat_.clear();
     typename vector< vector< vector< T > > >::const_iterator constVectorVectorItr = vvvVec_.begin();
 
     for ( ; constVectorVectorItr != vvvVec_.end(); ++ constVectorVectorItr )
     {
-        Mat_< T > mMat;
+        cv::Mat_< T > mMat;
         mMat << ( *constVectorVectorItr );
         vmMat_.push_back ( mMat );
     }
@@ -656,29 +656,29 @@ vector< Mat_< T > >& operator << ( vector< Mat_< T > >& vmMat_ ,  const vector< 
 }
 
 template < class T >
-vector< Mat >& operator << ( vector< Mat >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ )
+vector< cv::Mat >& operator << ( vector< cv::Mat >& vmMat_ ,  const vector< vector< vector< T > > >& vvvVec_ )
 {
-    vector< Mat_< T > > vmTmp;
+    vector< cv::Mat_< T > > vmTmp;
     vmTmp << vvvVec_;
-    typename vector< Mat_< T > >::const_iterator constItr = vmTmp.begin();
+    typename vector< cv::Mat_< T > >::const_iterator constItr = vmTmp.begin();
 
     for ( ; constItr != vmTmp.end(); ++constItr )
     {
-        vmMat_.push_back ( Mat ( *constItr ) );
+        vmMat_.push_back ( cv::Mat ( *constItr ) );
     }
 
     return vmMat_;
 }
 
-//vector< Point_ > -> vector< < > >
+//vector< cv::Point_ > -> vector< < > >
 template <class T>
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< Point_ < T > >& cvPt_ )
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< cv::Point_ < T > >& cvPt_ )
 {
     using namespace std;
-    using namespace cv;
+    //using namespace cv;
 
     vvVec_.clear();
-    typename vector< Point_< T > >::const_iterator constItr = cvPt_.begin();
+    typename vector< cv::Point_< T > >::const_iterator constItr = cvPt_.begin();
 
     for ( ; constItr != cvPt_.end(); ++constItr )
     {
@@ -690,15 +690,15 @@ vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector
     return vvVec_;
 }
 
-//vector< Point3_ > -> vector< < > >
+//vector< cv::Point3_ > -> vector< < > >
 template <class T>
-vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< Point3_ < T > >& cvPt3_ )
+vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector< cv::Point3_ < T > >& cvPt3_ )
 {
     using namespace std;
-    using namespace cv;
+    //using namespace cv;
 
     vvVec_.clear();
-    typename vector< Point3_< T > >::const_iterator constItr = cvPt3_.begin();
+    typename vector< cv::Point3_< T > >::const_iterator constItr = cvPt3_.begin();
 
     for ( ; constItr != cvPt3_.end(); ++constItr )
     {
@@ -711,16 +711,16 @@ vector< vector< T > >& operator << ( vector< vector< T > >& vvVec_, const vector
 }
 
 
-//vector < <> > -> vector< Point_ >
+//vector < <> > -> vector< cv::Point_ >
 template <class T>
-vector< Point_< T > >& operator << ( vector< Point_< T > >& cvPt_, const vector< vector< T > >& vvVec_ )
+vector< cv::Point_< T > >& operator << ( vector< cv::Point_< T > >& cvPt_, const vector< vector< T > >& vvVec_ )
 {
     cvPt_.clear();
     typename vector< vector< T > >::const_iterator constItr = vvVec_.begin();
 
     for ( ; constItr != vvVec_.end(); ++constItr )
     {
-        Point_< T > Pt;
+        cv::Point_< T > Pt;
         Pt << *constItr;
         cvPt_.push_back ( Pt );
     }
@@ -728,16 +728,16 @@ vector< Point_< T > >& operator << ( vector< Point_< T > >& cvPt_, const vector<
     return cvPt_;
 }
 
-// 2.3 vector < < < > > > -> vector< < Point_ > >
+// 2.3 vector < < < > > > -> vector< < cv::Point_ > >
 template <class T>
-vector< vector< Point_< T > > >& operator << ( vector< vector< Point_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ )
+vector< vector< cv::Point_< T > > >& operator << ( vector< vector< cv::Point_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ )
 {
     vvPt_.clear();
     typename vector< vector< vector< T > > >::const_iterator constItr = vvvVec_.begin();
 
     for ( ; constItr != vvvVec_.end(); ++constItr )
     {
-        vector< Point_< T > > vPt;
+        vector< cv::Point_< T > > vPt;
         vPt << *constItr;
         vvPt_.push_back ( vPt );
     }
@@ -746,16 +746,16 @@ vector< vector< Point_< T > > >& operator << ( vector< vector< Point_< T > > >& 
 }
 
 
-//vector < <> > -> vector< Point3_ >
+//vector < <> > -> vector< cv::Point3_ >
 template <class T>
-vector< Point3_< T > >& operator << ( vector< Point3_< T > >& cvPt_, const vector< vector< T > >& vvVec_ )
+vector< cv::Point3_< T > >& operator << ( vector< cv::Point3_< T > >& cvPt_, const vector< vector< T > >& vvVec_ )
 {
     cvPt_.clear();
     typename vector< vector< T > >::const_iterator constItr = vvVec_.begin();
 
     for ( ; constItr != vvVec_.end(); ++constItr )
     {
-        Point3_< T > Pt3;
+        cv::Point3_< T > Pt3;
         Pt3 << *constItr;
         cvPt_.push_back ( Pt3 );
     }
@@ -763,16 +763,16 @@ vector< Point3_< T > >& operator << ( vector< Point3_< T > >& cvPt_, const vecto
     return cvPt_;
 }
 
-// 1.3 vector < < < > > > -> vector < < Point3_ > >
+// 1.3 vector < < < > > > -> vector < < cv::Point3_ > >
 template <class T>
-vector< vector< Point3_< T > > >& operator << ( vector< vector< Point3_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ )
+vector< vector< cv::Point3_< T > > >& operator << ( vector< vector< cv::Point3_< T > > >& vvPt_, const vector< vector< vector< T > > >& vvvVec_ )
 {
     vvPt_.clear();
     typename vector< vector< vector< T > > >::const_iterator constItr = vvvVec_.begin();
 
     for ( ; constItr != vvvVec_.end(); ++constItr )
     {
-        vector< Point3_< T > > vPt3;
+        vector< cv::Point3_< T > > vPt3;
         vPt3 << *constItr;
         vvPt_.push_back ( vPt3 );
     }
@@ -782,11 +782,11 @@ vector< vector< Point3_< T > > >& operator << ( vector< vector< Point3_< T > > >
 
 
 
-//vector< vector< Point3_ > > -> vector< < < > > >
+//vector< vector< cv::Point3_ > > -> vector< < < > > >
 template <class T>
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< Point3_ < T > > >& vvPt3_ )
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< cv::Point3_ < T > > >& vvPt3_ )
 {
-    typename vector< vector< Point3_ < T > > >::const_iterator constItr = vvPt3_.begin();
+    typename vector< vector< cv::Point3_ < T > > >::const_iterator constItr = vvPt3_.begin();
 
     for ( ; constItr != vvPt3_.end(); ++ constItr )
     {
@@ -799,9 +799,9 @@ vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& 
 }
 
 template <class T>
-vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< Point_< T > > >& vvPt_ )
+vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& vvvVec_, const vector< vector< cv::Point_< T > > >& vvPt_ )
 {
-    typename vector< vector< Point_ < T > > >::const_iterator constItr = vvPt_.begin();
+    typename vector< vector< cv::Point_ < T > > >::const_iterator constItr = vvPt_.begin();
 
     for ( ; constItr != vvPt_.end(); ++ constItr )
     {
@@ -813,9 +813,9 @@ vector< vector< vector< T > > >& operator << ( vector< vector< vector< T > > >& 
     return vvvVec_;
 }
 
-// 2.1 Point3_ -> Vector
+// 2.1 cv::Point3_ -> Vector
 template < class T >
-Eigen::Matrix<T, 3, 1> & operator << ( Eigen::Matrix< T, 3, 1 >& eiVec_, const Point3_< T >& cvVec_ )
+Eigen::Matrix<T, 3, 1> & operator << ( Eigen::Matrix< T, 3, 1 >& eiVec_, const cv::Point3_< T >& cvVec_ )
 {
     eiVec_ ( 0 ) = cvVec_.x;
     eiVec_ ( 1 ) = cvVec_.y;
@@ -823,9 +823,9 @@ Eigen::Matrix<T, 3, 1> & operator << ( Eigen::Matrix< T, 3, 1 >& eiVec_, const P
 }
 
 // other -> other
-// 1.2 Static Matrix -> Mat_ < >
+// 1.2 Static Matrix -> cv::Mat_ < >
 template < class T, int ROW, int COL  >
-Mat_< T >& operator << ( Mat_< T >& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ )
+cv::Mat_< T >& operator << ( cv::Mat_< T >& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ )
 {
     cvVec_.create ( ROW, COL );
 
@@ -838,11 +838,11 @@ Mat_< T >& operator << ( Mat_< T >& cvVec_, const Eigen::Matrix< T, ROW, COL >& 
     return cvVec_;
 }
 // other -> other
-// 1.2 Static Matrix -> Mat
+// 1.2 Static Matrix -> cv::Mat
 template < class T, int ROW, int COL  >
-Mat& operator << ( Mat& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ )
+cv::Mat& operator << ( cv::Mat& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ )
 {
-    cvVec_ = Mat_< T > ( ROW, COL );
+    cvVec_ = cv::Mat_< T > ( ROW, COL );
 
     for ( int r = 0; r < ROW; r++ )
         for ( int c = 0; c < COL; c++ )
@@ -857,8 +857,8 @@ Mat& operator << ( Mat& cvVec_, const Eigen::Matrix< T, ROW, COL >& eiVec_ )
 template < class T >
 cv::Mat_< T >& operator << ( cv::Mat_< T >& cppM_, const CvMat& cM_ )
 {
-    CHECK ( cppM_.type() == CV_MAT_TYPE ( cM_.type ) , "operator CvMat << Mat_: the type of cv::Mat_ and CvMat is inconsistent. \n" );
-    CHECK ( CV_IS_MAT ( &cM_ ),                       "operator CvMat << Mat_: the data of CvMat must be pre-allocated. \n" );
+    CHECK ( cppM_.type() == CV_MAT_TYPE ( cM_.type ) , "operator CvMat << cv::Mat_: the type of cv::Mat_ and CvMat is inconsistent. \n" );
+    CHECK ( CV_IS_MAT ( &cM_ ),                       "operator CvMat << cv::Mat_: the data of CvMat must be pre-allocated. \n" );
 
     cppM_.create ( cM_.rows, cM_.cols );
 
@@ -875,10 +875,10 @@ cv::Mat_< T >& operator << ( cv::Mat_< T >& cppM_, const CvMat& cM_ )
 template < class T >
 CvMat& operator << ( CvMat& cM_, const cv::Mat_< T >& cppM_ )
 {
-    CHECK ( cppM_.type() == CV_MAT_TYPE ( cM_.type ) , "operator CvMat << Mat_: the type of cv::Mat_ and CvMat is inconsistent. \n" );
-    CHECK ( CV_IS_MAT ( &cM_ ),                       "operator CvMat << Mat_: the data of CvMat is not allocated. \n" );
-    CHECK ( cppM_.rows == cM_.rows ,                 "operator CvMat << Mat_: the # of rows of cv::Mat_ and CvMat is inconsistent. \n" );
-    CHECK ( cppM_.cols == cM_.cols,                  "operator CvMat << Mat_: the # of cols of cv::Mat_ and CvMat is inconsistent. \n" );
+    CHECK ( cppM_.type() == CV_MAT_TYPE ( cM_.type ) , "operator CvMat << cv::Mat_: the type of cv::Mat_ and CvMat is inconsistent. \n" );
+    CHECK ( CV_IS_MAT ( &cM_ ),                       "operator CvMat << cv::Mat_: the data of CvMat is not allocated. \n" );
+    CHECK ( cppM_.rows == cM_.rows ,                 "operator CvMat << cv::Mat_: the # of rows of cv::Mat_ and CvMat is inconsistent. \n" );
+    CHECK ( cppM_.cols == cM_.cols,                  "operator CvMat << cv::Mat_: the # of cols of cv::Mat_ and CvMat is inconsistent. \n" );
 
 
     for ( int r = 0; r < cppM_.rows; r++ )
@@ -901,7 +901,7 @@ void assignPtr ( cv::Mat_< T >* cppM_, CvMat* pcM_ )
         }
 
 }
-//cv::CvMat -> Mat_
+//cv::CvMat -> cv::Mat_
 template < class T >
 void assignPtr ( CvMat* pcM_,  cv::Mat_< T >* cppM_ )
 {
@@ -914,72 +914,72 @@ void assignPtr ( CvMat* pcM_,  cv::Mat_< T >* cppM_ )
 
 
 
-// 1.1 Point3_ -> vector
+// 1.1 cv::Point3_ -> vector
 template <class T>
-const Point3_< T >& operator >> ( const Point3_< T >& cvPt_, vector< T >& vVec_ )
+const cv::Point3_< T >& operator >> ( const cv::Point3_< T >& cvPt_, vector< T >& vVec_ )
 {
     vVec_ << cvPt_;
 }
 
-// 1.2 vector < Point3_ > -> vector< < > >
+// 1.2 vector < cv::Point3_ > -> vector< < > >
 template <class T>
-const vector< Point3_ < T > >& operator >> ( const vector< Point3_ < T > >& vPt3_, vector< vector< T > >& vvVec_ )
+const vector< cv::Point3_ < T > >& operator >> ( const vector< cv::Point3_ < T > >& vPt3_, vector< vector< T > >& vvVec_ )
 {
     vvVec_ << vPt3_;
 }
 
-// 1.3 vector < vector < Point3_ > > -> vector< < < > > >
+// 1.3 vector < vector < cv::Point3_ > > -> vector< < < > > >
 template <class T>
-const vector< vector< Point3_ < T > > >& operator >> ( const vector< vector< Point3_ < T > > >& vvPt3_, vector< vector< vector< T > > >& vvvVec_ )
+const vector< vector< cv::Point3_ < T > > >& operator >> ( const vector< vector< cv::Point3_ < T > > >& vvPt3_, vector< vector< vector< T > > >& vvvVec_ )
 {
     vvvVec_ << vvPt3_;
 }
 
-// 2.1 Point_ -> vector
+// 2.1 cv::Point_ -> vector
 template <class T>
-const Point_< T >& operator >> ( const Point_< T >& cvPt_, vector< T >& vVec_ )
+const cv::Point_< T >& operator >> ( const cv::Point_< T >& cvPt_, vector< T >& vVec_ )
 {
     vVec_ << cvPt_;
 }
 
-// 2.2 vector < Point_ > -> vector< < > >
+// 2.2 vector < cv::Point_ > -> vector< < > >
 template <class T>
-const vector< Point_< T > >& operator >> ( const vector< Point_< T > >& vPt_, vector< vector< T > >& vvVec_ )
+const vector< cv::Point_< T > >& operator >> ( const vector< cv::Point_< T > >& vPt_, vector< vector< T > >& vvVec_ )
 {
     vvVec_ << vPt_;
 }
 
-// 2.3 vector < vector < Point_ > > -> vector< < < > > >
+// 2.3 vector < vector < cv::Point_ > > -> vector< < < > > >
 template <class T>
-const vector< Point_< T > >&  operator >> ( const vector< vector< Point_< T > > >& vvPt_, vector< vector< vector< T > > >& vvvVec_ )
+const vector< cv::Point_< T > >&  operator >> ( const vector< vector< cv::Point_< T > > >& vvPt_, vector< vector< vector< T > > >& vvvVec_ )
 {
     vvvVec_ << vvPt_;
 }
 
-// 3.  Static Matrix -> vector < < > >
+// 3.  Static cv::Matrix -> vector < < > >
 template < class T , int ROW, int COL >
 const Eigen::Matrix< T, ROW, COL >& operator >> ( const Eigen::Matrix< T, ROW, COL >& eiMat_, vector< vector< T > >& vvVec_ )
 {
     vvVec_ << eiMat_;
 }
 
-// 4.1 Mat_ -> vector
+// 4.1 cv::Mat_ -> vector
 template < class T >
-const Mat_< T >& operator >> ( const Mat_< T >& cvMat_, vector< vector< T > >& vvVec_ )
+const cv::Mat_< T >& operator >> ( const cv::Mat_< T >& cvMat_, vector< vector< T > >& vvVec_ )
 {
     vvVec_ << cvMat_;
 }
 
-// 4.2 vector< Mat_<> > -> vector
+// 4.2 vector< cv::Mat_<> > -> vector
 template < class T >
-const vector< Mat_< T > >& operator >> ( const vector< Mat_< T > >& vmMat_, vector< vector< vector< T > > >& vvvVec_ )
+const vector< cv::Mat_< T > >& operator >> ( const vector< cv::Mat_< T > >& vmMat_, vector< vector< vector< T > > >& vvvVec_ )
 {
     vvvVec_ << vmMat_;
 }
 
-// 5.1 vector< Mat > -> vector
+// 5.1 vector< cv::Mat > -> vector
 template < class T >
-const vector< Mat >& operator >> ( const vector< Mat >& vmMat_, vector< vector< vector< T > > >& vvvVec_ )
+const vector< cv::Mat >& operator >> ( const vector< cv::Mat >& vmMat_, vector< vector< vector< T > > >& vvvVec_ )
 {
     vvvVec_ << vmMat_;
     return vmMat_;
@@ -987,45 +987,45 @@ const vector< Mat >& operator >> ( const vector< Mat >& vmMat_, vector< vector< 
 
 // operator >>
 // vector -> other
-// 1.1 vector -> Point3_Eigen::Matrix<short int, 2, 1,
+// 1.1 vector -> cv::Point3_Eigen::Matrix<short int, 2, 1,
 template <class T>
-const vector< T >& operator >> ( const vector< T >& vVec_, Point3_< T >& cvPt_ )
+const vector< T >& operator >> ( const vector< T >& vVec_, cv::Point3_< T >& cvPt_ )
 {
     cvPt_ << vVec_;
 }
 
-// 1.2 vector < < > > -> vector< Point3_ >
+// 1.2 vector < < > > -> vector< cv::Point3_ >
 template <class T>
-const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_ , vector< Point3_< T > >& cvPt_ )
+const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_ , vector< cv::Point3_< T > >& cvPt_ )
 {
     cvPt_ << vvVec_;
 }
 
-// 1.3 vector < < < > > > -> vector < < Point3_ > >
+// 1.3 vector < < < > > > -> vector < < cv::Point3_ > >
 template <class T>
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< Point3_< T > > >& vvPt_ )
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< cv::Point3_< T > > >& vvPt_ )
 {
     vvPt_ << vvvVec_;
 	return vvvVec_;
 }
 
-// 2.1 vector -> Point_
+// 2.1 vector -> cv::Point_
 template <class T>
-const vector< T >& operator >> ( const vector< T >& vVec_, Point_< T >& cvPt_ )
+const vector< T >& operator >> ( const vector< T >& vVec_, cv::Point_< T >& cvPt_ )
 {
     cvPt_ << vVec_;
 }
 
-// 2.2 vector < < > > -> vector< Point_ >
+// 2.2 vector < < > > -> vector< cv::Point_ >
 template <class T>
-const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, vector< Point_< T > >& cvPt_ )
+const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, vector< cv::Point_< T > >& cvPt_ )
 {
     cvPt_ << vvVec_;
 }
 
-// 2.3 vector < < < > > > -> vector< < Point_ > >
+// 2.3 vector < < < > > > -> vector< < cv::Point_ > >
 template <class T>
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< Point_< T > > >& vvPt_ )
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< vector< cv::Point_< T > > >& vvPt_ )
 {
     vvPt_ << vvvVec_;
 	return vvvVec_;
@@ -1046,24 +1046,24 @@ const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_, 
 	return vvVec_;
 }
 
-// 4.1 vector -> Mat_
+// 4.1 vector -> cv::Mat_
 template < class T >
-const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_,  Mat_< T >& cvMat_ )
+const vector< vector< T > >& operator >> ( const vector< vector< T > >& vvVec_,  cv::Mat_< T >& cvMat_ )
 {
     cvMat_ << vvVec_;
 	return vvVec_;
 }
 
-// 4.2 vector< < < > > > -> vector< Mat_<> >
+// 4.2 vector< < < > > > -> vector< cv::Mat_<> >
 template < class T >
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< Mat_< T > >& vmMat_ )
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< cv::Mat_< T > >& vmMat_ )
 {
     vmMat_ << vvvVec_;
 }
 
-// 5.1 vector< < < > > > -> vector< Mat >
+// 5.1 vector< < < > > > -> vector< cv::Mat >
 template < class T >
-const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< Mat >& vmMat_ )
+const vector< vector< vector< T > > >& operator >> ( const vector< vector< vector< T > > >& vvvVec_, vector< cv::Mat >& vmMat_ )
 {
     vmMat_ << vvvVec_;
 	return vvvVec_;
@@ -1139,7 +1139,7 @@ std::ostream& operator << ( std::ostream& os, const map< T1, T2 > & mp )
 }
 
 template <class T>
-std::ostream& operator << ( std::ostream& os, const Size_< T >& s )
+std::ostream& operator << ( std::ostream& os, const cv::Size_< T >& s )
 {
     os << "[ " << s.width << ", " << s.height << " ]";
     return os;
@@ -1159,7 +1159,7 @@ std::ostream& operator << ( std::ostream& os, const list< T >& l_ )
 
 //used by freenect depth images
 template <class T>
-T rawDepthToMetersLinear ( int nRawDepth_, const Mat_< T >& mPara_ = Mat_< T >() )
+T rawDepthToMetersLinear ( int nRawDepth_, const cv::Mat_< T >& mPara_ = cv::Mat_< T >() )
 {
     double k1 = -0.002788688001059727;
     double k2 = 3.330949940125644;
@@ -1181,7 +1181,7 @@ T rawDepthToMetersLinear ( int nRawDepth_, const Mat_< T >& mPara_ = Mat_< T >()
 }
 //used by freenect depth images
 template <class T>
-T rawDepthToMetersTanh ( int nRawDepth_, const Mat_< T >& mPara_ = Mat_< T >() )
+T rawDepthToMetersTanh ( int nRawDepth_, const cv::Mat_< T >& mPara_ = cv::Mat_< T >() )
 {
     double k1 = 1.1863;
     double k2 = 2842.5;
@@ -1213,7 +1213,7 @@ T rawDepthToMetersTanh ( int nRawDepth_, const Mat_< T >& mPara_ = Mat_< T >() )
 
 //used by freenect depth images
 template< class T >
-T rawDepth ( int nX_, int nY_, const Mat& cvmDepth_ )
+T rawDepth ( int nX_, int nY_, const cv::Mat& cvmDepth_ )
 {
     unsigned char* pDepth = ( unsigned char* ) cvmDepth_.data;
     pDepth += ( nY_ * cvmDepth_.cols + nX_ ) * 3;
@@ -1231,7 +1231,7 @@ T rawDepth ( int nX_, int nY_, const Mat& cvmDepth_ )
 }
 
 template< class T >
-Mat_< T > getColor ( int nX_, int nY_, const Mat& cvmImg_ )
+cv::Mat_< T > getColor ( int nX_, int nY_, const cv::Mat& cvmImg_ )
 {
     unsigned char* pDepth = cvmImg_.data;
     pDepth += ( nY_ * cvmImg_.cols + nX_ ) * 3;
@@ -1239,7 +1239,7 @@ Mat_< T > getColor ( int nX_, int nY_, const Mat& cvmImg_ )
     T nG = * ( pDepth + 1 );
     T nB = * ( pDepth + 2 );
 
-    Mat_< T > rgb = ( Mat_< T > ( 3, 1 ) << nR, nG, nB );
+    cv::Mat_< T > rgb = ( cv::Mat_< T > ( 3, 1 ) << nR, nG, nB );
 
     /*
     	PRINT( nR );
@@ -1251,7 +1251,7 @@ Mat_< T > getColor ( int nX_, int nY_, const Mat& cvmImg_ )
 }
 
 template< class T >
-T* getColorPtr ( const short& nX_, const short& nY_, const Mat& cvmImg_ )
+T* getColorPtr ( const short& nX_, const short& nY_, const cv::Mat& cvmImg_ )
 {
     if ( nX_ < 0 || nX_ >= ( short ) cvmImg_.cols || nY_ < 0 || nY_ >= ( short ) cvmImg_.rows )
     {
@@ -1294,7 +1294,7 @@ void projectWorld2Camera ( const Eigen::Matrix< T, 3, 1 >& vPt_, const Eigen::Ma
 
 //used by freenect depth images
 template < class T >
-T depthInMeters ( int nX_, int nY_, const Mat& cvmDepth_, const Mat_< T >& mPara_ = Mat_< T >(), const int nMethodType_ = 0 )
+T depthInMeters ( int nX_, int nY_, const cv::Mat& cvmDepth_, const cv::Mat_< T >& mPara_ = cv::Mat_< T >(), const int nMethodType_ = 0 )
 {
     int nRawDepth = rawDepth <int> ( nX_, nY_, cvmDepth_ );
     T tDepth;
@@ -1315,7 +1315,7 @@ T depthInMeters ( int nX_, int nY_, const Mat& cvmDepth_, const Mat_< T >& mPara
 }
 
 template < class T >
-Eigen::Matrix< T, 2, 1 > distortPoint ( const Eigen::Matrix< T, 2, 1 >& eivUndistorted_, const Mat_< T >& cvmK_, const Mat_< T >& cvmInvK_, const Mat_< T >& cvmDistCoeffs_ )
+Eigen::Matrix< T, 2, 1 > distortPoint ( const Eigen::Matrix< T, 2, 1 >& eivUndistorted_, const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_ )
 {
     double xu = eivUndistorted_ ( 0 );
     double yu = eivUndistorted_ ( 1 );
@@ -1344,13 +1344,13 @@ Eigen::Matrix< T, 2, 1 > distortPoint ( const Eigen::Matrix< T, 2, 1 >& eivUndis
 }
 
 template < class T >
-void map4UndistortImage ( const Vector2i& eivImageSize_, const Mat_< T >& cvmK_, const Mat_< T >& cvmInvK_, const Mat_< T >& cvmDistCoeffs_, Mat* pMapXY )
+void map4UndistortImage ( const Vector2i& eivImageSize_, const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_, cv::Mat* pMapXY )
 {
     pMapXY->create ( eivImageSize_ ( 1 ), eivImageSize_ ( 0 ), CV_16SC2 );
     short* pData = ( short* ) pMapXY->data;
-    Mat_<short> mapX, mapY;
-//    mapX = Mat_<float> ( cvmImage_.size() );
-//    mapY = Mat_<float> ( cvmImage_.size() );
+    cv::Mat_<short> mapX, mapY;
+//    mapX = cv::Mat_<float> ( cvmImage_.size() );
+//    mapY = cv::Mat_<float> ( cvmImage_.size() );
     int nIdx = 0;
 
     for ( int y = 0; y < eivImageSize_ ( 1 ); ++y )
@@ -1371,14 +1371,14 @@ void map4UndistortImage ( const Vector2i& eivImageSize_, const Mat_< T >& cvmK_,
 }
 
 template < class T >
-void undistortImage ( const Mat& cvmImage_,  const Mat_< T >& cvmK_, const Mat_< T >& cvmInvK_, const Mat_< T >& cvmDistCoeffs_, Mat* pUndistorted_ )
+void undistortImage ( const cv::Mat& cvmImage_,  const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_, cv::Mat* pUndistorted_ )
 {
     //CHECK( cvmImage_.size() == pUndistorted_->size(), "the size of all images must be the same. \n" );
-    Mat mapXY ( cvmImage_.size(), CV_16SC2 );
+    cv::Mat mapXY ( cvmImage_.size(), CV_16SC2 );
     short* pData = ( short* ) mapXY.data;
-//    Mat_<float> mapX, mapY;
-//    mapX = Mat_<float> ( cvmImage_.size() );
-//    mapY = Mat_<float> ( cvmImage_.size() );
+//    cv::Mat_<float> mapX, mapY;
+//    mapX = cv::Mat_<float> ( cvmImage_.size() );
+//    mapY = cv::Mat_<float> ( cvmImage_.size() );
     int nIdx = 0;
 
     for ( int y = 0; y < cvmImage_.rows; ++y )
@@ -1396,7 +1396,7 @@ void undistortImage ( const Mat& cvmImage_,  const Mat_< T >& cvmK_, const Mat_<
     }
 
 //    cout << " undistortImage() " << endl << flush;
-    cv::remap ( cvmImage_, *pUndistorted_, mapXY, Mat(), cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+    cv::remap ( cvmImage_, *pUndistorted_, mapXY, cv::Mat(), cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 //	cout << " after undistortImage() " << endl << flush;
     return;
 }
@@ -1541,7 +1541,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 }
 
 template< class T >
-void filterDepth ( const double& dThreshould_, const Mat_ < T >& cvmDepth_, Mat_< T >* pcvmDepthNew_ )
+void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, cv::Mat_< T >* pcvmDepthNew_ )
 {
     //PRINT( dThreshould_ );
     pcvmDepthNew_->create ( cvmDepth_.size() );
@@ -1768,7 +1768,7 @@ T matNormL1 ( const cv::Mat_< T >& cvMat1_, const cv::Mat_< T >& cvMat2_ )
 //}
 /*
 template< class T >
-Matrix< T, 3,3> fundamental(const Matrix< T, 3, 3 >& eimK1_, const Matrix< T, 3, 3 >& eimK2_, const Matrix< T, 3,3>& eimR_, const Matrix< T, 3,1 >& eivT_, Mat_< T >* pcvmDepthNew_ )
+Matrix< T, 3,3> fundamental(const Matrix< T, 3, 3 >& eimK1_, const Matrix< T, 3, 3 >& eimK2_, const Matrix< T, 3,3>& eimR_, const Matrix< T, 3,1 >& eivT_, cv::Mat_< T >* pcvmDepthNew_ )
 {
 // compute fundamental matrix that the first camera is on classic pose and the second is on R and T pose, the internal
 // parameters of first camera is K1, and the second is K2

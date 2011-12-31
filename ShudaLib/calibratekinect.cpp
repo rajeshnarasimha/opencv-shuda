@@ -7,7 +7,7 @@
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <map>
-using namespace cv;
+//using namespace cv;
 
 namespace btl
 {
@@ -355,7 +355,7 @@ void CCalibrateKinect::loadImages ( const boost::filesystem::path& cFullPath_, c
         std::string strRGBFileName = strPathName + vImgNames_[i]; //saved into the folder from which the KinectCalibrationDemo is being run.
         //PRINT( strRGBFileName );
         CHECK ( boost::filesystem::exists ( strRGBFileName ), "Not found: " + strRGBFileName + "\n" );
-        Mat img = cv::imread ( strRGBFileName );
+        cv::Mat img = cv::imread ( strRGBFileName );
         cvtColor ( img, img, CV_BGR2RGB );
         pvImgs_->push_back ( img );
     }
@@ -368,7 +368,7 @@ void CCalibrateKinect::exportImages ( const boost::filesystem::path& cFullPath_,
 
     for ( unsigned int n = 0; n < vImgNames_.size(); n++ )
     {
-        Mat img = vImgs_[n];
+        cv::Mat img = vImgs_[n];
         cvtColor ( img, img, CV_RGB2BGR );
         cv::imwrite ( strPathName + vImgNames_[n], vImgs_[n] );
     }
@@ -377,7 +377,7 @@ void CCalibrateKinect::exportImages ( const boost::filesystem::path& cFullPath_,
 }
 
 
-void CCalibrateKinect::locate2DCorners ( const vector< Mat >& vImages_, const int& nX_, const int& nY_, vector< vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ ) const //nPatternType_ = SQUARE
+void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, const int& nX_, const int& nY_, vector< vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ ) const //nPatternType_ = SQUARE
 {
 
     CHECK ( !vImages_.empty(), "locate2DCorners(): no images.\n" );
@@ -391,7 +391,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< Mat >& vImages_, const in
 
         for ( unsigned int i = 0; i < vImages_.size(); i++ )
         {
-            const Mat& cvFrame = vImages_[i] ;
+            const cv::Mat& cvFrame = vImages_[i] ;
 
             vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
             //locate corners roughly
@@ -400,7 +400,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< Mat >& vImages_, const in
             CHECK ( _bChessBoardCornersFoundThisFrame, " No corners are found.\n" );
 			PRINT( vCurrentCorners.size() );
             //locate corners in sub-pixel level
-            Mat cvFrameGrey;
+            cv::Mat cvFrameGrey;
             cv::cvtColor ( cvFrame, cvFrameGrey, CV_BGR2GRAY );
             cv::cornerSubPix ( cvFrameGrey, vCurrentCorners, cv::Size ( 9, 9 ), cv::Size ( -1, -1 ), cv::TermCriteria ( CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1 ) );
 
@@ -420,13 +420,13 @@ void CCalibrateKinect::locate2DCorners ( const vector< Mat >& vImages_, const in
 
         for ( unsigned int i = 0; i < vImages_.size(); i++ )
         {
-            const Mat& cvFrame = vImages_[i] ;
-			Mat cvmTmp;
+            const cv::Mat& cvFrame = vImages_[i] ;
+			cv::Mat cvmTmp;
 			cv::cvtColor ( cvFrame, cvmTmp, CV_RGB2GRAY );
 
             vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
             //locate corners roughly
-            bool _bChessBoardCornersFoundThisFrame = cv::findCirclesGrid ( cvmTmp, patternSize, vCurrentCorners, CALIB_CB_ASYMMETRIC_GRID );
+            bool _bChessBoardCornersFoundThisFrame = cv::findCirclesGrid ( cvmTmp, patternSize, vCurrentCorners, cv::CALIB_CB_ASYMMETRIC_GRID );
 
 			PRINT( vCurrentCorners.size() );
 
@@ -483,8 +483,8 @@ void CCalibrateKinect::define3DCorners ( const vector<cv::Point3f>& vPattern_, c
 
 void CCalibrateKinect::calibrate ()
 {
-    _mRGBK = Mat_<double> ( 3, 3 );
-    _mRGBDistCoeffs = Mat_<double> ( 5, 1 );
+    _mRGBK = cv::Mat_<double> ( 3, 3 );
+    _mRGBDistCoeffs = cv::Mat_<double> ( 5, 1 );
 
     _mRGBK.at<double> ( 0, 0 ) = 1;
     _mRGBK.at<double> ( 1, 1 ) = 1;
@@ -504,11 +504,11 @@ void CCalibrateKinect::calibrate ()
     double dErrorIR  = cv::calibrateCamera ( _vv3DCorners, _vvIR2DCorners,  cvFrameSize, _mIRK,  _mIRDistCoeffs,  _vmIRRotationVectors,  _vmIRTranslationVectors  );
 	cout << "calibrate IRs.\n";
 
-    Mat E, F; // E is essential matrix and F is the fundamental matrix
+    cv::Mat E, F; // E is essential matrix and F is the fundamental matrix
     double dErrorStereo = cv::stereoCalibrate ( _vv3DCorners, _vvRGB2DCorners, _vvIR2DCorners, _mRGBK, _mRGBDistCoeffs, _mIRK, _mIRDistCoeffs, cvFrameSize, _cvmRelativeRotation, _cvmRelativeTranslation, E, F );
 
-    cv::invert ( _mRGBK, _mRGBInvK, DECOMP_SVD );
-    cv::invert ( _mIRK, _mIRInvK, DECOMP_SVD );
+    cv::invert ( _mRGBK, _mRGBInvK, cv::DECOMP_SVD );
+    cv::invert ( _mIRK, _mIRInvK, cv::DECOMP_SVD );
     _eimRGBK << _mRGBK;
     _eimRGBInvK << _mRGBInvK;
     _eimIRK  << _mIRK;
@@ -536,13 +536,13 @@ void CCalibrateKinect::calibrate ()
 * @param
 * @param argv
 */
-void CCalibrateKinect::convertRV2RM ( const vector< Mat >& vMat_, vector< Mat >* pvMat_ ) const
+void CCalibrateKinect::convertRV2RM ( const vector< cv::Mat >& vMat_, vector< cv::Mat >* pvMat_ ) const
 {
     pvMat_->clear();
 
     for ( unsigned int n = 0; n < vMat_.size() ; n++ )
     {
-        Mat cvmRGB;
+        cv::Mat cvmRGB;
         cv::Rodrigues ( vMat_[n], cvmRGB );
         pvMat_->push_back ( cvmRGB );
     }
@@ -550,15 +550,15 @@ void CCalibrateKinect::convertRV2RM ( const vector< Mat >& vMat_, vector< Mat >*
     /*
         PRINT( _cvmRelativeRotation );
         PRINT( _cvmRelativeTranslation );
-        Mat vRT  = (Mat_<double>(1,3) << 0, 0, 0);
-        Mat vRR0 = (Mat_<double>(3,1) << 0, 0, 0);
-        Mat mRR, mRGBInvR;
+        cv::Mat vRT  = (Mat_<double>(1,3) << 0, 0, 0);
+        cv::Mat vRR0 = (Mat_<double>(3,1) << 0, 0, 0);
+        cv::Mat mRR, mRGBInvR;
         for(unsigned int i = 0; i < views(); i++)
         {
             vRT += _vmIRTranslationVectors[i] - _vmRGBTranslationVectors[i];
             cv::invert( _vmRGBRotationMatrices[i], mRGBInvR, DECOMP_SVD );
             mRR = _vmIRRotationMatrices[i] * mRGBInvR;
-            Mat vRR;
+            cv::Mat vRR;
             cv::Rodrigues ( mRR, vRR );
             vRR0 += vRR;
         }
@@ -573,12 +573,12 @@ void CCalibrateKinect::convertRV2RM ( const vector< Mat >& vMat_, vector< Mat >*
     return;
 }
 
-void CCalibrateKinect::undistortRGB ( const Mat& cvmRGB_, Mat& Undistorted_ ) const
+void CCalibrateKinect::undistortRGB ( const cv::Mat& cvmRGB_, cv::Mat& Undistorted_ ) const
 {
     cv::remap ( cvmRGB_, Undistorted_, _cvmMapXYRGB, _cvmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
 
-void CCalibrateKinect::undistortIR ( const Mat& cvmIR_, Mat& Undistorted_ ) const
+void CCalibrateKinect::undistortIR ( const cv::Mat& cvmIR_, cv::Mat& Undistorted_ ) const
 {
     cv::remap ( cvmIR_, Undistorted_, _cvmMapXYIR, _cvmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
@@ -598,7 +598,7 @@ void CCalibrateKinect::generateMapXY4UndistortIR()
 
     map4UndistortImage<double> ( _vImageResolution, _mIRK, _mIRInvK, _mIRDistCoeffs, &_cvmMapXYIR );
 }
-void CCalibrateKinect::undistortImages ( const vector< Mat >& vImages_,  const Mat_<double>& cvmK_, const Mat_<double>& cvmInvK_, const Mat_<double>& cvmDistCoeffs_, vector< Mat >* pvUndistorted_ ) const
+void CCalibrateKinect::undistortImages ( const vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, vector< cv::Mat >* pvUndistorted_ ) const
 {
 	cout << "undistortImages() "<< endl << flush;
     CHECK ( !vImages_.empty(),      "undistortImages(): # of undistorted images can not be zero.\n" );
@@ -611,7 +611,7 @@ void CCalibrateKinect::undistortImages ( const vector< Mat >& vImages_,  const M
 
     for ( unsigned int n = 0; n < vImages_.size(); n++ )
     {
-        Mat cvUndistorted;
+        cv::Mat cvUndistorted;
 		cout << "distort: "<< n << "-th image.\n"<< flush;
         undistortImage ( vImages_[n],  cvmK_, cvmInvK_, cvmDistCoeffs_, &cvUndistorted );
         pvUndistorted_->push_back ( cvUndistorted );
@@ -759,8 +759,8 @@ void CCalibrateKinect::load()
     Eigen::Matrix3d mK;
     stdv3DCorners         >> _vv3DCorners;
 
-    cv::invert ( _mRGBK, _mRGBInvK, DECOMP_SVD );
-    cv::invert ( _mIRK,  _mIRInvK,  DECOMP_SVD );
+    cv::invert ( _mRGBK, _mRGBInvK, cv::DECOMP_SVD );
+    cv::invert ( _mIRK,  _mIRInvK,  cv::DECOMP_SVD );
 
     generateMapXY4UndistortRGB();
     generateMapXY4UndistortIR();
@@ -906,8 +906,8 @@ void CCalibrateKinect::importKinectIntrinsics()
     stdvRelativeRotaion     >> _cvmRelativeRotation;
     stdvRelativeTranslation >> _cvmRelativeTranslation;
 
-    cv::invert ( _mRGBK, _mRGBInvK, DECOMP_SVD );
-    cv::invert ( _mIRK,  _mIRInvK,  DECOMP_SVD );
+    cv::invert ( _mRGBK, _mRGBInvK, cv::DECOMP_SVD );
+    cv::invert ( _mIRK,  _mIRInvK,  cv::DECOMP_SVD );
 
     generateMapXY4UndistortRGB();
     generateMapXY4UndistortIR();
@@ -935,9 +935,9 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
 {
     // create and open a character archive for output
 #if __linux__
-    cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", FileStorage::READ );
+    cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
 #else if _WIN32 || _WIN64
-	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", FileStorage::READ );
+	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
 #endif
 
 	cFSRead ["mRGBK"] >> _mRGBK;
@@ -952,8 +952,8 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
 
 	cFSRead.release();
 
-    cv::invert ( _mRGBK, _mRGBInvK, DECOMP_SVD );
-    cv::invert ( _mIRK,  _mIRInvK,  DECOMP_SVD );
+    cv::invert ( _mRGBK, _mRGBInvK, cv::DECOMP_SVD );
+    cv::invert ( _mIRK,  _mIRInvK,  cv::DECOMP_SVD );
 
     generateMapXY4UndistortRGB();
     generateMapXY4UndistortIR();

@@ -93,7 +93,7 @@ void COptim::Display()
 }
 
 // defining the function to be minimized.
-double COptim::Func(const Mat_<double>& X)
+double COptim::Func(const cv::Mat_<double>& X)
 {
 	CHECK( 1 == X.cols, "Optim::Func() X must be a column vector.\n" ); 
 	// Rosenbrock's Function
@@ -106,12 +106,12 @@ double COptim::Func(const Mat_<double>& X)
 	return ( X02 + X12/2. );
 }
 
-void COptim::dFunc(const Mat_<double>& X, Mat_<double>& G)
+void COptim::dFunc(const cv::Mat_<double>& X, cv::Mat_<double>& G)
 {
 	CHECK( 1 == X.cols, "Optim::Func() X must be a column vector.\n" ); 
 	CHECK( 1 == G.cols, "Optim::Func() G must be a column vector.\n" ); 
 
-	Mat_<double> X0 = X;
+	cv::Mat_<double> X0 = X;
 
 	if (X0.rows == 0)
 	{
@@ -136,13 +136,13 @@ void COptim::dFunc(const Mat_<double>& X, Mat_<double>& G)
 	}
 }
 
-bool COptim::ConjugateGradient(Mat_<double>& X)
+bool COptim::ConjugateGradient( cv::Mat_<double>& X)
 {
 	cout << "COptim::ConjugateGradient() ";
 	CHECK( 1 == X.cols, "Optim::Func() X must be a column vector.\n" ); 
     double lastCost;	// cost of last optimal point
 	double mag0, mag1;	// squares of magnitudes of last and current gradients
-	Mat_<double> Grad0, Grad1, D;
+	cv::Mat_<double> Grad0, Grad1, D;
 	int i;
 	double lambda;
 
@@ -200,12 +200,12 @@ bool COptim::ConjugateGradient(Mat_<double>& X)
 	return false;
 }
 
-bool COptim::GradientDescendent(Mat_<double>& X)
+bool COptim::GradientDescendent( cv::Mat_<double>& X)
 {
 	cout << "COptim::GradientDescendent() ";
 	double lastCost;	// cost of last optimal point
 	double mag;	// squares of magnitudes of last and current gradients
-	Mat_<double> Grad;
+	cv::Mat_<double> Grad;
 	int i;
 	double lambda;
 
@@ -247,14 +247,14 @@ bool COptim::GradientDescendent(Mat_<double>& X)
 	return false;
 }
 
-bool COptim::DirectionSets(Mat_<double>& X)
+bool COptim::DirectionSets( cv::Mat_<double>& X)
 {
 	cout << "COptim::DirectionSets() ";
 
 	int ibig;
 	double del, Cost0, Cost1, lambda;
 
-	Mat_<double> X0, X1, Dn, D;
+	cv::Mat_<double> X0, X1, Dn, D;
 
 	X0.create( X.size() );
 	X1.create( X.size() );
@@ -262,7 +262,7 @@ bool COptim::DirectionSets(Mat_<double>& X)
 	D .create( X.size() );
 
 	// initialize at the starting point
-	Dn = Mat_<double>::eye(  X.rows, X.rows );// set to identity matrix
+	Dn = cv::Mat_<double>::eye(  X.rows, X.rows );// set to identity matrix
 
 	m_nIter = 0;
 	m_Cost = Func(X);
@@ -323,7 +323,7 @@ bool COptim::DirectionSets(Mat_<double>& X)
 	return false;
 }
 
-bool COptim::LineSearch(Mat_<double>& X, const Mat_<double>& D, double& lambda)
+bool COptim::LineSearch( cv::Mat_<double>& X, const cv::Mat_<double>& D, double& lambda)
 {
 	// perform the line search
 	switch(m_nLnAlg)
@@ -336,7 +336,7 @@ bool COptim::LineSearch(Mat_<double>& X, const Mat_<double>& D, double& lambda)
 	}
 }
 
-bool COptim::GoldenSection(Mat_<double>& X, const Mat_<double>& D, double& lambda)
+bool COptim::GoldenSection( cv::Mat_<double>& X, const cv::Mat_<double>& D, double& lambda)
 {
 	double a, b, c, fa, fb, fc;
 	double u, v, w, x, fu, fv, fw, fx;
@@ -481,7 +481,7 @@ bool COptim::GoldenSection(Mat_<double>& X, const Mat_<double>& D, double& lambd
 	return false;
 }
 
-void COptim::MnBrak(double& a, double& b, double& c, double& fa, double& fb, double& fc, const Mat_<double>& X, const Mat_<double>& D)
+void COptim::MnBrak(double& a, double& b, double& c, double& fa, double& fb, double& fc, const cv::Mat_<double>& X, const cv::Mat_<double>& D)
 {
 	double r, q, u, ulim, fu;
 	int count = 10;

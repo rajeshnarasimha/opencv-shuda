@@ -18,7 +18,7 @@
 #include <math.h>
 #include <vector>
 using namespace std;
-using namespace cv;
+//using namespace cv;
 using namespace btl::utility;
 #define OPTIM_TINY	(1.0e-20)
 #define OPTIM_ZEPS	(1.0e-13)
@@ -99,8 +99,8 @@ public:
 	}
 	inline const int& Iter() const {return m_nIter;}
 	inline const double& Cost() const {return m_Cost;}
-	virtual const Mat_<double>& GetX() const {return m_X;}
-	virtual Mat_<double>& GetX() {return m_X;}
+	virtual const cv::Mat_<double>& GetX() const {return m_X;}
+	virtual cv::Mat_<double>& GetX() {return m_X;}
 
 	// launcher
 	// begin the optimization which calls isOK()
@@ -113,18 +113,18 @@ public:
 	// cost functions to be mininized
 	// override this by the actual cost function,
 	// default is the Rosenbrock's Function
-	virtual double Func(const Mat_<double>& X);
+	virtual double Func(const cv::Mat_<double>& X);
 	// override this by the gradient of the cost function
 	// default is by finite-difference
-	virtual void dFunc(const Mat_<double>& X, Mat_<double>& G);
+	virtual void dFunc(const cv::Mat_<double>& X, cv::Mat_<double>& G);
 
 	// serializations
 
 protected:
 	// multi-dimensional search algorithms
-	virtual bool ConjugateGradient(Mat_<double>& X);
-	virtual bool DirectionSets(Mat_<double>& X);
-	virtual bool GradientDescendent(Mat_<double>& X);
+	virtual bool ConjugateGradient(cv::Mat_<double>& X);
+	virtual bool DirectionSets(cv::Mat_<double>& X);
+	virtual bool GradientDescendent(cv::Mat_<double>& X);
 /**
 * @brief search for the local minimum along the direction D
 *
@@ -134,13 +134,13 @@ protected:
 *
 * @return true if it converges.
 */
-	virtual bool LineSearch(Mat_<double>& X, const Mat_<double>& D, double& lambda);
+	virtual bool LineSearch(cv::Mat_<double>& X, const cv::Mat_<double>& D, double& lambda);
 
 	// line search algorithms
-	virtual bool GoldenSection(Mat_<double>& X, const Mat_<double>& D, double& lambda);
+	virtual bool GoldenSection(cv::Mat_<double>& X, const cv::Mat_<double>& D, double& lambda);
 
 	// function for bracketing a minimum in a line search
-	virtual void MnBrak(double& a, double& b, double& c, double& fa, double& fb, double& fc, const Mat_<double>& X, const Mat_<double>& D);
+	virtual void MnBrak(double& a, double& b, double& c, double& fa, double& fb, double& fc, const cv::Mat_<double>& X, const cv::Mat_<double>& D);
 
 protected:
 	// for multi-dimensional search
@@ -157,17 +157,17 @@ protected:
 	double m_LnTol;		// fractional tolerance
 
 	// for gradient calculation using finite difference
-	Mat_<double> m_vDelta;
+	cv::Mat_<double> m_vDelta;
 
 	// output
 	int m_nIter;		// current number of iterations
 	double m_Cost;		// current cost
 
 	// parameters
-	Mat_<double> m_X;
+	cv::Mat_<double> m_X;
 	vector<double> m_vdCosts;
-	vector< Mat_<double> > m_vXs;
-	vector< Mat_<double> > m_vGs;
+	vector< cv::Mat_<double> > m_vXs;
+	vector< cv::Mat_<double> > m_vGs;
 };
 
 }//namespace shuda
