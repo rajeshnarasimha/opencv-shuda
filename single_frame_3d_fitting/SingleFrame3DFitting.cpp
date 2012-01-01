@@ -22,7 +22,6 @@ using namespace utility;
 using namespace extra;
 using namespace videosource;
 using namespace Eigen;
-using namespace cv;
 
 class CKinectView;
 
