@@ -270,7 +270,11 @@ void convert2DisparityDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisp
 	{
 		for ( unsigned int x = 0; x < cvDepth_.cols; x++ )
 		{
-			*pOutputDisparity++ = 1./(*pInputDepth++);
+			double dDepth = *pInputDepth++;
+			if( dDepth>SMALL )
+				*pOutputDisparity++ = 1./dDepth;
+			else
+				*pOutputDisparity++ = 0.;
 		}
 	}
 	return;
@@ -285,7 +289,12 @@ void convert2DepthDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisparit
 	{
 		for ( unsigned int x = 0; x < cvDepth_.cols; x++ )
 		{
-			*pOutputDisparity++ = (T2)(1./(*pInputDepth++)+.5);
+			double dDepth = *pInputDepth++;
+			if( dDepth>SMALL )
+				*pOutputDisparity++ =  (T2)(1./dDepth+.5);
+			else
+				*pOutputDisparity++ = 0.;
+//			*pOutputDisparity++ = (T2)(1./(*pInputDepth++)+.5);
 		}
 	}
 	return;
