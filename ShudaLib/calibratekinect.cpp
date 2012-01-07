@@ -57,13 +57,13 @@ CCalibrateKinect::CCalibrateKinect()
     _aRT[1] = vRT ( 1 );
     _aRT[2] = vRT ( 2 );
 
-    _fxIR = eiMatIRK() ( 0, 0 );
-    _fyIR = eiMatIRK() ( 1, 1 );
+    _dFxIR = eiMatIRK() ( 0, 0 );
+    _dFyIR = eiMatIRK() ( 1, 1 );
     _uIR  = eiMatIRK() ( 0, 2 );
     _vIR  = eiMatIRK() ( 1, 2 );
 
-    _fxRGB = eiMatRGBK() ( 0, 0 );
-    _fyRGB = eiMatRGBK() ( 1, 1 );
+    _dFxRGB = eiMatRGBK() ( 0, 0 );
+    _dFyRGB = eiMatRGBK() ( 1, 1 );
     _uRGB  = eiMatRGBK() ( 0, 2 );
     _vRGB  = eiMatRGBK() ( 1, 2 );
 
@@ -71,7 +71,7 @@ CCalibrateKinect::CCalibrateKinect()
     //define 3D pattern corners
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
-    cout << "CCalibrateKinect() done." << endl;
+    std::cout << "CCalibrateKinect() done." << std::endl;
     return;
 }
 CCalibrateKinect::~CCalibrateKinect()
@@ -105,7 +105,7 @@ Matrix3d CCalibrateKinect::eiMatK ( int nCameraType_ ) const
 
 void CCalibrateKinect::parseControlYAML()
 {
-    ifstream iFile ( "/space/csxsl/src/opencv-shuda/Data/control.yaml" );
+    std::ifstream iFile ( "/space/csxsl/src/opencv-shuda/Data/control.yaml" );
     YAML::Parser parser ( iFile );
     YAML::Node doc;
     parser.GetNextDocument ( doc );
@@ -118,7 +118,7 @@ void CCalibrateKinect::parseControlYAML()
 
     //PRINT( mpOpr1 );
     //process mpOpr1;
-    map< string, int >::const_iterator cIt1;
+    std::map< std::string, int >::const_iterator cIt1;
 
     for ( cIt1 = mpOpr1.begin(); cIt1 != mpOpr1.end(); cIt1++ )
     {
@@ -168,57 +168,57 @@ void CCalibrateKinect::parseControlYAML()
         }
     }
 
-	std::map <string, string> mpType;
+	std::map < std::string, std::string> mpType;
     parser.GetNextDocument ( doc );
     doc[0] >> mpType;
-    string strGridType = mpType["grid type"];
+    std::string strGridType = mpType["grid type"];
 	if ( "circle" == strGridType )
 		_nPatternType = CIRCLE;
 	else if( "chessboard" == strGridType )
 		_nPatternType = SQUARE;
 		
     // properties
-    std::map < std::string, vector< int > > mpCornerCounts;
+    std::map < std::string, std::vector< int > > mpCornerCounts;
     parser.GetNextDocument ( doc );
     doc[0] >> mpCornerCounts;
     //PRINT( mpCornerCounts );
     //process mpCornerCounts
-    vector< int > vCornerCounts;
+    std::vector< int > vCornerCounts;
     vCornerCounts = mpCornerCounts["No. of Corners X Y"];
     _NUM_CORNERS_X = vCornerCounts[0];
     _NUM_CORNERS_Y = vCornerCounts[1];
 
-    std::map < string, vector< float > > mpUnitLength;
+    std::map < std::string, std::vector< float > > mpUnitLength;
     parser.GetNextDocument ( doc );
     doc[0] >> mpUnitLength;
     //PRINT( mpUnitLength );
     //process mpUnitLength
-    vector< float > vUnitLength;
+    std::vector< float > vUnitLength;
     vUnitLength = mpUnitLength["Unit length in X Y"];
     _X = vUnitLength[0];
     _Y = vUnitLength[1];
 
-    std::map <string, string> mpProperties;
+    std::map < std::string, std::string> mpProperties;
     parser.GetNextDocument ( doc );
     doc[0] >> mpProperties;
-    string _strImageDirectory = mpProperties["image directory"];
+    std::string _strImageDirectory = mpProperties["image directory"];
     //PRINT( mpProperties );
 	
-	vector< int > vIdx;
+	std::vector< int > vIdx;
 	parser.GetNextDocument ( doc );
 	for ( unsigned i = 0; i < doc.size(); i++ )
 	{
 		doc[i] >> vIdx;
 	}
 
-    vector<string> vRGBNames;
-	vector<string> vDepthNames;
-	vector<string> vUndistRGB;
-	vector<string> vUndistDepth;
+    std::vector< std::string> vRGBNames;
+	std::vector< std::string> vDepthNames;
+	std::vector< std::string> vUndistRGB;
+	std::vector< std::string> vUndistDepth;
 
-	for ( vector< int >::const_iterator cit = vIdx.begin(); cit != vIdx.end(); cit ++ )
+	for ( std::vector< int >::const_iterator cit = vIdx.begin(); cit != vIdx.end(); cit ++ )
 	{
-		string strNum = boost::lexical_cast<string> ( *cit );
+		std::string strNum = boost::lexical_cast< std::string> ( *cit );
 		vRGBNames.	push_back( "rgb"+strNum+".bmp" );
 		vDepthNames.push_back( "ir" +strNum+".bmp" );
 		vUndistRGB. push_back( "rgbUndistorted"+strNum+".bmp" );
@@ -297,7 +297,7 @@ void CCalibrateKinect::mainFunc ( const boost::filesystem::path& cFullPath_ )
         calibrate();
         std::cout << "camera calibrated \n" ;
 
-        //convert rotation vectors to rotation matrices
+        //convert rotation std::vectors to rotation matrices
         convertRV2RM ( _vmRGBRotationVectors, &_vmRGBRotationMatrices );
         convertRV2RM ( _vmIRRotationVectors, &_vmIRRotationMatrices );
 
@@ -328,27 +328,27 @@ void CCalibrateKinect::mainFunc ( const boost::filesystem::path& cFullPath_ )
     if ( 1 == _nSerializeToXML )
     {
         save();
-        cout << "serialized to XML \n" ;
+        std::cout << "serialized to XML \n" ;
     }
 
     if ( 1 == _nSerializeFromXML )
     {
         load();
-        cout << "serialized from XML \n" ;
+        std::cout << "serialized from XML \n" ;
     }
 
     exportKinectIntrinsics();
-	cout << " intrinsics exported \n" ;
+	std::cout << " intrinsics exported \n" ;
     //importKinectIntrinsics();//obsolete
 	importKinectIntrinsicsYML();
-	cout << " intrinsics imported \n" ;
+	std::cout << " intrinsics imported \n" ;
     return;
 }
 void CCalibrateKinect::loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const
 {
     pvImgs_->clear();
 
-    string strPathName  = cFullPath_.string();
+    std::string strPathName  = cFullPath_.string();
 
     for ( unsigned int i = 0; i < vImgNames_.size(); i++ )
     {
@@ -362,9 +362,9 @@ void CCalibrateKinect::loadImages ( const boost::filesystem::path& cFullPath_, c
 
     return;
 }
-void CCalibrateKinect::exportImages ( const boost::filesystem::path& cFullPath_, const vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const
+void CCalibrateKinect::exportImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const
 {
-    string strPathName  = cFullPath_.string();
+    std::string strPathName  = cFullPath_.string();
 
     for ( unsigned int n = 0; n < vImgNames_.size(); n++ )
     {
@@ -377,7 +377,7 @@ void CCalibrateKinect::exportImages ( const boost::filesystem::path& cFullPath_,
 }
 
 
-void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, const int& nX_, const int& nY_, vector< vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ ) const //nPatternType_ = SQUARE
+void CCalibrateKinect::locate2DCorners ( const std::vector< cv::Mat >& vImages_, const int& nX_, const int& nY_, std::vector< std::vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ ) const //nPatternType_ = SQUARE
 {
 
     CHECK ( !vImages_.empty(), "locate2DCorners(): no images.\n" );
@@ -393,7 +393,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, cons
         {
             const cv::Mat& cvFrame = vImages_[i] ;
 
-            vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
+            std::vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
             //locate corners roughly
             bool _bChessBoardCornersFoundThisFrame = cv::findChessboardCorners ( cvFrame, patternSize, vCurrentCorners, CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FILTER_QUADS );
 
@@ -404,7 +404,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, cons
             cv::cvtColor ( cvFrame, cvFrameGrey, CV_BGR2GRAY );
             cv::cornerSubPix ( cvFrameGrey, vCurrentCorners, cv::Size ( 9, 9 ), cv::Size ( -1, -1 ), cv::TermCriteria ( CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1 ) );
 
-            //store the corners inpto a vector
+            //store the corners inpto a std::vector
             pvv2DCorners_->push_back ( vCurrentCorners );
         }
     }
@@ -424,7 +424,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, cons
 			cv::Mat cvmTmp;
 			cv::cvtColor ( cvFrame, cvmTmp, CV_RGB2GRAY );
 
-            vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
+            std::vector<cv::Point2f> vCurrentCorners;//float 2d point is required by the OpenCV API.
             //locate corners roughly
             bool _bChessBoardCornersFoundThisFrame = cv::findCirclesGrid ( cvmTmp, patternSize, vCurrentCorners, cv::CALIB_CB_ASYMMETRIC_GRID );
 
@@ -432,7 +432,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, cons
 
             //CHECK ( _bChessBoardCornersFoundThisFrame, " No corners are found.\n" );
 
-            //store the corners inpto a vector
+            //store the corners inpto a std::vector
             pvv2DCorners_->push_back ( vCurrentCorners );
         }
     }
@@ -440,7 +440,7 @@ void CCalibrateKinect::locate2DCorners ( const vector< cv::Mat >& vImages_, cons
     return;
 }
 
-void CCalibrateKinect::definePattern (  const float& fX_, const float& fY_, const int& nX_, const int& nY_,  const int& nPatternType_, vector<cv::Point3f>* pv3DPatternCorners_ ) const
+void CCalibrateKinect::definePattern (  const float& fX_, const float& fY_, const int& nX_, const int& nY_,  const int& nPatternType_, std::vector<cv::Point3f>* pv3DPatternCorners_ ) const
 {
     pv3DPatternCorners_->clear();
 
@@ -469,7 +469,7 @@ void CCalibrateKinect::definePattern (  const float& fX_, const float& fY_, cons
     return;
 }
 
-void CCalibrateKinect::define3DCorners ( const vector<cv::Point3f>& vPattern_, const unsigned int& nViews_, vector< vector<cv::Point3f> >* pvv3DCorners_  ) const
+void CCalibrateKinect::define3DCorners ( const std::vector<cv::Point3f>& vPattern_, const unsigned int& nViews_, std::vector< std::vector<cv::Point3f> >* pvv3DCorners_  ) const
 {
     pvv3DCorners_->clear();
 
@@ -500,9 +500,9 @@ void CCalibrateKinect::calibrate ()
 
     //calibrate the rgb camera
     double dErrorRGB = cv::calibrateCamera ( _vv3DCorners, _vvRGB2DCorners, cvFrameSize, _mRGBK, _mRGBDistCoeffs, _vmRGBRotationVectors, _vmRGBTranslationVectors );
-	cout << "calibrate RGBs.\n";
+	std::cout << "calibrate RGBs.\n";
     double dErrorIR  = cv::calibrateCamera ( _vv3DCorners, _vvIR2DCorners,  cvFrameSize, _mIRK,  _mIRDistCoeffs,  _vmIRRotationVectors,  _vmIRTranslationVectors  );
-	cout << "calibrate IRs.\n";
+	std::cout << "calibrate IRs.\n";
 
     cv::Mat E, F; // E is essential matrix and F is the fundamental matrix
     double dErrorStereo = cv::stereoCalibrate ( _vv3DCorners, _vvRGB2DCorners, _vvIR2DCorners, _mRGBK, _mRGBDistCoeffs, _mIRK, _mIRDistCoeffs, cvFrameSize, _cvmRelativeRotation, _cvmRelativeTranslation, E, F );
@@ -531,12 +531,12 @@ void CCalibrateKinect::calibrate ()
 }
 
 /**
-* @brief convert rotation vectors into rotation matrices using cv::
+* @brief convert rotation std::vectors into rotation matrices using cv::
 *
 * @param
 * @param argv
 */
-void CCalibrateKinect::convertRV2RM ( const vector< cv::Mat >& vMat_, vector< cv::Mat >* pvMat_ ) const
+void CCalibrateKinect::convertRV2RM ( const std::vector< cv::Mat >& vMat_, std::vector< cv::Mat >* pvMat_ ) const
 {
     pvMat_->clear();
 
@@ -598,9 +598,9 @@ void CCalibrateKinect::generateMapXY4UndistortIR()
 
     map4UndistortImage<double> ( _vImageResolution, _mIRK, _mIRInvK, _mIRDistCoeffs, &_cvmMapXYIR );
 }
-void CCalibrateKinect::undistortImages ( const vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, vector< cv::Mat >* pvUndistorted_ ) const
+void CCalibrateKinect::undistortImages ( const std::vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, std::vector< cv::Mat >* pvUndistorted_ ) const
 {
-	cout << "undistortImages() "<< endl << flush;
+	std::cout << "undistortImages() "<< std::endl << std::flush;
     CHECK ( !vImages_.empty(),      "undistortImages(): # of undistorted images can not be zero.\n" );
     CHECK ( !cvmK_.empty(),         "undistortImages(): K matrix cannot be empty.\n" );
     CHECK ( !cvmInvK_.empty(),      "undistortImages(): inverse of K matrix cannot be empty.\n" );
@@ -612,11 +612,11 @@ void CCalibrateKinect::undistortImages ( const vector< cv::Mat >& vImages_,  con
     for ( unsigned int n = 0; n < vImages_.size(); n++ )
     {
         cv::Mat cvUndistorted;
-		cout << "distort: "<< n << "-th image.\n"<< flush;
+		std::cout << "distort: "<< n << "-th image.\n"<< std::flush;
         undistortImage ( vImages_[n],  cvmK_, cvmInvK_, cvmDistCoeffs_, &cvUndistorted );
         pvUndistorted_->push_back ( cvUndistorted );
 
-        //string strNum = boost::lexical_cast<string> ( n );
+        //string strNum = boost::lexical_cast< std::string> ( n );
         //string strRGBUndistortedFileName = "rgbUndistorted" + strNum + ".bmp";
         //cv::imwrite ( strRGBUndistortedFileName, cvUndistorted );
     }
@@ -630,25 +630,25 @@ void CCalibrateKinect::save()
     std::ofstream ofs ( "CalibrateKinect.xml" );
     boost::archive::xml_oarchive oa ( ofs );
 
-    //convert non-standard variables into vectors
+    //convert non-standard variables into std::vectors
 
     //rgb
-    vector< vector< double > > stdvRGBKMatrix;
-    vector< vector< double > > stdvRGBDistortionCoeff;
-    vector< vector< vector< double > > > stdvRGBRotationVectors;
-    vector< vector< vector< double > > > stdvRGBRotationMatrices;
-    vector< vector< vector< double > > > stdvRGBTranslationVectors;
-    vector< vector< vector< float  > > > stdvRGB2DCorners;
+    std::vector< std::vector< double > > stdvRGBKMatrix;
+    std::vector< std::vector< double > > stdvRGBDistortionCoeff;
+    std::vector< std::vector< std::vector< double > > > stdvRGBRotationVectors;
+    std::vector< std::vector< std::vector< double > > > stdvRGBRotationMatrices;
+    std::vector< std::vector< std::vector< double > > > stdvRGBTranslationVectors;
+    std::vector< std::vector< std::vector< float  > > > stdvRGB2DCorners;
     //ir
-    vector< vector< double > > stdvIRKMatrix;
-    vector< vector< double > > stdvIRDistortionCoeff;
-    vector< vector< vector< double > > > stdvIRRotationVectors;
-    vector< vector< vector< double > > > stdvIRRotationMatrices;
-    vector< vector< vector< double > > > stdvIRTranslationVectors;
-    vector< vector< vector< float  > > > stdvIR2DCorners;
+    std::vector< std::vector< double > > stdvIRKMatrix;
+    std::vector< std::vector< double > > stdvIRDistortionCoeff;
+    std::vector< std::vector< std::vector< double > > > stdvIRRotationVectors;
+    std::vector< std::vector< std::vector< double > > > stdvIRRotationMatrices;
+    std::vector< std::vector< std::vector< double > > > stdvIRTranslationVectors;
+    std::vector< std::vector< std::vector< float  > > > stdvIR2DCorners;
     //both
-    vector< vector< int > >    stdvImageResolution;
-    vector< vector< vector< float  > > > stdv3DCorners;
+    std::vector< std::vector< int > >    stdvImageResolution;
+    std::vector< std::vector< std::vector< float  > > > stdv3DCorners;
 
     //rgb
     stdvRGBKMatrix           << _mRGBK;
@@ -700,22 +700,22 @@ void CCalibrateKinect::load()
     boost::archive::xml_iarchive ia ( ifs );
 
     //rgb
-    vector< vector< double > > stdvRGBKMatrix;
-    vector< vector< double > > stdvRGBDistortionCoeff;
-    vector< vector< vector< double > > > stdvRGBRotationVectors;
-    vector< vector< vector< double > > > stdvRGBRotationMatrices;
-    vector< vector< vector< double > > > stdvRGBTranslationVectors;
-    vector< vector< vector< float  > > > stdvRGB2DCorners;
+    std::vector< std::vector< double > > stdvRGBKMatrix;
+    std::vector< std::vector< double > > stdvRGBDistortionCoeff;
+    std::vector< std::vector< std::vector< double > > > stdvRGBRotationVectors;
+    std::vector< std::vector< std::vector< double > > > stdvRGBRotationMatrices;
+    std::vector< std::vector< std::vector< double > > > stdvRGBTranslationVectors;
+    std::vector< std::vector< std::vector< float  > > > stdvRGB2DCorners;
     //ir
-    vector< vector< double > > stdvIRKMatrix;
-    vector< vector< double > > stdvIRDistortionCoeff;
-    vector< vector< vector< double > > > stdvIRRotationVectors;
-    vector< vector< vector< double > > > stdvIRRotationMatrices;
-    vector< vector< vector< double > > > stdvIRTranslationVectors;
-    vector< vector< vector< float  > > > stdvIR2DCorners;
+    std::vector< std::vector< double > > stdvIRKMatrix;
+    std::vector< std::vector< double > > stdvIRDistortionCoeff;
+    std::vector< std::vector< std::vector< double > > > stdvIRRotationVectors;
+    std::vector< std::vector< std::vector< double > > > stdvIRRotationMatrices;
+    std::vector< std::vector< std::vector< double > > > stdvIRTranslationVectors;
+    std::vector< std::vector< std::vector< float  > > > stdvIR2DCorners;
     //both
-    vector< vector< int > >    stdvImageResolution;
-    vector< vector< vector< float  > > > stdv3DCorners;
+    std::vector< std::vector< int > >    stdvImageResolution;
+    std::vector< std::vector< std::vector< float  > > > stdv3DCorners;
 
     ia >> BOOST_SERIALIZATION_NVP ( _NUM_CORNERS_X );
     ia >> BOOST_SERIALIZATION_NVP ( _NUM_CORNERS_Y );
@@ -782,18 +782,18 @@ void CCalibrateKinect::exportKinectIntrinsicsYML()
 	std::ofstream ofs ( "kinect_intrinsics.xml" );
 	boost::archive::xml_oarchive oa ( ofs );
 
-	//convert non-standard variables into vectors
+	//convert non-standard variables into std::vectors
 
 	//rgb
-	vector< vector< double > > stdvRGBKMatrix;
-	vector< vector< double > > stdvRGBDistortionCoeff;
+	std::vector< std::vector< double > > stdvRGBKMatrix;
+	std::vector< std::vector< double > > stdvRGBDistortionCoeff;
 	//ir
-	vector< vector< double > > stdvIRKMatrix;
-	vector< vector< double > > stdvIRDistortionCoeff;
+	std::vector< std::vector< double > > stdvIRKMatrix;
+	std::vector< std::vector< double > > stdvIRDistortionCoeff;
 	//both
-	vector< vector< int > >    stdvImageResolution;
-	vector< vector< double > > stdvRelativeRotaion;
-	vector< vector< double > > stdvRelativeTranslation;
+	std::vector< std::vector< int > >    stdvImageResolution;
+	std::vector< std::vector< double > > stdvRelativeRotaion;
+	std::vector< std::vector< double > > stdvRelativeTranslation;
 
 	//rgb
 	stdvRGBKMatrix          << _mRGBK;
@@ -826,18 +826,18 @@ void CCalibrateKinect::exportKinectIntrinsics()
     std::ofstream ofs ( "kinect_intrinsics.xml" );
     boost::archive::xml_oarchive oa ( ofs );
 
-    //convert non-standard variables into vectors
+    //convert non-standard variables into std::vectors
 
     //rgb
-    vector< vector< double > > stdvRGBKMatrix;
-    vector< vector< double > > stdvRGBDistortionCoeff;
+    std::vector< std::vector< double > > stdvRGBKMatrix;
+    std::vector< std::vector< double > > stdvRGBDistortionCoeff;
     //ir
-    vector< vector< double > > stdvIRKMatrix;
-    vector< vector< double > > stdvIRDistortionCoeff;
+    std::vector< std::vector< double > > stdvIRKMatrix;
+    std::vector< std::vector< double > > stdvIRDistortionCoeff;
     //both
-    vector< vector< int > >    stdvImageResolution;
-    vector< vector< double > > stdvRelativeRotaion;
-    vector< vector< double > > stdvRelativeTranslation;
+    std::vector< std::vector< int > >    stdvImageResolution;
+    std::vector< std::vector< double > > stdvRelativeRotaion;
+    std::vector< std::vector< double > > stdvRelativeTranslation;
 
     //rgb
     stdvRGBKMatrix          << _mRGBK;
@@ -873,18 +873,18 @@ void CCalibrateKinect::importKinectIntrinsics()
 #endif
     boost::archive::xml_iarchive ia ( ifs );
 
-    //convert non-standard variables into vectors
+    //convert non-standard variables into std::vectors
 
     //rgb
-    vector< vector< double > > stdvRGBKMatrix;
-    vector< vector< double > > stdvRGBDistortionCoeff;
+    std::vector< std::vector< double > > stdvRGBKMatrix;
+    std::vector< std::vector< double > > stdvRGBDistortionCoeff;
     //ir
-    vector< vector< double > > stdvIRKMatrix;
-    vector< vector< double > > stdvIRDistortionCoeff;
+    std::vector< std::vector< double > > stdvIRKMatrix;
+    std::vector< std::vector< double > > stdvIRDistortionCoeff;
     //both
-    vector< vector< int > >    stdvImageResolution;
-    vector< vector< double > > stdvRelativeRotaion;
-    vector< vector< double > > stdvRelativeTranslation;
+    std::vector< std::vector< int > >    stdvImageResolution;
+    std::vector< std::vector< double > > stdvRelativeRotaion;
+    std::vector< std::vector< double > > stdvRelativeTranslation;
 
 
     ia >> BOOST_SERIALIZATION_NVP ( stdvImageResolution );
@@ -1010,7 +1010,7 @@ void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
     //project RGB coordinate to image to register the depth with rgb image
     projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB );
 
-    //cout << "registration() end."<< endl;
+    //cout << "registration() end."<< std::endl;
 }
 
 void CCalibrateKinect::unprojectIR ( const unsigned short* pCamera_, const int& nN_, double* pWorld_ )
@@ -1018,23 +1018,16 @@ void CCalibrateKinect::unprojectIR ( const unsigned short* pCamera_, const int& 
 // pCamer format
 // 0 x (c) 1 y (r) 2 d
 //the pixel coordinate is defined w.r.t. camera reference, which is defined as x-left, y-downward and z-forward. It's
-//a right hand system.
+//a right hand system. i.e. opencv-default reference system
 //when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
-//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) );
+//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
     for ( int i = 0; i < nN_; i++ )
     {
-        if ( * ( pCamera_ + 2 ) > 400 )
-        {
-            * ( pWorld_ + 2 ) = ( * ( pCamera_ + 2 ) + 5 ) / 1000.; //convert to meter z 5 million meter is added according to experience. as the OpenNI
-            //coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-            * pWorld_    = ( * pCamera_    - _uIR ) / _fxIR * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-            * ( pWorld_ + 1 ) = ( * ( pCamera_ + 1 ) - _vIR ) / _fyIR * * ( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
-        }
-        else
-        {
-            * ( pWorld_ + 2 ) = 0;
-        }
-
+        * ( pWorld_ + 2 ) = ( * ( pCamera_ + 2 ) + 5 ) / 1000.; //convert to meter z 5 million meter is added according to experience. as the OpenNI
+        //coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+        * pWorld_    = ( * pCamera_    - _uIR ) / _dFxIR * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+        * ( pWorld_ + 1 ) = ( * ( pCamera_ + 1 ) - _vIR ) / _dFyIR * * ( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+        
         pCamera_ += 3;
         pWorld_ += 3;
     }
@@ -1056,7 +1049,7 @@ void CCalibrateKinect::transformIR2RGB ( const double* pIR_, const int& nN_, dou
 
     for ( int i = 0; i < nN_; i++ )
     {
-        if ( abs ( * ( pIR_ + 2 ) ) < 0.0000001 )
+        if ( abs ( * ( pIR_ + 2 ) ) < 0.0001 )
         {
             * pRGB_++ = 0;
             * pRGB_++ = 0;
@@ -1064,7 +1057,7 @@ void CCalibrateKinect::transformIR2RGB ( const double* pIR_, const int& nN_, dou
         }
         else
         {
-            * pRGB_++ = _aR[0] * *pIR_ + _aR[1] * * ( pIR_ + 1 ) + _aR[2] * * ( pIR_ + 2 ) - _aRT[0];
+			* pRGB_++ = _aR[0] * *pIR_ + _aR[1] * * ( pIR_ + 1 ) + _aR[2] * * ( pIR_ + 2 ) - _aRT[0];
             * pRGB_++ = _aR[3] * *pIR_ + _aR[4] * * ( pIR_ + 1 ) + _aR[5] * * ( pIR_ + 2 ) - _aRT[1];
             * pRGB_++ = _aR[6] * *pIR_ + _aR[7] * * ( pIR_ + 1 ) + _aR[8] * * ( pIR_ + 2 ) - _aRT[2];
         }
@@ -1077,30 +1070,39 @@ void CCalibrateKinect::transformIR2RGB ( const double* pIR_, const int& nN_, dou
 
 void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_ )
 {
-// pWorld_ is the a 640*480 matrix aranged the same way as depth map
+//1.pWorld_ is the a 640*480 matrix aranged the same way as depth map
 // pRGBWorld_ is another 640*480 matrix aranged the same wey as rgb image.
 // this is much faster than the function
 // eiv2DPt = mK * vPt; eiv2DPt /= eiv2DPt(2);
-    //cout << "projectRGB() starts." << endl;
+//
+//2.calculate the centroid of the depth map
+
+    //cout << "projectRGB() starts." << std::endl;
     unsigned short nX, nY;
     int nIdx;
-
+	_dXCentroid = _dYCentroid = _dZCentroid = 0;
+	unsigned int uCount = 0;
+	double dX,dY,dZ;
     for ( int i = 0; i < nN_; i++ )
     {
         if ( abs ( * ( pWorld_ + 2 ) ) > 0.0000001 )
         {
             // get 2D image projection in RGB image of the XYZ in the world
-            nX = ( _fxRGB * ( * pWorld_   ) / * ( pWorld_ + 2 ) + _uRGB + 0.5 );
-            nY = ( _fyRGB * ( * ( pWorld_ + 1 ) ) / * ( pWorld_ + 2 ) + _vRGB + 0.5 );
+            nX = ( _dFxRGB * ( * pWorld_   ) / * ( pWorld_ + 2 ) + _uRGB + 0.5 );
+            nY = ( _dFyRGB * ( * ( pWorld_ + 1 ) ) / * ( pWorld_ + 2 ) + _vRGB + 0.5 );
 
             // set 2D rgb XYZ
             if ( nX >= 0 && nX < 640 && nY >= 0 && nY < 480 )
             {
                 nIdx = ( nY * 640 + nX ) * 3;
-                pRGBWorld_[ nIdx++ ] = *pWorld_;
-                pRGBWorld_[ nIdx++ ] = * ( pWorld_ + 1 );
-                pRGBWorld_[ nIdx   ] = * ( pWorld_ + 2 );
+                pRGBWorld_[ nIdx++ ] = dX = *pWorld_;
+                pRGBWorld_[ nIdx++ ] = dY = * ( pWorld_ + 1 );
+                pRGBWorld_[ nIdx   ] = dZ = * ( pWorld_ + 2 );
                 //PRINT( nX ); PRINT( nY ); PRINT( pWorld_ );
+				_dXCentroid += dX;
+				_dYCentroid += dY;
+				_dZCentroid += dZ;
+				uCount ++;
             }
         }
 
@@ -1112,6 +1114,9 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
         */
         pWorld_ += 3;
     }
+	_dXCentroid /= uCount;
+	_dYCentroid /= uCount;
+	_dZCentroid /= uCount;
 }
 
 void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ )

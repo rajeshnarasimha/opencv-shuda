@@ -73,7 +73,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	
 	//_pcvUndistImage =new cv::Mat( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
     //_pcvUndistDepth= new cv::Mat( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
-    _eMethod = C1_CONTINUITY;
+    _eMethod = NONE; 
     _cvColor.create( 480, 640, CV_8UC3 );
 	cout << " Done. " << endl;
 }
@@ -88,7 +88,10 @@ void VideoSourceKinect::getNextFrame()
     //get next frame
     //set as _frame
 	//cout << " getNextFrame() start."<< endl;
-
+	_vColors.clear();
+	_vPts.clear();
+	_vNormals.clear();
+	
 // timer on
 //	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
 
@@ -136,11 +139,13 @@ void VideoSourceKinect::getNextFrame()
         case RAW:
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistDepth.data );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case C1_CONTINUITY:
             btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)_cvUndistDepth, (cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case GAUSSIAN_C1:
         	// filter out depth noise
@@ -148,6 +153,7 @@ void VideoSourceKinect::getNextFrame()
 	        btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)cvmFilter, (cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case DISPARIT_GAUSSIAN_C1:
             convert2DisparityDomain< unsigned short, double >( _cvUndistDepth, &cvDisparity );
@@ -158,13 +164,17 @@ void VideoSourceKinect::getNextFrame()
     	    btl::utility::convert2DepthDomain< double, unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
               // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case NEW:
             // filter out depth noise
-            //cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(5,5), 0, 0); // filter size has to be an odd number.
+            cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(25,25), 0, 0); // filter size has to be an odd number.
             registration( (const unsigned short*)_cvUndistDepth.data );
-            normalEstimation<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+            normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
             break;
+		case NONE: //default
+			registration( (const unsigned short*)_cvUndistDepth.data );
+			break;
     }
 
 // timer off

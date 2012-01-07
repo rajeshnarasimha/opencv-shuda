@@ -31,11 +31,8 @@ struct Frame
 //CCalibrateKinect is help to load camera parameters from 
 class VideoSourceKinect : public CCalibrateKinect
 {
-
 public:
-
     VideoSourceKinect();
-
     virtual ~VideoSourceKinect();
 
     void getNextFrame();
@@ -54,7 +51,7 @@ public:
        Exception(const std::string& str) : std::runtime_error(str) {}
     };
 
-    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW } _eMethod;
+    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW, NONE } _eMethod;
 
 protected:
     Eigen::Vector2i _frameSize;
@@ -74,7 +71,7 @@ protected:
 public:
     std::vector< Eigen::Vector3d > _vPts;
     std::vector< Eigen::Vector3d > _vNormals;
-    vector<const unsigned char*> _vColors;
+    std::vector<const unsigned char*> _vColors;
     cv::Mat _cvColor;
 
 };

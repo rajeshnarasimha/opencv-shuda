@@ -40,7 +40,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "Converters.hpp"
+#include "Utility.hpp"
 #include <GL/freeglut.h>
 
 namespace btl
@@ -78,22 +78,37 @@ public:
     void setDepthFilterThreshold( double dThreshold_ ) { _dThresholdDepth = dThreshold_; } // default in 10 
 
 //retriever:
+	//opencv convention
+	void centroid( Eigen::Vector3d* peivCentroid ) const 
+	{
+		(*peivCentroid)(0) = _dXCentroid;
+		(*peivCentroid)(1) = _dYCentroid;
+		(*peivCentroid)(2) = _dZCentroid;
+	}
+	//opengl convention
+	void centroidGL( Eigen::Vector3d* peivCentroid ) const 
+	{
+		(*peivCentroid)(0) =   _dXCentroid;
+		(*peivCentroid)(1) = - _dYCentroid;
+		(*peivCentroid)(2) = - _dZCentroid;
+	}
+
 	const double* 				registeredDepth() const {return _pRGBWorldRGB; }	
     const cv::Mat&                  rgbImage (unsigned int nView_)      const {return _vRGBs[nView_];}
     const cv::Mat&                  rgbUndistorted(unsigned int nView_) const {return _vRGBUndistorted[nView_];}
 	const cv::Mat&                  irImage (unsigned int nView_)       const {return _vIRs[nView_];}
     const cv::Mat&                  irUndistorted(unsigned int nView_)  const {return _vIRUndistorted[nView_];}
-    const vector<cv::Point3f>&  pattern()        					const {return _vPatterCorners3D;}
-    const Vector2i&             imageResolution()                   const {return _vImageResolution;}
-    const Matrix3d&             eiMatRGBK()                         const {return _eimRGBK;}
+    const std::vector<cv::Point3f>&  pattern()        					const {return _vPatterCorners3D;}
+    const Eigen::Vector2i&             imageResolution()                   const {return _vImageResolution;}
+    const Eigen::Matrix3d&             eiMatRGBK()                         const {return _eimRGBK;}
     const cv::Mat&                  cvMatRGBK()                         const {return _mRGBK;}
-    const Matrix3d&             eiMatIRK()                          const {return _eimIRK;}
+    const Eigen::Matrix3d&             eiMatIRK()                          const {return _eimIRK;}
     const cv::Mat&                  cvMatIRK()                          const {return _mIRK;}
 	Matrix3d					eiMatK(int nCameraType_ ) const;
 
     const cv::Mat&                  cvMatRGBDistort()                   const {return _mRGBDistCoeffs;}
     const cv::Mat&                  cvMatIRDistort()                    const {return _mIRDistCoeffs;}
-    Matrix3d                    eiMatRGBR(unsigned int nView_)      const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmRGBRotationMatrices[nView_]); return eiMatR;}
+    Eigen::Matrix3d                    eiMatRGBR(unsigned int nView_)      const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmRGBRotationMatrices[nView_]); return eiMatR;}
     const cv::Mat&                  cvMatRGBR(unsigned int nView_)      const {return _vmRGBRotationMatrices[nView_];}
     const cv::Mat&                  cvVecRGBR(unsigned int nView_)      const {return _vmRGBRotationVectors[nView_];}
     Vector3d                    eiVecRGBT(unsigned int nView_)      const 
@@ -104,7 +119,7 @@ public:
         return eiVecT;
     }
     const cv::Mat&                  cvMatRGBT(unsigned int nView_)      const {return _vmRGBTranslationVectors[nView_];}
-    Matrix3d                    eiMatIRR(unsigned int nView_)       const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmIRRotationMatrices[nView_]); return eiMatR;}
+    Eigen::Matrix3d                    eiMatIRR(unsigned int nView_)       const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmIRRotationMatrices[nView_]); return eiMatR;}
     const cv::Mat&                  cvMatIRR(unsigned int nView_)       const {return _vmIRRotationMatrices[nView_];}
     const cv::Mat&                  cvVecIRR(unsigned int nView_)       const {return _vmIRRotationVectors[nView_];}
 
@@ -117,39 +132,39 @@ public:
     }
     const cv::Mat&                  cvMatIRT(unsigned int nView_)       const {return _vmRGBTranslationVectors[nView_];}
     const cv::Mat&                  cvMatRelativeRotation()             const {return _cvmRelativeRotation;}
-    const Matrix3d&             eiMatRelativeRotation()             const {return _eimRelativeRotation;}
+    const Eigen::Matrix3d&             eiMatRelativeRotation()             const {return _eimRelativeRotation;}
     const cv::Mat&                  cvMatRelativeTranslation()          const {return _cvmRelativeTranslation;}
     const Vector3d&             eiVecRelativeTranslation()          const {return _eivRelativeTranslation;}
 
     const unsigned int&         views()                             const {return _uViews;}
-    const string                imagePathName(unsigned int nView_)  const {return _vstrRGBPathName[nView_];}
-    const string                depthPathName(unsigned int nView_)  const {return _vstrIRPathName[nView_];}
+    const std::string                imagePathName(unsigned int nView_)  const {return _vstrRGBPathName[nView_];}
+    const std::string                depthPathName(unsigned int nView_)  const {return _vstrIRPathName[nView_];}
     void exportKinectIntrinsics();
     void importKinectIntrinsics();
 	void importKinectIntrinsicsYML();
-    void undistortImages(const vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, vector< cv::Mat >* pvRGBUndistorted ) const;
+    void undistortImages(const std::vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, std::vector< cv::Mat >* pvRGBUndistorted ) const;
 	void undistortRGB(const cv::Mat& cvmRGB_, cv::Mat& Undistorted_ ) const;
 	void undistortIR (const cv::Mat& cvmIR_, cv::Mat& Undistorted_ ) const;
 
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
-	void exportImages(const boost::filesystem::path& cFullPath_, const vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
-
+	void exportImages(const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
+	// convert the depth map/ir camera to be aligned with the rgb camera
 	void registration( const unsigned short* pDepth_ );
 	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
 	void projectRGB( double* pWorld_,const int& nN_, double* ppRGBWorld_ );
 
 protected:	
-	void locate2DCorners(const vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, vector< vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
-	void definePattern (  const float& fX_, const float& fY_, const int& nX_, const int& nY_, const int& nPatternType_, vector<cv::Point3f>* pv3DPatternCorners_ ) const;
-	void define3DCorners ( const vector<cv::Point3f>& vPattern_, const unsigned int& nViews_, vector< vector<cv::Point3f> >* pvv3DCorners_  ) const;
+	void locate2DCorners(const std::vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, std::vector< std::vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
+	void definePattern (  const float& fX_, const float& fY_, const int& nX_, const int& nY_, const int& nPatternType_, std::vector<cv::Point3f>* pv3DPatternCorners_ ) const;
+	void define3DCorners ( const std::vector<cv::Point3f>& vPattern_, const unsigned int& nViews_, std::vector< std::vector<cv::Point3f> >* pvv3DCorners_  ) const;
 
 	void calibrate ();
 
 /**
-* @brief convert rotation vectors into rotation matrices using cv::
+* @brief convert rotation std::vectors into rotation matrices using cv::
 */
-    void convertRV2RM(const vector< cv::Mat >& vMat_, vector< cv::Mat >* pvMat_ ) const;
+    void convertRV2RM(const std::vector< cv::Mat >& vMat_, std::vector< cv::Mat >* pvMat_ ) const;
 	void generateMapXY4UndistortRGB();
 	void generateMapXY4UndistortIR ();
 
@@ -161,29 +176,29 @@ private:
 // others
     unsigned int  _uViews;
 // images
-    vector< cv::Mat > _vRGBs;
-    vector< cv::Mat > _vRGBUndistorted;
-    vector< cv::Mat > _vIRs;
-    vector< cv::Mat > _vIRUndistorted;
-    vector< string > _vstrRGBPathName; //serialized
-    vector< string > _vstrIRPathName;
-	vector< string > _vstrUndistortedRGBPathName; //serialized
-    vector< string > _vstrUndistortedIRPathName;
+    std::vector< cv::Mat > _vRGBs;
+    std::vector< cv::Mat > _vRGBUndistorted;
+    std::vector< cv::Mat > _vIRs;
+    std::vector< cv::Mat > _vIRUndistorted;
+    std::vector< std::string > _vstrRGBPathName; //serialized
+    std::vector< std::string > _vstrIRPathName;
+	std::vector< std::string > _vstrUndistortedRGBPathName; //serialized
+    std::vector< std::string > _vstrUndistortedIRPathName;
 
 // 2D-3D correspondences serialized
-    vector< vector<cv::Point2f> > _vvRGB2DCorners;
-    vector< vector<cv::Point2f> > _vvIR2DCorners;
-	vector< cv::Point3f >         _vPatterCorners3D;
-    vector< vector<cv::Point3f> > _vv3DCorners;
+    std::vector< std::vector<cv::Point2f> > _vvRGB2DCorners;
+    std::vector< std::vector<cv::Point2f> > _vvIR2DCorners;
+	std::vector< cv::Point3f >         _vPatterCorners3D;
+    std::vector< std::vector<cv::Point3f> > _vv3DCorners;
 // camera extrinsics serialized (double type)
     //rgb
-    vector< cv::Mat > _vmRGBRotationVectors;
-    vector< cv::Mat > _vmRGBRotationMatrices;
-    vector< cv::Mat > _vmRGBTranslationVectors;
+    std::vector< cv::Mat > _vmRGBRotationVectors;
+    std::vector< cv::Mat > _vmRGBRotationMatrices;
+    std::vector< cv::Mat > _vmRGBTranslationVectors;
     //ir
-    vector< cv::Mat > _vmIRRotationVectors;
-    vector< cv::Mat > _vmIRRotationMatrices;
-    vector< cv::Mat > _vmIRTranslationVectors;
+    std::vector< cv::Mat > _vmIRRotationVectors;
+    std::vector< cv::Mat > _vmIRRotationMatrices;
+    std::vector< cv::Mat > _vmIRTranslationVectors;
 // patern constancy serialized
     int _NUM_CORNERS_X;
     int _NUM_CORNERS_Y;
@@ -203,28 +218,28 @@ private:
 	int _nSerializeToXML;
 	int _nSerializeFromXML;
 
-	string _strImageDirectory;
+	std::string _strImageDirectory;
 protected:
-    Vector2i      _vImageResolution; //x,y;
+    Eigen::Vector2i      _vImageResolution; //x,y;
 // camera intrinsics serialized
     //rgb
     cv::Mat_<double> _mRGBK; 
     cv::Mat_<double> _mRGBInvK; // not serialized
     cv::Mat_<double> _mRGBDistCoeffs;
-	Matrix3d	 _eimRGBK;
-	Matrix3d     _eimRGBInvK;
+	Eigen::Matrix3d	 _eimRGBK;
+	Eigen::Matrix3d     _eimRGBInvK;
     //ir
     cv::Mat_<double> _mIRK; 
     cv::Mat_<double> _mIRInvK; 
     cv::Mat_<double> _mIRDistCoeffs;
-	Matrix3d	 _eimIRK;
-	Matrix3d     _eimIRInvK;
+	Eigen::Matrix3d	 _eimIRK;
+	Eigen::Matrix3d     _eimIRInvK;
 
     //relative pose
     cv::Mat_<double> _cvmRelativeRotation;
     cv::Mat_<double> _cvmRelativeTranslation;   
-	Matrix3d     _eimRelativeRotation;
-	Vector3d     _eivRelativeTranslation;
+	Eigen::Matrix3d     _eimRelativeRotation;
+	Eigen::Vector3d     _eivRelativeTranslation;
 
 	cv::Mat          _cvmMapXYRGB; //for undistortion
 	cv::Mat          _cvmMapXYIR; //for undistortion
@@ -241,8 +256,8 @@ public:
 	// initialized in constructor after load of the _cCalibKinect.
 	double _aR[9];	// Relative rotation transpose
 	double _aRT[3]; // aRT =_aR * T, the relative translation
-	double _fxIR, _fyIR, _uIR, _vIR;
-	double _fxRGB,_fyRGB,_uRGB,_vRGB;
+	double _dFxIR, _dFyIR, _uIR, _vIR; //_dFxIR, _dFyIR IR camera focal length
+	double _dFxRGB,_dFyRGB,_uRGB,_vRGB;
 
 	// temporary variables allocated in constructor and released in destructor
 	unsigned short* _pPxDIR; //2D coordinate along with depth for ir image
@@ -251,7 +266,9 @@ public:
 	double*  _pRGBWorld;
 	// refreshed for every frame
 	double*  _pRGBWorldRGB; //X,Y,Z coordinate of depth w.r.t. RGB camera reference system
- 	//double** _ppRGBWorld;//registered to RGB image of the X,Y,Z coordinate
+							//in the format of the RGB image
+	double _dXCentroid, _dYCentroid, _dZCentroid; // the centroid of all depth point defined in RGB camera system (opencv-default camera reference system convention)
+ 	
 
 	enum {IR_CAMERA, RGB_CAMERA } 	_nCameraType;
 	enum {CIRCLE, SQUARE} 			_nPatternType;
