@@ -32,7 +32,7 @@ elseif( WIN32 )
     link_directories ( "C:/csxsl/install/glew_170_win64/lib" )
     if(MSVC)
         set(SHUDALIB optimized ShudaLib debug ShudaLibd)
-    	set(YAML-CPP optimized libyaml-cppmd debug libyaml-cppmdd)
+    	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
         set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
         boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
     endif()
