@@ -11,13 +11,15 @@ if( UNIX )
 elseif( WIN32 )
     message(STATUS "platform: Windows")
 
-	include_directories ( "C:/csxsl/install/eigen/include/eigen3" )
+	set( EIGEN_INCLUDE_DIRS "C:/csxsl/install/eigen/include/eigen3" )
+    include_directories ( ${EIGEN_INCLUDE_DIRS} )
 	include_directories ( "C:/Program Files/OpenNI/Include" )
     include_directories ( "C:/csxsl/install/boost_1_48_0/include" ) 
     include_directories ( "C:/csxsl/install/freeglut_x64/include" )
     include_directories ( "C:/csxsl/install/yaml-cpp-0.2.7/include" )
 endif()
-
+find_package(PCL 1.2 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
 #find all files
 file(GLOB HEADERS "[a-zA-Z]*.h" "[a-zA-Z]*.hpp" )
 message(STATUS "header names: ${HEADERS}")
