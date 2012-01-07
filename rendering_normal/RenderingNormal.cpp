@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <boost/lexical_cast.hpp>
-#include "Converters.hpp"
+#include "Utility.hpp"
 #include "VideoSourceKinect.hpp"
 //camera calibration from a sequence of images
 #include <pcl/ModelCoefficients.h>
@@ -64,7 +64,7 @@ std::vector<Eigen::Vector3d>   _vCloudNew;
 std::vector<Eigen::Vector3d>   _vCloudNormalsNew;
 
 pcl::PointCloud<pcl::PointXYZ> _cloudNoneZero;
-vector<const unsigned char*> _vColors;
+std::vector<const unsigned char*> _vColors;
 pcl::PointCloud<pcl::PointXYZ> _cloudPlane1;
 pcl::PointCloud<pcl::PointXYZ> _cloudPlane2;
 pcl::PointCloud<pcl::PointXYZ> _cloudPlane3;
@@ -74,7 +74,6 @@ std::vector< pcl::PointCloud<pcl::PointXYZ>::Ptr > _vpCloudCluster;
 
 cv::Mat _cvColor( 480, 640, CV_8UC3 );
 
-pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
 
 bool _bCaptureCurrentFrame = false;
 GLuint _uDisk;
@@ -286,178 +285,14 @@ void render3DPts()
     {
         _cVS.setDepthFilterThreshold( _dDepthFilterThreshold );
         _cVS.getNextFrame();
-
-        // use the centroid as of the close by dot clouds as the centre of the
-        // origin.
-        double dCentroidX = 0;
-        double dCentroidY = 0;
-        double dCentroidZ = 0;
-        unsigned int n = 0;
-
-        inliers->indices.clear();
-        _cloudNoneZero.clear();
-        //for capturing the depth and color
-        _cVS.cvRGB().copyTo( _cvColor );
-        const double* pDepth = _cVS.registeredDepth();
-        const unsigned char* pColor = _cvColor.data;
-        _vColors.clear();
-        //convert depth map to PCL data
-        for (size_t i = 0; i < _cloud.points.size (); ++i)
-        {
-            // convert to PCL data defined in opengl default coordinate system.
-            // pDepth defined in opencv default coordinate system
-            _cloud.points[i].x =  *pDepth++;
-            _cloud.points[i].y = -*pDepth++;
-            _cloud.points[i].z = -*pDepth++;
-            if( fabs(_cloud.points[i].z) > 0.0000001 )
-            {
-                pcl::PointXYZ point(_cloud.points[i].x,_cloud.points[i].y,_cloud.points[i].z);
-                _cloudNoneZero.push_back(point);
-                _vColors.push_back( pColor );
-                dCentroidX += _cloud.points[i].x;
-                dCentroidY += _cloud.points[i].y;
-                dCentroidZ += _cloud.points[i].z;
-                n ++;
-            }
-/*  
-            // calculate a close centroid for visualization purpose.
-            if( fabs(_cloud.points[i].z) > 0.0000001 && fabs(_cloud.points[i].z) < 2 )
-            {
-                dCentroidX += _cloud.points[i].x;
-                dCentroidY += _cloud.points[i].y;
-                dCentroidZ += _cloud.points[i].z;
-                n ++;
-            }*/
-
-            pColor+=3;
-        }
-        // defined in opengl default coordinate system
-        dCentroidX /= n;
-        dCentroidY /= n;
-        dCentroidZ /= n;
-        _eivCentroid( 0 ) = dCentroidX; 
-        _eivCentroid( 1 ) = dCentroidY;
-        _eivCentroid( 2 ) = dCentroidZ;
-
-/*  
-        _vCloudNew.clear();
-        _vCloudNormalsNew.clear();
-        Eigen::Vector3d v(0,0,-1);
-        Eigen::Vector3d n1, n2, n3;
-        //calculate normal
-        //unsigned int r = 200;
-        //unsigned int c = 200;
-        for( unsigned int r = 0; r < 480; r++ )
-            for( unsigned int c = 0; c < 640; c++ )
-            {
-                // skip the boarder line
-                if( c == 639 || r == 479 )
-                    continue;
-
-                size_t i;
-                i = r*480 + c;
-                Eigen::Vector3d pti (_cloud.points[i].x, _cloud.points[i].y, _cloud.points[i].z);
-                size_t i1;
-                i1 = i + 1;
-                Eigen::Vector3d pti1(_cloud.points[i1].x,_cloud.points[i1].y,_cloud.points[i1].z);
-                size_t j1;
-                j1 = i + r;
-                Eigen::Vector3d ptj1(_cloud.points[j1].x,_cloud.points[j1].y,_cloud.points[j1].z);
-
-                if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 )
-                {
-                    n1 = pti1 - pti;
-                    n2 = ptj1 - pti;
-                    n3 = n1.cross(n2);
-                    n3.normalize();
-                    if ( v.dot(n3) < 0 )
-                    {
-                        PRINT( n3 );
-                        n3 = -n3;
-                    }
-                    _vCloudNew.push_back(pti);
-                    _vCloudNormalsNew.push_back(n3);
-                }
-            }
-
-        PRINT( _vCloudNew.size() );
-        PRINT( _vCloudNormalsNew.size() );
-
-*/       
-        pcl::search::KdTree<pcl::PointXYZ>::Ptr pTree (new pcl::search::KdTree<pcl::PointXYZ>());
-        pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-
-        // Estimate point normals
-        ne.setSearchMethod (pTree);
-        ne.setInputCloud (_cloudNoneZero.makeShared());
-        ne.setKSearch (6);
-        ne.compute (_cloudNormals);
-        _bCaptureCurrentFrame = false;
-        std::cout << "capture done.\n" << std::flush;
-    }
-
+		_cVS.centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
+		_bCaptureCurrentFrame = false;
+		std::cout << "capture done.\n" << std::flush;
+	}
+      
     const unsigned char* pColor;
     double x, y, z;
-
-    if( VideoSourceKinect::NEW != _cVS._eMethod )
-    {
-//convert depth map to PCL data
-
-    glPushMatrix();
-// Generate the data
-    for (size_t i = 0; i < _cloudNoneZero.points.size (); ++i)
-    {
-        if( _bEnableLighting )
-            glEnable(GL_LIGHTING);
-        else
-            glDisable(GL_LIGHTING);
-        if ( 1 != _nDensity && i % _nDensity != 1 ) // skip some points; when 1 == i, all dots wills drawn;
-        {
-            pColor +=3;
-            continue;
-        }
-
-        pColor = _vColors[i];
-        glColor3ubv( pColor );
-
-        glPushMatrix();
-        x =  _cloudNoneZero.points[i].x;
-        y =  _cloudNoneZero.points[i].y;
-        z =  _cloudNoneZero.points[i].z;
-        glTranslated( x, y, z );
-
-        double dNx, dNy, dNz;// in opengl default coordinate
-        dNx = _cloudNormals.points[i].normal_x;
-        dNy = _cloudNormals.points[i].normal_y;
-        dNz = _cloudNormals.points[i].normal_z;
-
-        if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-        {
-            PRINT( dNz );
-            pColor += 3;
-            continue;
-        }
-
-        double dA = atan2(dNx,dNz);
-        double dxz= sqrt( dNx*dNx + dNz*dNz );
-        double dB = atan2(dNy,dxz);
-
-        glRotated(-dB*180 / M_PI,1,0,0 );
-        glRotated( dA*180 / M_PI,0,1,0 );
-        double dR = -z/0.5;
-        glScaled( dR*_dSize, dR*_dSize, dR*_dSize );
-        glCallList(_uDisk);
-        if( _bRenderNormal )
-        {
-            glCallList(_uNormal);
-        }
-        glPopMatrix();
-
-    }
-    glPopMatrix();
-    }
-    else if( VideoSourceKinect::NEW == _cVS._eMethod )
-    {
+	 
     const std::vector< Eigen::Vector3d >& vPts=_cVS._vPts ;
     const std::vector< Eigen::Vector3d >& vNormals = _cVS._vNormals;
     const std::vector<const unsigned char*>&   vColors = _cVS._vColors;
@@ -510,7 +345,7 @@ void render3DPts()
         glPopMatrix();
     }
     glPopMatrix();
-    }
+
     return;
 }
 
@@ -653,7 +488,7 @@ int main ( int argc, char** argv )
     }
     catch ( CError& e )
     {
-        if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
+        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
         {
             std::cerr << "Error Info: " << *mi << std::endl;
         }
