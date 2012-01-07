@@ -167,10 +167,13 @@ void processNormalKeys ( unsigned char key, int x, int y )
         PRINT( _cVS._eMethod );
         break;
     case '5':
-        _cVS._eMethod = VideoSourceKinect::NEW;
+        _cVS._eMethod = VideoSourceKinect::NEW_GAUSSIAN;
         PRINT( _cVS._eMethod );
         break;
-
+	case '6':
+		_cVS._eMethod = VideoSourceKinect::NEW_BILATERAL;
+		PRINT( _cVS._eMethod );
+		break;
     }
     return;
 }

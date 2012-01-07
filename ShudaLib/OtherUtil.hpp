@@ -18,7 +18,7 @@ namespace btl
 namespace utility
 {
 
-#define SMALL 1e-20 // a small value
+#define SMALL 1e-50 // a small value
 // based on boost stringize.hpp
 #define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << a << std::flush << std::endl;
 

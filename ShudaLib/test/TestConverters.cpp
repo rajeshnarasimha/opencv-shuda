@@ -5,6 +5,28 @@
 using namespace btl::utility;
 #include <vector>
 
+void testCVUtil()
+{
+	std::cout << "test: CVUtil::convert2DisparityDomain ( ) " << std::endl;
+	cv::Mat_<unsigned short> cvDepth( 10, 10, CV_16UC1);
+	cv::Mat cvResult( 10, 10, CV_16UC1);
+	cv::Mat cvDisparity( 10, 10, CV_64F );
+
+	for(unsigned int r = 0; r < cvDepth.rows; r++ )
+		for(unsigned int c = 0; c < cvDepth.cols; c++ )
+		{
+			cvDepth.at<unsigned short>( r,c) = r* 43 + c;   
+		}
+
+	PRINT( cvDepth );
+	btl::utility::convert2DisparityDomain<unsigned short, double> ( cvDepth, &(cv::Mat_<double>)cvDisparity );
+	PRINT( cvDisparity );
+	btl::utility::convert2DepthDomain<double, unsigned short> ( cvDisparity, &(cv::Mat_<unsigned short>)cvResult ); // convert back
+	PRINT( cvResult );
+	double dDiff = btl::utility::matNormL1(cvDepth,(cv::Mat_<unsigned short>)cvResult);
+	PRINT( dDiff );
+}
+
 int main()
 {
 
@@ -84,6 +106,8 @@ int main()
 		PRINT( vTest );
 	}
 
+	testCVUtil();
 
 	return 0;
 }
+

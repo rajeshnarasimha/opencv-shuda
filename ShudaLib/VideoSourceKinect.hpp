@@ -51,7 +51,7 @@ public:
        Exception(const std::string& str) : std::runtime_error(str) {}
     };
 
-    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW, NONE } _eMethod;
+    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW_GAUSSIAN, NEW_BILATERAL, NONE } _eMethod;
 
 protected:
     Eigen::Vector2i _frameSize;
