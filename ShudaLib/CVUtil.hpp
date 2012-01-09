@@ -399,6 +399,24 @@ void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 	return;
 }
 
+template< class T >
+void clearMat(const T& tValue_, cv::Mat* pcvmMat_)
+{
+	typedef T Tp;
+	cv::Mat& cvmMat_ = *pcvmMat_;
+
+	BTL_ERROR(cvmMat_.channels()>1, "CVUtil::clearMat() only available for 1-channel cv::Mat" );
+	BTL_ERROR(!cvmMat_.data, "CVUtil::clearMat() input cv::Mat is empty.");
+	cv::MatIterator_<Tp> it;
+	it = cvmMat_.begin<Tp>();
+
+	for( ; it != cvmMat_.end<Tp>(); ++it )
+	{
+		*it = tValue_;
+	}
+	return;
+}
+
 
 }//utility
 }//btl
