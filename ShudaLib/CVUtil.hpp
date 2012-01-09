@@ -301,17 +301,6 @@ void convert2DepthDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisparit
 }
 
 template< class T >
-void bilateralFiltering( const cv::Mat_<T>& cvmSrc_, double dSigmaSpace_, double dSigmaRange_, cv::Mat_<T>* pcvmDst_)
-{
-	unsigned int uSize = (unsigned int)(dSigmaSpace_+.5)*2;
-	cv::Mat_<T> cmSpaceKernel(uSize,uSize);
-
-
-	return;
-}
-
-
-template< class T >
 void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, cv::Mat_< T >* pcvmDepthNew_ )
 {
 	//PRINT( dThreshould_ );
@@ -387,6 +376,27 @@ template< class T >
 void gaussianKernel( double dSigmaSpace, unsigned int& uSize_, cv::Mat_<T>* pcvmKernel_ )
 {
 
+}
+
+template< class T >
+void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
+{
+	cv::Mat& cvmHalf_ = *pcvmHalf_;
+	CHECK(cvmOrigin_.rows == cvmHalf_.rows*2, "downSampling() matrix rows doesnt agree.");
+	CHECK(cvmOrigin_.cols == cvmHalf_.cols*2, "downSampling() matrix cols doesnt agree.");
+	CHECK(cvmOrigin_.type() == cvmHalf_.type(),"downSampling() matrix type doenst agree.");
+	CHECK(1==cvmOrigin_.channels(),"downSampling() only down samples 1 channel cv::Mat.");
+
+	const T* pIn = (const T*)cvmOrigin_.data;
+	T* pOut= (T*)cvmHalf_.data;
+	int nLen = cvmHalf_.rows*cvmHalf_.cols;
+	for(unsigned int n =0; n < nLen; n++)
+	{
+		*pOut++ = *pIn;
+		pIn += 2;
+	}
+
+	return;
 }
 
 

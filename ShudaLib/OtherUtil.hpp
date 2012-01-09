@@ -20,7 +20,7 @@ namespace utility
 
 #define SMALL 1e-50 // a small value
 // based on boost stringize.hpp
-#define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << a << std::flush << std::endl;
+#define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << (a) << std::flush << std::endl;
 
 //exception based on boost
 typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;

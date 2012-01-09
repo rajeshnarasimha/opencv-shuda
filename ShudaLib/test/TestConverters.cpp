@@ -25,6 +25,20 @@ void testCVUtil()
 	PRINT( cvResult );
 	double dDiff = btl::utility::matNormL1(cvDepth,(cv::Mat_<unsigned short>)cvResult);
 	PRINT( dDiff );
+
+	//cv::Mat cvmData = cv::Mat::ones(10,20,CV_32FC1);
+	//cvmData *= 3;
+	cv::Mat cvmData = (cv::Mat_<float>(2,4) << 11,12,13,14, 21,22,23,24);
+	cv::Mat cvmDataHalf(cvmData.rows/2,cvmData.cols/2,cvmData.type());
+	PRINT(cvmData.rows);
+	//cv:: pyrDown(cvmData, cvmDataHalf);
+	btl::utility::downSampling<float>(cvmData,&cvmDataHalf);
+	
+	PRINT(cvmData.size());
+	PRINT(cvmData)
+	PRINT(cvmDataHalf.size());
+	PRINT(cvmDataHalf);
+
 }
 
 int main()
@@ -105,9 +119,34 @@ int main()
 		PRINT( cvmTest );
 		PRINT( vTest );
 	}
+	try
+	{
+		testCVUtil();
+	}
+	catch ( CError& e )
+	{
+		if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
+		{
+			std::cerr << "Error Info: " << *mi << std::endl;
+		}
+	}
+	
+	std::cout << "test: cv::pyrDown ( ) " << std::endl;
+	cv::Mat cvmOrigin = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example.jpg"); //( "..\\test_data\\example.jpg" );
+	CHECK(NULL != cvmOrigin.data, "test: CVUtil::downSampling ( ): test image load wrong");
+	cv::Mat cvmHalf((cvmOrigin.rows+1)/2,(cvmOrigin.cols+1)/2,cvmOrigin.type());
+	cv:: pyrDown(cvmOrigin, cvmHalf);
+	
+	cv::imwrite("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example_half.jpg",cvmHalf);
 
-	testCVUtil();
+	
 
+	std::cout << "try: >> / <<" << std::endl;
+	int nL = 1; 
+	PRINT(nL);
+	PRINT(nL<<1);
+	PRINT(nL<<2);
+	PRINT(nL<<3);
 	return 0;
 }
 
