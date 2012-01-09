@@ -174,6 +174,18 @@ void processNormalKeys ( unsigned char key, int x, int y )
 		_cVS._eMethod = VideoSourceKinect::NEW_BILATERAL;
 		PRINT( _cVS._eMethod );
 		break;
+	case '7':
+		_cVS._eMethod = VideoSourceKinect::NEW_DEPTH;
+		PRINT( _cVS._eMethod );
+		break;
+	case ']':
+		_cVS._dSigmaSpace += 1;
+		PRINT( _cVS._dSigmaSpace );
+		break;
+	case '[':
+		_cVS._dSigmaSpace -= 1;
+		PRINT( _cVS._dSigmaSpace );
+		break;
     }
     return;
 }
