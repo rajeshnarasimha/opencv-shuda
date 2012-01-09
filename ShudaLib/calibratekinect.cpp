@@ -29,6 +29,7 @@ CCalibrateKinect::CCalibrateKinect()
     //definition of parameters
     _dThresholdDepth = 10;
 
+
     // allocate memory for later use ( registrate the depth with rgb image
     _pPxDIR   = new unsigned short[ 307200*3 ]; //2D coordinate along with depth for ir image
     _pPxRGB   = new unsigned short[ 307200*2 ]; //2D coordinate in rgb image
@@ -37,6 +38,7 @@ CCalibrateKinect::CCalibrateKinect()
     // refreshed for every frame
     _pRGBWorld    = new double[ 307200*3 ];//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
     _pRGBWorldRGB = new double[ 307200*3 ];//registered to RGB image of the X,Y,Z coordinate
+	_pRGBWorldRGBL1=new double[ 307200/2*3 ];//registered to RGB image of the X,Y,Z coordinate
 
     //prepare camera parameters
     const Eigen::Vector3d& vT = eiVecRelativeTranslation();
@@ -71,6 +73,10 @@ CCalibrateKinect::CCalibrateKinect()
     //define 3D pattern corners
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
+	_cvmDepthRGBL1 = cv::Mat::zeros(480,640,CV_32F);
+	_cvmDepthRGBL2 = cv::Mat::zeros(240,320,CV_32F);
+	_cvmDepthRGBL3 = cv::Mat::zeros(120,160,CV_32F);
+
     std::cout << "CCalibrateKinect() done." << std::endl;
     return;
 }
@@ -81,6 +87,7 @@ CCalibrateKinect::~CCalibrateKinect()
     delete [] _pPxRGB;
     delete [] _pRGBWorld;
     delete [] _pRGBWorldRGB;
+	delete [] _pRGBWorldRGBL1;
 }
 
 Matrix3d CCalibrateKinect::eiMatK ( int nCameraType_ ) const
@@ -994,7 +1001,7 @@ void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
 
     //collecting depths
     unsigned short* pMovingPxDIR = _pPxDIR;
-
+	//column-major  
     for ( unsigned short r = 0; r < 480; r++ )
         for ( unsigned short c = 0; c < 640; c++ )
         {
@@ -1008,7 +1015,7 @@ void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
     //transform from IR coordinate to RGB coordinate
     transformIR2RGB  ( _pIRWorld, 307200, _pRGBWorld );
     //project RGB coordinate to image to register the depth with rgb image
-    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB );
+    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB, &_cvmDepthRGBL1 );
 
     //cout << "registration() end."<< std::endl;
 }
@@ -1018,14 +1025,15 @@ void CCalibrateKinect::unprojectIR ( const unsigned short* pCamera_, const int& 
 // pCamer format
 // 0 x (c) 1 y (r) 2 d
 //the pixel coordinate is defined w.r.t. camera reference, which is defined as x-left, y-downward and z-forward. It's
-//a right hand system. i.e. opencv-default reference system
+//a right hand system. i.e. opencv-default reference system;
+//unit is meter
 //when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
 //for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
     for ( int i = 0; i < nN_; i++ )
     {
         * ( pWorld_ + 2 ) = ( * ( pCamera_ + 2 ) + 5 ) / 1000.; //convert to meter z 5 million meter is added according to experience. as the OpenNI
         //coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-        * pWorld_    = ( * pCamera_    - _uIR ) / _dFxIR * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+        * pWorld_		  = ( * pCamera_	     - _uIR ) / _dFxIR * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
         * ( pWorld_ + 1 ) = ( * ( pCamera_ + 1 ) - _vIR ) / _dFyIR * * ( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
         
         pCamera_ += 3;
@@ -1068,12 +1076,14 @@ void CCalibrateKinect::transformIR2RGB ( const double* pIR_, const int& nN_, dou
     return;
 }
 
-void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_ )
+void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ )
 {
 //1.pWorld_ is the a 640*480 matrix aranged the same way as depth map
 // pRGBWorld_ is another 640*480 matrix aranged the same wey as rgb image.
 // this is much faster than the function
 // eiv2DPt = mK * vPt; eiv2DPt /= eiv2DPt(2);
+// - pWorld is using opencv convention 
+// - unit is meter
 //
 //2.calculate the centroid of the depth map
 
@@ -1083,21 +1093,28 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
 	_dXCentroid = _dYCentroid = _dZCentroid = 0;
 	unsigned int uCount = 0;
 	double dX,dY,dZ;
+
+	CHECK( CV_32FC1 == pDepthL1_->type(), "the depth pyramid level 1 must be CV_32FC1" );
+	float* pDepth = (float*) pDepthL1_->data;
     for ( int i = 0; i < nN_; i++ )
     {
-        if ( abs ( * ( pWorld_ + 2 ) ) > 0.0000001 )
+		dX = *pWorld_;
+		dY = * ( pWorld_ + 1 );
+		dZ = * ( pWorld_ + 2 );
+        if ( fabs ( dZ ) > 0.0000001 )
         {
             // get 2D image projection in RGB image of the XYZ in the world
-            nX = ( _dFxRGB * ( * pWorld_   ) / * ( pWorld_ + 2 ) + _uRGB + 0.5 );
-            nY = ( _dFyRGB * ( * ( pWorld_ + 1 ) ) / * ( pWorld_ + 2 ) + _vRGB + 0.5 );
+            nX = int( _dFxRGB * dX / dZ + _uRGB + 0.5 );
+            nY = int( _dFyRGB * dY / dZ + _vRGB + 0.5 );
 
             // set 2D rgb XYZ
             if ( nX >= 0 && nX < 640 && nY >= 0 && nY < 480 )
             {
                 nIdx = ( nY * 640 + nX ) * 3;
-                pRGBWorld_[ nIdx++ ] = dX = *pWorld_;
-                pRGBWorld_[ nIdx++ ] = dY = * ( pWorld_ + 1 );
-                pRGBWorld_[ nIdx   ] = dZ = * ( pWorld_ + 2 );
+				*pDepth = dZ;
+                pRGBWorld_[ nIdx++ ] = dX ;
+                pRGBWorld_[ nIdx++ ] = dY ;
+                pRGBWorld_[ nIdx   ] = dZ ;
                 //PRINT( nX ); PRINT( nY ); PRINT( pWorld_ );
 				_dXCentroid += dX;
 				_dYCentroid += dY;
@@ -1106,13 +1123,8 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
             }
         }
 
-        /*
-        		pT = _sDepth._ppRGBWorld[ nY*640 + nX ];
-        		PRINT( *pT++ );
-        		PRINT( *pT++ );
-        		PRINT( *pT++ );
-        */
         pWorld_ += 3;
+		pDepth++;
     }
 	_dXCentroid /= uCount;
 	_dYCentroid /= uCount;

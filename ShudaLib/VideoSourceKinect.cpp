@@ -74,8 +74,10 @@ VideoSourceKinect::VideoSourceKinect ()
 	
 	//_pcvUndistImage =new cv::Mat( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
     //_pcvUndistDepth= new cv::Mat( _frameSize ( 1 ), _frameSize ( 0 ), CV_8UC3 );
-    _eMethod = NONE; 
-    _cvColor.create( 480, 640, CV_8UC3 );
+    _eMethod = NEW_BILATERAL; 
+    
+	_dSigmaSpace = 2;
+
 	cout << " Done. " << endl;
 }
 
@@ -130,65 +132,81 @@ void VideoSourceKinect::getNextFrame()
 	cvtColor( _cvUndistImage, _cvmUndistBW, CV_RGB2GRAY );
 
     cv::Mat cvDisparity( _cvUndistDepth.rows, _cvUndistDepth.cols, CV_32F );
-    cv::Mat_<double> cvFilterDisparity( _cvUndistDepth.rows, _cvUndistDepth.cols, CV_32F );
+    cv::Mat_<float> cvFilterDisparity( _cvUndistDepth.rows, _cvUndistDepth.cols, CV_32F );
     cv::Mat cvThersholdDisparity( _cvUndistDepth.rows, _cvUndistDepth.cols, CV_32F );
 
     cv::Mat_<unsigned short> cvmFilter(_cvUndistDepth.rows, _cvUndistDepth.cols, CV_16U );
     double dDispThreshold;
-	double d ;
+
     switch( _eMethod )
     {
         case RAW:
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistDepth.data );
-			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case C1_CONTINUITY:
             btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)_cvUndistDepth, (cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
-			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case GAUSSIAN_C1:
         	// filter out depth noise
-            cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(3,3), 0, 0); // filter size has to be an odd number.
+            cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace); // filter size has to be an odd number.
 	        btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)cvmFilter, (cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
-			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case DISPARIT_GAUSSIAN_C1:
-            convert2DisparityDomain< unsigned short, double >( _cvUndistDepth, &(cv::Mat_<double>)cvDisparity );
-
-            cv::GaussianBlur(cvDisparity, cvFilterDisparity, cv::Size(3,3), 0, 0);
-            //dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
-            //btl::utility::filterDepth <double> ( dDispThreshold, ( cv::Mat_<double>)cvFilterDisparity, ( cv::Mat_<double>*)&cvThersholdDisparity );
-    	    //btl::utility::convert2DepthDomain< double, unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+            convert2DisparityDomain< unsigned short, float >( _cvUndistDepth, &(cv::Mat_<float>)cvDisparity );
+            cv::GaussianBlur(cvDisparity, cvFilterDisparity, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
+            dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
+            btl::utility::filterDepth <float> ( dDispThreshold, ( cv::Mat_<float>)cvFilterDisparity, ( cv::Mat_<float>*)&cvThersholdDisparity );
+    	    btl::utility::convert2DepthDomain< float, unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
               // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
-			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case NEW_GAUSSIAN:
             // filter out depth noise
 			// apply some bilateral gaussian filtering
-            cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(25,25), 0, 0); // filter size has to be an odd number.
+            cv::GaussianBlur(_cvUndistDepth, cvmFilter, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace); // filter size has to be an odd number.
             registration( (const unsigned short*)cvmFilter.data );
-            normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+            normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
             break;
 		case NEW_BILATERAL:
 			// filter out depth noise
 			// apply some bilateral gaussian filtering
 			btl::utility::convert2DisparityDomain< unsigned short, float >( _cvUndistDepth, &(cv::Mat_<float>)cvDisparity );
 			dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
-			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, 3); // filter size has to be an odd number.
+			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
 			PRINT(_dThresholdDepth);
 			PRINT(dDispThreshold);
 			btl::utility::convert2DepthDomain< float, unsigned short >( cvThersholdDisparity,&(cv::Mat_<unsigned short>)_cvUndistFilteredDepth );
 			registration( (const unsigned short*)_cvUndistFilteredDepth.data );
-			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvColor.rows, _cvColor.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
 			break;
 		case NONE: //default
 			registration( (const unsigned short*)_cvUndistDepth.data );
+			break;
+		case NEW_DEPTH:
+			registration( (const unsigned short*)_cvUndistDepth.data ); //generate _cvmDepthRGBL1
+			//bilateral filtering in disparity domain
+			btl::utility::convert2DisparityDomain< float, float >( _cvmDepthRGBL1, &(cv::Mat_<float>)cvDisparity );
+			dDispThreshold = 1./.6 - 1./(.6+_dThresholdDepth/1000.);
+			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
+			btl::utility::convert2DepthDomain< float, float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL1 );
+
+			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGB );
+			//estimate normal using fast method
+			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
+			//btl::utility::downSampling<float>(_cvmDepthRGBL1,&_cvmDepthRGBL2);
+			//unprojectRGB ( _cvmDepthRGBL2, _pRGBWorldRGBL1, 1 );//float to double
+			//cv::pyrDown(_cvUndistImage,_cvmUndistDepthL2);
+			//normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL2.data, _cvmUndistDepthL2.rows, _cvmUndistDepthL2.cols, &_vColors, &_vPts, &_vNormals );
+
 			break;
     }
 
@@ -201,6 +219,33 @@ void VideoSourceKinect::getNextFrame()
     return;
 }
 
+void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel /*= 0*/ )
+{
+	// pCamer format
+	// 0 x (c) 1 y (r) 2 d
+	//the pixel coordinate is defined w.r.t. camera reference, which is defined as x-left, y-downward and z-forward. It's
+	//a right hand system. i.e. opencv-default reference system;
+	//unit is meter
+	//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
+	//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
+	int nScale = 1 << nLevel;
+
+	CHECK( CV_32FC1 == cvmDepth_.type(), "VideoSourceKinect::unprojectRGB() cvmDepth_ must be CV_32FC1" );
+	float *pDepth = (float*) cvmDepth_.data;
+	
+	for ( unsigned int r = 0; r < cvmDepth_.rows; r++ )
+	for ( unsigned int c = 0; c < cvmDepth_.cols; c++ )
+	{
+		* ( pWorld_ + 2 ) = (double)*pDepth++;
+		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+		* pWorld_		  = ( c*nScale - _uRGB ) / _dFxRGB * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+		* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _dFyRGB * * ( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+
+		pWorld_ += 3;
+	}
+
+	return;
+}
 
 
 } //namespace videosource

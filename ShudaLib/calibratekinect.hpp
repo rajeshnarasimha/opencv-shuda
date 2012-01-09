@@ -149,10 +149,10 @@ public:
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void exportImages(const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
 	// convert the depth map/ir camera to be aligned with the rgb camera
-	void registration( const unsigned short* pDepth_ );
+	void registration( const unsigned short* pDepth_ ); // the 
 	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
-	void projectRGB( double* pWorld_,const int& nN_, double* ppRGBWorld_ );
+	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
 
 protected:	
 	void locate2DCorners(const std::vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, std::vector< std::vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
@@ -238,18 +238,24 @@ protected:
     //relative pose
     cv::Mat_<double> _cvmRelativeRotation;
     cv::Mat_<double> _cvmRelativeTranslation;   
-	Eigen::Matrix3d     _eimRelativeRotation;
-	Eigen::Vector3d     _eivRelativeTranslation;
+	Eigen::Matrix3d  _eimRelativeRotation;
+	Eigen::Vector3d  _eivRelativeTranslation;
 
 	cv::Mat          _cvmMapXYRGB; //for undistortion
 	cv::Mat          _cvmMapXYIR; //for undistortion
 	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
+	//depth pyramid
+	cv::Mat			 _cvmDepthRGBL1;//640*480
+	cv::Mat			 _cvmDepthRGBL2;//320*240
+	cv::Mat			 _cvmDepthRGBL3;//160*120
 
 //timer
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
+public:
 //paramters
-	double _dThresholdDepth;
+	double _dThresholdDepth; //threshold for filtering depth
+
 public:
 
 	// duplicated camera parameters for speed up the code. because Eigen and cv matrix class is very slow.
@@ -260,13 +266,14 @@ public:
 	double _dFxRGB,_dFyRGB,_uRGB,_vRGB;
 
 	// temporary variables allocated in constructor and released in destructor
-	unsigned short* _pPxDIR; //2D coordinate along with depth for ir image
-	unsigned short* _pPxRGB; //2D coordinate in rgb image
+	unsigned short* _pPxDIR; //2D coordinate along with depth for ir image, column-major
+	unsigned short* _pPxRGB; //2D coordinate in rgb image, column-major
 	double*  _pIRWorld;      //XYZ w.r.t. IR camera reference system 
-	double*  _pRGBWorld;
+	double*  _pRGBWorld;     //XYZ w.r.t. RGB camera but indexed in IR image
 	// refreshed for every frame
 	double*  _pRGBWorldRGB; //X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 							//in the format of the RGB image
+	double*  _pRGBWorldRGBL1;
 	double _dXCentroid, _dYCentroid, _dZCentroid; // the centroid of all depth point defined in RGB camera system (opencv-default camera reference system convention)
  	
 

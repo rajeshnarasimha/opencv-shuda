@@ -46,12 +46,14 @@ public:
 		  cv::Mat*            cvDepthPtr()      { return &_cvUndistFilteredDepth; }
 	const cv::Mat& 			  cvBW()      const { return  _cvmUndistBW; }
 	
+	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
+
     struct Exception : public std::runtime_error
     {
        Exception(const std::string& str) : std::runtime_error(str) {}
     };
 
-    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW_GAUSSIAN, NEW_BILATERAL, NONE } _eMethod;
+    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW_GAUSSIAN, NEW_BILATERAL, NONE, NEW_DEPTH } _eMethod;
 
 protected:
     Eigen::Vector2i _frameSize;
@@ -68,11 +70,17 @@ protected:
 	cv::Mat 	  _cvUndistDepth;
 	cv::Mat 	  _cvUndistFilteredDepth;
 	cv::Mat 	  _cvmUndistBW;
+
+	cv::Mat		  _cvmUndistDepthL2;
+	cv::Mat       _cvmUndistDepthL3;
+
 public:
     std::vector< Eigen::Vector3d > _vPts;
     std::vector< Eigen::Vector3d > _vNormals;
     std::vector<const unsigned char*> _vColors;
-    cv::Mat _cvColor;
+    //cv::Mat _cvColor;
+
+	double _dSigmaSpace; //degree of blur for the bilateral filter
 
 };
 
