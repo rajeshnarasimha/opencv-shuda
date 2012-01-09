@@ -60,7 +60,7 @@ std::ostream& operator << ( std::ostream& os, const std::map< T1, T2 > & mp )
 {
     os << "[";
 
-    for ( typename map< T1, T2 >::const_iterator constItr = mp.begin(); constItr != mp.end(); ++constItr )
+    for ( typename std::map< T1, T2 >::const_iterator constItr = mp.begin(); constItr != mp.end(); ++constItr )
     {
         os << " " << ( *constItr ).first << ": " << ( *constItr ).second << " ";
     }

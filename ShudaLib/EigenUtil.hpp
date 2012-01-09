@@ -89,7 +89,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 
 	//Compute the centroid of each point set
-	Vector3d eivCentroidA, eivCentroidB;
+	Eigen::Vector3d eivCentroidA, eivCentroidB;
 
 	for ( int nC = 0; nC < A_.cols(); nC++ )
 	{
@@ -120,7 +120,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	for ( int nC = 0; nC < A_.cols(); nC++ )
 	{
 		//pure imaginary Shortcuts
-		Vector4d a, b;
+		Eigen::Vector4d a, b;
 		a ( 1 ) = An ( 0, nC );
 		a ( 2 ) = An ( 1, nC );
 		a ( 3 ) = An ( 2, nC );
@@ -140,7 +140,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 		M += Ma.transpose() * Mb;
 	}
 
-	Eigen::EigenSolver <Matrix4d> eigensolver ( M );
+	Eigen::EigenSolver <Eigen::Matrix4d> eigensolver ( M );
 
 	Eigen::Matrix< std::complex< double >, 4, 1 > v = eigensolver.eigenvalues();
 
@@ -160,7 +160,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	//PRINT( dLargest );
 	//PRINT( n );
 
-	Vector4d e;
+	Eigen::Vector4d e;
 	e << eigensolver.eigenvectors().col ( n ) ( 0 ).real(),
 		eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
 		eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
@@ -207,7 +207,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 	//Compute the residual error
 	double dE = 0;
-	Vector3d eivE;
+	Eigen::Vector3d eivE;
 
 	for ( int nC = 0; nC < A_.cols(); nC++ )
 	{
