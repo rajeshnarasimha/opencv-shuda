@@ -5,9 +5,11 @@ FIND_PACKAGE( OpenCV REQUIRED )
 
 if( UNIX )
     message(STATUS "platform: UNIX")
+    include_directories ( ${EIGEN_INCLUDE_DIRS} )
 
 	include_directories ( "/usr/local/include/eigen3" )
 	include_directories ( "/usr/include/ni" )
+    set( FLANN_LIBRARY "/usr/local/lib64/libflann.so" )
 elseif( WIN32 )
     message(STATUS "platform: Windows")
 
