@@ -21,7 +21,7 @@ namespace utility
 #define SMALL 1e-50 // a small value
 // based on boost stringize.hpp
 #define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << (a) << std::flush << std::endl;
-
+#define PRINTSTR( a ) std::cout << a << std::endl << std::flush;
 //exception based on boost
 typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;
 struct CError: virtual boost::exception, virtual std::exception { };
@@ -32,6 +32,7 @@ struct CError: virtual boost::exception, virtual std::exception { };
         cE << CErrorInfo ( what );\
         throw cE;\
 	}
+#define BTL_ERROR( condition, what ) CHECK( !(condition) ,what) 
 #define THROW(what)\
 	{\
         CError cE;\

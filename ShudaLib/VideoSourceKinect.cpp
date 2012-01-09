@@ -194,8 +194,10 @@ void VideoSourceKinect::getNextFrame()
 		case NEW_DEPTH:
 			registration( (const unsigned short*)_cvUndistDepth.data ); //generate _cvmDepthRGBL1
 			//bilateral filtering in disparity domain
-			btl::utility::convert2DisparityDomain< float, float >( _cvmDepthRGBL1, &(cv::Mat_<float>)cvDisparity );
+			btl::utility::convert2DisparityDomain< float, float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
 			dDispThreshold = 1./.6 - 1./(.6+_dThresholdDepth/1000.);
+			PRINT(dDispThreshold);
+			PRINT(_dSigmaSpace);
 			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
 			btl::utility::convert2DepthDomain< float, float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL1 );
 

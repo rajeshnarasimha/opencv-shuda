@@ -73,6 +73,7 @@ CCalibrateKinect::CCalibrateKinect()
     //define 3D pattern corners
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
+	_cvmDepthRGB   = cv::Mat::zeros(640,480,CV_32F);
 	_cvmDepthRGBL1 = cv::Mat::zeros(480,640,CV_32F);
 	_cvmDepthRGBL2 = cv::Mat::zeros(240,320,CV_32F);
 	_cvmDepthRGBL3 = cv::Mat::zeros(120,160,CV_32F);
@@ -80,6 +81,7 @@ CCalibrateKinect::CCalibrateKinect()
     std::cout << "CCalibrateKinect() done." << std::endl;
     return;
 }
+
 CCalibrateKinect::~CCalibrateKinect()
 {
     delete [] _pIRWorld;
@@ -1015,7 +1017,7 @@ void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
     //transform from IR coordinate to RGB coordinate
     transformIR2RGB  ( _pIRWorld, 307200, _pRGBWorld );
     //project RGB coordinate to image to register the depth with rgb image
-    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB, &_cvmDepthRGBL1 );
+    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB, &_cvmDepthRGB );
 
     //cout << "registration() end."<< std::endl;
 }
@@ -1089,7 +1091,7 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
 
     //cout << "projectRGB() starts." << std::endl;
     unsigned short nX, nY;
-    int nIdx;
+    int nIdx1,nIdx2;
 	_dXCentroid = _dYCentroid = _dZCentroid = 0;
 	unsigned int uCount = 0;
 	double dX,dY,dZ;
@@ -1110,11 +1112,12 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
             // set 2D rgb XYZ
             if ( nX >= 0 && nX < 640 && nY >= 0 && nY < 480 )
             {
-                nIdx = ( nY * 640 + nX ) * 3;
-				*pDepth = dZ;
-                pRGBWorld_[ nIdx++ ] = dX ;
-                pRGBWorld_[ nIdx++ ] = dY ;
-                pRGBWorld_[ nIdx   ] = dZ ;
+				nIdx1= nY * 640 + nX; //1 channel
+                nIdx2= ( nIdx1 ) * 3; //3 channel
+				pDepth    [ nIdx1   ] = dZ;
+                pRGBWorld_[ nIdx2++ ] = dX ;
+                pRGBWorld_[ nIdx2++ ] = dY ;
+                pRGBWorld_[ nIdx2   ] = dZ ;
                 //PRINT( nX ); PRINT( nY ); PRINT( pWorld_ );
 				_dXCentroid += dX;
 				_dYCentroid += dY;
@@ -1124,7 +1127,6 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
         }
 
         pWorld_ += 3;
-		pDepth++;
     }
 	_dXCentroid /= uCount;
 	_dYCentroid /= uCount;

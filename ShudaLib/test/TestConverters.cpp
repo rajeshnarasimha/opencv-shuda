@@ -26,18 +26,41 @@ void testCVUtil()
 	double dDiff = btl::utility::matNormL1(cvDepth,(cv::Mat_<unsigned short>)cvResult);
 	PRINT( dDiff );
 
-	//cv::Mat cvmData = cv::Mat::ones(10,20,CV_32FC1);
-	//cvmData *= 3;
-	cv::Mat cvmData = (cv::Mat_<float>(2,4) << 11,12,13,14, 21,22,23,24);
-	cv::Mat cvmDataHalf(cvmData.rows/2,cvmData.cols/2,cvmData.type());
-	PRINT(cvmData.rows);
-	//cv:: pyrDown(cvmData, cvmDataHalf);
-	btl::utility::downSampling<float>(cvmData,&cvmDataHalf);
-	
-	PRINT(cvmData.size());
-	PRINT(cvmData)
-	PRINT(cvmDataHalf.size());
-	PRINT(cvmDataHalf);
+	{
+		std::cout << "test: CVUtil::downSampling() " << std::endl;
+		//cv::Mat cvmData = cv::Mat::ones(10,20,CV_32FC1);
+		//cvmData *= 3;
+		cv::Mat cvmData = (cv::Mat_<float>(2,4) << 11,12,13,14, 21,22,23,24);
+		cv::Mat cvmDataHalf(cvmData.rows/2,cvmData.cols/2,cvmData.type());
+		PRINT(cvmData.rows);
+		//cv:: pyrDown(cvmData, cvmDataHalf);
+		btl::utility::downSampling<float>(cvmData,&cvmDataHalf);
+
+		PRINT(cvmData.size());
+		PRINT(cvmData)
+			PRINT(cvmDataHalf.size());
+		PRINT(cvmDataHalf);
+	}
+
+
+	{
+		PRINTSTR("test: CVUtil::clearMat()");
+
+		cv::Mat_<float> cvmFloat = cv::Mat::ones(2,3,CV_32FC1);
+		PRINT( cvmFloat );
+		btl::utility::clearMat<float>(0,&cvmFloat);
+		PRINT( cvmFloat );
+
+		cv::Mat_<int> cvmInt = cv::Mat::ones(2,3,CV_16SC1);
+		PRINT( cvmInt );
+		btl::utility::clearMat<int>(0,&cvmInt);
+		PRINT( cvmInt );
+
+		cv::Mat cvmAny = cv::Mat::ones(2,3,CV_16SC1);
+		PRINT( cvmAny );
+		btl::utility::clearMat<int>(0,&cvmAny);
+		PRINT( cvmAny );
+	}
 
 }
 
