@@ -9,6 +9,7 @@ if( UNIX )
     link_directories ( "/usr/lib" )
     include_directories ( "/usr/local/include/eigen3" )
     include_directories ( "/usr/include/ni" )
+    set( FLANN_LIBRARY "/usr/local/lib64/libflann.so" )
 
     # set collection of libraries
     set ( EXTRA_LIBS ${EXTRA_LIBS} ShudaLib OpenNI boost_system boost_filesystem boost_serialization yaml-cpp glut GLU opencv_core
