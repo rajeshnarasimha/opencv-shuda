@@ -72,7 +72,7 @@ protected:
 	cv::Mat 	  _cvmUndistBW;
 
 	cv::Mat		  _cvmUndistDepthL1;
-	cv::Mat       _cvmUndistDepthL3;
+	cv::Mat       _cvmUndistDepthL2;
 
 public:
     std::vector< Eigen::Vector3d > _vPts;

@@ -39,6 +39,7 @@ CCalibrateKinect::CCalibrateKinect()
     _pRGBWorld    = new double[ 307200*3 ];//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
     _pRGBWorldRGB = new double[ 307200*3 ];//registered to RGB image of the X,Y,Z coordinate
 	_pRGBWorldRGBL1=new double[ 76800*3 ];//registered to RGB image of the X,Y,Z coordinate
+	_pRGBWorldRGBL2=new double[ 19200*3 ];
 
     //prepare camera parameters
     const Eigen::Vector3d& vT = eiVecRelativeTranslation();
@@ -73,10 +74,9 @@ CCalibrateKinect::CCalibrateKinect()
     //define 3D pattern corners
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
-	_cvmDepthRGB   = cv::Mat::zeros(480,640,CV_32F);
 	_cvmDepthRGBL0 = cv::Mat::zeros(480,640,CV_32F);
 	_cvmDepthRGBL1 = cv::Mat::zeros(240,320,CV_32F);
-	_cvmDepthRGBL3 = cv::Mat::zeros(120,160,CV_32F);
+	_cvmDepthRGBL2 = cv::Mat::zeros(120,160,CV_32F);
 
     std::cout << "CCalibrateKinect() done." << std::endl;
     return;
@@ -90,6 +90,7 @@ CCalibrateKinect::~CCalibrateKinect()
     delete [] _pRGBWorld;
     delete [] _pRGBWorldRGB;
 	delete [] _pRGBWorldRGBL1;
+	delete [] _pRGBWorldRGBL2;
 }
 
 Matrix3d CCalibrateKinect::eiMatK ( int nCameraType_ ) const
@@ -988,9 +989,8 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
 
 void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
 {
-    double* pM = _pRGBWorldRGB ;
-
     // initialize the Registered depth as NULLs
+	double* pM = _pRGBWorldRGB ;
     for ( int i = 0; i < 307200; i++ )
     {
         *pM++ = 0;
@@ -998,8 +998,7 @@ void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
         *pM++ = 0;
     }
 
-    //3D Pt in camera coordinate system.
-    //const unsigned short* pDepth = (unsigned short*)cvmDepth_.data;
+    btl::utility::clearMat<float>(0,&_cvmDepthRGBL0);
 
     //collecting depths
     unsigned short* pMovingPxDIR = _pPxDIR;
@@ -1017,7 +1016,7 @@ void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
     //transform from IR coordinate to RGB coordinate
     transformIR2RGB  ( _pIRWorld, 307200, _pRGBWorld );
     //project RGB coordinate to image to register the depth with rgb image
-    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB, &_cvmDepthRGB );
+    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB, &_cvmDepthRGBL0 );
 
     //cout << "registration() end."<< std::endl;
 }

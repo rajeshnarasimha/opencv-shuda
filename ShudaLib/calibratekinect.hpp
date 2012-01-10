@@ -245,10 +245,10 @@ protected:
 	cv::Mat          _cvmMapXYIR; //for undistortion
 	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
 	//depth pyramid
-	cv::Mat			 _cvmDepthRGB;
+	
 	cv::Mat			 _cvmDepthRGBL0;//640*480
 	cv::Mat			 _cvmDepthRGBL1;//320*240
-	cv::Mat			 _cvmDepthRGBL3;//160*120
+	cv::Mat			 _cvmDepthRGBL2;//160*120
 
 //timer
 	boost::posix_time::ptime _cT0, _cT1;
@@ -275,6 +275,8 @@ public:
 	double*  _pRGBWorldRGB; //X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 							//in the format of the RGB image
 	double*  _pRGBWorldRGBL1;
+	double*  _pRGBWorldRGBL2;
+
 	double _dXCentroid, _dYCentroid, _dZCentroid; // the centroid of all depth point defined in RGB camera system (opencv-default camera reference system convention)
  	
 
