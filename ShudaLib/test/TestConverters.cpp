@@ -8,7 +8,7 @@ void testConvert2DisparityDomain()
 {
 	std::cout << "test: CVUtil::convert2DisparityDomain ( ) " << std::endl;
 	cv::Mat_<float> cvDepth( 10, 10, CV_32FC1);
-	cv::Mat cvResult( 10, 10, CV_32FC1);
+	cv::Mat_<float> cvResult;
 	cv::Mat cvDisparity;
 
 	for(unsigned int r = 0; r < cvDepth.rows; r++ )
@@ -20,7 +20,7 @@ void testConvert2DisparityDomain()
 		PRINT( cvDepth );
 		btl::utility::convert2DisparityDomain<float> ( cvDepth, &cvDisparity) ;
 		PRINT( cvDisparity );
-		btl::utility::convert2DepthDomain<float> ( cvDisparity, &(cv::Mat_<float>)cvResult ); // convert back
+		btl::utility::convert2DepthDomain<float> ( cvDisparity, &cvResult, CV_32FC1 ); // convert back
 		PRINT( cvResult );
 		double dDiff = btl::utility::matNormL1<float>(cvDepth,cvResult);
 		PRINT( dDiff );

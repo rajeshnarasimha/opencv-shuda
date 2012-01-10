@@ -168,7 +168,7 @@ void VideoSourceKinect::getNextFrame()
             cv::GaussianBlur(cvDisparity, cvFilterDisparity, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
             dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
             btl::utility::filterDepth <float> ( dDispThreshold, ( cv::Mat_<float>)cvFilterDisparity, ( cv::Mat_<float>*)&cvThersholdDisparity );
-    	    btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+    	    btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity, &_cvUndistFilteredDepth, CV_16UC1 );
               // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
 			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
@@ -188,49 +188,44 @@ void VideoSourceKinect::getNextFrame()
 			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
 			PRINT(_dThresholdDepth);
 			PRINT(dDispThreshold);
-			btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity,&(cv::Mat_<unsigned short>)_cvUndistFilteredDepth );
+			btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity,&_cvUndistFilteredDepth, CV_16UC1 );
 			registration( (const unsigned short*)_cvUndistFilteredDepth.data );
 			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
 			break;
 		case NEW_DEPTH:
-			btl::utility::clearMat<float>(0,&_cvmDepthRGB);
-			registration( (const unsigned short*)_cvUndistDepth.data ); //generate _cvmDepthRGBL1
-		//bilateral filtering in disparity domain
-			btl::utility::convert2DisparityDomain< float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
+			
 			dDispThreshold = 1./600 - 1./(600+_dThresholdDepth);
 			PRINT(dDispThreshold);
 			PRINT(_dSigmaSpace);
+	//level 0
+			registration( (const unsigned short*)_cvUndistDepth.data ); //generate _cvmDepthRGBL1
+			//bilateral filtering in disparity domain
+			btl::utility::bilateralFilterInDisparity<float>(&_cvmDepthRGBL0,dDispThreshold,_dSigmaSpace);
+			/*
+			btl::utility::convert2DisparityDomain< float >( _cvmDepthRGBL0, &(cv::Mat_<float>)cvDisparity );
 			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
-			btl::utility::clearMat<float>(0,&_cvmDepthRGBL0);
-			btl::utility::convert2DepthDomain< float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL0 );
+			btl::utility::convert2DepthDomain< float >( cvThersholdDisparity,&_cvmDepthRGBL0, CV_32FC1 );
+			*/
 		//get normals L0
 			//unprojectRGB ( _cvmDepthRGBL0, _pRGBWorldRGB );
-			//estimate normal using fast method
 			//normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
-		//downsampling to get level 1
-			btl::utility::clearMat<float>(0,&_cvmDepthRGBL1);
+	//level 1
 			btl::utility::downSampling<float>(_cvmDepthRGBL0,&_cvmDepthRGBL1);
-		//get normals L1
-			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGBL1, 1 );//float to double
 			cv::pyrDown(_cvUndistImage,_cvmUndistDepthL1);
-			normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL1.data, _cvmUndistDepthL1.rows, _cvmUndistDepthL1.cols, &_vColors, &_vPts, &_vNormals );
-			//downsampling to get level 1
-			/*
 		//bilateral filtering in disparity domain
-			btl::utility::convert2DisparityDomain< float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
-			dDispThreshold = 1./600 - 1./(600+_dThresholdDepth);
-			PRINT(dDispThreshold);
-			PRINT(_dSigmaSpace);
-			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
-			btl::utility::clearMat<float>(0,&_cvmDepthRGBL0);
-			btl::utility::convert2DepthDomain< float, float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL0 );
-		//downsampling to get level 2
-			btl::utility::clearMat<float>(0,&_cvmDepthRGBL1);
+			btl::utility::bilateralFilterInDisparity<float>(&_cvmDepthRGBL1,dDispThreshold,_dSigmaSpace);
+		//get normals L1
+			//unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGBL1, 1 );//float to double
+			//normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL1.data, _cvmUndistDepthL1.rows, _cvmUndistDepthL1.cols, &_vColors, &_vPts, &_vNormals );
+	//level 2
 			btl::utility::downSampling<float>(_cvmDepthRGBL1,&_cvmDepthRGBL2);
-			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGBL1, 1 );//float to double
-			cv::pyrDown(_cvUndistImage,_cvmUndistDepthL1);
-			normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL1.data, _cvmUndistDepthL1.rows, _cvmUndistDepthL1.cols, &_vColors, &_vPts, &_vNormals );
-			*/
+			cv::pyrDown(_cvmUndistDepthL1,_cvmUndistDepthL2);
+		//bilateral filtering in disparity domain
+			btl::utility::bilateralFilterInDisparity<float>(&_cvmDepthRGBL2,dDispThreshold,_dSigmaSpace);
+		//get normals L2
+			unprojectRGB ( _cvmDepthRGBL2, _pRGBWorldRGBL2, 2 );//float to double
+			normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL2, _cvmUndistDepthL2.data, _cvmUndistDepthL2.rows, _cvmUndistDepthL2.cols, &_vColors, &_vPts, &_vNormals );
+
 			break;
     }
 

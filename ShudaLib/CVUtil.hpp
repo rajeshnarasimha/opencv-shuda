@@ -13,7 +13,29 @@ namespace btl
 {
 namespace utility
 {
+// set the matrix into a certain value
+template< class T >
+void clearMat(const T& tValue_, cv::Mat* pcvmMat_)
+{
+	typedef T Tp;
+	cv::Mat& cvmMat_ = *pcvmMat_;
+	BTL_ERROR(cvmMat_.channels()>1, "CVUtil::clearMat() only available for 1-channel cv::Mat" );
+	BTL_ERROR(!cvmMat_.data, "CVUtil::clearMat() input cv::Mat is empty.");
+	cv::MatIterator_<Tp> it;
+	it = cvmMat_.begin<Tp>();
 
+	for( ; it != cvmMat_.end<Tp>(); ++it )
+	{
+		*it = tValue_;
+	}
+	return;
+}
+//calculate the L1 norm of two matrices, ( the sum of abs differences between corresponding elements of matrices )
+template< class T>
+T matNormL1 ( const cv::Mat& cvMat1_, const cv::Mat& cvMat2_ )
+{
+	return (T) cv::norm( cvMat1_ - cvMat2_, cv::NORM_L1 );
+}
 //used by freenect depth images
 template <class T>
 T rawDepthToMetersLinear ( int nRawDepth_, const cv::Mat_< T >& mPara_ = cv::Mat_< T >() )
@@ -67,7 +89,6 @@ T rawDepthToMetersTanh ( int nRawDepth_, const cv::Mat_< T >& mPara_ = cv::Mat_<
 
     return T ( depth );
 }
-
 //used by freenect depth images
 template< class T >
 T rawDepth ( int nX_, int nY_, const cv::Mat& cvmDepth_ )
@@ -118,9 +139,6 @@ T* getColorPtr ( const short& nX_, const short& nY_, const cv::Mat& cvmImg_ )
     unsigned char* pDepth = cvmImg_.data  + ( nY_ * cvmImg_.cols + nX_ ) * 3;
     return ( T* ) pDepth;
 }
-
-
-
 //used by freenect depth images
 template < class T >
 T depthInMeters ( int nX_, int nY_, const cv::Mat& cvmDepth_, const cv::Mat_< T >& mPara_ = cv::Mat_< T >(), const int nMethodType_ = 0 )
@@ -230,7 +248,6 @@ void undistortImage ( const cv::Mat& cvmImage_,  const cv::Mat_< T >& cvmK_, con
     return;
 }
 
-
 template< class T >
 T FindShiTomasiScoreAtPoint ( cv::Mat& img_, const int& nHalfBoxSize_ , const int& nX_, const int& nY_ )
 {
@@ -283,20 +300,25 @@ void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_
 }
 
 template< class T>
-void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat_<T>* pcvDepth_)
+void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat* pcvDepth_, int nType_ ) // nType must be identical with T
 {
 	BTL_ERROR(cvDisparity_.channels()>1, "CVUtil::convert2DepthDomain() only available for 1-channel cvDisparity_" );
 	BTL_ERROR(!cvDisparity_.data, "CVUtil::convert2DepthDomain() input cvDisparity_ is empty.");
 	BTL_ERROR(cvDisparity_.type() != CV_32FC1, "CVUtil::convert2DepthDomain() input cvDisparity_ must be CV_32FC1 type.");
 
-	cv::Mat_<T>& cvDepth_ = *pcvDepth_;
+	cv::Mat& cvDepth_ = *pcvDepth_;
+	cvDepth_.create(cvDisparity_.size(),nType_);
+	//btl::utility::clearMat<T>(0,&cvDepth_);
 	T* pDepth = (T*) cvDepth_.data;
 
 	for(cv::MatConstIterator_<float> cit = cvDisparity_.begin<float>(); cit != cvDisparity_.end<float>(); ++cit, pDepth++ )
 	{
 		float fDepth = *cit;
 		if( fDepth > SMALL )
-			*pDepth = 1./fDepth;
+			if( CV_16UC1 == nType_ )
+				*pDepth = unsigned short(1./fDepth + .5 );
+			else
+				*pDepth = 1./fDepth;
 		else
 			*pDepth = 0.;
 	}
@@ -304,6 +326,18 @@ void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat_<T>* pcvDepth_)
 	return;
 }
 
+template< class T>
+void bilateralFilterInDisparity(cv::Mat* pcvDepth_, double dSigmaDisparity_, double dSigmaSpace_ )
+{
+	cv::Mat& cvDepth_ = *pcvDepth_;
+	cv::Mat cvDisparity, cvFilteredDisparity;
+
+	btl::utility::convert2DisparityDomain< T >( cvDepth_, &cvDisparity );
+	cv::bilateralFilter(cvDisparity, cvFilteredDisparity,0, dSigmaDisparity_, dSigmaSpace_); // filter size has to be an odd number.
+	btl::utility::convert2DepthDomain< T >( cvFilteredDisparity,&cvDepth_, cvDepth_.type() );
+
+	return;
+}
 template< class T >
 void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, cv::Mat_< T >* pcvmDepthNew_ )
 {
@@ -370,12 +404,6 @@ void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, 
 		return;
 }
 
-template< class T>
-T matNormL1 ( const cv::Mat& cvMat1_, const cv::Mat& cvMat2_ )
-{
-	return (T) cv::norm( cvMat1_ - cvMat2_, cv::NORM_L1 );
-}
-
 template< class T >
 void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 {
@@ -384,6 +412,8 @@ void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 	CHECK(cvmOrigin_.cols == cvmHalf_.cols*2, "downSampling() matrix cols doesnt agree.");
 	CHECK(cvmOrigin_.type() == cvmHalf_.type(),"downSampling() matrix type doenst agree.");
 	CHECK(1==cvmOrigin_.channels(),"downSampling() only down samples 1 channel cv::Mat.");
+	
+	btl::utility::clearMat<T>(0,&cvmHalf_);
 
 	const T* pIn = (const T*)cvmOrigin_.data;
 	T* pOut= (T*)cvmHalf_.data;
@@ -398,23 +428,7 @@ void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 	return;
 }
 
-template< class T >
-void clearMat(const T& tValue_, cv::Mat* pcvmMat_)
-{
-	typedef T Tp;
-	cv::Mat& cvmMat_ = *pcvmMat_;
 
-	BTL_ERROR(cvmMat_.channels()>1, "CVUtil::clearMat() only available for 1-channel cv::Mat" );
-	BTL_ERROR(!cvmMat_.data, "CVUtil::clearMat() input cv::Mat is empty.");
-	cv::MatIterator_<Tp> it;
-	it = cvmMat_.begin<Tp>();
-
-	for( ; it != cvmMat_.end<Tp>(); ++it )
-	{
-		*it = tValue_;
-	}
-	return;
-}
 
 
 }//utility
