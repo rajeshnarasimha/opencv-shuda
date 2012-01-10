@@ -164,11 +164,11 @@ void VideoSourceKinect::getNextFrame()
 			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
             break;
         case DISPARIT_GAUSSIAN_C1:
-            convert2DisparityDomain< unsigned short, float >( _cvUndistDepth, &(cv::Mat_<float>)cvDisparity );
+            convert2DisparityDomain< unsigned short >( _cvUndistDepth, &(cv::Mat_<float>)cvDisparity );
             cv::GaussianBlur(cvDisparity, cvFilterDisparity, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
             dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
             btl::utility::filterDepth <float> ( dDispThreshold, ( cv::Mat_<float>)cvFilterDisparity, ( cv::Mat_<float>*)&cvThersholdDisparity );
-    	    btl::utility::convert2DepthDomain< float, unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
+    	    btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity,( cv::Mat_<unsigned short>*)&_cvUndistFilteredDepth );
               // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistFilteredDepth.data );
 			normalEstimationGLPCL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
@@ -183,35 +183,54 @@ void VideoSourceKinect::getNextFrame()
 		case NEW_BILATERAL:
 			// filter out depth noise
 			// apply some bilateral gaussian filtering
-			btl::utility::convert2DisparityDomain< unsigned short, float >( _cvUndistDepth, &(cv::Mat_<float>)cvDisparity );
+			btl::utility::convert2DisparityDomain< unsigned short >( _cvUndistDepth, &(cv::Mat_<float>)cvDisparity );
 			dDispThreshold = 1./600. - 1./(600.+_dThresholdDepth);
 			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
 			PRINT(_dThresholdDepth);
 			PRINT(dDispThreshold);
-			btl::utility::convert2DepthDomain< float, unsigned short >( cvThersholdDisparity,&(cv::Mat_<unsigned short>)_cvUndistFilteredDepth );
+			btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity,&(cv::Mat_<unsigned short>)_cvUndistFilteredDepth );
 			registration( (const unsigned short*)_cvUndistFilteredDepth.data );
 			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
 			break;
 		case NEW_DEPTH:
 			btl::utility::clearMat<float>(0,&_cvmDepthRGB);
 			registration( (const unsigned short*)_cvUndistDepth.data ); //generate _cvmDepthRGBL1
-			//bilateral filtering in disparity domain
-			btl::utility::convert2DisparityDomain< float, float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
+		//bilateral filtering in disparity domain
+			btl::utility::convert2DisparityDomain< float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
 			dDispThreshold = 1./600 - 1./(600+_dThresholdDepth);
 			PRINT(dDispThreshold);
 			PRINT(_dSigmaSpace);
 			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
-			btl::utility::clearMat<float>(0,&_cvmDepthRGBL1);
-			btl::utility::convert2DepthDomain< float, float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL1 );
-
-			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGB );
+			btl::utility::clearMat<float>(0,&_cvmDepthRGBL0);
+			btl::utility::convert2DepthDomain< float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL0 );
+		//get normals L0
+			//unprojectRGB ( _cvmDepthRGBL0, _pRGBWorldRGB );
 			//estimate normal using fast method
-			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
-			//btl::utility::downSampling<float>(_cvmDepthRGBL1,&_cvmDepthRGBL2);
-			//unprojectRGB ( _cvmDepthRGBL2, _pRGBWorldRGBL1, 1 );//float to double
-			//cv::pyrDown(_cvUndistImage,_cvmUndistDepthL2);
-			//normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL2.data, _cvmUndistDepthL2.rows, _cvmUndistDepthL2.cols, &_vColors, &_vPts, &_vNormals );
-
+			//normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
+		//downsampling to get level 1
+			btl::utility::clearMat<float>(0,&_cvmDepthRGBL1);
+			btl::utility::downSampling<float>(_cvmDepthRGBL0,&_cvmDepthRGBL1);
+		//get normals L1
+			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGBL1, 1 );//float to double
+			cv::pyrDown(_cvUndistImage,_cvmUndistDepthL1);
+			normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL1.data, _cvmUndistDepthL1.rows, _cvmUndistDepthL1.cols, &_vColors, &_vPts, &_vNormals );
+			//downsampling to get level 1
+			/*
+		//bilateral filtering in disparity domain
+			btl::utility::convert2DisparityDomain< float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
+			dDispThreshold = 1./600 - 1./(600+_dThresholdDepth);
+			PRINT(dDispThreshold);
+			PRINT(_dSigmaSpace);
+			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
+			btl::utility::clearMat<float>(0,&_cvmDepthRGBL0);
+			btl::utility::convert2DepthDomain< float, float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL0 );
+		//downsampling to get level 2
+			btl::utility::clearMat<float>(0,&_cvmDepthRGBL1);
+			btl::utility::downSampling<float>(_cvmDepthRGBL1,&_cvmDepthRGBL2);
+			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGBL1, 1 );//float to double
+			cv::pyrDown(_cvUndistImage,_cvmUndistDepthL1);
+			normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL1.data, _cvmUndistDepthL1.rows, _cvmUndistDepthL1.cols, &_vColors, &_vPts, &_vNormals );
+			*/
 			break;
     }
 
@@ -229,7 +248,8 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 	double* pM = pWorld_ ;
 
 	// initialize the Registered depth as NULLs
-	for ( int i = 0; i < 307200; i++ )
+	int nN = cvmDepth_.rows*cvmDepth_.cols;
+	for ( int i = 0; i < nN; i++ )
 	{
 		*pM++ = 0;
 		*pM++ = 0;
@@ -253,8 +273,8 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 		* ( pWorld_ + 2 ) = cvmDepth_.at<float>(r,c);//*pDepth++;
 		* ( pWorld_ + 2 ) /= 1000.;
 		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-		* pWorld_		  = ( c - _uRGB ) / _dFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-		* ( pWorld_ + 1 ) = ( r - _vRGB ) / _dFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+		* pWorld_		  = ( c*nScale - _uRGB ) / _dFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+		* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _dFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
 
 		pWorld_ += 3;
 	}
