@@ -71,7 +71,7 @@ protected:
 	cv::Mat 	  _cvUndistFilteredDepth;
 	cv::Mat 	  _cvmUndistBW;
 
-	cv::Mat		  _cvmUndistDepthL2;
+	cv::Mat		  _cvmUndistDepthL1;
 	cv::Mat       _cvmUndistDepthL3;
 
 public:

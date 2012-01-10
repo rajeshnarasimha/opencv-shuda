@@ -246,8 +246,8 @@ protected:
 	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
 	//depth pyramid
 	cv::Mat			 _cvmDepthRGB;
-	cv::Mat			 _cvmDepthRGBL1;//640*480
-	cv::Mat			 _cvmDepthRGBL2;//320*240
+	cv::Mat			 _cvmDepthRGBL0;//640*480
+	cv::Mat			 _cvmDepthRGBL1;//320*240
 	cv::Mat			 _cvmDepthRGBL3;//160*120
 
 //timer

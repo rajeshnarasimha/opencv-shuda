@@ -38,7 +38,7 @@ CCalibrateKinect::CCalibrateKinect()
     // refreshed for every frame
     _pRGBWorld    = new double[ 307200*3 ];//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
     _pRGBWorldRGB = new double[ 307200*3 ];//registered to RGB image of the X,Y,Z coordinate
-	_pRGBWorldRGBL1=new double[ 307200/2*3 ];//registered to RGB image of the X,Y,Z coordinate
+	_pRGBWorldRGBL1=new double[ 76800*3 ];//registered to RGB image of the X,Y,Z coordinate
 
     //prepare camera parameters
     const Eigen::Vector3d& vT = eiVecRelativeTranslation();
@@ -74,8 +74,8 @@ CCalibrateKinect::CCalibrateKinect()
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
 	_cvmDepthRGB   = cv::Mat::zeros(480,640,CV_32F);
-	_cvmDepthRGBL1 = cv::Mat::zeros(480,640,CV_32F);
-	_cvmDepthRGBL2 = cv::Mat::zeros(240,320,CV_32F);
+	_cvmDepthRGBL0 = cv::Mat::zeros(480,640,CV_32F);
+	_cvmDepthRGBL1 = cv::Mat::zeros(240,320,CV_32F);
 	_cvmDepthRGBL3 = cv::Mat::zeros(120,160,CV_32F);
 
     std::cout << "CCalibrateKinect() done." << std::endl;

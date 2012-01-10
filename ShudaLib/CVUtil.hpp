@@ -261,42 +261,46 @@ T FindShiTomasiScoreAtPoint ( cv::Mat& img_, const int& nHalfBoxSize_ , const in
 		return 0.5 * ( dXX + dYY - sqrt ( ( dXX + dYY ) * ( dXX + dYY ) - 4 * ( dXX * dYY - dXY * dXY ) ) );
 };
 
-template< class T1, class T2>
-void convert2DisparityDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisparity_)
+template< class T>
+void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_)
 {
-	const T1* pInputDepth = (T1*)cvDepth_.data;
-	T2* pOutputDisparity = (T2*)pcvDisparity_->data;
-	for ( unsigned int y = 0; y < cvDepth_.rows; y++ )
+	BTL_ERROR(cvDepth_.channels()>1, "CVUtil::convert2DisparityDomain() only available for 1-channel cv::Mat" );
+	BTL_ERROR(!cvDepth_.data, "CVUtil::convert2DisparityDomain() input cvDepth_ is empty.");
+
+	cv::Mat& cvDisparity_ = *pcvDisparity_;
+	cvDisparity_.create(cvDepth_.rows, cvDepth_.cols, CV_32FC1);
+	const T* pInputDepth = (T*)cvDepth_.data;
+
+	for(cv::MatIterator_<float> it = cvDisparity_.begin<float>(); it != cvDisparity_.end<float>(); ++it, pInputDepth++ )
 	{
-		for ( unsigned int x = 0; x < cvDepth_.cols; x++ )
-		{
-			double dDepth = *pInputDepth++;
+			double dDepth = *pInputDepth;
 			if( dDepth>SMALL )
-				*pOutputDisparity++ = 1./dDepth;
+				*it = 1./dDepth;
 			else
-				*pOutputDisparity++ = 0.;
-		}
+				*it = 0.;
 	}
 	return;
 }
 
-template< class T1, class T2>
-void convert2DepthDomain(const cv::Mat_<T1>& cvDepth_, cv::Mat_<T2>* pcvDisparity_)
+template< class T>
+void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat_<T>* pcvDepth_)
 {
-	const T1* pInputDepth = (T1*)cvDepth_.data;
-	T2* pOutputDisparity = (T2*)pcvDisparity_->data;
-	for ( unsigned int y = 0; y < cvDepth_.rows; y++ )
+	BTL_ERROR(cvDisparity_.channels()>1, "CVUtil::convert2DepthDomain() only available for 1-channel cvDisparity_" );
+	BTL_ERROR(!cvDisparity_.data, "CVUtil::convert2DepthDomain() input cvDisparity_ is empty.");
+	BTL_ERROR(cvDisparity_.type() != CV_32FC1, "CVUtil::convert2DepthDomain() input cvDisparity_ must be CV_32FC1 type.");
+
+	cv::Mat_<T>& cvDepth_ = *pcvDepth_;
+	T* pDepth = (T*) cvDepth_.data;
+
+	for(cv::MatConstIterator_<float> cit = cvDisparity_.begin<float>(); cit != cvDisparity_.end<float>(); ++cit, pDepth++ )
 	{
-		for ( unsigned int x = 0; x < cvDepth_.cols; x++ )
-		{
-			double dDepth = *pInputDepth++;
-			if( dDepth>SMALL )
-				*pOutputDisparity++ =  (T2)(1./dDepth+.5);
-			else
-				*pOutputDisparity++ = 0.;
-//			*pOutputDisparity++ = (T2)(1./(*pInputDepth++)+.5);
-		}
+		float fDepth = *cit;
+		if( fDepth > SMALL )
+			*pDepth = 1./fDepth;
+		else
+			*pDepth = 0.;
 	}
+	
 	return;
 }
 
@@ -367,15 +371,9 @@ void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, 
 }
 
 template< class T>
-T matNormL1 ( const cv::Mat_< T >& cvMat1_, const cv::Mat_< T >& cvMat2_ )
+T matNormL1 ( const cv::Mat& cvMat1_, const cv::Mat& cvMat2_ )
 {
 	return (T) cv::norm( cvMat1_ - cvMat2_, cv::NORM_L1 );
-}
-
-template< class T >
-void gaussianKernel( double dSigmaSpace, unsigned int& uSize_, cv::Mat_<T>* pcvmKernel_ )
-{
-
 }
 
 template< class T >
@@ -389,11 +387,12 @@ void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 
 	const T* pIn = (const T*)cvmOrigin_.data;
 	T* pOut= (T*)cvmHalf_.data;
-	int nLen = cvmHalf_.rows*cvmHalf_.cols;
-	for(unsigned int n =0; n < nLen; n++)
+	int nIdx;
+	for(unsigned int r = 0; r < cvmOrigin_.rows; r+=2)
+	for(unsigned int c = 0; c < cvmOrigin_.cols; c+=2)
 	{
-		*pOut++ = *pIn;
-		pIn += 2;
+		nIdx = r*cvmOrigin_.cols + c;
+		*pOut++ = pIn[nIdx];
 	}
 
 	return;

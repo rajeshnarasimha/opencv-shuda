@@ -4,41 +4,44 @@
 
 using namespace btl::utility;
 #include <vector>
-
-void testCVUtil()
+void testConvert2DisparityDomain()
 {
 	std::cout << "test: CVUtil::convert2DisparityDomain ( ) " << std::endl;
-	cv::Mat_<unsigned short> cvDepth( 10, 10, CV_16UC1);
-	cv::Mat cvResult( 10, 10, CV_16UC1);
-	cv::Mat cvDisparity( 10, 10, CV_64F );
+	cv::Mat_<float> cvDepth( 10, 10, CV_32FC1);
+	cv::Mat cvResult( 10, 10, CV_32FC1);
+	cv::Mat cvDisparity;
 
 	for(unsigned int r = 0; r < cvDepth.rows; r++ )
 		for(unsigned int c = 0; c < cvDepth.cols; c++ )
 		{
-			cvDepth.at<unsigned short>( r,c) = r* 43 + c;   
+			cvDepth.at<float>( r,c) = r* 43 + c;   
 		}
 
-	PRINT( cvDepth );
-	btl::utility::convert2DisparityDomain<unsigned short, double> ( cvDepth, &((cv::Mat_<double>)cvDisparity) );
-	PRINT( cvDisparity );
-	btl::utility::convert2DepthDomain<double, unsigned short> ( cvDisparity, &(cv::Mat_<unsigned short>)cvResult ); // convert back
-	PRINT( cvResult );
-	double dDiff = btl::utility::matNormL1(cvDepth,(cv::Mat_<unsigned short>)cvResult);
-	PRINT( dDiff );
+		PRINT( cvDepth );
+		btl::utility::convert2DisparityDomain<float> ( cvDepth, &cvDisparity) ;
+		PRINT( cvDisparity );
+		btl::utility::convert2DepthDomain<float> ( cvDisparity, &(cv::Mat_<float>)cvResult ); // convert back
+		PRINT( cvResult );
+		double dDiff = btl::utility::matNormL1<float>(cvDepth,cvResult);
+		PRINT( dDiff );
+}
+void testCVUtil()
+{
+	testConvert2DisparityDomain();
 
 	{
 		std::cout << "test: CVUtil::downSampling() " << std::endl;
 		//cv::Mat cvmData = cv::Mat::ones(10,20,CV_32FC1);
 		//cvmData *= 3;
-		cv::Mat cvmData = (cv::Mat_<float>(2,4) << 11,12,13,14, 21,22,23,24);
+		cv::Mat cvmData = (cv::Mat_<float>(4,4) << 11,12,13,14, 21,22,23,24, 31,32,33,34, 41,42,43,44);
 		cv::Mat cvmDataHalf(cvmData.rows/2,cvmData.cols/2,cvmData.type());
 		PRINT(cvmData.rows);
 		//cv:: pyrDown(cvmData, cvmDataHalf);
 		btl::utility::downSampling<float>(cvmData,&cvmDataHalf);
 
 		PRINT(cvmData.size());
-		PRINT(cvmData)
-			PRINT(cvmDataHalf.size());
+		PRINT(cvmData);
+		PRINT(cvmDataHalf.size());
 		PRINT(cvmDataHalf);
 	}
 
