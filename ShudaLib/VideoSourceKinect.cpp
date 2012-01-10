@@ -140,6 +140,10 @@ void VideoSourceKinect::getNextFrame()
 
     switch( _eMethod )
     {
+		case NONE: //default
+			registration( (const unsigned short*)_cvUndistDepth.data );
+			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
+			break;
         case RAW:
     	    // register the depth with rgb image
     	    registration( (const unsigned short*)_cvUndistDepth.data );
@@ -188,17 +192,16 @@ void VideoSourceKinect::getNextFrame()
 			registration( (const unsigned short*)_cvUndistFilteredDepth.data );
 			normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
 			break;
-		case NONE: //default
-			registration( (const unsigned short*)_cvUndistDepth.data );
-			break;
 		case NEW_DEPTH:
+			btl::utility::clearMat<float>(0,&_cvmDepthRGB);
 			registration( (const unsigned short*)_cvUndistDepth.data ); //generate _cvmDepthRGBL1
 			//bilateral filtering in disparity domain
 			btl::utility::convert2DisparityDomain< float, float >( _cvmDepthRGB, &(cv::Mat_<float>)cvDisparity );
-			dDispThreshold = 1./.6 - 1./(.6+_dThresholdDepth/1000.);
+			dDispThreshold = 1./600 - 1./(600+_dThresholdDepth);
 			PRINT(dDispThreshold);
 			PRINT(_dSigmaSpace);
 			cv::bilateralFilter(cvDisparity, cvThersholdDisparity,0, dDispThreshold, _dSigmaSpace); // filter size has to be an odd number.
+			btl::utility::clearMat<float>(0,&_cvmDepthRGBL1);
 			btl::utility::convert2DepthDomain< float, float >( cvThersholdDisparity,&(cv::Mat_<float>)_cvmDepthRGBL1 );
 
 			unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGB );
@@ -223,6 +226,15 @@ void VideoSourceKinect::getNextFrame()
 
 void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel /*= 0*/ )
 {
+	double* pM = pWorld_ ;
+
+	// initialize the Registered depth as NULLs
+	for ( int i = 0; i < 307200; i++ )
+	{
+		*pM++ = 0;
+		*pM++ = 0;
+		*pM++ = 0;
+	}
 	// pCamer format
 	// 0 x (c) 1 y (r) 2 d
 	//the pixel coordinate is defined w.r.t. camera reference, which is defined as x-left, y-downward and z-forward. It's
@@ -238,10 +250,11 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 	for ( unsigned int r = 0; r < cvmDepth_.rows; r++ )
 	for ( unsigned int c = 0; c < cvmDepth_.cols; c++ )
 	{
-		* ( pWorld_ + 2 ) = (double)*pDepth++;
+		* ( pWorld_ + 2 ) = cvmDepth_.at<float>(r,c);//*pDepth++;
+		* ( pWorld_ + 2 ) /= 1000.;
 		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-		* pWorld_		  = ( c*nScale - _uRGB ) / _dFxRGB * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-		* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _dFyRGB * * ( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+		* pWorld_		  = ( c - _uRGB ) / _dFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+		* ( pWorld_ + 1 ) = ( r - _vRGB ) / _dFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
 
 		pWorld_ += 3;
 	}

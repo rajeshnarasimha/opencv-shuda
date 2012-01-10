@@ -97,12 +97,14 @@ void processNormalKeys ( unsigned char key, int x, int y )
         glDisable     ( GL_BLEND );
         _dZoom += _dScale;
         glutPostRedisplay();
+		PRINT( _dZoom );
         break;
     case 'h':
         //zoom out
         glDisable     ( GL_BLEND );
         _dZoom -= _dScale;
         glutPostRedisplay();
+		PRINT( _dZoom );
         break;
     case 'c':
         //capture current frame the depth map and color
@@ -122,10 +124,12 @@ void processNormalKeys ( unsigned char key, int x, int y )
     case 'n':
         _bRenderNormal = !_bRenderNormal;
         glutPostRedisplay();
+		PRINT( _bRenderNormal );
         break;
     case 'l':
         _bEnableLighting = !_bEnableLighting;
         glutPostRedisplay();
+		PRINT( _bEnableLighting );
         break;
     case 'q':
         _nDensity++;
@@ -152,31 +156,35 @@ void processNormalKeys ( unsigned char key, int x, int y )
         break;
     case '1':
         _cVS._eMethod = VideoSourceKinect::C1_CONTINUITY;
-        PRINT( _cVS._eMethod );
+        PRINT( VideoSourceKinect::C1_CONTINUITY );
         break;
     case '2':
         _cVS._eMethod = VideoSourceKinect::GAUSSIAN_C1;
-        PRINT( _cVS._eMethod );
+        PRINT( VideoSourceKinect::GAUSSIAN_C1 );
         break;
     case '3':
         _cVS._eMethod = VideoSourceKinect::DISPARIT_GAUSSIAN_C1;
-        PRINT( _cVS._eMethod );
+        PRINT( VideoSourceKinect::DISPARIT_GAUSSIAN_C1 );
         break;
     case '4':
         _cVS._eMethod = VideoSourceKinect::RAW;
-        PRINT( _cVS._eMethod );
+        PRINT( VideoSourceKinect::RAW );
         break;
     case '5':
         _cVS._eMethod = VideoSourceKinect::NEW_GAUSSIAN;
-        PRINT( _cVS._eMethod );
+        PRINT( VideoSourceKinect::NEW_GAUSSIAN );
         break;
 	case '6':
 		_cVS._eMethod = VideoSourceKinect::NEW_BILATERAL;
-		PRINT( _cVS._eMethod );
+		PRINTSTR( "VideoSourceKinect::NEW_BILATERAL" );
 		break;
 	case '7':
 		_cVS._eMethod = VideoSourceKinect::NEW_DEPTH;
-		PRINT( _cVS._eMethod );
+		PRINTSTR( "VideoSourceKinect::NEW_DEPTH" );
+		break;
+	case '8':
+		_cVS._eMethod = VideoSourceKinect::NONE;
+		PRINTSTR( "VideoSourceKinect::NONE" );
 		break;
 	case ']':
 		_cVS._dSigmaSpace += 1;
@@ -185,6 +193,11 @@ void processNormalKeys ( unsigned char key, int x, int y )
 	case '[':
 		_cVS._dSigmaSpace -= 1;
 		PRINT( _cVS._dSigmaSpace );
+		break;
+	case '0'://reset camera location
+		_dXAngle = 0.;
+		_dYAngle = 0.;
+		_dZoom = 1.;
 		break;
     }
     return;

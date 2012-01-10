@@ -73,7 +73,7 @@ CCalibrateKinect::CCalibrateKinect()
     //define 3D pattern corners
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
-	_cvmDepthRGB   = cv::Mat::zeros(640,480,CV_32F);
+	_cvmDepthRGB   = cv::Mat::zeros(480,640,CV_32F);
 	_cvmDepthRGBL1 = cv::Mat::zeros(480,640,CV_32F);
 	_cvmDepthRGBL2 = cv::Mat::zeros(240,320,CV_32F);
 	_cvmDepthRGBL3 = cv::Mat::zeros(120,160,CV_32F);
@@ -1035,8 +1035,8 @@ void CCalibrateKinect::unprojectIR ( const unsigned short* pCamera_, const int& 
     {
         * ( pWorld_ + 2 ) = ( * ( pCamera_ + 2 ) + 5 ) / 1000.; //convert to meter z 5 million meter is added according to experience. as the OpenNI
         //coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-        * pWorld_		  = ( * pCamera_	     - _uIR ) / _dFxIR * * ( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-        * ( pWorld_ + 1 ) = ( * ( pCamera_ + 1 ) - _vIR ) / _dFyIR * * ( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+        * pWorld_		  = ( * pCamera_	     - _uIR ) / _dFxIR * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+        * ( pWorld_ + 1 ) = ( * ( pCamera_ + 1 ) - _vIR ) / _dFyIR * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
         
         pCamera_ += 3;
         pWorld_ += 3;
@@ -1114,7 +1114,7 @@ void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRG
             {
 				nIdx1= nY * 640 + nX; //1 channel
                 nIdx2= ( nIdx1 ) * 3; //3 channel
-				pDepth    [ nIdx1   ] = dZ;
+				pDepth    [ nIdx1   ] = float(dZ*1000);
                 pRGBWorld_[ nIdx2++ ] = dX ;
                 pRGBWorld_[ nIdx2++ ] = dY ;
                 pRGBWorld_[ nIdx2   ] = dZ ;
