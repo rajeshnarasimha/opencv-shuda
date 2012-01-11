@@ -65,35 +65,8 @@ public:
     virtual void mainFunc(const boost::filesystem::path& cFullPath_ );
 
     //btl::camera::CameraModelPinhole btlCameraModelPinHoleK() const; 
-    void cloneDepth(double* pDepth_)
-	{
-		double* pM = _pRGBWorldRGB;
-		for( int i=0; i< 921600;i++ )
-		{
-			*pDepth_++ = *pM++; 
-		}
-	}
-
-//controller
-    void setDepthFilterThreshold( double dThreshold_ ) { _dThresholdDepth = dThreshold_; } // default in 10 
-
+	
 //retriever:
-	//opencv convention
-	void centroid( Eigen::Vector3d* peivCentroid ) const 
-	{
-		(*peivCentroid)(0) = _dXCentroid;
-		(*peivCentroid)(1) = _dYCentroid;
-		(*peivCentroid)(2) = _dZCentroid;
-	}
-	//opengl convention
-	void centroidGL( Eigen::Vector3d* peivCentroid ) const 
-	{
-		(*peivCentroid)(0) =   _dXCentroid;
-		(*peivCentroid)(1) = - _dYCentroid;
-		(*peivCentroid)(2) = - _dZCentroid;
-	}
-
-	const double* 				registeredDepth() const {return _pRGBWorldRGB; }	
     const cv::Mat&                  rgbImage (unsigned int nView_)      const {return _vRGBs[nView_];}
     const cv::Mat&                  rgbUndistorted(unsigned int nView_) const {return _vRGBUndistorted[nView_];}
 	const cv::Mat&                  irImage (unsigned int nView_)       const {return _vIRs[nView_];}
@@ -148,11 +121,7 @@ public:
 
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void exportImages(const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
-	// convert the depth map/ir camera to be aligned with the rgb camera
-	void registration( const unsigned short* pDepth_ ); // the 
-	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
-	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
-	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
+
 
 protected:	
 	void locate2DCorners(const std::vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, std::vector< std::vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
@@ -233,7 +202,7 @@ protected:
     cv::Mat_<double> _mIRInvK; 
     cv::Mat_<double> _mIRDistCoeffs;
 	Eigen::Matrix3d	 _eimIRK;
-	Eigen::Matrix3d     _eimIRInvK;
+	Eigen::Matrix3d  _eimIRInvK;
 
     //relative pose
     cv::Mat_<double> _cvmRelativeRotation;
@@ -244,41 +213,23 @@ protected:
 	cv::Mat          _cvmMapXYRGB; //for undistortion
 	cv::Mat          _cvmMapXYIR; //for undistortion
 	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
-	//depth pyramid
 	
-	cv::Mat			 _cvmDepthRGBL0;//640*480
-	cv::Mat			 _cvmDepthRGBL1;//320*240
-	cv::Mat			 _cvmDepthRGBL2;//160*120
 
 //timer
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
 public:
-//paramters
-	double _dThresholdDepth; //threshold for filtering depth
 
 public:
 
-	// duplicated camera parameters for speed up the code. because Eigen and cv matrix class is very slow.
+	// duplicated camera parameters for speed up the VideoSourceKinect::align() in . because Eigen and cv matrix class is very slow.
 	// initialized in constructor after load of the _cCalibKinect.
 	double _aR[9];	// Relative rotation transpose
 	double _aRT[3]; // aRT =_aR * T, the relative translation
 	double _dFxIR, _dFyIR, _uIR, _vIR; //_dFxIR, _dFyIR IR camera focal length
 	double _dFxRGB,_dFyRGB,_uRGB,_vRGB;
 
-	// temporary variables allocated in constructor and released in destructor
-	unsigned short* _pPxDIR; //2D coordinate along with depth for ir image, column-major
-	unsigned short* _pPxRGB; //2D coordinate in rgb image, column-major
-	double*  _pIRWorld;      //XYZ w.r.t. IR camera reference system 
-	double*  _pRGBWorld;     //XYZ w.r.t. RGB camera but indexed in IR image
-	// refreshed for every frame
-	double*  _pRGBWorldRGB; //X,Y,Z coordinate of depth w.r.t. RGB camera reference system
-							//in the format of the RGB image
-	double*  _pRGBWorldRGBL1;
-	double*  _pRGBWorldRGBL2;
 
-	double _dXCentroid, _dYCentroid, _dZCentroid; // the centroid of all depth point defined in RGB camera system (opencv-default camera reference system convention)
- 	
 
 	enum {IR_CAMERA, RGB_CAMERA } 	_nCameraType;
 	enum {CIRCLE, SQUARE} 			_nPatternType;
