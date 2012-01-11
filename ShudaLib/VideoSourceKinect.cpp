@@ -6,19 +6,15 @@
 * @date 2011-02-23
 */
 #include "VideoSourceKinect.hpp"
-#include "Converters.hpp"
+#include "Utility.hpp"
 
 #include <iostream>
 #include <cassert>
 #include <string>
 
 
-#define CHECK_RC(rc, what)											            \
-	if (rc != XN_STATUS_OK)											            \
-	{																            \
-		throw Exception(what + std::string(xnGetStatusString(rc)));\
-	}
-
+#define CHECK_RC(rc, what)	\
+	BTL_ASSERT(rc == XN_STATUS_OK, (what + std::string(xnGetStatusString(rc))) )
 
 using namespace std;
 using namespace btl;
@@ -69,6 +65,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvmAlignedDepthL0 = cv::Mat::zeros(KINECT_HEIGHT,KINECT_WIDTH,CV_32F);
 	_cvmAlignedDepthL1 = cv::Mat::zeros(KINECT_HEIGHT/2,KINECT_WIDTH/2,CV_32F);
 	_cvmAlignedDepthL2 = cv::Mat::zeros(KINECT_HEIGHT/4,KINECT_WIDTH/4,CV_32F);
+	_cvmAlignedDepthL3 = cv::Mat::zeros(KINECT_HEIGHT/8,KINECT_WIDTH/8,CV_32F);
 
 	// allocate memory for later use ( registrate the depth with rgb image
 	_pIRWorld = new double[ KINECT_WxHx3 ]; //XYZ w.r.t. IR camera reference system
@@ -78,6 +75,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	_pRGBWorldRGBL0 = new double[ KINECT_WxHx3 ];//aligned to RGB image of the X,Y,Z coordinate
 	_pRGBWorldRGBL1 = new double[ KINECT_WxHx3_L1 ];
 	_pRGBWorldRGBL2 = new double[ KINECT_WxHx3_L2 ];
+	_pRGBWorldRGBL3 = new double[ KINECT_WxHx3_L2/4];
 
     _eMethod = NEW_BILATERAL; 
 	//definition of parameters
@@ -106,10 +104,10 @@ void VideoSourceKinect::getNextFrame()
 	_vColors.clear();
 	_vPts.clear();
 	_vNormals.clear();
-	
+#ifdef TIMER	
 // timer on
-//	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
-
+	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+#endif
     XnStatus nRetVal = _cContext.WaitAndUpdateAll();
     CHECK_RC ( nRetVal, "UpdateData failed: " );
 	// these two lines are required for getting a stable image and depth.
@@ -153,18 +151,18 @@ void VideoSourceKinect::getNextFrame()
     {
 		case NONE: //default
 			align( _cvmUndistDepth );
-			normalEstimationGL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
 			break;
         case RAW:
     	    // register the depth with rgb image
     	    align( _cvmUndistDepth );
-			normalEstimationGLPCL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
             break;
         case C1_CONTINUITY:
             btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)_cvmUndistDepth, (cv::Mat_<unsigned short>*)&_cvmUndistFilteredDepth );
     	    // register the depth with rgb image
     	    align( _cvmUndistFilteredDepth );
-			normalEstimationGLPCL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
             break;
         case GAUSSIAN_C1:
         	// filter out depth noise
@@ -172,7 +170,7 @@ void VideoSourceKinect::getNextFrame()
 	        btl::utility::filterDepth <unsigned short> ( _dThresholdDepth, (cv::Mat_<unsigned short>)cvmFilter, (cv::Mat_<unsigned short>*)&_cvmUndistFilteredDepth );
     	    // register the depth with rgb image
     	    align( _cvmUndistFilteredDepth );
-			normalEstimationGLPCL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
             break;
         case DISPARIT_GAUSSIAN_C1:
             convert2DisparityDomain< unsigned short >( _cvmUndistDepth, &(cv::Mat_<float>)cvDisparity );
@@ -182,14 +180,14 @@ void VideoSourceKinect::getNextFrame()
     	    btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity, &_cvmUndistFilteredDepth, CV_16UC1 );
               // register the depth with rgb image
     	    align( _cvmUndistFilteredDepth );
-			normalEstimationGLPCL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGLPCL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
             break;
         case NEW_GAUSSIAN:
             // filter out depth noise
 			// apply some bilateral gaussian filtering
             cv::GaussianBlur(_cvmUndistDepth, cvmFilter, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace); // filter size has to be an odd number.
             align( cvmFilter );
-            normalEstimationGL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+            normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
             break;
 		case NEW_BILATERAL:
 			// filter out depth noise
@@ -201,7 +199,7 @@ void VideoSourceKinect::getNextFrame()
 			PRINT(_dSigmaDisparity);
 			btl::utility::convert2DepthDomain< unsigned short >( cvThersholdDisparity, &_cvmUndistFilteredDepth, CV_16UC1 );
 			align( _cvmUndistFilteredDepth );
-			normalEstimationGL<double, unsigned char>( alignedDepth(), _cvmUndistRGBL0.data, _cvmUndistRGBL0.rows, _cvmUndistRGBL0.cols, &_vColors, &_vPts, &_vNormals );
+			normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
 			break;
 		case NEW_DEPTH:
 			
@@ -229,17 +227,25 @@ void VideoSourceKinect::getNextFrame()
 		//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL2,_dSigmaDisparity,_dSigmaSpace);
 		//get normals L2
-			unprojectRGB ( _cvmAlignedDepthL2, _pRGBWorldRGBL2, 2 );//float to double
-			normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL2, _cvmUndistRGBL2.data, _cvmUndistRGBL2.rows, _cvmUndistRGBL2.cols, &_vColors, &_vPts, &_vNormals );
+			//unprojectRGB ( _cvmAlignedDepthL2, _pRGBWorldRGBL2, 2 );//float to double
+			//normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL2, _cvmUndistRGBL2.data, _cvmUndistRGBL2.rows, _cvmUndistRGBL2.cols, &_vColors, &_vPts, &_vNormals );
+	//level 3
+			btl::utility::downSampling<float>(_cvmAlignedDepthL2,&_cvmAlignedDepthL3);
+			cv::pyrDown(_cvmUndistRGBL2,_cvmUndistRGBL3);
+			//bilateral filtering in disparity domain
+			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL3,_dSigmaDisparity,_dSigmaSpace);
+			//get normals L3
+			unprojectRGB ( _cvmAlignedDepthL3, _pRGBWorldRGBL3, 3 );//float to double
+			normalEstimationGL<double>( _pRGBWorldRGBL3, _cvmUndistRGBL3, &_vColors, &_vPts, &_vNormals );
 
 			break;
     }
-
+#ifdef TIMER
 // timer off
-//	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
-// 	_cTDAll = _cT1 - _cT0 ;
-//	PRINT( _cTDAll );
-
+	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+ 	_cTDAll = _cT1 - _cT0 ;
+	PRINT( _cTDAll );
+#endif
 	//cout << " getNextFrame() ends."<< endl;
     return;
 }
@@ -247,11 +253,9 @@ void VideoSourceKinect::getNextFrame()
 void VideoSourceKinect::align( const cv::Mat& cvUndistortDepth_ )
 {
 	BTL_ASSERT( cvUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::align() input must be unsigned short CV_16UC1");
-	align( (const unsigned short*)cvUndistortDepth_.data );
-}
-
-void VideoSourceKinect::align ( const unsigned short* pDepth_ )
-{
+	BTL_ASSERT( cvUndistortDepth_.cols == KINECT_WIDTH && cvUndistortDepth_.rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.")
+	//align( (const unsigned short*)cvUndistortDepth_.data );
+	const unsigned short* pDepth = (const unsigned short*)cvUndistortDepth_.data;
 	// initialize the Registered depth as NULLs
 	double* pM = _pRGBWorldRGBL0 ;
 	for ( int i = 0; i < KINECT_WxH; i++ )
@@ -271,7 +275,7 @@ void VideoSourceKinect::align ( const unsigned short* pDepth_ )
 	{
 		*pMovingPxDIR++ = c;  	    //x
 		*pMovingPxDIR++ = r;        //y
-		*pMovingPxDIR++ = *pDepth_++;//depth
+		*pMovingPxDIR++ = *pDepth++;//depth
 	}
 
 	//unproject the depth map to IR coordinate
@@ -283,7 +287,6 @@ void VideoSourceKinect::align ( const unsigned short* pDepth_ )
 
 	//cout << "registration() end."<< std::endl;
 }
-
 void VideoSourceKinect::unprojectIR ( const unsigned short* pCamera_, const int& nN_, double* pWorld_ )
 {
 	// pCamer format
@@ -306,7 +309,6 @@ void VideoSourceKinect::unprojectIR ( const unsigned short* pCamera_, const int&
 
 	return;
 }
-
 void VideoSourceKinect::transformIR2RGB ( const double* pIR_, const int& nN_, double* pRGB_ )
 {
 	//_aR[0] [1] [2]
@@ -339,7 +341,6 @@ void VideoSourceKinect::transformIR2RGB ( const double* pIR_, const int& nN_, do
 
 	return;
 }
-
 void VideoSourceKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ )
 {
 	//1.pWorld_ is the a 640*480 matrix aranged the same way as depth map
@@ -394,18 +395,12 @@ void VideoSourceKinect::projectRGB ( double* pWorld_, const int& nN_, double* pR
 	_dYCentroid /= uCount;
 	_dZCentroid /= uCount;
 }
-
-/*
-void VideoSourceKinect::buildPyramid ()
-{
-
-}
-*/
-
 void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel /*= 0*/ )
 {
-	double* pM = pWorld_ ;
+	BTL_ASSERT( CV_32FC1 == cvmDepth_.type(), "VideoSourceKinect::unprojectRGB() cvmDepth_ must be CV_32FC1" );
+	BTL_ASSERT( cvmDepth_.channels()==1, "CVUtil::unprojectRGB() require the input cvmDepth is a 1-channel cv::Mat" );
 
+	double* pM = pWorld_ ;
 	// initialize the Registered depth as NULLs
 	int nN = cvmDepth_.rows*cvmDepth_.cols;
 	for ( int i = 0; i < nN; i++ )
@@ -422,12 +417,11 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 	//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
 	//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
 	int nScale = 1 << nLevel;
-
-	CHECK( CV_32FC1 == cvmDepth_.type(), "VideoSourceKinect::unprojectRGB() cvmDepth_ must be CV_32FC1" );
+		
 	float *pDepth = (float*) cvmDepth_.data;
 	
-	for ( unsigned int r = 0; r < cvmDepth_.rows; r++ )
-	for ( unsigned int c = 0; c < cvmDepth_.cols; c++ )
+	for ( int r = 0; r < cvmDepth_.rows; r++ )
+	for ( int c = 0; c < cvmDepth_.cols; c++ )
 	{
 		* ( pWorld_ + 2 ) = cvmDepth_.at<float>(r,c);//*pDepth++;
 		* ( pWorld_ + 2 ) /= 1000.;
@@ -440,6 +434,14 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 
 	return;
 }
+/*
+void VideoSourceKinect::buildPyramid ()
+{
+
+}
+*/
+
+
 
 
 } //namespace videosource

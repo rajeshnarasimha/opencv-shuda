@@ -52,8 +52,6 @@ namespace videosource
 
 using namespace btl;
 using namespace utility;
-//using namespace cv;
-using namespace Eigen;
 
 class CCalibrateKinect
 {
@@ -77,28 +75,28 @@ public:
     const cv::Mat&                  cvMatRGBK()                         const {return _mRGBK;}
     const Eigen::Matrix3d&             eiMatIRK()                          const {return _eimIRK;}
     const cv::Mat&                  cvMatIRK()                          const {return _mIRK;}
-	Matrix3d					eiMatK(int nCameraType_ ) const;
+	Eigen::Matrix3d					eiMatK(int nCameraType_ ) const;
 
     const cv::Mat&                  cvMatRGBDistort()                   const {return _mRGBDistCoeffs;}
     const cv::Mat&                  cvMatIRDistort()                    const {return _mIRDistCoeffs;}
-    Eigen::Matrix3d                    eiMatRGBR(unsigned int nView_)      const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmRGBRotationMatrices[nView_]); return eiMatR;}
+    Eigen::Matrix3d                    eiMatRGBR(unsigned int nView_)      const {Eigen::Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmRGBRotationMatrices[nView_]); return eiMatR;}
     const cv::Mat&                  cvMatRGBR(unsigned int nView_)      const {return _vmRGBRotationMatrices[nView_];}
     const cv::Mat&                  cvVecRGBR(unsigned int nView_)      const {return _vmRGBRotationVectors[nView_];}
-    Vector3d                    eiVecRGBT(unsigned int nView_)      const 
+    Eigen::Vector3d                    eiVecRGBT(unsigned int nView_)      const 
     {
-        Vector3d eiVecT; 
+        Eigen::Vector3d eiVecT; 
         cv::Mat mVec = _vmRGBTranslationVectors[nView_];//.t();
         eiVecT << cv::Mat_<double>(mVec);
         return eiVecT;
     }
     const cv::Mat&                  cvMatRGBT(unsigned int nView_)      const {return _vmRGBTranslationVectors[nView_];}
-    Eigen::Matrix3d                    eiMatIRR(unsigned int nView_)       const {Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmIRRotationMatrices[nView_]); return eiMatR;}
+    Eigen::Matrix3d                    eiMatIRR(unsigned int nView_)       const {Eigen::Matrix3d eiMatR; eiMatR << cv::Mat_<double>(_vmIRRotationMatrices[nView_]); return eiMatR;}
     const cv::Mat&                  cvMatIRR(unsigned int nView_)       const {return _vmIRRotationMatrices[nView_];}
     const cv::Mat&                  cvVecIRR(unsigned int nView_)       const {return _vmIRRotationVectors[nView_];}
 
-    Vector3d                    eiVecIRT(unsigned int nView_)       const 
+    Eigen::Vector3d                    eiVecIRT(unsigned int nView_)       const 
     {
-        Vector3d eiVecT; 
+        Eigen::Vector3d eiVecT; 
         cv::Mat mVec = _vmIRTranslationVectors[nView_];//.t();
         eiVecT << cv::Mat_<double>(mVec);
         return eiVecT;
@@ -107,7 +105,7 @@ public:
     const cv::Mat&                  cvMatRelativeRotation()             const {return _cvmRelativeRotation;}
     const Eigen::Matrix3d&             eiMatRelativeRotation()             const {return _eimRelativeRotation;}
     const cv::Mat&                  cvMatRelativeTranslation()          const {return _cvmRelativeTranslation;}
-    const Vector3d&             eiVecRelativeTranslation()          const {return _eivRelativeTranslation;}
+    const Eigen::Vector3d&             eiVecRelativeTranslation()          const {return _eivRelativeTranslation;}
 
     const unsigned int&         views()                             const {return _uViews;}
     const std::string                imagePathName(unsigned int nView_)  const {return _vstrRGBPathName[nView_];}
@@ -189,7 +187,7 @@ private:
 
 	std::string _strImageDirectory;
 protected:
-    Eigen::Vector2i      _vImageResolution; //x,y;
+    Eigen::Vector2i _vImageResolution; //x,y;
 // camera intrinsics serialized
     //rgb
     cv::Mat_<double> _mRGBK; 
@@ -213,12 +211,6 @@ protected:
 	cv::Mat          _cvmMapXYRGB; //for undistortion
 	cv::Mat          _cvmMapXYIR; //for undistortion
 	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
-	
-
-//timer
-	boost::posix_time::ptime _cT0, _cT1;
-	boost::posix_time::time_duration _cTDAll;
-public:
 
 public:
 
@@ -228,9 +220,7 @@ public:
 	double _aRT[3]; // aRT =_aR * T, the relative translation
 	double _dFxIR, _dFyIR, _uIR, _vIR; //_dFxIR, _dFyIR IR camera focal length
 	double _dFxRGB,_dFyRGB,_uRGB,_vRGB;
-
-
-
+	
 	enum {IR_CAMERA, RGB_CAMERA } 	_nCameraType;
 	enum {CIRCLE, SQUARE} 			_nPatternType;
 };
