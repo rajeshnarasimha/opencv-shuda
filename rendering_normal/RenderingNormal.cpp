@@ -311,7 +311,7 @@ void render3DPts()
 {
     if(_bCaptureCurrentFrame)
     {
-        _cVS.setDepthFilterThreshold( _dDepthFilterThreshold );
+        _cVS._dThresholdDepth =_dDepthFilterThreshold;
         _cVS.getNextFrame();
 		_cVS.centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
 		_bCaptureCurrentFrame = false;

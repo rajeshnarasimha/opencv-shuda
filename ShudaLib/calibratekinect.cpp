@@ -26,21 +26,6 @@ CCalibrateKinect::CCalibrateKinect()
     //importKinectIntrinsics();// obsolete
 	importKinectIntrinsicsYML();
 
-    //definition of parameters
-    _dThresholdDepth = 10;
-
-
-    // allocate memory for later use ( registrate the depth with rgb image
-    _pPxDIR   = new unsigned short[ 307200*3 ]; //2D coordinate along with depth for ir image
-    _pPxRGB   = new unsigned short[ 307200*2 ]; //2D coordinate in rgb image
-    _pIRWorld = new double[ 307200*3 ]; //XYZ w.r.t. IR camera reference system
-
-    // refreshed for every frame
-    _pRGBWorld    = new double[ 307200*3 ];//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
-    _pRGBWorldRGB = new double[ 307200*3 ];//registered to RGB image of the X,Y,Z coordinate
-	_pRGBWorldRGBL1=new double[ 76800*3 ];//registered to RGB image of the X,Y,Z coordinate
-	_pRGBWorldRGBL2=new double[ 19200*3 ];
-
     //prepare camera parameters
     const Eigen::Vector3d& vT = eiVecRelativeTranslation();
     Eigen::Matrix3d mRTrans = eiMatRelativeRotation().transpose();
@@ -74,23 +59,13 @@ CCalibrateKinect::CCalibrateKinect()
     //define 3D pattern corners
     definePattern ( _X, _Y, _NUM_CORNERS_X, _NUM_CORNERS_Y, _nPatternType, &_vPatterCorners3D );
 
-	_cvmDepthRGBL0 = cv::Mat::zeros(480,640,CV_32F);
-	_cvmDepthRGBL1 = cv::Mat::zeros(240,320,CV_32F);
-	_cvmDepthRGBL2 = cv::Mat::zeros(120,160,CV_32F);
-
     std::cout << "CCalibrateKinect() done." << std::endl;
     return;
 }
 
 CCalibrateKinect::~CCalibrateKinect()
 {
-    delete [] _pIRWorld;
-    delete [] _pPxDIR;
-    delete [] _pPxRGB;
-    delete [] _pRGBWorld;
-    delete [] _pRGBWorldRGB;
-	delete [] _pRGBWorldRGBL1;
-	delete [] _pRGBWorldRGBL2;
+
 }
 
 Matrix3d CCalibrateKinect::eiMatK ( int nCameraType_ ) const
@@ -987,150 +962,6 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
     return;
 }
 
-void CCalibrateKinect::registration ( const unsigned short* pDepth_ )
-{
-    // initialize the Registered depth as NULLs
-	double* pM = _pRGBWorldRGB ;
-    for ( int i = 0; i < 307200; i++ )
-    {
-        *pM++ = 0;
-        *pM++ = 0;
-        *pM++ = 0;
-    }
-
-    btl::utility::clearMat<float>(0,&_cvmDepthRGBL0);
-
-    //collecting depths
-    unsigned short* pMovingPxDIR = _pPxDIR;
-	//column-major  
-    for ( unsigned short r = 0; r < 480; r++ )
-        for ( unsigned short c = 0; c < 640; c++ )
-        {
-            *pMovingPxDIR++ = c;  	    //x
-            *pMovingPxDIR++ = r;        //y
-            *pMovingPxDIR++ = *pDepth_++;//depth
-        }
-
-    //unproject the depth map to IR coordinate
-    unprojectIR      ( _pPxDIR, 307200, _pIRWorld );
-    //transform from IR coordinate to RGB coordinate
-    transformIR2RGB  ( _pIRWorld, 307200, _pRGBWorld );
-    //project RGB coordinate to image to register the depth with rgb image
-    projectRGB       ( _pRGBWorld, 307200, _pRGBWorldRGB, &_cvmDepthRGBL0 );
-
-    //cout << "registration() end."<< std::endl;
-}
-
-void CCalibrateKinect::unprojectIR ( const unsigned short* pCamera_, const int& nN_, double* pWorld_ )
-{
-// pCamer format
-// 0 x (c) 1 y (r) 2 d
-//the pixel coordinate is defined w.r.t. camera reference, which is defined as x-left, y-downward and z-forward. It's
-//a right hand system. i.e. opencv-default reference system;
-//unit is meter
-//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
-//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
-    for ( int i = 0; i < nN_; i++ )
-    {
-        * ( pWorld_ + 2 ) = ( * ( pCamera_ + 2 ) + 5 ) / 1000.; //convert to meter z 5 million meter is added according to experience. as the OpenNI
-        //coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-        * pWorld_		  = ( * pCamera_	     - _uIR ) / _dFxIR * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-        * ( pWorld_ + 1 ) = ( * ( pCamera_ + 1 ) - _vIR ) / _dFyIR * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
-        
-        pCamera_ += 3;
-        pWorld_ += 3;
-    }
-
-    return;
-}
-
-void CCalibrateKinect::transformIR2RGB ( const double* pIR_, const int& nN_, double* pRGB_ )
-{
-    //_aR[0] [1] [2]
-    //   [3] [4] [5]
-    //   [6] [7] [8]
-    //_aT[0]
-    //   [1]
-    //   [2]
-    //  pRGB_ = _aR * ( pIR_ - _aT )
-    //  	  = _aR * pIR_ - _aR * _aT
-    //  	  = _aR * pIR_ - _aRT
-
-    for ( int i = 0; i < nN_; i++ )
-    {
-        if ( abs ( * ( pIR_ + 2 ) ) < 0.0001 )
-        {
-            * pRGB_++ = 0;
-            * pRGB_++ = 0;
-            * pRGB_++ = 0;
-        }
-        else
-        {
-			* pRGB_++ = _aR[0] * *pIR_ + _aR[1] * * ( pIR_ + 1 ) + _aR[2] * * ( pIR_ + 2 ) - _aRT[0];
-            * pRGB_++ = _aR[3] * *pIR_ + _aR[4] * * ( pIR_ + 1 ) + _aR[5] * * ( pIR_ + 2 ) - _aRT[1];
-            * pRGB_++ = _aR[6] * *pIR_ + _aR[7] * * ( pIR_ + 1 ) + _aR[8] * * ( pIR_ + 2 ) - _aRT[2];
-        }
-
-        pIR_ += 3;
-    }
-
-    return;
-}
-
-void CCalibrateKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ )
-{
-//1.pWorld_ is the a 640*480 matrix aranged the same way as depth map
-// pRGBWorld_ is another 640*480 matrix aranged the same wey as rgb image.
-// this is much faster than the function
-// eiv2DPt = mK * vPt; eiv2DPt /= eiv2DPt(2);
-// - pWorld is using opencv convention 
-// - unit is meter
-//
-//2.calculate the centroid of the depth map
-
-    //cout << "projectRGB() starts." << std::endl;
-    unsigned short nX, nY;
-    int nIdx1,nIdx2;
-	_dXCentroid = _dYCentroid = _dZCentroid = 0;
-	unsigned int uCount = 0;
-	double dX,dY,dZ;
-
-	CHECK( CV_32FC1 == pDepthL1_->type(), "the depth pyramid level 1 must be CV_32FC1" );
-	float* pDepth = (float*) pDepthL1_->data;
-    for ( int i = 0; i < nN_; i++ )
-    {
-		dX = *pWorld_;
-		dY = * ( pWorld_ + 1 );
-		dZ = * ( pWorld_ + 2 );
-        if ( fabs ( dZ ) > 0.0000001 )
-        {
-            // get 2D image projection in RGB image of the XYZ in the world
-            nX = int( _dFxRGB * dX / dZ + _uRGB + 0.5 );
-            nY = int( _dFyRGB * dY / dZ + _vRGB + 0.5 );
-
-            // set 2D rgb XYZ
-            if ( nX >= 0 && nX < 640 && nY >= 0 && nY < 480 )
-            {
-				nIdx1= nY * 640 + nX; //1 channel
-                nIdx2= ( nIdx1 ) * 3; //3 channel
-				pDepth    [ nIdx1   ] = float(dZ*1000);
-                pRGBWorld_[ nIdx2++ ] = dX ;
-                pRGBWorld_[ nIdx2++ ] = dY ;
-                pRGBWorld_[ nIdx2   ] = dZ ;
-                //PRINT( nX ); PRINT( nY ); PRINT( pWorld_ );
-				_dXCentroid += dX;
-				_dYCentroid += dY;
-				_dZCentroid += dZ;
-				uCount ++;
-            }
-        }
-
-        pWorld_ += 3;
-    }
-	_dXCentroid /= uCount;
-	_dYCentroid /= uCount;
-	_dZCentroid /= uCount;
-}
 
 void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ )
 {

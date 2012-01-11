@@ -25,14 +25,17 @@ namespace utility
 //exception based on boost
 typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;
 struct CError: virtual boost::exception, virtual std::exception { };
-#define CHECK( condition, what) \
-	if ((condition) != true)\
+//ASSERT condition to be true; other wise throw
+#define CHECK( AssertCondition_, Otherwise_) \
+	if ((AssertCondition_) != true)\
 	{\
         CError cE;\
-        cE << CErrorInfo ( what );\
+        cE << CErrorInfo ( Otherwise_ );\
         throw cE;\
 	}
-#define BTL_ERROR( condition, what ) CHECK( !(condition) ,what) 
+//if condition happen then throw
+#define BTL_ERROR( ErrorCondition_, ErrorMessage_ ) CHECK( !(ErrorCondition_), ErrorMessage_) 
+#define BTL_ASSERT CHECK
 #define THROW(what)\
 	{\
         CError cE;\
