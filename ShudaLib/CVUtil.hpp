@@ -315,10 +315,8 @@ void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat* pcvDepth_, int nT
 	{
 		float fDepth = *cit;
 		if( fDepth > SMALL )
-			if( CV_16UC1 == nType_ )
-				*pDepth = unsigned short(1./fDepth + .5 );
-			else
-				*pDepth = 1./fDepth;
+			if( CV_16UC1 == nType_ ) *pDepth = unsigned short(1./fDepth + .5 );
+			else *pDepth = 1.f/fDepth;
 		else
 			*pDepth = 0.;
 	}
@@ -329,6 +327,7 @@ void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat* pcvDepth_, int nT
 template< class T>
 void bilateralFilterInDisparity(cv::Mat* pcvDepth_, double dSigmaDisparity_, double dSigmaSpace_ )
 {
+	BTL_ASSERT(pcvDepth_->channels()==1,"CVUtil::bilateralFilterInDisparity(): the input must be 1 channel depth map")
 	cv::Mat& cvDepth_ = *pcvDepth_;
 	cv::Mat cvDisparity, cvFilteredDisparity;
 
@@ -418,8 +417,8 @@ void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 	const T* pIn = (const T*)cvmOrigin_.data;
 	T* pOut= (T*)cvmHalf_.data;
 	int nIdx;
-	for(unsigned int r = 0; r < cvmOrigin_.rows; r+=2)
-	for(unsigned int c = 0; c < cvmOrigin_.cols; c+=2)
+	for(int r = 0; r < cvmOrigin_.rows; r+=2)
+	for(int c = 0; c < cvmOrigin_.cols; c+=2)
 	{
 		nIdx = r*cvmOrigin_.cols + c;
 		*pOut++ = pIn[nIdx];

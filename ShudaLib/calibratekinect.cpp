@@ -68,9 +68,9 @@ CCalibrateKinect::~CCalibrateKinect()
 
 }
 
-Matrix3d CCalibrateKinect::eiMatK ( int nCameraType_ ) const
+Eigen::Matrix3d CCalibrateKinect::eiMatK ( int nCameraType_ ) const
 {
-    Matrix3d eimK;
+    Eigen::Matrix3d eimK;
 
     if ( IR_CAMERA == nCameraType_ )
     {

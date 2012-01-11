@@ -8,6 +8,10 @@
 * 3-17 depth generator added
 * @date 2011-03-17
 */
+
+//turn on timer
+//#define TIMER 1
+
 #include <stdexcept>
 #include "calibratekinect.hpp"
 #include <XnCppWrapper.h>
@@ -69,21 +73,13 @@ public:
 		(*peivCentroid_)(2) = - _dZCentroid;
 	}
 
-	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
-	void align( const cv::Mat& cvUndistortDepth_ );
 	// convert the depth map/ir camera to be aligned with the rgb camera
-	void align( const unsigned short* pDepth_ ); // the 
+	void align( const cv::Mat& cvUndistortDepth_ );
 	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
 	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
-
-    struct Exception : public std::runtime_error
-    {
-       Exception(const std::string& str) : std::runtime_error(str) {}
-    };
-
-    enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW_GAUSSIAN, NEW_BILATERAL, NONE, NEW_DEPTH } _eMethod;
-
+	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
+	//clone
 	void cloneDepth(double* pDepth_)
 	{
 		double* pM = _pRGBWorldRGBL0;
@@ -93,30 +89,30 @@ public:
 		}
 	}
 protected:
-
+	//openni
     Context        _cContext;
     ImageGenerator _cImgGen;
     ImageMetaData  _cImgMD;
-
     DepthGenerator _cDepthGen;
     DepthMetaData  _cDepthMD;
-
+	//rgb
     cv::Mat       _cvmRGB;
-	cv::Mat       _cvmUndistRGBL0;
-	cv::Mat		  _cvmUndistRGBL1;
-	cv::Mat       _cvmUndistRGBL2;
-
+	//depth
     cv::Mat       _cvmDepth;
 	cv::Mat 	  _cvmUndistDepth;
 	cv::Mat 	  _cvmUndistFilteredDepth;
-	//depth pyramid
+	//rgb pyramid
+	cv::Mat       _cvmUndistRGBL0;
+	cv::Mat		  _cvmUndistRGBL1;
+	cv::Mat       _cvmUndistRGBL2;
+	cv::Mat		  _cvmUndistRGBL3;
+	//depth pyramid (need to be initially allocated in constructor)
 	cv::Mat		  _cvmAlignedDepthL0;//640*480
 	cv::Mat		  _cvmAlignedDepthL1;//320*240
 	cv::Mat		  _cvmAlignedDepthL2;//160*120
-
+	cv::Mat		  _cvmAlignedDepthL3;//80*60
+	//black and white
 	cv::Mat 	  _cvmUndistBW;
-
-
 	// temporary variables allocated in constructor and released in destructor
 	unsigned short* _pPxDIR; //2D coordinate along with depth for ir image, column-major
 	double*  _pIRWorld;      //XYZ w.r.t. IR camera reference system 
@@ -124,11 +120,13 @@ protected:
 	// refreshed for every frame
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
-	double*  _pRGBWorldRGBL0; 
+	double*  _pRGBWorldRGBL0; //(need to be initially allocated in constructor)
 	double*  _pRGBWorldRGBL1;
 	double*  _pRGBWorldRGBL2;
-
-	double _dXCentroid, _dYCentroid, _dZCentroid; // the centroid of all depth point defined in RGB camera system (opencv-default camera reference system convention)
+	double*  _pRGBWorldRGBL3;
+	// the centroid of all depth point defined in RGB camera system
+	// (opencv-default camera reference system convention)
+	double _dXCentroid, _dYCentroid, _dZCentroid; 
 
 public:
     std::vector< Eigen::Vector3d > _vPts;
@@ -139,7 +137,12 @@ public:
 	double _dThresholdDepth; //threshold for filtering depth
 	double _dSigmaSpace; //degree of blur for the bilateral filter
 	double _dSigmaDisparity;
-
+	enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW_GAUSSIAN, NEW_BILATERAL, NONE, NEW_DEPTH } _eMethod;
+#ifdef TIMER
+	//timer
+	boost::posix_time::ptime _cT0, _cT1;
+	boost::posix_time::time_duration _cTDAll;
+#endif
 };
 
 } //namespace videosource

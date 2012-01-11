@@ -226,61 +226,6 @@ T matNormL1 ( const Eigen::Matrix< T, ROW, COL >& eimMat1_, const Eigen::Matrix<
 	return (T) eimAbs.sum();
 }
 
-template< class T1, class T2 >
-void normalEstimationGL( const T1* pDepth_, const T2* pColor_, const unsigned int& uRows_, const unsigned int& uCols_, std::vector<const T2*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_ )
-{
-	vColor_->clear();
-	vPt_->clear();
-	vNormal_->clear();
-
-	Eigen::Vector3d n1, n2, n3, v(0,0,1);
-
-	//calculate normal
-	//unsigned int r = 200;
-	//unsigned int c = 200;
-	for( unsigned int r = 0; r < uRows_; r++ )
-		for( unsigned int c = 0; c < uCols_; c++ )
-		{
-			// skip the boarder line
-			if( c == uCols_-1 || r == uRows_-1 )
-			{
-				pColor_+=3;
-				continue;
-			}
-			size_t i;
-			i = r*uCols_ + c;
-			size_t ii = i*3;
-			Eigen::Vector3d pti  ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
-			size_t i1;
-			i1 = i + 1;
-			ii = i1*3;
-			Eigen::Vector3d pti1 ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
-			size_t j1;
-			j1 = i + uCols_;
-			ii = j1*3;
-			Eigen::Vector3d ptj1 ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
-
-			if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 )
-			{
-				n1 = pti1 - pti;
-				n2 = ptj1 - pti;
-				n3 = n1.cross(n2);
-				n3.normalize();
-				if ( v.dot(n3) < 0 )
-				{
-					//PRINT( n3 );
-					n3 = -n3;
-				}
-				vColor_->push_back(pColor_);
-				vPt_->push_back(pti);
-				vNormal_->push_back(n3);
-			}
-			pColor_+=3;
-		}
-		return;
-}
-
-
 }//utility
 }//btl
 #endif
