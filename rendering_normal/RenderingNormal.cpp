@@ -17,18 +17,19 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/kdtree/kdtree.h>
+#include "Model.h"
 
 using namespace btl; //for "<<" operator
 using namespace utility;
 using namespace extra;
 using namespace videosource;
 using namespace Eigen;
-//using namespace cv;
 
 class CKinectView;
 
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView(_cVS);
+btl::extra::CModel _cM(_cVS);
 
 Eigen::Vector3d _eivCentroid(.0, .0, -1.0 );
 double _dZoom = 1.;
@@ -71,9 +72,6 @@ pcl::PointCloud<pcl::PointXYZ> _cloudPlane3;
 pcl::PointCloud<pcl::PointXYZ> _cloudCylinder;
 
 std::vector< pcl::PointCloud<pcl::PointXYZ>::Ptr > _vpCloudCluster;
-
-cv::Mat _cvColor( 480, 640, CV_8UC3 );
-
 
 bool _bCaptureCurrentFrame = false;
 GLuint _uDisk;
@@ -155,12 +153,14 @@ void processNormalKeys ( unsigned char key, int x, int y )
         PRINT( _dSize );
         break;
     case '1':
-        _cVS._ePreFiltering = VideoSourceKinect::RAW_FAST;
-        PRINTSTR(  "VideoSourceKinect::RAW_FAST" );
+		_cVS._ePreFiltering = VideoSourceKinect::RAW;
+		_cM._eNormalExtraction = CModel::_PCL;
+		PRINTSTR(  "VideoSourceKinect::RAW" );
         break;
     case '2':
-		_cVS._ePreFiltering = VideoSourceKinect::RAW_PCL;
-		PRINTSTR(  "VideoSourceKinect::RAW_PCL" );
+		_cVS._ePreFiltering = VideoSourceKinect::RAW;
+		_cM._eNormalExtraction = CModel::_FAST;
+		PRINTSTR(  "VideoSourceKinect::RAW" );
         break;
     case '3':
 		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN;
@@ -259,8 +259,6 @@ void mouseMotion ( int nX_, int nY_ )
         _dX  = _dXLast + _nXMotion;
         _dY  = _dYLast + _nYMotion;
         _dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
-
-//        _dZoom = _dZoom>0.
     }
 
     glutPostRedisplay();
@@ -308,7 +306,8 @@ void render3DPts()
     if(_bCaptureCurrentFrame)
     {
         _cVS._dThresholdDepth =_dDepthFilterThreshold;
-        _cVS.getNextFrame();
+        //_cVS.getNextFrame();
+		_cM.loadFrame();
 		_cVS.centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
 		_bCaptureCurrentFrame = false;
 		std::cout << "capture done.\n" << std::flush;
@@ -317,9 +316,9 @@ void render3DPts()
     const unsigned char* pColor;
     double x, y, z;
 	 
-    const std::vector< Eigen::Vector3d >& vPts=_cVS._vPts ;
-    const std::vector< Eigen::Vector3d >& vNormals = _cVS._vNormals;
-    const std::vector<const unsigned char*>&   vColors = _cVS._vColors;
+    const std::vector< Eigen::Vector3d >& vPts=_cM._vPts ;
+    const std::vector< Eigen::Vector3d >& vNormals = _cM._vNormals;
+    const std::vector<const unsigned char*>& vColors = _cM._vColors;
     glPushMatrix();
 // Generate the data
     for (size_t i = 0; i < vPts.size (); ++i)
@@ -441,20 +440,17 @@ void reshape ( int nWidth_, int nHeight_ )
 
 void init ( )
 {
-    _mGLMatrix = Matrix4d::Identity();
     glClearColor ( 0.1f,0.1f,0.4f,1.0f );
     glClearDepth ( 1.0 );
     glDepthFunc  ( GL_LESS );
     glEnable     ( GL_DEPTH_TEST );
     glEnable 	 ( GL_SCISSOR_TEST );
     glEnable     ( GL_CULL_FACE );
-//    glEnable     ( GL_BLEND );
-//    glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
     glShadeModel ( GL_FLAT );
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    _cVS.getNextFrame();
+    _cM.loadFrame();
     _uTexture = _cView.LoadTexture( _cVS.cvRGB() );
 
     _uDisk = glGenLists(1);

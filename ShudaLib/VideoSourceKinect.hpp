@@ -33,13 +33,6 @@ namespace videosource{
 #define KINECT_WxHx3_L1 230400 
 #define KINECT_WxHx3_L2 57600
 
-struct Frame
-{
- 	cv::Mat       _cvImage;
-	cv::Mat 	  _cvmBW;
-    cv::Mat       _cvDepth;
-};
-
 //CCalibrateKinect is help to load camera parameters from 
 class VideoSourceKinect : public CCalibrateKinect
 {
@@ -57,7 +50,8 @@ public:
     const cv::Mat*            cvDepthPtr()const { return &_cvmUndistFilteredDepth; }
 		  cv::Mat*            cvDepthPtr()      { return &_cvmUndistFilteredDepth; }
 	const cv::Mat& 			  cvBW()      const { return  _cvmUndistBW; }
-	const double* 			  alignedDepth() const {return _pRGBWorldRGBL0; }	// depth coordnate aligned with RGB camera
+	void cloneFrame(cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_);
+	void clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_);
 	//opencv convention
 	void centroid( Eigen::Vector3d* peivCentroid_ ) const 
 	{
@@ -79,15 +73,7 @@ public:
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
 	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
 	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
-	//clone
-	void cloneDepth(double* pDepth_)
-	{
-		double* pM = _pRGBWorldRGBL0;
-		for( int i=0; i< 921600;i++ )
-		{
-			*pDepth_++ = *pM++; 
-		}
-	}
+
 protected:
 	//openni
     Context        _cContext;
@@ -127,7 +113,6 @@ protected:
 	// the centroid of all depth point defined in RGB camera system
 	// (opencv-default camera reference system convention)
 	double _dXCentroid, _dYCentroid, _dZCentroid; 
-	void pyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_);
 
 public:
     std::vector< Eigen::Vector3d > _vPts;
@@ -138,8 +123,8 @@ public:
 	double _dThresholdDepth; //threshold for filtering depth
 	double _dSigmaSpace; //degree of blur for the bilateral filter
 	double _dSigmaDisparity;
-	int _nKNearest; // for normal extraction using PCL
-	enum {  RAW_FAST, RAW_PCL, GAUSSIAN, GAUSSIAN_C1, GAUSSIAN_C1_FILTERED_IN_DISPARTY, 
+
+	enum {  RAW, GAUSSIAN, GAUSSIAN_C1, GAUSSIAN_C1_FILTERED_IN_DISPARTY, 
 		BILATERAL_FILTERED_IN_DISPARTY, PYRAMID_BILATERAL_FILTERED_IN_DISPARTY } _ePreFiltering;
 #ifdef TIMER
 	//timer

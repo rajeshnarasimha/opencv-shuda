@@ -77,8 +77,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	_pRGBWorldRGBL2 = new double[ KINECT_WxHx3_L2 ];
 	_pRGBWorldRGBL3 = new double[ KINECT_WxHx3_L2/4];
 
-    _ePreFiltering = PYRAMID_BILATERAL_FILTERED_IN_DISPARTY; 
-	_nKNearest = 6;
+    _ePreFiltering = RAW; 
 	//definition of parameters
 	_dThresholdDepth = 10;
 	_dSigmaSpace = 2;
@@ -95,6 +94,7 @@ VideoSourceKinect::~VideoSourceKinect()
 	delete [] _pRGBWorldRGBL0;
 	delete [] _pRGBWorldRGBL1;
 	delete [] _pRGBWorldRGBL2;
+	delete [] _pRGBWorldRGBL3;
 }
 
 void VideoSourceKinect::getNextFrame()
@@ -143,96 +143,65 @@ void VideoSourceKinect::getNextFrame()
 	// timer on
 	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
 #endif
+	_dSigmaDisparity = 1./600 - 1./(600+_dThresholdDepth);
     switch( _ePreFiltering )
     {
-		case RAW_FAST: //default
+		case RAW: //default
 			align( _cvmUndistDepth );
-			btl::utility::normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
 			break;
-        case RAW_PCL:
-			PRINT(_nKNearest);
-    	    align( _cvmUndistDepth );
-			btl::utility::normalEstimationGLPCL<double>( alignedDepth(), _cvmUndistRGBL0, _nKNearest, &_vColors, &_vPts, &_vNormals );
-            break;
         case GAUSSIAN:
 			PRINT(_dSigmaSpace);
 			align( _cvmUndistDepth );
 			{
 				cv::Mat cvmGaussianFiltered;
 				cv::GaussianBlur(_cvmAlignedDepthL0, cvmGaussianFiltered, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
-				unprojectRGB(cvmGaussianFiltered,_pRGBWorldRGBL0);
+				_cvmAlignedDepthL0 = cvmGaussianFiltered;
 			}
-			btl::utility::normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
 			break;
         case GAUSSIAN_C1:
 			PRINT(_dThresholdDepth);
 			PRINT(_dSigmaSpace);
 			align( _cvmUndistDepth );
 			{
-				cv::Mat cvmGaussianFiltered, cvmC1Filtered;
+				cv::Mat cvmGaussianFiltered;
 				cv::GaussianBlur(_cvmAlignedDepthL0, cvmGaussianFiltered, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
-				btl::utility::filterDepth <float> ( _dThresholdDepth, (cv::Mat_<float>)cvmGaussianFiltered, (cv::Mat_<float>*)&cvmC1Filtered );
-				unprojectRGB(cvmC1Filtered,_pRGBWorldRGBL0);
+				btl::utility::filterDepth <float> ( _dThresholdDepth, (cv::Mat_<float>)cvmGaussianFiltered, (cv::Mat_<float>*)&_cvmAlignedDepthL0 );
 			}
-			btl::utility::normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
 			break;
         case GAUSSIAN_C1_FILTERED_IN_DISPARTY:
-			_dSigmaDisparity = 1./600 - 1./(600+_dThresholdDepth);
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
 			align( _cvmUndistDepth );
 			btl::utility::gaussianC1FilterInDisparity<float>( &_cvmAlignedDepthL0, _dSigmaDisparity, _dSigmaSpace );
-			unprojectRGB(_cvmAlignedDepthL0,_pRGBWorldRGBL0);
-			btl::utility::normalEstimationGLPCL<double>( alignedDepth(), _cvmUndistRGBL0, _nKNearest, &_vColors, &_vPts, &_vNormals );
             break;
 		case BILATERAL_FILTERED_IN_DISPARTY:
-			_dSigmaDisparity = 1./600 - 1./(600+_dThresholdDepth);
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
-			//level 0
 			align( _cvmUndistDepth ); //generate _cvmDepthRGBL0
-			//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
-			//get normals L0
-			unprojectRGB ( _cvmAlignedDepthL0, _pRGBWorldRGBL0 );
-			btl::utility::normalEstimationGL<double>( alignedDepth(), _cvmUndistRGBL0, &_vColors, &_vPts, &_vNormals );
 			break;
 		case PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
-			_dSigmaDisparity = 1./600 - 1./(600+_dThresholdDepth);
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
 	//level 0
 			align( _cvmUndistDepth ); //generate _cvmDepthRGBL0
 			//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
-		//get normals L0
-			//unprojectRGB ( _cvmDepthRGBL0, _pRGBWorldRGB );
-			//normalEstimationGL<double, unsigned char>( registeredDepth(), _cvUndistImage.data, _cvUndistImage.rows, _cvUndistImage.cols, &_vColors, &_vPts, &_vNormals );
 	//level 1
 			btl::utility::downSampling<float>(_cvmAlignedDepthL0,&_cvmAlignedDepthL1);
 			cv::pyrDown(_cvmUndistRGBL0,_cvmUndistRGBL1);
 		//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL1,_dSigmaDisparity,_dSigmaSpace);
-		//get normals L1
-			//unprojectRGB ( _cvmDepthRGBL1, _pRGBWorldRGBL1, 1 );//float to double
-			//normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL1, _cvmUndistDepthL1.data, _cvmUndistDepthL1.rows, _cvmUndistDepthL1.cols, &_vColors, &_vPts, &_vNormals );
 	//level 2
 			btl::utility::downSampling<float>(_cvmAlignedDepthL1,&_cvmAlignedDepthL2);
 			cv::pyrDown(_cvmUndistRGBL1,_cvmUndistRGBL2);
 		//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL2,_dSigmaDisparity,_dSigmaSpace);
-		//get normals L2
-			//unprojectRGB ( _cvmAlignedDepthL2, _pRGBWorldRGBL2, 2 );//float to double
-			//normalEstimationGL<double, unsigned char>( _pRGBWorldRGBL2, _cvmUndistRGBL2.data, _cvmUndistRGBL2.rows, _cvmUndistRGBL2.cols, &_vColors, &_vPts, &_vNormals );
 	//level 3
 			btl::utility::downSampling<float>(_cvmAlignedDepthL2,&_cvmAlignedDepthL3);
 			cv::pyrDown(_cvmUndistRGBL2,_cvmUndistRGBL3);
 			//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL3,_dSigmaDisparity,_dSigmaSpace);
-			//get normals L3
-			unprojectRGB ( _cvmAlignedDepthL3, _pRGBWorldRGBL3, 3 );//float to double
-			btl::utility::normalEstimationGL<double>( _pRGBWorldRGBL3, _cvmUndistRGBL3, &_vColors, &_vPts, &_vNormals );
-
 			break;
     }
 #ifdef TIMER
@@ -430,25 +399,37 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 	return;
 }
 
-void VideoSourceKinect::pyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_)
+void VideoSourceKinect::clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_)
 {
-	if (!pvcvmRGB_)
+	if (pvcvmRGB_)
 	{
 		pvcvmRGB_->clear();
-		pvcvmRGB_->push_back(_cvmUndistRGBL0);
-		pvcvmRGB_->push_back(_cvmUndistRGBL1);
-		pvcvmRGB_->push_back(_cvmUndistRGBL2);
-		pvcvmRGB_->push_back(_cvmUndistRGBL3);
+		pvcvmRGB_->push_back(_cvmUndistRGBL0.clone());
+		pvcvmRGB_->push_back(_cvmUndistRGBL1.clone());
+		pvcvmRGB_->push_back(_cvmUndistRGBL2.clone());
+		pvcvmRGB_->push_back(_cvmUndistRGBL3.clone());
 	}
-	if (!pvcvmDepth_)
+	if (pvcvmDepth_)
 	{
 		pvcvmDepth_->clear();
-		pvcvmDepth_->push_back(_cvmAlignedDepthL0);
-		pvcvmDepth_->push_back(_cvmAlignedDepthL1);
-		pvcvmDepth_->push_back(_cvmAlignedDepthL2);
-		pvcvmDepth_->push_back(_cvmAlignedDepthL3);
+		pvcvmDepth_->push_back(_cvmAlignedDepthL0.clone());
+		pvcvmDepth_->push_back(_cvmAlignedDepthL1.clone());
+		pvcvmDepth_->push_back(_cvmAlignedDepthL2.clone());
+		pvcvmDepth_->push_back(_cvmAlignedDepthL3.clone());
 	}
 	return;
+}
+
+void VideoSourceKinect::cloneFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
+{
+	if (pcvmRGB_)
+	{
+		*pcvmRGB_ = _cvmUndistRGBL0.clone();
+	}
+	if (pcvmDepth_)
+	{
+		*pcvmDepth_ = _cvmAlignedDepthL0.clone();
+	}
 }
 
 /*

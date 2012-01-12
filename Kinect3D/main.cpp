@@ -1,10 +1,12 @@
 //display kinect depth in real-time
+#include <GL/glew.h>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <boost/lexical_cast.hpp>
 #include "Converters.hpp"
 #include "VideoSourceKinect.hpp"
+#include "Model.h"
 //camera calibration from a sequence of images
 
 using namespace btl; //for "<<" operator
@@ -12,16 +14,19 @@ using namespace utility;
 using namespace extra;
 using namespace videosource;
 using namespace Eigen;
-using namespace cv;
+//using namespace cv;
 
 class CKinectView;
 
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView(_cVS);
+btl::extra::CModel _cM(_cVS);
 
-Eigen::Vector3d _eivCamera(.0, .0, .0 );
-Eigen::Vector3d _eivCenter(.0, .0,-1.0 );
-Eigen::Vector3d _eivUp(.0, 1.0, 0.0);
+Eigen::Vector3d _eivCentroid(.0, .0, -1.0 );
+double _dZoom = 1.;
+double _dZoomLast = 1.;
+double _dScale = .1;
+
 Matrix4d _mGLMatrix;
 double _dNear = 0.01;
 double _dFar  = 10.;
@@ -30,9 +35,6 @@ double _dXAngle = 0;
 double _dYAngle = 0;
 double _dXLastAngle = 0;
 double _dYLastAngle = 0;
-
-double _dZoom = 1.;
-
 double _dX = 0;
 double _dY = 0;
 double _dXLast = 0;
@@ -48,102 +50,195 @@ bool _bRButtonDown;
 unsigned short _nWidth, _nHeight;
 GLuint _uTexture;
 
+bool _bCaptureCurrentFrame = false;
+GLuint _uDisk;
+GLuint _uNormal;
+bool _bRenderNormal = false;
+bool _bEnableLighting = false;
+double _dDepthFilterThreshold = 10;
+GLUquadricObj *_pQObj;
+int _nDensity = 2;
+double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 
 void processNormalKeys ( unsigned char key, int x, int y )
 {
 	switch( key )
 	{
-		case 27:
-        	exit ( 0 );
-			break;
-    	case 'i':
-        	//zoom in
-			glDisable     ( GL_BLEND );
-	        _dZoom += 0.2;
-    	    glutPostRedisplay();
-			break;
-		case 'k':
-        	//zoom out
-			glDisable     ( GL_BLEND );
-        	_dZoom -= 0.2;
-        	glutPostRedisplay();
-			break;
-		case '<':
-		    _dYAngle += 1.0;
-			glutPostRedisplay();
-			break;
-		case '>':
-			_dYAngle -= 1.0;
-			glutPostRedisplay();
-			break;
+	case 27:
+		exit ( 0 );
+		break;
+	case 'g':
+		//zoom in
+		glDisable( GL_BLEND );
+		_dZoom += _dScale;
+		glutPostRedisplay();
+		PRINT( _dZoom );
+		break;
+	case 'h':
+		//zoom out
+		glDisable( GL_BLEND );
+		_dZoom -= _dScale;
+		glutPostRedisplay();
+		PRINT( _dZoom );
+		break;
+	case 'c':
+		//capture current frame the depth map and color
+		_bCaptureCurrentFrame = true;
+		break;
+	case '>':
+		_dDepthFilterThreshold += 10.0;
+		PRINT( _dDepthFilterThreshold );
+		glutPostRedisplay();
+		break;
+	case '<':
+		_dDepthFilterThreshold -= 11.0;
+		_dDepthFilterThreshold = _dDepthFilterThreshold > 0? _dDepthFilterThreshold : 1;
+		PRINT( _dDepthFilterThreshold );
+		glutPostRedisplay();
+		break;
+	case 'n':
+		_bRenderNormal = !_bRenderNormal;
+		glutPostRedisplay();
+		PRINT( _bRenderNormal );
+		break;
+	case 'l':
+		_bEnableLighting = !_bEnableLighting;
+		glutPostRedisplay();
+		PRINT( _bEnableLighting );
+		break;
+	case 'q':
+		_nDensity++;
+		glutPostRedisplay();
+		PRINT( _nDensity );
+		break;
+	case ';':
+		_nDensity--;
+		_nDensity = _nDensity > 0 ? _nDensity : 1;
+		glutPostRedisplay();
+		PRINT( _nDensity );
+		break;
+	case 'k':
+		_dSize += 0.05;// range from 0.05 to 1 by step 0.05
+		_dSize = _dSize < 1 ? _dSize: 1;
+		glutPostRedisplay();
+		PRINT( _dSize );
+		break;
+	case 'j':
+		_dSize -= 0.05;
+		_dSize = _dSize > 0.05? _dSize : 0.05;
+		glutPostRedisplay();
+		PRINT( _dSize );
+		break;
+	case '1':
+		_cVS._ePreFiltering = VideoSourceKinect::RAW;
+		_cM._eNormalExtraction = CModel::_PCL;
+		PRINTSTR(  "VideoSourceKinect::RAW" );
+		break;
+	case '2':
+		_cVS._ePreFiltering = VideoSourceKinect::RAW;
+		_cM._eNormalExtraction = CModel::_FAST;
+		PRINTSTR(  "VideoSourceKinect::RAW" );
+		break;
+	case '3':
+		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN;
+		PRINTSTR(  "VideoSourceKinect::GAUSSIAN" );
+		break;
+	case '4':
+		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1;
+		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1" );
+		break;
+	case '5':
+		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY;
+		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY" );
+		break;
+	case '6':
+		_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
+		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
+		break;
+	case '7':
+		_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
+		break;
+	case ']':
+		_cVS._dSigmaSpace += 1;
+		PRINT( _cVS._dSigmaSpace );
+		break;
+	case '[':
+		_cVS._dSigmaSpace -= 1;
+		PRINT( _cVS._dSigmaSpace );
+		break;
+	case '0'://reset camera location
+		_dXAngle = 0.;
+		_dYAngle = 0.;
+		_dZoom = 1.;
+		break;
     }
 
     return;
 }
 void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 {
-    if ( nButton_ == GLUT_LEFT_BUTTON )
-    {
-        if ( nState_ == GLUT_DOWN )
-        {
-            _nXMotion = _nYMotion = 0;
-            _nXLeftDown    = nX_;
-            _nYLeftDown    = nY_;
-            
-            _bLButtonDown = true;
-        }
-        else 
-        {
-            _dXLastAngle = _dXAngle;
-            _dYLastAngle = _dYAngle;
-            _bLButtonDown = false;
-        }
-        glutPostRedisplay();
-    }
-    else if ( GLUT_RIGHT_BUTTON )
-    {
-        if ( nState_ == GLUT_DOWN )
-        {
-            _nXMotion = _nYMotion = 0;
-            _nXRightDown    = nX_;
-            _nYRightDown    = nY_;
-            
-            _bRButtonDown = true;
-        }
-        else 
-        {
-            _dXLast = _dX;
-            _dYLast = _dY;
-            _bRButtonDown = false;
-        }
-        glutPostRedisplay();
-    }
+	if ( nButton_ == GLUT_LEFT_BUTTON )
+	{
+		if ( nState_ == GLUT_DOWN )
+		{
+			_nXMotion = _nYMotion = 0;
+			_nXLeftDown    = nX_;
+			_nYLeftDown    = nY_;
 
-    return;
+			_bLButtonDown = true;
+		}
+		else if( nState_ == GLUT_UP )// button up
+		{
+			_dXLastAngle = _dXAngle;
+			_dYLastAngle = _dYAngle;
+			_bLButtonDown = false;
+		}
+		glutPostRedisplay();
+	}
+	else if ( GLUT_RIGHT_BUTTON )
+	{
+		if ( nState_ == GLUT_DOWN )
+		{
+			_nXMotion = _nYMotion = 0;
+			_nXRightDown  = nX_;
+			_nYRightDown  = nY_;
+			_dZoomLast    = _dZoom;
+			_bRButtonDown = true;
+		}
+		else if( nState_ == GLUT_UP )
+		{
+			_dXLast = _dX;
+			_dYLast = _dY;
+			_bRButtonDown = false;
+		}
+		glutPostRedisplay();
+	}
+
+	return;
 }
 
 void mouseMotion ( int nX_, int nY_ )
 {
-    if ( _bLButtonDown == true )
-    {	
+	if ( _bLButtonDown == true )
+	{
 		glDisable     ( GL_BLEND );
-       _nXMotion = nX_ - _nXLeftDown;
-       _nYMotion = nY_ - _nYLeftDown;
-       _dXAngle  = _dXLastAngle + _nXMotion;
-       _dYAngle  = _dYLastAngle + _nYMotion;
-    }
-    else if ( _bRButtonDown == true )
-    {
+		_nXMotion = nX_ - _nXLeftDown;
+		_nYMotion = nY_ - _nYLeftDown;
+		_dXAngle  = _dXLastAngle + _nXMotion;
+		_dYAngle  = _dYLastAngle + _nYMotion;
+	}
+	else if ( _bRButtonDown == true )
+	{
 		glDisable     ( GL_BLEND );
-       _nXMotion = nX_ - _nXRightDown;
-       _nYMotion = nY_ - _nYRightDown;
-       _dX  = _dXLast + _nXMotion;
-       _dY  = _dYLast + _nYMotion;
-       _eivCamera(0) = _dX/50.;
-       _eivCamera(1) = _dY/50.;
-    }
-    
-    glutPostRedisplay();
+		_nXMotion = nX_ - _nXRightDown;
+		_nYMotion = nY_ - _nYRightDown;
+		_dX  = _dXLast + _nXMotion;
+		_dY  = _dYLast + _nYMotion;
+		_dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
+	}
+
+	glutPostRedisplay();
 }
 
 void renderAxis()
@@ -180,44 +275,87 @@ void renderAxis()
 
 void render3DPts()
 {
- 	const unsigned char* pColor = _cVS.cvRGB().data;
-	const double* pDepth = _cVS.registeredDepth();
+	const unsigned char* pColor;
+	double x, y, z;
 
+	const std::vector< Eigen::Vector3d >& vPts=_cM._vPts ;
+	const std::vector< Eigen::Vector3d >& vNormals = _cM._vNormals;
+	const std::vector<const unsigned char*>& vColors = _cM._vColors;
 	glPushMatrix();
-    glPointSize ( 1. );
-	glBegin ( GL_POINTS );
-	for (int i = 0; i< 307200; i++)
+	// Generate the data
+	for (size_t i = 0; i < vPts.size (); ++i)
 	{
-		double dX = *pDepth++;
-		double dY = *pDepth++;
-		double dZ = *pDepth++;
-		if( abs(dZ) > 0.0000001 )
+		if( _bEnableLighting )
+			glEnable(GL_LIGHTING);
+		else
+			glDisable(GL_LIGHTING);
+		if ( 1 != _nDensity && i % _nDensity != 1 ) // skip some points; when 1 == i, all dots wills drawn;
 		{
-			glColor3ubv( pColor );
-			glVertex3d ( dX, -dY, -dZ );
+			continue;
 		}
-		pColor +=3;
+
+		pColor = vColors[i];
+		glColor3ubv( pColor );
+
+		glPushMatrix();
+		x =  vPts[i](0);
+		y =  vPts[i](1);
+		z =  vPts[i](2);
+		glTranslated( x, y, z );
+
+		double dNx, dNy, dNz;// in opengl default coordinate
+		dNx = vNormals[i](0);
+		dNy = vNormals[i](1);
+		dNz = vNormals[i](2);
+
+		if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
+		{
+			PRINT( dNz );
+			continue;
+		}
+
+		double dA = atan2(dNx,dNz);
+		double dxz= sqrt( dNx*dNx + dNz*dNz );
+		double dB = atan2(dNy,dxz);
+
+		glRotated(-dB*180 / M_PI,1,0,0 );
+		glRotated( dA*180 / M_PI,0,1,0 );
+		double dR = -z/0.5;
+		glScaled( dR*_dSize, dR*_dSize, dR*_dSize );
+		glCallList(_uDisk);
+		if( _bRenderNormal )
+		{
+			glCallList(_uNormal);
+		}
+		glPopMatrix();
 	}
-    glEnd();
 	glPopMatrix();
+
+	return;
 } 
 
 void display ( void )
 {
-    _cVS.getNextFrame();
+    _cM.loadFrame();
+	_cVS.centroidGL(&_eivCentroid);
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
 	glScissor  (0, 0, _nWidth/2, _nHeight);
 	// after set the intrinsics and extrinsics
     // load the matrix to set camera pose
     glLoadIdentity();
-    //glLoadMatrixd( _mGLMatrix.data() );
-    // navigating the world
-    gluLookAt ( _eivCamera(0), _eivCamera(1), _eivCamera(2),  _eivCenter(0), _eivCenter(1), _eivCenter(2), _eivUp(0), _eivUp(1), _eivUp(2) );
-    glScaled( _dZoom, _dZoom, _dZoom );    
-    glRotated ( _dYAngle, 0, 1 ,0 );
-    glRotated ( _dXAngle, 1, 0 ,0 );
+	//glLoadMatrixd( _mGLMatrix.data() );
+	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // translate back to the original camera pose
+	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
+	_dZoom = _dZoom > 10? 10: _dZoom;
+	glScaled( _dZoom, _dZoom, _dZoom );                          // zoom in/out
+	glRotated ( _dXAngle, 0, 1 ,0 );                             // rotate horizontally
+	glRotated ( _dYAngle, 1, 0 ,0 );                             // rotate vertically
+	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // translate the world origin to align with object centroid
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// light position in 3d
+	GLfloat light_position[] = { 3.0, 1.0, 1.0, 1.0 };
+	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
     // render objects
     renderAxis();
@@ -238,7 +376,7 @@ void display ( void )
 
 	// render objects
     renderAxis();
-	render3DPts();
+	//render3DPts();
 	glBindTexture(GL_TEXTURE_2D, _uTexture);
     glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, _cVS.cvRGB().data);
 
@@ -267,20 +405,47 @@ void reshape ( int nWidth_, int nHeight_ )
 
 void init ( )
 {
-    _mGLMatrix = Matrix4d::Identity();
-	glClearColor ( 0.0, 0.0, 0.0, 1.0 );
-    glClearDepth ( 1.0 );
-    glDepthFunc  ( GL_LESS );
-    glEnable     ( GL_DEPTH_TEST );
-	glEnable 	 ( GL_SCISSOR_TEST ); 
-    glEnable     ( GL_BLEND );
-    glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-    glShadeModel ( GL_FLAT );
+	glClearColor ( 0.1f,0.1f,0.4f,1.0f );
+	glClearDepth ( 1.0 );
+	glDepthFunc  ( GL_LESS );
+	glEnable     ( GL_DEPTH_TEST );
+	glEnable 	 ( GL_SCISSOR_TEST );
+	glEnable     ( GL_CULL_FACE );
+	glShadeModel ( GL_FLAT );
 
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-	_cVS.getNextFrame();
+	_cM.loadFrame();
 	_uTexture = _cView.LoadTexture( _cVS.cvRGB() );
+
+	_uDisk = glGenLists(1);
+	GLUquadricObj *pQObj;
+	_pQObj = gluNewQuadric();
+	gluQuadricDrawStyle(_pQObj, GLU_FILL); //LINE); /* wireframe */
+	gluQuadricNormals(_pQObj, GLU_SMOOTH);// FLAT);//
+	glNewList(_uDisk, GL_COMPILE);
+	gluDisk(_pQObj, 0.0, 0.01, 9, 1);
+	glEndList();
+
+	_uNormal = glGenLists(2);
+	glNewList(_uNormal, GL_COMPILE);
+	glDisable(GL_LIGHTING);
+	glBegin(GL_LINES);
+	glColor3d(1.,0.,0.);
+	glVertex3d(0.,0.,0.);
+	glVertex3d(0.,0.,0.016);
+	glEnd();
+	glEndList();
+
+	// light
+	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
+
+	GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
+	glLightfv (GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+
+	glEnable(GL_RESCALE_NORMAL);
+	glEnable(GL_LIGHT0);
 
 }
 
@@ -303,7 +468,7 @@ int main ( int argc, char** argv )
 	}
     catch ( CError& e )
     {
-        if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
+        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
         {
             std::cerr << "Error Info: " << *mi << std::endl;
         }

@@ -191,6 +191,32 @@ void tryCVMat()
 	PRINT(cvmInit);
 	PRINT(cvmData);
 }
+void tryCVOperator()
+{
+	PRINTSTR("try: cv::Mat::operator =");
+	cv::Mat cvmData = cv::Mat::ones( 10, 5, CV_32FC1);
+	cv::Mat cvmResult = cv::Mat::zeros(cvmData.size(),cvmData.type());
+	PRINT( cvmResult );
+	cvmResult = cvmData;
+	PRINT( cvmResult );
+	// cvmData and cvmResult shares the same memory allocation
+	*(float*)cvmResult.data = 10;
+	PRINT(cvmResult);
+	PRINT(cvmData);
+	// use clone
+	cvmData = cv::Mat::ones( 10, 5, CV_32FC1);
+	cvmResult = cvmData.clone();
+	*(float*)cvmResult.data = 10;
+	PRINT(cvmResult);
+	PRINT(cvmData);
+	//
+	cvmData = cv::Mat::ones( 10, 5, CV_32FC1);
+	std::vector<cv::Mat> vcvmMats;
+	vcvmMats.push_back(cvmData);
+	*(float*)vcvmMats[0].data = 10;
+	PRINT(cvmResult);
+	PRINT(vcvmMats[0]);
+}
 int main()
 {
 	try
@@ -201,6 +227,7 @@ int main()
 		tryCppOperator();
 		tryCVPryDown();
 		tryCVMat();
+		tryCVOperator();
 	}
 	catch ( std::runtime_error& e )
 	{

@@ -29,46 +29,46 @@ void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_, std::vector<c
 	Eigen::Vector3d n1, n2, n3, v(0,0,1);
 
 	//calculate normal
-	for( unsigned int r = 0; r < cvmRGB_.rows; r++ )
-		for( unsigned int c = 0; c < cvmRGB_.cols; c++ )
+	for( int r = 0; r < cvmRGB_.rows; r++ )
+	for( int c = 0; c < cvmRGB_.cols; c++ )
+	{
+		// skip the right and bottom boarder line
+		if( c == cvmRGB_.cols-1 || r == cvmRGB_.rows-1 )
 		{
-			// skip the right and bottom boarder line
-			if( c == cvmRGB_.cols-1 || r == cvmRGB_.rows-1 )
-			{
-				pColor_+=3;
-				continue;
-			}
-			size_t i;
-			i = r*cvmRGB_.cols + c;
-			size_t ii = i*3;
-			Eigen::Vector3d pti  ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
-			size_t i1;
-			i1 = i + 1;
-			ii = i1*3;
-			Eigen::Vector3d pti1 ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
-			size_t j1;
-			j1 = i + cvmRGB_.cols;
-			ii = j1*3;
-			Eigen::Vector3d ptj1 ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
-
-			if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 )
-			{
-				n1 = pti1 - pti;
-				n2 = ptj1 - pti;
-				n3 = n1.cross(n2);
-				n3.normalize();
-				if ( v.dot(n3) < 0 )
-				{
-					//PRINT( n3 );
-					n3 = -n3;
-				}
-				vColor_->push_back(pColor_);
-				vPt_->push_back(pti);
-				vNormal_->push_back(n3);
-			}
 			pColor_+=3;
+			continue;
 		}
-		return;
+		size_t i;
+		i = r*cvmRGB_.cols + c;
+		size_t ii = i*3;
+		Eigen::Vector3d pti  ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
+		size_t i1;
+		i1 = i + 1;
+		ii = i1*3;
+		Eigen::Vector3d pti1 ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
+		size_t j1;
+		j1 = i + cvmRGB_.cols;
+		ii = j1*3;
+		Eigen::Vector3d ptj1 ( pDepth_[ii],-pDepth_[ii+1],-pDepth_[ii+2] );
+
+		if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 )
+		{
+			n1 = pti1 - pti;
+			n2 = ptj1 - pti;
+			n3 = n1.cross(n2);
+			n3.normalize();
+			if ( v.dot(n3) < 0 )
+			{
+				//PRINT( n3 );
+				n3 = -n3;
+			}
+			vColor_->push_back(pColor_);
+			vPt_->push_back(pti);
+			vNormal_->push_back(n3);
+		}
+		pColor_+=3;
+	}
+	return;
 }
 
 template< class T >
