@@ -94,14 +94,14 @@ void processNormalKeys ( unsigned char key, int x, int y )
         break;
     case 'g':
         //zoom in
-        glDisable     ( GL_BLEND );
+        glDisable( GL_BLEND );
         _dZoom += _dScale;
         glutPostRedisplay();
 		PRINT( _dZoom );
         break;
     case 'h':
         //zoom out
-        glDisable     ( GL_BLEND );
+        glDisable( GL_BLEND );
         _dZoom -= _dScale;
         glutPostRedisplay();
 		PRINT( _dZoom );
@@ -155,36 +155,32 @@ void processNormalKeys ( unsigned char key, int x, int y )
         PRINT( _dSize );
         break;
     case '1':
-        _cVS._eMethod = VideoSourceKinect::C1_CONTINUITY;
-        PRINT( VideoSourceKinect::C1_CONTINUITY );
+        _cVS._ePreFiltering = VideoSourceKinect::RAW_FAST;
+        PRINTSTR(  "VideoSourceKinect::RAW_FAST" );
         break;
     case '2':
-        _cVS._eMethod = VideoSourceKinect::GAUSSIAN_C1;
-        PRINT( VideoSourceKinect::GAUSSIAN_C1 );
+		_cVS._ePreFiltering = VideoSourceKinect::RAW_PCL;
+		PRINTSTR(  "VideoSourceKinect::RAW_PCL" );
         break;
     case '3':
-        _cVS._eMethod = VideoSourceKinect::DISPARIT_GAUSSIAN_C1;
-        PRINT( VideoSourceKinect::DISPARIT_GAUSSIAN_C1 );
+		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN;
+		PRINTSTR(  "VideoSourceKinect::GAUSSIAN" );
         break;
     case '4':
-        _cVS._eMethod = VideoSourceKinect::RAW;
-        PRINT( VideoSourceKinect::RAW );
+		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1;
+		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1" );
         break;
-    case '5':
-        _cVS._eMethod = VideoSourceKinect::NEW_GAUSSIAN;
-        PRINT( VideoSourceKinect::NEW_GAUSSIAN );
-        break;
+	case '5':
+		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY;
+		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY" );
+		break;
 	case '6':
-		_cVS._eMethod = VideoSourceKinect::NEW_BILATERAL;
-		PRINTSTR( "VideoSourceKinect::NEW_BILATERAL" );
+		_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
+		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
 		break;
 	case '7':
-		_cVS._eMethod = VideoSourceKinect::NEW_DEPTH;
-		PRINTSTR( "VideoSourceKinect::NEW_DEPTH" );
-		break;
-	case '8':
-		_cVS._eMethod = VideoSourceKinect::NONE;
-		PRINTSTR( "VideoSourceKinect::NONE" );
+		_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
 		break;
 	case ']':
 		_cVS._dSigmaSpace += 1;

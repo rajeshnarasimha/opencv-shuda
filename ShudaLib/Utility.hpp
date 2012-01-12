@@ -20,7 +20,7 @@ template< class T >
 void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_ )
 {
 	BTL_ASSERT(cvmRGB_.type()== CV_8UC3, "CVUtil::normalEstimationGL() Error: the input must be a 3-channel color image.")
-		vColor_->clear();
+	vColor_->clear();
 	vPt_->clear();
 	vNormal_->clear();
 
@@ -72,8 +72,9 @@ void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_, std::vector<c
 }
 
 template< class T >
-void normalEstimationGLPCL( const T* pDepth_, const cv::Mat& cvmRGB_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_ )
+void normalEstimationGLPCL( const T* pDepth_, const cv::Mat& cvmRGB_, int nKNearest_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_ )
 {
+	
 	vColor_->clear();
 	vPt_->clear();
 	vNormal_->clear();
@@ -104,7 +105,7 @@ void normalEstimationGLPCL( const T* pDepth_, const cv::Mat& cvmRGB_, std::vecto
 	// Estimate point normals
 	ne.setSearchMethod (pTree);
 	ne.setInputCloud (_cloudNoneZero.makeShared());
-	ne.setKSearch (6);
+	ne.setKSearch (nKNearest_);
 	ne.compute (_cloudNormals);
 
 	// collect the points and normals
