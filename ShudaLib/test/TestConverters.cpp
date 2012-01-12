@@ -158,6 +158,8 @@ void testException()
 		PRINTSTR( e.what() );
 	}
 }
+///////////////////////////////////////
+//try
 void tryCppOperator()
 {
 	std::cout << "try: >> / <<" << std::endl;
@@ -169,13 +171,25 @@ void tryCppOperator()
 }
 void tryCVPryDown()
 {
-	std::cout << "test: cv::pyrDown ( ) " << std::endl;
+	std::cout << "try: cv::pyrDown ( ) " << std::endl;
 	cv::Mat cvmOrigin = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example.jpg"); //( "..\\test_data\\example.jpg" );
 	CHECK(NULL != cvmOrigin.data, "test: CVUtil::downSampling ( ): test image load wrong");
 	cv::Mat cvmHalf((cvmOrigin.rows+1)/2,(cvmOrigin.cols+1)/2,cvmOrigin.type());
 	cv:: pyrDown(cvmOrigin, cvmHalf);
 
 	cv::imwrite("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example_half.jpg",cvmHalf);
+}
+void tryCVMat()
+{
+	PRINTSTR("try: cv::Mat( const cv::Mat& )");
+	cv::Mat cvmData = cv::Mat::ones( 10, 5, CV_32FC1);
+	PRINT(cvmData);
+	cv::Mat cvmInit(cvmData);
+	PRINT(cvmInit);
+	// cvmData and cvmInit shares the same memory allocation
+	*(float*)cvmInit.data = 10;
+	PRINT(cvmInit);
+	PRINT(cvmData);
 }
 int main()
 {
@@ -186,6 +200,7 @@ int main()
 
 		tryCppOperator();
 		tryCVPryDown();
+		tryCVMat();
 	}
 	catch ( std::runtime_error& e )
 	{

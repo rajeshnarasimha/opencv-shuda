@@ -10,7 +10,7 @@
 */
 
 //turn on timer
-//#define TIMER 1
+#define TIMER 1
 
 #include <stdexcept>
 #include "calibratekinect.hpp"
@@ -127,6 +127,7 @@ protected:
 	// the centroid of all depth point defined in RGB camera system
 	// (opencv-default camera reference system convention)
 	double _dXCentroid, _dYCentroid, _dZCentroid; 
+	void pyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_);
 
 public:
     std::vector< Eigen::Vector3d > _vPts;
@@ -137,7 +138,9 @@ public:
 	double _dThresholdDepth; //threshold for filtering depth
 	double _dSigmaSpace; //degree of blur for the bilateral filter
 	double _dSigmaDisparity;
-	enum {  C1_CONTINUITY, GAUSSIAN_C1, DISPARIT_GAUSSIAN_C1, RAW, NEW_GAUSSIAN, NEW_BILATERAL, NONE, NEW_DEPTH } _eMethod;
+	int _nKNearest; // for normal extraction using PCL
+	enum {  RAW_FAST, RAW_PCL, GAUSSIAN, GAUSSIAN_C1, GAUSSIAN_C1_FILTERED_IN_DISPARTY, 
+		BILATERAL_FILTERED_IN_DISPARTY, PYRAMID_BILATERAL_FILTERED_IN_DISPARTY } _ePreFiltering;
 #ifdef TIMER
 	//timer
 	boost::posix_time::ptime _cT0, _cT1;
@@ -148,7 +151,6 @@ public:
 } //namespace videosource
 } //namespace extra
 } //namespace btl
-
 
 namespace btl{
 namespace extra{

@@ -344,53 +344,52 @@ void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, 
 	pcvmDepthNew_->create ( cvmDepth_.size() );
 
 	for ( int y = 0; y < cvmDepth_.rows; y++ )
-		for ( int x = 0; x < cvmDepth_.cols; x++ )
+	for ( int x = 0; x < cvmDepth_.cols; x++ )
+	{
+		pcvmDepthNew_->template at< T > ( y, x ) = 0;
+
+		if ( x == 0 || x == cvmDepth_.cols - 1 || y == 0 || y == cvmDepth_.rows - 1 )
 		{
-			pcvmDepthNew_->template at< T > ( y, x ) = 0;
+			continue;
+		}
 
-			if ( x == 0 || x == cvmDepth_.cols - 1 || y == 0 || y == cvmDepth_.rows - 1 )
+		T c = cvmDepth_.template at< T > ( y, x   );
+		T cl = cvmDepth_.template at< T > ( y, x - 1 );
+
+		if ( fabs ( double( c - cl ) ) < dThreshould_ )
+		{
+			//PRINT( fabs( c-cl ) );
+			T cr = cvmDepth_.template at< T > ( y, x + 1 );
+
+			if ( fabs ( double( c - cr ) )< dThreshould_ )
 			{
-				continue;
-			}
+				T cu = cvmDepth_.template at< T > ( y - 1, x );
 
-			T c = cvmDepth_.template at< T > ( y, x   );
-			T cl = cvmDepth_.template at< T > ( y, x - 1 );
-
-			if ( fabs ( double( c - cl ) ) < dThreshould_ )
-			{
-				//PRINT( fabs( c-cl ) );
-				T cr = cvmDepth_.template at< T > ( y, x + 1 );
-
-				if ( fabs ( double( c - cr ) )< dThreshould_ )
+				if ( fabs ( double( c - cu ) ) < dThreshould_ )
 				{
-					T cu = cvmDepth_.template at< T > ( y - 1, x );
+					T cb = cvmDepth_.template at< T > ( y + 1, x );
 
-					if ( fabs ( double( c - cu ) ) < dThreshould_ )
+					if ( fabs ( double( c - cb ) ) < dThreshould_ )
 					{
-						T cb = cvmDepth_.template at< T > ( y + 1, x );
+						T cul = cvmDepth_.template at< T > ( y - 1, x - 1 );
 
-						if ( fabs ( double( c - cb ) ) < dThreshould_ )
+						if ( fabs ( double( c - cul ) ) < dThreshould_ )
 						{
-							T cul = cvmDepth_.template at< T > ( y - 1, x - 1 );
+							T cur = cvmDepth_.template at< T > ( y - 1, x + 1 );
 
-							if ( fabs ( double( c - cul ) ) < dThreshould_ )
+							if ( fabs ( double( c - cur ) ) < dThreshould_ )
 							{
-								T cur = cvmDepth_.template at< T > ( y - 1, x + 1 );
+								T cbl = cvmDepth_.template at< T > ( y + 1, x - 1 );
 
-								if ( fabs ( double( c - cur ) ) < dThreshould_ )
+								if ( fabs ( double( c - cbl ) ) < dThreshould_ )
 								{
-									T cbl = cvmDepth_.template at< T > ( y + 1, x - 1 );
+									T cbr = cvmDepth_.template at< T > ( y + 1, x + 1 );
 
-									if ( fabs ( double( c - cbl ) ) < dThreshould_ )
+									if ( fabs ( double( c - cbr ) ) < dThreshould_ )
 									{
-										T cbr = cvmDepth_.template at< T > ( y + 1, x + 1 );
-
-										if ( fabs ( double( c - cbr ) ) < dThreshould_ )
-										{
-											pcvmDepthNew_ ->template at< T > ( y, x ) = c;
-											//PRINT( y );
-											//PRINT( x );
-										}
+										pcvmDepthNew_ ->template at< T > ( y, x ) = c;
+										//PRINT( y );
+										//PRINT( x );
 									}
 								}
 							}
@@ -399,9 +398,28 @@ void filterDepth ( const double& dThreshould_, const cv::Mat_ < T >& cvmDepth_, 
 				}
 			}
 		}
+	}//forfor
 
-		return;
+	return;
 }
+
+template< class T>
+void gaussianC1FilterInDisparity(cv::Mat* pcvDepth_, double dSigmaDisparity_, double dSigmaSpace_ )
+{
+	BTL_ASSERT(pcvDepth_->channels()==1,"CVUtil::bilateralFilterInDisparity(): the input must be 1 channel depth map");
+	BTL_ASSERT(pcvDepth_->type()==CV_32FC1,"CVUtil::bilateralFilterInDisparity(): the input must be CV_32FC1");
+
+	cv::Mat& cvDepth_ = *pcvDepth_;
+	cv::Mat cvDisparity, cvGaussianFiltered, cvC1Filtered;
+
+	btl::utility::convert2DisparityDomain< T >( cvDepth_, &cvDisparity );
+	cv::GaussianBlur(cvDisparity, cvGaussianFiltered, cv::Size(0,0), dSigmaSpace_, dSigmaSpace_); // filter size has to be an odd number.
+	btl::utility::filterDepth <T> ( dSigmaDisparity_, ( cv::Mat_<T>)cvGaussianFiltered, ( cv::Mat_<T>*)&cvC1Filtered );
+	btl::utility::convert2DepthDomain< T >( cvC1Filtered, &cvDepth_, cvDepth_.type() );
+
+	return;
+}
+
 
 template< class T >
 void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
