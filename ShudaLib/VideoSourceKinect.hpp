@@ -43,8 +43,10 @@ public:
 
     // 1. need to call getNextFrame() before hand
     // 2. RGB color channel (rather than BGR as used by cv::imread())
-    const cv::Mat&            cvRGB()     const { return  _cvmUndistRGBL0; }
+    const cv::Mat&            cvRGB()     const { return  _cvmUndistRGB; }
 	const cv::Mat& 			  cvBW()      const { return  _cvmUndistBW; }
+	const double*		alignedDepth()    const { return  _pRGBWorldRGB; }
+
 	void cloneFrame(cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_);
 	void clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_);
 	//opencv convention
@@ -83,7 +85,7 @@ protected:
 	cv::Mat 	  _cvmUndistDepth;
 	//rgb pyramid
 	std::vector< cv::Mat > _vcvmPyramidRGBs;
-	cv::Mat       _cvmUndistRGBL0;
+	cv::Mat       _cvmUndistRGB;
 	//depth pyramid (need to be initially allocated in constructor)
 	std::vector< cv::Mat > _vcvmPyramidDepths;
 	cv::Mat		  _cvmAlignedDepthL0;//640*480
