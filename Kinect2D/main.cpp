@@ -100,7 +100,7 @@ void specialKeys( int key, int x, int y )
 	}
 }
 
-void processNormalKeys ( unsigned char key, int x, int y )
+void normalKeys ( unsigned char key, int x, int y )
 {
     switch ( key )
     {
@@ -239,7 +239,6 @@ void renderPattern()
         glVertex3f ( constItr->x,  constItr->z,  constItr->y );
         glVertex3f ( -constItr->x,  constItr->z, -constItr->y );
         glVertex3f ( -constItr->x,  constItr->z,  constItr->y );
-
     }
 
     glEnd();
@@ -468,7 +467,7 @@ int main ( int argc, char** argv )
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
         init();
-        glutKeyboardFunc ( processNormalKeys );
+        glutKeyboardFunc ( normalKeys );
 		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );

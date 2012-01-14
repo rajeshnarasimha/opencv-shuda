@@ -1,4 +1,6 @@
 //display kinect depth in real-time
+#define INFO
+
 #include <GL/glew.h>
 #include <iostream>
 #include <string>
@@ -82,8 +84,10 @@ double _dDepthFilterThreshold = 10;
 GLUquadricObj *_pQObj;
 int _nDensity = 2;
 double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
+unsigned int _uLevel = 0;
+unsigned int _uPyrHeight = 2;
 
-void processNormalKeys ( unsigned char key, int x, int y )
+void normalKeys ( unsigned char key, int x, int y )
 {
     switch( key )
     {
@@ -181,6 +185,14 @@ void processNormalKeys ( unsigned char key, int x, int y )
 	case '7':
 		_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
+		break;
+	case '8':
+		_uLevel = ++_uLevel%_uPyrHeight;
+		PRINT(_uLevel);
+		break;
+	case '9':
+		_uPyrHeight++;
+		PRINT(_uPyrHeight);
 		break;
 	case ']':
 		_cVS._dSigmaSpace += 1;
@@ -306,19 +318,25 @@ void render3DPts()
     if(_bCaptureCurrentFrame)
     {
         _cVS._dThresholdDepth =_dDepthFilterThreshold;
+		_cVS._uPyrHeight = _uPyrHeight;
         //_cVS.getNextFrame();
-		_cM.loadFrame();
+		//_cM.loadFrame();
+		_cM.loadPyramid();
 		_cVS.centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
 		_bCaptureCurrentFrame = false;
 		std::cout << "capture done.\n" << std::flush;
 	}
-      
+    
     const unsigned char* pColor;
     double x, y, z;
-	 
-    const std::vector< Eigen::Vector3d >& vPts=_cM._vPts ;
-    const std::vector< Eigen::Vector3d >& vNormals = _cM._vNormals;
-    const std::vector<const unsigned char*>& vColors = _cM._vColors;
+	if(_uLevel>=_cVS._uPyrHeight)
+	{
+		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
+		_uLevel = 0;
+	} 
+    const std::vector< Eigen::Vector3d >& vPts=_cM._vvPyramidPts[_uLevel] ;
+    const std::vector< Eigen::Vector3d >& vNormals = _cM._vvPyramidNormals[_uLevel];
+    const std::vector<const unsigned char*>& vColors = _cM._vvPyramidColors[_uLevel];
     glPushMatrix();
 // Generate the data
     for (size_t i = 0; i < vPts.size (); ++i)
@@ -450,7 +468,9 @@ void init ( )
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    _cM.loadFrame();
+    //_cM.loadFrame();
+
+	_cM.loadPyramid();
     _uTexture = _cView.LoadTexture( _cVS.cvRGB() );
 
     _uDisk = glGenLists(1);
@@ -498,7 +518,7 @@ int main ( int argc, char** argv )
         glutCreateWindow ( "CameraPose" );
         init();
 
-        glutKeyboardFunc( processNormalKeys );
+        glutKeyboardFunc( normalKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
 
@@ -506,13 +526,19 @@ int main ( int argc, char** argv )
         glutDisplayFunc ( display );
         glutMainLoop();
     }
+	/*
     catch ( CError& e )
     {
         if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
         {
             std::cerr << "Error Info: " << *mi << std::endl;
         }
-    }
+    }*/
+	catch ( std::runtime_error& e )
+	{
+		PRINTSTR( e.what() );
+	}
+
 
     return 0;
 }

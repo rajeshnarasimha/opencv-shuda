@@ -12,43 +12,45 @@
 #include <boost/exception/all.hpp>
 #include <boost/preprocessor/stringize.hpp>
 
-
 namespace btl
 {
 namespace utility
 {
 
-#define SMALL 1e-50 // a small value
-// based on boost stringize.hpp
-#define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << (a) << std::flush << std::endl;
-#define PRINTSTR( a ) std::cout << a << std::endl << std::flush;
 
-//exception based on boost
-typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;
-struct CError: virtual boost::exception, virtual std::exception { };
+#ifdef  INFO
+	// based on boost stringize.hpp
+	#define PRINT( a ) std::cout << BOOST_PP_STRINGIZE( a ) << " = " << std::endl << (a) << std::flush << std::endl;
+	#define PRINTSTR( a ) std::cout << a << std::endl << std::flush;
+#else
+	#define PRINT( a ) 
+	#define PRINTSTR( a ) 
+#endif//INFO
+
+#define SMALL 1e-50 // a small value
+	//exception based on boost
+	typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;
+	struct CError: virtual boost::exception, virtual std::exception { };
 #define THROW(what)\
-{\
+	{\
 	CError cE;\
 	cE << CErrorInfo ( what );\
 	throw cE;\
-}
-//exception from btl2
-struct CException : public std::runtime_error
-{
-	CException(const std::string& str) : std::runtime_error(str) {}
-};
+	}
+	//exception from btl2
+	struct CException : public std::runtime_error
+	{
+		CException(const std::string& str) : std::runtime_error(str) {}
+	};
 #define BTL_THROW(what) {throw CException(what);}
-//ASSERT condition to be true; other wise throw
+	//ASSERT condition to be true; other wise throw
 #define CHECK( AssertCondition_, Otherwise_) \
 	if ((AssertCondition_) != true)\
-		BTL_THROW( Otherwise_ );
-		//THROW( Otherwise_ );
-//if condition happen then throw
+	BTL_THROW( Otherwise_ );
+	//THROW( Otherwise_ );
+	//if condition happen then throw
 #define BTL_ERROR( ErrorCondition_, ErrorMessage_ ) CHECK( !(ErrorCondition_), ErrorMessage_) 
 #define BTL_ASSERT CHECK
-
- 
-
 // for print
 template <class T>
 std::ostream& operator << ( std::ostream& os, const std::vector< T > & v )
