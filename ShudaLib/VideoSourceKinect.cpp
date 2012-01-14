@@ -55,7 +55,7 @@ VideoSourceKinect::VideoSourceKinect ()
 
     _cvmRGB.create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
 	_cvmDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_16UC1 );
-	_cvmUndistRGBL0.create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
+	_cvmUndistRGB.create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
 	_cvmUndistDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_16UC1 );
 
 	_cvmAlignedDepthL0 = cv::Mat::zeros(KINECT_HEIGHT,KINECT_WIDTH,CV_32F);
@@ -120,9 +120,9 @@ void VideoSourceKinect::getNextFrame()
     }
 
 	// not fullly understand the lense distortion model used by OpenNI.
-	undistortRGB( _cvmRGB, _cvmUndistRGBL0 );
+	undistortRGB( _cvmRGB, _cvmUndistRGB );
 	undistortRGB( _cvmDepth, _cvmUndistDepth );
-	cvtColor( _cvmUndistRGBL0, _cvmUndistBW, CV_RGB2GRAY );
+	cvtColor( _cvmUndistRGB, _cvmUndistBW, CV_RGB2GRAY );
 
 #ifdef TIMER	
 	// timer on
@@ -176,7 +176,7 @@ void VideoSourceKinect::getNextFrame()
 			_vcvmPyramidDepths.clear();
 			_vcvmPyramidRGBs.clear();
 			_vcvmPyramidDepths.push_back(_cvmAlignedDepthL0);
-			_vcvmPyramidRGBs.push_back(_cvmUndistRGBL0);
+			_vcvmPyramidRGBs.push_back(_cvmUndistRGB);
 			for( unsigned int i=1; i<_uPyrHeight; i++ )
 			{
 				cv::Mat cvmAlignedDepth, cvmUndistRGB;
@@ -410,7 +410,7 @@ void VideoSourceKinect::cloneFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
 {
 	if (pcvmRGB_)
 	{
-		*pcvmRGB_ = _cvmUndistRGBL0.clone();
+		*pcvmRGB_ = _cvmUndistRGB.clone();
 	}
 	if (pcvmDepth_)
 	{
