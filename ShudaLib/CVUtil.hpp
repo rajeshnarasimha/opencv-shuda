@@ -315,7 +315,7 @@ void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat* pcvDepth_, int nT
 	{
 		float fDepth = *cit;
 		if( fDepth > SMALL )
-			if( CV_16UC1 == nType_ ) *pDepth = unsigned short(1./fDepth + .5 );
+			if( CV_16UC1 == nType_ ) *pDepth = (unsigned short)(1./fDepth + .5 );
 			else *pDepth = 1.f/fDepth;
 		else
 			*pDepth = 0.;
@@ -424,12 +424,10 @@ void gaussianC1FilterInDisparity(cv::Mat* pcvDepth_, double dSigmaDisparity_, do
 template< class T >
 void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 {
+	BTL_ASSERT(1==cvmOrigin_.channels(),"downSampling() only down samples 1 channel cv::Mat.");
 	cv::Mat& cvmHalf_ = *pcvmHalf_;
-	CHECK(cvmOrigin_.rows == cvmHalf_.rows*2, "downSampling() matrix rows doesnt agree.");
-	CHECK(cvmOrigin_.cols == cvmHalf_.cols*2, "downSampling() matrix cols doesnt agree.");
-	CHECK(cvmOrigin_.type() == cvmHalf_.type(),"downSampling() matrix type doenst agree.");
-	CHECK(1==cvmOrigin_.channels(),"downSampling() only down samples 1 channel cv::Mat.");
-	
+	cvmHalf_.create(cvmOrigin_.rows/2,cvmOrigin_.cols/2,cvmOrigin_.type());
+		
 	btl::utility::clearMat<T>(0,&cvmHalf_);
 
 	const T* pIn = (const T*)cvmOrigin_.data;

@@ -1,3 +1,5 @@
+#define INFO
+
 #include "../Converters.hpp"
 #include "../CVUtil.hpp"
 #include "../EigenUtil.hpp"
@@ -229,7 +231,7 @@ int main()
 		tryCVMat();
 		tryCVOperator();
 	}
-	catch ( std::runtime_error& e )
+	catch ( std::runtime_error e )
 	{
 		PRINTSTR( e.what() );
 	}

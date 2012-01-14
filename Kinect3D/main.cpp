@@ -1,4 +1,6 @@
 //display kinect depth in real-time
+#define INFO
+
 #include <GL/glew.h>
 #include <iostream>
 #include <string>
@@ -59,6 +61,8 @@ double _dDepthFilterThreshold = 10;
 GLUquadricObj *_pQObj;
 int _nDensity = 2;
 double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
+unsigned int _uPyrHeight = 1;
+unsigned int _uLevel = 0;
 
 void processNormalKeys ( unsigned char key, int x, int y )
 {
@@ -158,6 +162,14 @@ void processNormalKeys ( unsigned char key, int x, int y )
 	case '7':
 		_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
+		break;
+	case '8':
+		_uLevel = ++_uLevel%_uPyrHeight;
+		PRINT(_uLevel);
+		break;
+	case '9':
+		_uPyrHeight++;
+		PRINT(_uPyrHeight);
 		break;
 	case ']':
 		_cVS._dSigmaSpace += 1;
@@ -277,10 +289,14 @@ void render3DPts()
 {
 	const unsigned char* pColor;
 	double x, y, z;
-
-	const std::vector< Eigen::Vector3d >& vPts=_cM._vPts ;
-	const std::vector< Eigen::Vector3d >& vNormals = _cM._vNormals;
-	const std::vector<const unsigned char*>& vColors = _cM._vColors;
+	if(_uLevel>=_cVS._uPyrHeight)
+	{
+		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
+		_uLevel = 0;
+	}
+	const std::vector< Eigen::Vector3d >& vPts =_cM._vvPyramidPts[_uLevel] ;
+	const std::vector< Eigen::Vector3d >& vNormals = _cM._vvPyramidNormals[_uLevel];
+	const std::vector<const unsigned char*>& vColors = _cM._vvPyramidColors[_uLevel];
 	glPushMatrix();
 	// Generate the data
 	for (size_t i = 0; i < vPts.size (); ++i)
@@ -336,7 +352,8 @@ void render3DPts()
 
 void display ( void )
 {
-    _cM.loadFrame();
+	_cVS._uPyrHeight = _uPyrHeight;
+    _cM.loadPyramid();
 	_cVS.centroidGL(&_eivCentroid);
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
@@ -415,7 +432,8 @@ void init ( )
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-	_cM.loadFrame();
+	_cVS._uPyrHeight = _uPyrHeight;
+	_cM.loadPyramid();
 	_uTexture = _cView.LoadTexture( _cVS.cvRGB() );
 
 	_uDisk = glGenLists(1);

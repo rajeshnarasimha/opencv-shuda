@@ -6,42 +6,44 @@ namespace btl
 {
 namespace extra
 {
+using namespace btl::utility;
 
 class CModel
 {
 public:
 	CModel( VideoSourceKinect& cKinect_ );
 	~CModel(void);
+	//loaders
+	void loadFrame(); //load depth and rgb from video source and convert it to point cloud data
+	void loadPyramid(); //load pyramid
+	void convert2PointCloudModel(const cv::Mat& cvmDepth_,const cv::Mat& cvmRGB_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_,int nLevel_=0);
 
-	void loadFrame();
 public:
 	//global model
 	std::vector< Eigen::Vector3d > _vGlobalPts;
 	std::vector< Eigen::Vector3d > _vGlobalNormals;
 	std::vector<const unsigned char*> _vGlobalColors;
-	//frame model
-	std::vector< Eigen::Vector3d > _vPts;
-	std::vector< Eigen::Vector3d > _vNormals;
-	std::vector<const unsigned char*> _vColors;
+	Eigen::Vector3d	_eivGlobalCentrod;
+
+	//pyramid model
+	std::vector< std::vector< Eigen::Vector3d > > _vvPyramidPts;
+	std::vector< std::vector< Eigen::Vector3d > >_vvPyramidNormals;
+	std::vector< std::vector<const unsigned char*> > _vvPyramidColors;
 
 private:
-	//raw data
-	std::vector< cv::Mat > _vcvmRGBs;
-	std::vector< cv::Mat > _vcvmDepths;
-	std::vector< Eigen::Vector3d > _veivCentroids;
-	unsigned int _uMaxFrames;
 	//frame data
-	cv::Mat _cvmRGB;
-	cv::Mat _cvmDepth;
 	Eigen::Vector3d _eivCentroid;
+	//frame pyramid
+	std::vector< cv::Mat > _vcvmPyramidRGBs;
+	std::vector< cv::Mat > _vcvmPyramidDepths;
+
+	//frame index
 	unsigned int _uCurrent;
 	// refreshed for every frame
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
-	double*  _pPointL0; //(need to be initially allocated in constructor)
-	double*  _pPointL1;
-	double*  _pPointL2;
-	double*  _pPointL3;
+	double* _pPointL0;
+	
 	//video source
 	btl::extra::videosource::VideoSourceKinect& _cKinect;
 public:

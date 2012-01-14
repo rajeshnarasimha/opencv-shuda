@@ -9,16 +9,13 @@
 #include "Utility.hpp"
 
 #include <iostream>
-#include <cassert>
 #include <string>
 
 
 #define CHECK_RC(rc, what)	\
 	BTL_ASSERT(rc == XN_STATUS_OK, (what + std::string(xnGetStatusString(rc))) )
 
-using namespace std;
-using namespace btl;
-using namespace utility;
+using namespace btl::utility;
 
 namespace btl
 {
@@ -30,7 +27,7 @@ namespace videosource
 VideoSourceKinect::VideoSourceKinect ()
 :CCalibrateKinect()
 {
-    cout << "  VideoSource_Linux: Opening Kinect..." << endl;
+    std::cout << "  VideoSource_Linux: Opening Kinect..." << std::endl;
 
     XnStatus nRetVal = XN_STATUS_OK;
     //initialize OpenNI context
@@ -60,29 +57,23 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvmDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_16UC1 );
 	_cvmUndistRGBL0.create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
 	_cvmUndistDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_16UC1 );
-	_cvmUndistFilteredDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_16UC1 );
 
 	_cvmAlignedDepthL0 = cv::Mat::zeros(KINECT_HEIGHT,KINECT_WIDTH,CV_32F);
-	_cvmAlignedDepthL1 = cv::Mat::zeros(KINECT_HEIGHT/2,KINECT_WIDTH/2,CV_32F);
-	_cvmAlignedDepthL2 = cv::Mat::zeros(KINECT_HEIGHT/4,KINECT_WIDTH/4,CV_32F);
-	_cvmAlignedDepthL3 = cv::Mat::zeros(KINECT_HEIGHT/8,KINECT_WIDTH/8,CV_32F);
 
 	// allocate memory for later use ( registrate the depth with rgb image
 	_pIRWorld = new double[ KINECT_WxHx3 ]; //XYZ w.r.t. IR camera reference system
 	_pPxDIR	  = new unsigned short[ KINECT_WxHx3 ]; //pixel coordinate and depth 
 	// refreshed for every frame
 	_pRGBWorld    = new double[ KINECT_WxHx3 ];//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
-	_pRGBWorldRGBL0 = new double[ KINECT_WxHx3 ];//aligned to RGB image of the X,Y,Z coordinate
-	_pRGBWorldRGBL1 = new double[ KINECT_WxHx3_L1 ];
-	_pRGBWorldRGBL2 = new double[ KINECT_WxHx3_L2 ];
-	_pRGBWorldRGBL3 = new double[ KINECT_WxHx3_L2/4];
+	_pRGBWorldRGB = new double[ KINECT_WxHx3 ];//aligned to RGB image of the X,Y,Z coordinate
 
     _ePreFiltering = RAW; 
 	//definition of parameters
 	_dThresholdDepth = 10;
 	_dSigmaSpace = 2;
+	_uPyrHeight = 1;
 
-	cout << " Done. " << endl;
+	std::cout << " Done. " << std::endl;
 }
 
 VideoSourceKinect::~VideoSourceKinect()
@@ -91,10 +82,7 @@ VideoSourceKinect::~VideoSourceKinect()
 	delete [] _pIRWorld;
 	delete [] _pPxDIR;
 	delete [] _pRGBWorld;
-	delete [] _pRGBWorldRGBL0;
-	delete [] _pRGBWorldRGBL1;
-	delete [] _pRGBWorldRGBL2;
-	delete [] _pRGBWorldRGBL3;
+	delete [] _pRGBWorldRGB;
 }
 
 void VideoSourceKinect::getNextFrame()
@@ -102,9 +90,6 @@ void VideoSourceKinect::getNextFrame()
     //get next frame
     //set as _frame
 	//cout << " getNextFrame() start."<< endl;
-	_vColors.clear();
-	_vPts.clear();
-	_vNormals.clear();
 
     XnStatus nRetVal = _cContext.WaitAndUpdateAll();
     CHECK_RC ( nRetVal, "UpdateData failed: " );
@@ -183,25 +168,26 @@ void VideoSourceKinect::getNextFrame()
 		case PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
+			PRINT(_uPyrHeight);
 	//level 0
 			align( _cvmUndistDepth ); //generate _cvmDepthRGBL0
 			//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
-	//level 1
-			btl::utility::downSampling<float>(_cvmAlignedDepthL0,&_cvmAlignedDepthL1);
-			cv::pyrDown(_cvmUndistRGBL0,_cvmUndistRGBL1);
-		//bilateral filtering in disparity domain
-			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL1,_dSigmaDisparity,_dSigmaSpace);
-	//level 2
-			btl::utility::downSampling<float>(_cvmAlignedDepthL1,&_cvmAlignedDepthL2);
-			cv::pyrDown(_cvmUndistRGBL1,_cvmUndistRGBL2);
-		//bilateral filtering in disparity domain
-			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL2,_dSigmaDisparity,_dSigmaSpace);
-	//level 3
-			btl::utility::downSampling<float>(_cvmAlignedDepthL2,&_cvmAlignedDepthL3);
-			cv::pyrDown(_cvmUndistRGBL2,_cvmUndistRGBL3);
-			//bilateral filtering in disparity domain
-			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL3,_dSigmaDisparity,_dSigmaSpace);
+			_vcvmPyramidDepths.clear();
+			_vcvmPyramidRGBs.clear();
+			_vcvmPyramidDepths.push_back(_cvmAlignedDepthL0);
+			_vcvmPyramidRGBs.push_back(_cvmUndistRGBL0);
+			for( unsigned int i=1; i<_uPyrHeight; i++ )
+			{
+				cv::Mat cvmAlignedDepth, cvmUndistRGB;
+				//depth
+				btl::utility::downSampling<float>(_vcvmPyramidDepths[i-1],&cvmAlignedDepth);
+				btl::utility::bilateralFilterInDisparity<float>(&cvmAlignedDepth,_dSigmaDisparity,_dSigmaSpace);
+				_vcvmPyramidDepths.push_back(cvmAlignedDepth);
+				//rgb
+				cv::pyrDown(_vcvmPyramidRGBs[i-1],cvmUndistRGB);
+				_vcvmPyramidRGBs.push_back(cvmUndistRGB);
+			}
 			break;
     }
 #ifdef TIMER
@@ -221,7 +207,7 @@ void VideoSourceKinect::align( const cv::Mat& cvUndistortDepth_ )
 	//align( (const unsigned short*)cvUndistortDepth_.data );
 	const unsigned short* pDepth = (const unsigned short*)cvUndistortDepth_.data;
 	// initialize the Registered depth as NULLs
-	double* pM = _pRGBWorldRGBL0 ;
+	double* pM = _pRGBWorldRGB ;
 	for ( int i = 0; i < KINECT_WxH; i++ )
 	{
 		*pM++ = 0;
@@ -247,7 +233,7 @@ void VideoSourceKinect::align( const cv::Mat& cvUndistortDepth_ )
 	//transform from IR coordinate to RGB coordinate
 	transformIR2RGB  ( _pIRWorld, KINECT_WxH, _pRGBWorld );
 	//project RGB coordinate to image to register the depth with rgb image
-	projectRGB       ( _pRGBWorld, KINECT_WxH, _pRGBWorldRGBL0, &_cvmAlignedDepthL0 );
+	projectRGB       ( _pRGBWorld, KINECT_WxH, _pRGBWorldRGB, &_cvmAlignedDepthL0 );
 
 	//cout << "registration() end."<< std::endl;
 }
@@ -404,18 +390,18 @@ void VideoSourceKinect::clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vecto
 	if (pvcvmRGB_)
 	{
 		pvcvmRGB_->clear();
-		pvcvmRGB_->push_back(_cvmUndistRGBL0.clone());
-		pvcvmRGB_->push_back(_cvmUndistRGBL1.clone());
-		pvcvmRGB_->push_back(_cvmUndistRGBL2.clone());
-		pvcvmRGB_->push_back(_cvmUndistRGBL3.clone());
+		for(unsigned int i=0; i<_vcvmPyramidRGBs.size(); i++)
+		{
+			pvcvmRGB_->push_back(_vcvmPyramidRGBs[i].clone());
+		}
 	}
 	if (pvcvmDepth_)
 	{
 		pvcvmDepth_->clear();
-		pvcvmDepth_->push_back(_cvmAlignedDepthL0.clone());
-		pvcvmDepth_->push_back(_cvmAlignedDepthL1.clone());
-		pvcvmDepth_->push_back(_cvmAlignedDepthL2.clone());
-		pvcvmDepth_->push_back(_cvmAlignedDepthL3.clone());
+		for(unsigned int i=0; i<_vcvmPyramidDepths.size(); i++)
+		{
+			pvcvmDepth_->push_back(_vcvmPyramidDepths[i].clone());
+		}
 	}
 	return;
 }
@@ -432,12 +418,6 @@ void VideoSourceKinect::cloneFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
 	}
 }
 
-/*
-void VideoSourceKinect::buildPyramid ()
-{
-
-}
-*/
 
 
 
