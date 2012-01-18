@@ -98,25 +98,31 @@ void testConvert2DisparityDomain()
 		}
 
 		PRINT( cvDepth );
-		btl::utility::convert2DisparityDomain<float> ( cvDepth, &cvDisparity) ;
+		float fMin, fMax;
+		btl::utility::convert2DisparityDomain<float> ( cvDepth, &cvDisparity, &fMax, &fMin) ;
+		PRINT(fMin);
+		PRINT(fMax);
 		PRINT( cvDisparity );
 		btl::utility::convert2DepthDomain<float> ( cvDisparity, &cvResult, CV_32FC1 ); // convert back
 		PRINT( cvResult );
 		double dDiff = btl::utility::matNormL1<float>(cvDepth,cvResult);
 		PRINT( dDiff );
 }
+/*
 void testClearMat()
 {
 	PRINTSTR("test: CVUtil::clearMat()");
 
 	cv::Mat_<float> cvmFloat = cv::Mat::ones(2,3,CV_32FC1);
 	PRINT( cvmFloat );
-	btl::utility::clearMat<float>(0,&cvmFloat);
+	cvmFloat.setTo(0);
+	//btl::utility::clearMat<float>(0,&cvmFloat);
 	PRINT( cvmFloat );
 
 	cv::Mat_<int> cvmInt = cv::Mat::ones(2,3,CV_16SC1);
 	PRINT( cvmInt );
-	btl::utility::clearMat<int>(0,&cvmInt);
+	cvmInt.setTo(0);
+	//btl::utility::clearMat<int>(0,&cvmInt);
 	PRINT( cvmInt );
 
 	cv::Mat cvmAny = cv::Mat::ones(2,3,CV_16SC1);
@@ -124,6 +130,7 @@ void testClearMat()
 	btl::utility::clearMat<short>(0,&cvmAny);
 	PRINT( cvmAny );
 }
+*/
 void testDownSampling()
 {
 	std::cout << "test: CVUtil::downSampling() " << std::endl;
@@ -140,13 +147,24 @@ void testDownSampling()
 	PRINT(cvmDataHalf.size());
 	PRINT(cvmDataHalf);
 }
+void cvUtilColor()
+{
+	PRINTSTR("try: btl::utility::aColors[]");
+	for(int i=0; i<8; i++)
+	{
+		cv::Mat_<unsigned char> cvColor(3,1);
+		PRINT(cvColor)
+		cvColor.data = aColors[i];
+		PRINT(cvColor);
+	}
+}
 void testCVUtil()
 {
 	testMatNormL1();
 	testCVUtilOperators();
 	testConvert2DisparityDomain();
 	testDownSampling();
-	testClearMat();
+	cvUtilColor();
 }
 void testException()
 {
@@ -171,6 +189,28 @@ void tryCppOperator()
 	PRINT(nL<<2);
 	PRINT(nL<<3);
 }
+void tryCppLongDouble()
+{
+	PRINTSTR("try long double and double type the effective digits");
+	PRINT( std::numeric_limits<long double>::digits10 );
+	PRINT( std::numeric_limits<double>::digits10);
+}
+void tryCppStdVectorResize()
+{
+	PRINTSTR("try std::vector::resize() whether it allocate memory");
+	std::vector<int> vInt;
+	vInt.resize(3);
+	PRINT(vInt);
+	vInt[2]=10;
+	PRINT(vInt);
+}
+void tryCpp()
+{
+	tryCppOperator();
+	tryCppLongDouble();
+	tryCppStdVectorResize();
+}
+//try CV
 void tryCVPryDown()
 {
 	std::cout << "try: cv::pyrDown ( ) " << std::endl;
@@ -219,17 +259,41 @@ void tryCVOperator()
 	PRINT(cvmResult);
 	PRINT(vcvmMats[0]);
 }
+void tryCVMatSetTo()
+{
+	PRINTSTR("try: cv::Mat::setTo()");
+	cv::Mat cvmMat= cv::Mat::zeros(4,4,CV_32FC1);
+	PRINT(cvmMat);
+	cvmMat.setTo(10);
+	PRINT(cvmMat);
+}
+
+void tryEigen()
+{
+	PRINTSTR("try: Eigen::Vector3d::data()")
+	Eigen::Vector3d eivVec;
+	double* pData = eivVec.data();
+	*pData++ = 1;
+	*pData++ = 2;
+	*pData = 3;
+	PRINT(eivVec);
+
+}
 int main()
 {
 	try
 	{
 		testException();
 		testCVUtil();
-
-		tryCppOperator();
+		//try Cpp
+		tryCpp();
+		//try CV
 		tryCVPryDown();
 		tryCVMat();
 		tryCVOperator();
+		tryCVMatSetTo();
+		//try Eigen
+		tryEigen();
 	}
 	catch ( std::runtime_error e )
 	{

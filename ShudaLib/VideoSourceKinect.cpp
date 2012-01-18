@@ -214,8 +214,8 @@ void VideoSourceKinect::align( const cv::Mat& cvUndistortDepth_ )
 		*pM++ = 0;
 		*pM++ = 0;
 	}
-
-	btl::utility::clearMat<float>(0,&_cvmAlignedDepthL0);
+	_cvmAlignedDepthL0.setTo(0);
+	//btl::utility::clearMat<float>(0,&_cvmAlignedDepthL0);
 
 	//collecting depths
 	unsigned short* pMovingPxDIR = _pPxDIR;
@@ -373,7 +373,7 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 	for ( int r = 0; r < cvmDepth_.rows; r++ )
 	for ( int c = 0; c < cvmDepth_.cols; c++ )
 	{
-		* ( pWorld_ + 2 ) = cvmDepth_.at<float>(r,c);//*pDepth++;
+		* ( pWorld_ + 2 ) = *pDepth++;
 		* ( pWorld_ + 2 ) /= 1000.;
 		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
 		* pWorld_		  = ( c*nScale - _uRGB ) / _dFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
@@ -384,7 +384,33 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_
 
 	return;
 }
+void VideoSourceKinect::unprojectRGBGL ( const cv::Mat& cvmDepth_, const int& r,const int& c, double* pWorld_, int nLevel /*= 0*/ )
+{
+	BTL_ASSERT( CV_32FC1 == cvmDepth_.type(), "VideoSourceKinect::unprojectRGB() cvmDepth_ must be CV_32FC1" );
+	BTL_ASSERT( cvmDepth_.channels()==1, "CVUtil::unprojectRGB() require the input cvmDepth is a 1-channel cv::Mat" );
 
+	double* pM = pWorld_ ;//pWorld_ is a double[3]
+	// initialize the Registered depth as NULLs
+	*pM++ = 0;
+	*pM++ = 0;
+	*pM	  = 0;
+	// pCamer format
+	// 0 x (c) 1 y (r) 2 d
+	//the pixel coordinate follows cv-convention which is defined as x-left, y-downward and z-forward. the
+	//and convert to GL-convention which is defined as x-left, y-upward and z-backward. 
+	// by ( Pt(0), -Pt(1), -Pt(2) ); 
+	int nScale = 1 << nLevel;
+		
+	* ( pWorld_ + 2 ) =  cvmDepth_.at<float>(r,c);
+	* ( pWorld_ + 2 ) /= 1000.;
+	//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+	* pWorld_		  =  ( c*nScale - _uRGB ) / _dFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+	* ( pWorld_ + 1 ) =  ( r*nScale - _vRGB ) / _dFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+	//convert to GL-convention
+	* (pWorld_ + 1) = -*(pWorld_ + 1);
+	* (pWorld_ + 2) = -*(pWorld_ + 2);
+	return;
+}
 void VideoSourceKinect::clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_)
 {
 	if (pvcvmRGB_)

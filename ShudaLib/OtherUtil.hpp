@@ -28,6 +28,8 @@ namespace utility
 #endif//INFO
 
 #define SMALL 1e-50 // a small value
+#define BTL_MAX 10e20
+
 	//exception based on boost
 	typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;
 	struct CError: virtual boost::exception, virtual std::exception { };
@@ -108,7 +110,37 @@ T matNormL1 ( const std::vector< T >& vMat1_, const std::vector< T >& vMat2_ )
 	return tAccumDiff;
 }
 
+
+template< class T >
+void getNeighbourIdxCylinder(const unsigned short& usRows, const unsigned short& usCols, const T& i, std::vector< T >* pNeighbours_ )
+{
+	// get the neighbor 1d index in a cylindrical coordinate system
+	int a = usRows*usCols;
+	BTL_ASSERT(i>=0 && i<a,"btl::utility::getNeighbourIdx() i is out of range");
+
+	pNeighbours_->clear();
+	pNeighbours_->push_back(i);
+	T r = i/usCols;
+	T c = i%usCols;
+	T nL= c==0?        i-1 +usCols : i-1;	
+	T nR= c==usCols-1? i+1 -usCols : i+1;
+	pNeighbours_->push_back(nL);
+	pNeighbours_->push_back(nR);
+
+	if(r>0)
+	{
+		T nU= i-usCols;
+		pNeighbours_->push_back(nU);
+	}
+	if(r<usRows-1)
+	{
+		T nD= i+usCols;
+		pNeighbours_->push_back(nD);
+	}
+	return;
 }
-}
+
+}//utility
+}//btl
 
 #endif

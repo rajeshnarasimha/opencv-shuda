@@ -70,6 +70,8 @@ public:
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
 	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
 	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
+	//un-project individual depth
+	void unprojectRGBGL ( const cv::Mat& cvmDepth_, const int& r,const int& c, double* pWorld_, int nLevel /*= 0*/ ); 
 
 protected:
 	//openni
