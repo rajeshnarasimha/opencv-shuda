@@ -13,7 +13,27 @@ namespace btl
 {
 namespace utility
 {
+#define BTL_NUM_COLOR 15
+	static unsigned char aColors[BTL_NUM_COLOR][3]=
+	{
+		{255, 0, 0, },//red
+		{0, 255, 0,}, //green
+		{0, 0, 255,}, //blue
+		{255, 255, 255,}, //white
+		{0, 0, 0,}, //black
+		{255, 255, 0,}, //yellow
+		{0, 255, 255,}, //cyan
+		{255, 0, 255,}, //magenta
+		{255,182,193,}, //light pink
+		{139,131,134,},  //lavender blush
+		{155,48,255,},	//purple
+		{135,206,235,},  //sky blue
+		{46,139,87,},   //sea green
+		{255,215,0,},   //gold
+		{255,165,0,},    //orange
+	};
 // set the matrix into a certain value
+	/*
 template< class T >
 void clearMat(const T& tValue_, cv::Mat* pcvmMat_)
 {
@@ -30,6 +50,7 @@ void clearMat(const T& tValue_, cv::Mat* pcvmMat_)
 	}
 	return;
 }
+*/
 //calculate the L1 norm of two matrices, ( the sum of abs differences between corresponding elements of matrices )
 template< class T>
 T matNormL1 ( const cv::Mat& cvMat1_, const cv::Mat& cvMat2_ )
@@ -279,7 +300,7 @@ T FindShiTomasiScoreAtPoint ( cv::Mat& img_, const int& nHalfBoxSize_ , const in
 };
 
 template< class T>
-void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_)
+void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_, T* ptMax_=NULL, T* ptMin_=NULL)
 {
 	BTL_ERROR(cvDepth_.channels()>1, "CVUtil::convert2DisparityDomain() only available for 1-channel cv::Mat" );
 	BTL_ERROR(!cvDepth_.data, "CVUtil::convert2DisparityDomain() input cvDepth_ is empty.");
@@ -288,13 +309,27 @@ void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_
 	cvDisparity_.create(cvDepth_.rows, cvDepth_.cols, CV_32FC1);
 	const T* pInputDepth = (T*)cvDepth_.data;
 
+	if( ptMax_ && ptMax_)
+	{
+		*ptMax_ = -BTL_MAX;
+		*ptMin_ =  BTL_MAX;
+	}
+
 	for(cv::MatIterator_<float> it = cvDisparity_.begin<float>(); it != cvDisparity_.end<float>(); ++it, pInputDepth++ )
 	{
 			double dDepth = *pInputDepth;
 			if( dDepth>SMALL )
+			{
 				*it = 1./dDepth;
+				if( ptMax_ && ptMax_)
+				{
+					*ptMax_ = *it> *ptMax_?*it:*ptMax_;
+					*ptMin_ = *it< *ptMin_?*it:*ptMin_;
+				}
+			}
 			else
 				*it = 0.;
+
 	}
 	return;
 }
@@ -428,7 +463,8 @@ void downSampling( const cv::Mat& cvmOrigin_, cv::Mat* pcvmHalf_)
 	cv::Mat& cvmHalf_ = *pcvmHalf_;
 	cvmHalf_.create(cvmOrigin_.rows/2,cvmOrigin_.cols/2,cvmOrigin_.type());
 		
-	btl::utility::clearMat<T>(0,&cvmHalf_);
+	//btl::utility::clearMat<T>(0,&cvmHalf_);
+	cvmHalf_.setTo(0);
 
 	const T* pIn = (const T*)cvmOrigin_.data;
 	T* pOut= (T*)cvmHalf_.data;

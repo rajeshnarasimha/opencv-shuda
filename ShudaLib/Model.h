@@ -16,8 +16,14 @@ public:
 	//loaders
 	void loadFrame(); //load depth and rgb from video source and convert it to point cloud data
 	void loadPyramid(); //load pyramid
-	void convert2PointCloudModel(const cv::Mat& cvmDepth_,const cv::Mat& cvmRGB_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_,int nLevel_=0);
-
+	void convert2PointCloudModelGL(const cv::Mat& cvmDepth_,const cv::Mat& cvmRGB_, unsigned int uLevel_, std::vector<const unsigned char*>* vColor_, 
+		std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_, 
+		std::vector< int >* pvX_=NULL, std::vector< int >* pvY_=NULL);
+	void detectPlanePCL(unsigned int uLevel_,std::vector<int>* pvXIdx_, std::vector<int>* pvYIdx_);
+	void loadPyramidAndDetectPlane();
+	void loadPyramidAndDetectPlanePCL();
+	//extract a plane from depth map and convert to GL convention point cloud
+	void extractPlaneGL(unsigned int uLevel_, const std::vector<int>& vX_, const std::vector<int>& vY_, std::vector<Eigen::Vector3d>* pvPlane_);
 public:
 	//global model
 	std::vector< Eigen::Vector3d > _vGlobalPts;
@@ -29,7 +35,12 @@ public:
 	std::vector< std::vector< Eigen::Vector3d > > _vvPyramidPts;
 	std::vector< std::vector< Eigen::Vector3d > >_vvPyramidNormals;
 	std::vector< std::vector<const unsigned char*> > _vvPyramidColors;
-
+	std::vector< std::vector<int> > _vvX;//x index for non zero PyramidPts, Normals and Colors
+	std::vector< std::vector<int> > _vvY;//x index
+	std::vector< std::vector< unsigned int > > _vvNormalIdx;//idx for planes in top pyramid
+	std::vector< std::vector< unsigned int > > _vvLabelNormalIdx;
+	//planes
+	std::vector< Eigen::Vector3d > _veivPlane;
 private:
 	//frame data
 	Eigen::Vector3d _eivCentroid;
