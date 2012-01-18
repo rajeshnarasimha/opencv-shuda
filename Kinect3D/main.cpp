@@ -24,7 +24,7 @@ btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView(_cVS);
 btl::extra::CModel _cM(_cVS);
 
-Eigen::Vector3d _eivCentroid(.0, .0, -1.0 );
+Eigen::Vector3d _eivCentroid(.0, .0, .0 );
 double _dZoom = 1.;
 double _dZoomLast = 1.;
 double _dScale = .1;
@@ -229,7 +229,6 @@ void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 
 	return;
 }
-
 void mouseMotion ( int nX_, int nY_ )
 {
 	if ( _bLButtonDown == true )
@@ -252,7 +251,6 @@ void mouseMotion ( int nX_, int nY_ )
 
 	glutPostRedisplay();
 }
-
 void renderAxis()
 {
     glPushMatrix();
@@ -352,28 +350,30 @@ void render3DPts()
 
 void display ( void )
 {
+	//load data from video source and model
 	_cVS._uPyrHeight = _uPyrHeight;
     _cM.loadPyramid();
 	_cVS.centroidGL(&_eivCentroid);
+	//set viewport
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
 	glScissor  (0, 0, _nWidth/2, _nHeight);
 	// after set the intrinsics and extrinsics
     // load the matrix to set camera pose
-    glLoadIdentity();
+	glLoadIdentity();
 	//glLoadMatrixd( _mGLMatrix.data() );
-	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // translate back to the original camera pose
+	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // 5. translate back to the original camera pose
 	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
 	_dZoom = _dZoom > 10? 10: _dZoom;
-	glScaled( _dZoom, _dZoom, _dZoom );                          // zoom in/out
-	glRotated ( _dXAngle, 0, 1 ,0 );                             // rotate horizontally
-	glRotated ( _dYAngle, 1, 0 ,0 );                             // rotate vertically
-	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // translate the world origin to align with object centroid
+	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
+	glRotated ( _dXAngle, 0, 1 ,0 );                             // 3. rotate horizontally
+	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
+	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// light position in 3d
 	GLfloat light_position[] = { 3.0, 1.0, 1.0, 1.0 };
 	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
+	
     // render objects
     renderAxis();
 	render3DPts();
@@ -381,7 +381,7 @@ void display ( void )
     //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _cVS.cvRGB().data);
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
-
+	//set viewport 2
 	glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
 	glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
 	glLoadIdentity();
@@ -491,6 +491,10 @@ int main ( int argc, char** argv )
             std::cerr << "Error Info: " << *mi << std::endl;
         }
     }
+	catch ( std::runtime_error& e )
+	{
+		PRINTSTR( e.what() );
+	}
 
     return 0;
 }
