@@ -216,16 +216,11 @@ void render3DPts()
     {
         // use the centroid as of the close by dot clouds as the centre of the 
         // origin. 
-        double dCentroidX = 0;
-        double dCentroidY = 0;
-        double dCentroidZ = 0;
-        unsigned int n = 0;
-
         inliers->indices.clear();
         _cloudNoneZero.clear();
         //for capturing the depth and color
         _cVS.cvRGB().copyTo( _cvColor );
-        const double* pDepth = _cVS.registeredDepth();
+        const double* pDepth = _cVS.alignedDepth();
         //convert depth map to PCL data
         for (size_t i = 0; i < _cloud.points.size (); ++i)
         {
@@ -233,25 +228,12 @@ void render3DPts()
             _cloud.points[i].x = *pDepth++;
             _cloud.points[i].y = *pDepth++;
             _cloud.points[i].z = *pDepth++;
-            if( abs(_cloud.points[i].z) > 0.0000001 )
+            if( fabs(_cloud.points[i].z) > 0.0000001 )
             {
                 pcl::PointXYZ point(_cloud.points[i].x,_cloud.points[i].y,_cloud.points[i].z);
                 _cloudNoneZero.push_back(point);
             }
-            if( abs(_cloud.points[i].z) > 0.0000001 && abs(_cloud.points[i].z) < 2 )
-            {
-                dCentroidX += _cloud.points[i].x;
-                dCentroidY += _cloud.points[i].y;
-                dCentroidZ += _cloud.points[i].z;
-                n ++;
-            }
         }
-        dCentroidX /= n;
-        dCentroidY /= n;
-        dCentroidZ /= n;
-        _eivCenter( 0 ) =  dCentroidX;
-        _eivCenter( 1 ) = -dCentroidY;
-        _eivCenter( 2 ) = -dCentroidZ;
 
         pcl::search::KdTree<pcl::PointXYZ>::Ptr pTree (new pcl::search::KdTree<pcl::PointXYZ>());
         pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
@@ -324,8 +306,6 @@ void render3DPts()
         }
 
         PRINT( _vpCloudCluster.size() );
-
-
 
 /*
         //2nd plane
@@ -457,6 +437,7 @@ void render3DPts()
 void display ( void )
 {
     _cVS.getNextFrame();
+	_cVS.centroidGL(&_eivCenter);
     glMatrixMode ( GL_MODELVIEW );
     glViewport (0, 0, _nWidth/2, _nHeight);
     glScissor  (0, 0, _nWidth/2, _nHeight);
@@ -561,11 +542,15 @@ int main ( int argc, char** argv )
     }
     catch ( CError& e )
     {
-        if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
+        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
         {
             std::cerr << "Error Info: " << *mi << std::endl;
         }
     }
+	catch ( std::runtime_error& e )
+	{
+		PRINTSTR( e.what() );
+	}
 
     return 0;
 }
