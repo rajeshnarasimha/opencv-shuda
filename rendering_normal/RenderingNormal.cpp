@@ -84,8 +84,8 @@ double _dDepthFilterThreshold = 10;
 GLUquadricObj *_pQObj;
 int _nDensity = 2;
 double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
-unsigned int _uLevel = 0;
-unsigned int _uPyrHeight = 2;
+unsigned int _uLevel = 3;
+unsigned int _uPyrHeight = 4;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
@@ -312,7 +312,44 @@ void renderAxis()
     glEnd();
     glPopMatrix();
 }
+void renderDisk(const Eigen::Vector3d& eivPt_, const Eigen::Vector3d& eivNl_, const unsigned char* pColor_,
+	GLuint uDisk_, GLuint uNormal_, bool bRenderNormal_ )
+{
+	glColor3ubv( pColor_ );
 
+	glPushMatrix();
+	double x,y,z;
+	x =  eivPt_(0);
+	y =  eivPt_(1);
+	z =  eivPt_(2);
+	glTranslated( x, y, z );
+
+	double dNx, dNy, dNz;// in opengl default coordinate
+	dNx = eivNl_(0);
+	dNy = eivNl_(1);
+	dNz = eivNl_(2);
+
+	if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
+	{
+		PRINT( dNz );
+		return;
+	}
+
+	double dA = atan2(dNx,dNz);
+	double dxz= sqrt( dNx*dNx + dNz*dNz );
+	double dB = atan2(dNy,dxz);
+
+	glRotated(-dB*180 / M_PI,1,0,0 );
+	glRotated( dA*180 / M_PI,0,1,0 );
+	double dR = -z/0.5;
+	glScaled( dR*_dSize, dR*_dSize, dR*_dSize );
+	glCallList(uDisk_);
+	if( bRenderNormal_ )
+	{
+		glCallList(uNormal_);
+	}
+	glPopMatrix();
+}
 void render3DPts()
 {
     if(_bCaptureCurrentFrame)
@@ -321,7 +358,7 @@ void render3DPts()
 		_cVS._uPyrHeight = _uPyrHeight;
         //_cVS.getNextFrame();
 		//_cM.loadFrame();
-		_cM.loadPyramid();
+		_cM.loadPyramidAndDetectPlane();
 		_cVS.centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
 		_bCaptureCurrentFrame = false;
 		std::cout << "capture done.\n" << std::flush;
@@ -334,56 +371,41 @@ void render3DPts()
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
 	} 
+
+	if( _bEnableLighting )
+		glEnable(GL_LIGHTING);
+	else
+		glDisable(GL_LIGHTING);
+	
+	const std::vector< Eigen::Vector3d >& vPtsPlane=_cM._vvPyramidPts[_uPyrHeight-1] ;
+	const std::vector< Eigen::Vector3d >& vNormalsPlane = _cM._vvPyramidNormals[_uPyrHeight-1];
+
+	const std::vector< std::vector< unsigned int > >& vvNormalIdx = _cM._vvLabelNormalIdx;
+	std::vector< std::vector< unsigned int > >::const_iterator cit = vvNormalIdx.begin();
+	for(int i=0; cit!=vvNormalIdx.end(); cit++)
+	{
+		if(cit->size()>100)// the plane larger than 1500 pixels
+		{
+			const unsigned char* pColor = btl::utility::aColors[i++%BTL_NUM_COLOR];
+			std::vector< unsigned int >::const_iterator citIdx = cit->begin();
+			for(; citIdx!=cit->end(); citIdx++)
+			{
+				renderDisk(vPtsPlane[*citIdx], vNormalsPlane[*citIdx], pColor,_uDisk, _uNormal, _bRenderNormal); 
+			}
+		}
+	}
+	//render point cloud
     const std::vector< Eigen::Vector3d >& vPts=_cM._vvPyramidPts[_uLevel] ;
     const std::vector< Eigen::Vector3d >& vNormals = _cM._vvPyramidNormals[_uLevel];
     const std::vector<const unsigned char*>& vColors = _cM._vvPyramidColors[_uLevel];
     glPushMatrix();
-// Generate the data
     for (size_t i = 0; i < vPts.size (); ++i)
     {
-        if( _bEnableLighting )
-            glEnable(GL_LIGHTING);
-        else
-            glDisable(GL_LIGHTING);
         if ( 1 != _nDensity && i % _nDensity != 1 ) // skip some points; when 1 == i, all dots wills drawn;
         {
             continue;
         }
-
-        pColor = vColors[i];
-        glColor3ubv( pColor );
-
-        glPushMatrix();
-        x =  vPts[i](0);
-        y =  vPts[i](1);
-        z =  vPts[i](2);
-        glTranslated( x, y, z );
-
-        double dNx, dNy, dNz;// in opengl default coordinate
-        dNx = vNormals[i](0);
-        dNy = vNormals[i](1);
-        dNz = vNormals[i](2);
-
-        if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-        {
-            PRINT( dNz );
-            continue;
-        }
-
-        double dA = atan2(dNx,dNz);
-        double dxz= sqrt( dNx*dNx + dNz*dNz );
-        double dB = atan2(dNy,dxz);
-
-        glRotated(-dB*180 / M_PI,1,0,0 );
-        glRotated( dA*180 / M_PI,0,1,0 );
-        double dR = -z/0.5;
-        glScaled( dR*_dSize, dR*_dSize, dR*_dSize );
-        glCallList(_uDisk);
-        if( _bRenderNormal )
-        {
-            glCallList(_uNormal);
-        }
-        glPopMatrix();
+		renderDisk(vPts[i], vNormals[i], vColors[i],_uDisk, _uNormal, _bRenderNormal);
     }
     glPopMatrix();
 
@@ -470,7 +492,7 @@ void init ( )
 
     //_cM.loadFrame();
 
-	_cM.loadPyramid();
+	_cM.loadPyramidAndDetectPlane();
     _uTexture = _cView.LoadTexture( _cVS.cvRGB() );
 
     _uDisk = glGenLists(1);
