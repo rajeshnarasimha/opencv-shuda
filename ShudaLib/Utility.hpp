@@ -66,19 +66,23 @@ void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_,
 			n1 = pti1 - pti;
 			n2 = ptj1 - pti;
 			n3 = n1.cross(n2);
-			n3.normalize();
-			if ( v.dot(n3) < 0 )
+			double dNorm = n3.norm() ;
+			if ( dNorm > SMALL )
 			{
-				//PRINT( n3 );
-				n3 = -n3;
-			}
-			vColor_->push_back(pColor_);
-			vPt_->push_back(pti);
-			vNormal_->push_back(n3);
-			if(pvX_&&pvY_)
-			{
-				pvX_->push_back(c);
-				pvY_->push_back(r);
+				n3/=dNorm;
+				if ( v.dot(n3) < 0 )
+				{
+					//PRINT( n3 );
+					n3 = -n3;
+				}
+				vColor_->push_back(pColor_);
+				vPt_->push_back(pti);
+				vNormal_->push_back(n3);
+				if(pvX_&&pvY_)
+				{
+					pvX_->push_back(c);
+					pvY_->push_back(r);
+				}
 			}
 		}
 		pColor_+=3;
@@ -174,7 +178,7 @@ void avgNormals(const std::vector<Eigen::Vector3d>& vNormals_,const std::vector<
 }
 
 template< class T >
-void normalHistogram( const std::vector<Eigen::Vector3d>& vNormal_, int nSamples_,/* cv::Mat* cvmHist_, */std::vector<std::vector<unsigned int>>* pvvIdx_)
+void normalHistogram( const std::vector<Eigen::Vector3d>& vNormal_, int nSamples_,/* cv::Mat* cvmHist_, */std::vector< std::vector<unsigned int> >* pvvIdx_)
 {
 	//clear and re-initialize pvvIdx_
 	pvvIdx_->clear();

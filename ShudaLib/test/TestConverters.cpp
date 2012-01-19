@@ -154,7 +154,7 @@ void cvUtilColor()
 	{
 		cv::Mat_<unsigned char> cvColor(3,1);
 		PRINT(cvColor)
-		cvColor.data = aColors[i];
+		cvColor.data = __aColors[i];
 		PRINT(cvColor);
 	}
 }
@@ -204,11 +204,19 @@ void tryCppStdVectorResize()
 	vInt[2]=10;
 	PRINT(vInt);
 }
+void tryCppSizeof()
+{
+	PRINTSTR("try sizeof() operator");
+	PRINT(sizeof(long double));
+	PRINT(sizeof(double));
+	PRINT(sizeof(short));
+}
 void tryCpp()
 {
 	tryCppOperator();
 	tryCppLongDouble();
 	tryCppStdVectorResize();
+	tryCppSizeof();
 }
 //try CV
 void tryCVPryDown()

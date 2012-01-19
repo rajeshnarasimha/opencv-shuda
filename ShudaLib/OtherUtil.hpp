@@ -127,16 +127,31 @@ void getNeighbourIdxCylinder(const unsigned short& usRows, const unsigned short&
 	pNeighbours_->push_back(nL);
 	pNeighbours_->push_back(nR);
 
-	if(r>0)
+	if(r>0)//get up
 	{
 		T nU= i-usCols;
 		pNeighbours_->push_back(nU);
+		T nUL= nU%usCols == 0? nU-1 +usCols: nU-1;
+		pNeighbours_->push_back(nUL);
+		T nUR= nU%usCols == usCols-1? nU+1 -usCols : nU+1;
+		pNeighbours_->push_back(nUR);
 	}
-	if(r<usRows-1)
+	else if(r==usRows-1)//correspond to polar region
+	{
+		T t = r*usCols;
+		for( T n=0; n<usCols; n++)
+			pNeighbours_->push_back(t+n);
+	}
+	if(r<usRows-1)//get down
 	{
 		T nD= i+usCols;
 		pNeighbours_->push_back(nD);
+		T nDL= nD%usCols == 0? nD-1 +usCols: nD-1;
+		pNeighbours_->push_back(nDL);
+		T nDR= nD%usCols == usCols-1? nD+1 -usCols : nD+1;
+		pNeighbours_->push_back(nDR);
 	}
+
 	return;
 }
 

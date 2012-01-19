@@ -86,6 +86,7 @@ int _nDensity = 2;
 double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uLevel = 3;
 unsigned int _uPyrHeight = 4;
+int _nColorIdx = 0;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
@@ -209,6 +210,16 @@ void normalKeys ( unsigned char key, int x, int y )
 		break;
     }
     return;
+}
+void specialKeys(int nKey_,int x, int y)
+{
+	switch( nKey_ )
+	{
+	case GLUT_KEY_F1: //display camera
+		_nColorIdx++;
+		PRINT(_nColorIdx);
+		break;
+	}
 }
 
 void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
@@ -380,13 +391,13 @@ void render3DPts()
 	const std::vector< Eigen::Vector3d >& vPtsPlane=_cM._vvPyramidPts[_uPyrHeight-1] ;
 	const std::vector< Eigen::Vector3d >& vNormalsPlane = _cM._vvPyramidNormals[_uPyrHeight-1];
 
-	const std::vector< std::vector< unsigned int > >& vvNormalIdx = _cM._vvLabelNormalIdx;
-	std::vector< std::vector< unsigned int > >::const_iterator cit = vvNormalIdx.begin();
-	for(int i=0; cit!=vvNormalIdx.end(); cit++)
+	const std::vector< std::vector< unsigned int > >& vvLabelNormalIdx = _cM._vvLabelNormalIdx;
+	std::vector< std::vector< unsigned int > >::const_iterator cit = vvLabelNormalIdx.begin();
+	for(int i=_nColorIdx; cit!=vvLabelNormalIdx.end(); cit++)
 	{
 		if(cit->size()>100)// the plane larger than 1500 pixels
 		{
-			const unsigned char* pColor = btl::utility::aColors[i++%BTL_NUM_COLOR];
+			const unsigned char* pColor = btl::utility::__aColors[i++%BTL_NUM_COLOR];
 			std::vector< unsigned int >::const_iterator citIdx = cit->begin();
 			for(; citIdx!=cit->end(); citIdx++)
 			{
@@ -508,7 +519,6 @@ void init ( )
     glNewList(_uNormal, GL_COMPILE);
     glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
-    glColor3d(1.,0.,0.);
     glVertex3d(0.,0.,0.);
     glVertex3d(0.,0.,0.016);
     glEnd();
@@ -541,6 +551,7 @@ int main ( int argc, char** argv )
         init();
 
         glutKeyboardFunc( normalKeys );
+		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
 
