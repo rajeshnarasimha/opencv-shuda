@@ -45,7 +45,6 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-
 add_executable(RenderingNormal RenderingNormal.cpp)
 # link with the 3d party libraries
 target_link_libraries( RenderingNormal ${PCL_LIBRARIES} ${EXTRA_LIBS} )
