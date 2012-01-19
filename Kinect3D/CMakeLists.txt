@@ -3,10 +3,13 @@ project (Kinect3D)
 find_package( OpenCV )
 
 if( UNIX )
-    include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
-    link_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
+    include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib/include" )
     include_directories ( "/usr/local/include/eigen3" )
     include_directories ( "/usr/include/ni" )
+    link_directories ( "/usr/local/lib64" )
+    link_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib/lib/" )
+
+#    set ( FLANN_LIBRARY "/usr/local/lib64/libflann.so" )
 # set collection of libraries
     set ( EXTRA_LIBS ${EXTRA_LIBS} ShudaLib OpenNI boost_system boost_filesystem boost_serialization 
     yaml-cpp glut GLU opencv_core opencv_highgui opencv_calib3d opencv_features2d opencv_video opencv_imgproc )
