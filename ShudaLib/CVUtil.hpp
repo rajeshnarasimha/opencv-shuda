@@ -14,7 +14,7 @@ namespace btl
 namespace utility
 {
 #define BTL_NUM_COLOR 15
-	static unsigned char aColors[BTL_NUM_COLOR][3]=
+	static unsigned char __aColors[BTL_NUM_COLOR][3]=
 	{
 		{255, 0, 0, },//red
 		{0, 255, 0,}, //green
@@ -318,7 +318,7 @@ void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_
 	for(cv::MatIterator_<float> it = cvDisparity_.begin<float>(); it != cvDisparity_.end<float>(); ++it, pInputDepth++ )
 	{
 			double dDepth = *pInputDepth;
-			if( dDepth>SMALL )
+			if( dDepth>0.0001 )
 			{
 				*it = 1./dDepth;
 				if( ptMax_ && ptMax_)
@@ -349,7 +349,7 @@ void convert2DepthDomain(const cv::Mat& cvDisparity_, cv::Mat* pcvDepth_, int nT
 	for(cv::MatConstIterator_<float> cit = cvDisparity_.begin<float>(); cit != cvDisparity_.end<float>(); ++cit, pDepth++ )
 	{
 		float fDepth = *cit;
-		if( fDepth > SMALL )
+		if( fDepth > 0.0001 )
 			if( CV_16UC1 == nType_ ) *pDepth = (unsigned short)(1./fDepth + .5 );
 			else *pDepth = 1.f/fDepth;
 		else

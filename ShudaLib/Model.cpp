@@ -185,28 +185,25 @@ void CModel::detectPlanePCL(unsigned int uLevel_,std::vector<int>* pvXIdx_, std:
 	}
 	return;
 }
-
-void CModel::loadPyramidAndDetectPlane()
+void CModel::clusterNormal()
 {
-//load pyramids
-	_cKinect._uPyrHeight = 4;
-	loadPyramid();
-//define constants
+	//define constants
 	const unsigned int uTopLevel=_cKinect._uPyrHeight-1;
 	const int nSampleElevation = 4;
-	const double dCosThreshold = std::cos(M_PI_2/nSampleElevation);
+	const int nClusterSize = btl::extra::videosource::__aKinectWxH[uTopLevel]/100;
+	const double dCosThreshold = std::cos(M_PI_4/nSampleElevation);
 	const std::vector< Eigen::Vector3d >& vNormals = _vvPyramidNormals[uTopLevel];
-//make a histogram on the top pyramid
+	//make a histogram on the top pyramid
 	_vvNormalIdx.clear();//_vvIdx is organized as r(elevation)*c(azimuth) and stores the idx of Normals
 	btl::utility::normalHistogram<double>(vNormals,nSampleElevation,&_vvNormalIdx);
-//calculate the average normal for each bin of the sampling space which is larger than 100
+	//calculate the average normal for each bin of the sampling space which is larger than 100
 	std::vector< unsigned int > vAvgNlSamplingIdx; // the sampling idx of those larger than 100
 	std::vector< Eigen::Vector3d > vAvgNl; 
 	unsigned int i=0;
-	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvNormalIdx = _vvNormalIdx.begin(); cit_vvNormalIdx!=_vvNormalIdx.end(); cit_vvNormalIdx++,i++)
+	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvNormalIdx = _vvNormalIdx.begin(); 
+		cit_vvNormalIdx!=_vvNormalIdx.end(); cit_vvNormalIdx++,i++)
 	{
 		// average the normal for the bin larger than 100
-		
 		if(cit_vvNormalIdx->size()>100)
 		{
 			//calculate its average normal
@@ -218,7 +215,7 @@ void CModel::loadPyramidAndDetectPlane()
 			vAvgNlSamplingIdx.push_back(i);
 		}
 	}
-//re-cluster the normals
+	//re-cluster the normals
 	_vvLabelNormalIdx.clear();
 	std::vector<short> vLabel(vNormals.size(),-1);
 	std::vector<Eigen::Vector3d>::const_iterator cit_vAvgNl = vAvgNl.begin();
@@ -237,9 +234,40 @@ void CModel::loadPyramidAndDetectPlane()
 		{
 			btl::utility::normalCluster<double>(vNormals,_vvNormalIdx[*cit_vNeighbourhood],*cit_vAvgNl,dCosThreshold,nLabel,&vLabel,&vLabelNormalIdx);
 		}
+		Eigen::Vector3d eivAvgNl;
+		btl::utility::avgNormals<double>(vNormals,vLabelNormalIdx,&eivAvgNl);
 		_vvLabelNormalIdx.push_back(vLabelNormalIdx);
+		_vLabelAvgNormals.push_back(eivAvgNl);
 	}
 	return;
+}
+void CModel::loadPyramidAndDetectPlane()
+{
+//load pyramids
+	_cKinect._uPyrHeight = 4;
+	loadPyramid(); //output _vvN
+//cluster the top pyramid
+	clusterNormal();
+//enforce position continuity
+	//construct the label mat
+	const unsigned int uTopLevel=_cKinect._uPyrHeight-1;
+	const cv::Mat& cvmDepth = _vcvmPyramidDepths[uTopLevel];
+	const std::vector< Eigen::Vector3d >& vPts = _vvPyramidPts[uTopLevel];
+	short sLabel = 0;
+	std::vector< Eigen::Vector3d >::const_iterator cit_vLabelAvgNormals = _vLabelAvgNormals.begin();
+	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvLabelNormalIdx = _vvLabelNormalIdx.begin();
+	cit_vvLabelNormalIdx!=_vvLabelNormalIdx.end(); cit_vvLabelNormalIdx++,sLabel++,cit_vLabelAvgNormals)
+	{
+		for(std::vector< unsigned int >::const_iterator cit_vNormalIdx = cit_vvLabelNormalIdx->begin();
+			cit_vNormalIdx!=cit_vvLabelNormalIdx->end(); cit_vNormalIdx++)
+		{
+			double dDist = vPts[*cit_vNormalIdx].dot(*cit_vLabelAvgNormals);
+			
+		}
+	}
+	//convert Depth to disparity domain;
+	cv::Mat cvmDisparity; float fMin, fMax;
+	btl::utility::convert2DisparityDomain<float>(cvmDepth,&cvmDisparity,&fMax,&fMin);
 }
 
 }//extra
