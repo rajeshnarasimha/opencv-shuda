@@ -11,6 +11,8 @@ using namespace btl::utility;
 class CModel
 {
 	typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
+	enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
+//    typedef enum tp_flag1 tp_flag; 
 public:
 	CModel( VideoSourceKinect& cKinect_ );
 	~CModel(void);

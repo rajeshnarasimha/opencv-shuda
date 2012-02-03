@@ -216,12 +216,13 @@ void tryStdVectorConstructor()
 	std::vector< int > vInt(5,1);
 	PRINT( vInt );
 }
+	enum tp_flag { NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
+
 void tryStdVectorEnum()
 {
 	PRINTSTR("try std::vector< enum >");
-	enum tp_flag { NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
-	std::vector< tp_flag > vMergeFlags(2,tp_flag::NO_MERGE);
-	vMergeFlags[1] = tp_flag::MERGE_WITH_BOTH;
+	std::vector<tp_flag > vMergeFlags(2,NO_MERGE);
+	vMergeFlags[1] = MERGE_WITH_BOTH;
 	PRINT(vMergeFlags);
 }
 void tryStdVector()
