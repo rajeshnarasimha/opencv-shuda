@@ -224,6 +224,14 @@ void specialKeys(int nKey_,int x, int y)
 		break;
 	case GLUT_KEY_F2:
 		_enumType = NORMAL_CLUSTRE == _enumType? DISTANCE_CLUSTER : NORMAL_CLUSTRE;
+		if(NORMAL_CLUSTRE == _enumType)
+		{
+			PRINTSTR( "NORMAL_CLUSTRE" );
+		}
+		else
+		{
+			PRINTSTR( "DISTANCE_CLUSTER" );
+		}
 		break;
 	}
 }
