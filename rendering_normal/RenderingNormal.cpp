@@ -441,6 +441,13 @@ void render3DPts()
 
 void display ( void )
 {
+	_pVS->_dThresholdDepth =_dDepthFilterThreshold;
+	_pVS->_uPyrHeight = _uPyrHeight;
+	//_pVS->getNextFrame();
+	//_pModel->loadFrame();
+	_pModel->loadPyramidAndDetectPlane();
+	_pVS->centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
+
     glMatrixMode ( GL_MODELVIEW );
     glViewport (0, 0, _nWidth/2, _nHeight);
     glScissor  (0, 0, _nWidth/2, _nHeight);

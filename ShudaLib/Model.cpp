@@ -233,7 +233,6 @@ void CModel::clusterNormal()
 	short nLabel =0;
 	for(unsigned int uIdxBin = 0; uIdxBin < vNormalHist.size(); uIdxBin++)
 	{
-
 		//get neighborhood of a sampling bin
 		std::vector<unsigned int> vNeighourhood; 
 		btl::utility::getNeighbourIdxCylinder< unsigned int >(nSampleElevation,nSampleElevation*4,uIdxBin,&vNeighourhood);
