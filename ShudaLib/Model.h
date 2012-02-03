@@ -10,6 +10,7 @@ using namespace btl::utility;
 
 class CModel
 {
+	typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
 public:
 	CModel( VideoSourceKinect& cKinect_ );
 	~CModel(void);
@@ -25,6 +26,9 @@ public:
 	//extract a plane from depth map and convert to GL convention point cloud
 	void extractPlaneGL(unsigned int uLevel_, const std::vector<int>& vX_, const std::vector<int>& vY_, std::vector<Eigen::Vector3d>* pvPlane_);
 	void clusterNormal();
+protected:
+	void normalHistogram( const std::vector<Eigen::Vector3d>& vNormal_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_);
+
 public:
 	//global model
 	std::vector< Eigen::Vector3d > _vGlobalPts;
@@ -38,8 +42,8 @@ public:
 	std::vector< std::vector<const unsigned char*> > _vvPyramidColors;
 	std::vector< std::vector<int> > _vvX;//x index for non zero PyramidPts, Normals and Colors
 	std::vector< std::vector<int> > _vvY;//y index
-	std::vector< std::vector< unsigned int > > _vvNormalIdx;//idx of sampling the unit half sphere of top pyramid
-	std::vector< std::vector< unsigned int > > _vvLabelNormalIdx;//normal idx associated with each cluster label
+	std::vector< std::vector< unsigned int > > _vvLabelPointIdx;//normal idx associated with each cluster label
+	std::vector< std::vector< unsigned int > > _vvClusterPointIdx;
 	std::vector< Eigen::Vector3d > _vLabelAvgNormals;
 	//planes
 	std::vector< Eigen::Vector3d > _veivPlane;

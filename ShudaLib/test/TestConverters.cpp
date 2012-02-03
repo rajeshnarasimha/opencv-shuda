@@ -195,7 +195,7 @@ void tryCppLongDouble()
 	PRINT( std::numeric_limits<long double>::digits10 );
 	PRINT( std::numeric_limits<double>::digits10);
 }
-void tryCppStdVectorResize()
+void tryStdVectorResize()
 {
 	PRINTSTR("try std::vector::resize() whether it allocate memory");
 	std::vector<int> vInt;
@@ -203,6 +203,32 @@ void tryCppStdVectorResize()
 	PRINT(vInt);
 	vInt[2]=10;
 	PRINT(vInt);
+
+	PRINTSTR("try std::vector< <> >::resize() whether it allocate memory");
+	std::vector< std::vector< int > > vvIdx;
+	vvIdx.resize(3);
+	vvIdx[2].push_back(1);
+	PRINT(vvIdx);
+}
+void tryStdVectorConstructor()
+{
+	PRINTSTR("try std::vector< <> >::vector()");
+	std::vector< int > vInt(5,1);
+	PRINT( vInt );
+}
+void tryStdVectorEnum()
+{
+	PRINTSTR("try std::vector< enum >");
+	enum tp_flag { NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
+	std::vector< tp_flag > vMergeFlags(2,tp_flag::NO_MERGE);
+	vMergeFlags[1] = tp_flag::MERGE_WITH_BOTH;
+	PRINT(vMergeFlags);
+}
+void tryStdVector()
+{
+	tryStdVectorResize();
+	tryStdVectorConstructor();
+	tryStdVectorEnum();
 }
 void tryCppSizeof()
 {
@@ -211,12 +237,31 @@ void tryCppSizeof()
 	PRINT(sizeof(double));
 	PRINT(sizeof(short));
 }
+void tryCppTypeDef()
+{
+	PRINTSTR("try cpp keyword typedef");
+	{
+		typedef int tp_int;
+		tp_int n;
+		n = 1;
+		PRINT( n );
+		{
+			tp_int m;
+			m = 2;
+			PRINT( m );
+		}
+	}
+	//tp_int o; compile error
+}
+
 void tryCpp()
 {
 	tryCppOperator();
 	tryCppLongDouble();
-	tryCppStdVectorResize();
 	tryCppSizeof();
+	tryCppTypeDef();
+	tryStdVector();
+
 }
 //try CV
 void tryCVPryDown()
