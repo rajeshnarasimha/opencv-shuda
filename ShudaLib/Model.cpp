@@ -317,6 +317,7 @@ void CModel::loadPyramidAndDetectPlane()
 	
 		for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist.begin() + 1;
 			cit_vDistHist != cit_endm1; cit_vDistHist++,it_vMergeFlags++ )
+
 		{
 			unsigned int uBinSize = cit_vDistHist->first.size();
 			if(0==uBinSize) continue;
