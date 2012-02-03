@@ -89,7 +89,7 @@ unsigned int _uPyrHeight = 4;
 int _nColorIdx = 0;
 
 enum tp_diplay {NORMAL_CLUSTRE, DISTANCE_CLUSTER};
-tp_diplay _enumType = tp_diplay::NORMAL_CLUSTRE;
+tp_diplay _enumType = NORMAL_CLUSTRE;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
@@ -223,7 +223,7 @@ void specialKeys(int nKey_,int x, int y)
 		PRINT(_nColorIdx);
 		break;
 	case GLUT_KEY_F2:
-		_enumType = tp_diplay::NORMAL_CLUSTRE == _enumType? tp_diplay::DISTANCE_CLUSTER : tp_diplay::NORMAL_CLUSTRE;
+		_enumType = NORMAL_CLUSTRE == _enumType? DISTANCE_CLUSTER : NORMAL_CLUSTRE;
 		break;
 	}
 }
@@ -399,11 +399,11 @@ void render3DPts()
 	pvPtsPlane =&_pModel->_vvPyramidPts[_uPyrHeight-1];
 	pvNormalsPlane =& _pModel->_vvPyramidNormals[_uPyrHeight-1];
 	const std::vector< std::vector< unsigned int > >* pvvLabelPointIdx;
-	if(tp_diplay::NORMAL_CLUSTRE ==_enumType)
+	if(NORMAL_CLUSTRE ==_enumType)
 	{
 		pvvLabelPointIdx = &_pModel->_vvLabelPointIdx;
 	}
-	else if(tp_diplay::DISTANCE_CLUSTER ==_enumType)
+	else if(DISTANCE_CLUSTER ==_enumType)
 	{
 		pvvLabelPointIdx = &_pModel->_vvClusterPointIdx;
 	}

@@ -308,8 +308,8 @@ void CModel::loadPyramidAndDetectPlane()
 		}
 		const double dMergeDistance = dSampleStep*1.5;
 		//merge the bins whose distance is similar
-		enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
-		std::vector< tp_flag > vMergeFlags(nSamples,tp_flag::EMPTY); //==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
+	
+		std::vector< tp_flag > vMergeFlags(nSamples, CModel::EMPTY); //==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
 		std::vector< tp_flag >::iterator it_vMergeFlags = vMergeFlags.begin()+1; 
 		std::vector< tp_flag >::iterator it_prev;
 		std::vector< tp_pair_hist_bin >::const_iterator cit_prev;
@@ -320,20 +320,20 @@ void CModel::loadPyramidAndDetectPlane()
 		{
 			unsigned int uBinSize = cit_vDistHist->first.size();
 			if(0==uBinSize) continue;
-			*it_vMergeFlags = tp_flag::NO_MERGE;
+			*it_vMergeFlags = CModel::NO_MERGE;
 			cit_prev = cit_vDistHist -1;
 			it_prev  = it_vMergeFlags-1;
-			if( tp_flag::EMPTY == *it_prev ) continue;
+			if( CModel::EMPTY == *it_prev ) continue;
 
 			if( fabs(cit_prev->second - cit_vDistHist->second) < dMergeDistance ) //avg distance smaller than the sample step.
 			{
 				//previou bin
-				if(tp_flag::NO_MERGE==*it_prev)
-					*it_prev = tp_flag::MERGE_WITH_RIGHT;
-				else if(tp_flag::MERGE_WITH_LEFT==*it_prev)
-					*it_prev = tp_flag::MERGE_WITH_BOTH;
+				if(CModel::NO_MERGE==*it_prev)
+					*it_prev = CModel::MERGE_WITH_RIGHT;
+				else if(CModel::MERGE_WITH_LEFT==*it_prev)
+					*it_prev = CModel::MERGE_WITH_BOTH;
 				//current bin
-				*it_vMergeFlags = tp_flag::MERGE_WITH_LEFT;
+				*it_vMergeFlags = CModel::MERGE_WITH_LEFT;
 			}//if mergable
 			
 		}//for each bin
@@ -343,9 +343,9 @@ void CModel::loadPyramidAndDetectPlane()
 		for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist.begin() + 1;
 			cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ )
 		{
-			if(tp_flag::EMPTY==*cit_vMergeFlags) continue;
+			if(CModel::EMPTY==*cit_vMergeFlags) continue;
 
-			if(tp_flag::NO_MERGE==*cit_vMergeFlags||tp_flag::MERGE_WITH_RIGHT==*cit_vMergeFlags||tp_flag::MERGE_WITH_BOTH==*cit_vMergeFlags||tp_flag::MERGE_WITH_LEFT==*cit_vMergeFlags)
+			if(CModel::NO_MERGE==*cit_vMergeFlags||CModel::MERGE_WITH_RIGHT==*cit_vMergeFlags||CModel::MERGE_WITH_BOTH==*cit_vMergeFlags||CModel::MERGE_WITH_LEFT==*cit_vMergeFlags)
 			{
 				for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
 					cit_vPair != cit_vDistHist->first.end(); cit_vPair++ )
@@ -354,7 +354,7 @@ void CModel::loadPyramidAndDetectPlane()
 				}
 			}
 			
-			if(tp_flag::NO_MERGE==*cit_vMergeFlags||tp_flag::MERGE_WITH_LEFT==*cit_vMergeFlags)
+			if(CModel::NO_MERGE==*cit_vMergeFlags||CModel::MERGE_WITH_LEFT==*cit_vMergeFlags)
 			{
 				_vvClusterPointIdx.push_back(vCluster);
 				vCluster.clear();
