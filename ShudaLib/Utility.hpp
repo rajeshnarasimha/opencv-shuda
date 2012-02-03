@@ -178,34 +178,6 @@ void avgNormals(const std::vector<Eigen::Vector3d>& vNormals_,const std::vector<
 }
 
 template< class T >
-void normalHistogram( const std::vector<Eigen::Vector3d>& vNormal_, int nSamples_,/* cv::Mat* cvmHist_, */std::vector< std::vector<unsigned int> >* pvvIdx_)
-{
-	//clear and re-initialize pvvIdx_
-	pvvIdx_->clear();
-	std::vector<unsigned int> vIdx;
-	int nSampleAzimuth_ = nSamples_<<2; //nSamples*4
-	for(unsigned int i=0; i<nSamples_*nSampleAzimuth_;i++)
-	{
-		pvvIdx_->push_back(vIdx);
-	}
-	/*cvmHist_->create(nSamples_,nSamples_*4,CV_16UC1);
-	cvmHist_->setTo(0);
-	unsigned short* pData = (unsigned short*)cvmHist_->data;
-	*/
-	double dS = M_PI_2/nSamples_;//sampling step
-	
-	unsigned int i=0;
-	std::vector< Eigen::Vector3d >::const_iterator cit = vNormal_.begin();
-	for( ; cit!= vNormal_.end(); cit++,i++)
-	{
-		int r,c,rc;
-		normalVotes<double>(cit->data(),dS,&r,&c);
-		rc = r*nSampleAzimuth_+c;
-		/*pData[rc]++;*/
-		(*pvvIdx_)[rc].push_back(i);
-	}
-}
-template< class T >
 bool isNormalSimilar( const Eigen::Vector3d& eivNormal1_, const Eigen::Vector3d& eivNormal2_, const double& dCosThreshold_)
 {
 	//if the angle between eivNormal1_ and eivNormal2_ is larger than dCosThreshold_

@@ -185,6 +185,34 @@ void CModel::detectPlanePCL(unsigned int uLevel_,std::vector<int>* pvXIdx_, std:
 	}
 	return;
 }
+
+void CModel::normalHistogram( const std::vector<Eigen::Vector3d>& vNormal_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_)
+{
+	//clear and re-initialize pvvIdx_
+	int nSampleAzimuth_ = nSamples_<<2; //nSamples*4
+	pvNormalHistogram_->clear();
+	pvNormalHistogram_->resize(nSamples_*nSampleAzimuth_,tp_normal_hist_bin(std::vector<unsigned int>(),Eigen::Vector3d(0,0,0)));
+	const double dS = M_PI_2/nSamples_;//sampling step
+	unsigned int i=0;
+	std::vector< Eigen::Vector3d >::const_iterator cit = vNormal_.begin();
+	for( ; cit!= vNormal_.end(); cit++,i++)
+	{
+		int r,c,rc;
+		btl::utility::normalVotes<double>(cit->data(),dS,&r,&c);
+		rc = r*nSampleAzimuth_+c;
+		(*pvNormalHistogram_)[rc].first.push_back(i);
+		(*pvNormalHistogram_)[rc].second += *cit;
+	}
+	//average the 
+	for(std::vector<tp_normal_hist_bin>::iterator it_vNormalHist = pvNormalHistogram_->begin();it_vNormalHist!=pvNormalHistogram_->end(); it_vNormalHist++)
+	{
+		if(it_vNormalHist->first.size()>0)
+		{
+			it_vNormalHist->second /= it_vNormalHist->first.size();
+		}
+	}
+	return;
+}
 void CModel::clusterNormal()
 {
 	//define constants
@@ -194,49 +222,32 @@ void CModel::clusterNormal()
 	const double dCosThreshold = std::cos(M_PI_4/nSampleElevation);
 	const std::vector< Eigen::Vector3d >& vNormals = _vvPyramidNormals[uTopLevel];
 	//make a histogram on the top pyramid
-	_vvNormalIdx.clear();//_vvIdx is organized as r(elevation)*c(azimuth) and stores the idx of Normals
-	btl::utility::normalHistogram<double>(vNormals,nSampleElevation,&_vvNormalIdx);
-	//calculate the average normal for each bin of the sampling space which is larger than 100
-	std::vector< unsigned int > vAvgNlSamplingIdx; // the sampling idx of those larger than 100
-	std::vector< Eigen::Vector3d > vAvgNl; 
-	unsigned int i=0;
-	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvNormalIdx = _vvNormalIdx.begin(); 
-		cit_vvNormalIdx!=_vvNormalIdx.end(); cit_vvNormalIdx++,i++)
-	{
-		// average the normal for the bin larger than 100
-		if(cit_vvNormalIdx->size()>100)
-		{
-			//calculate its average normal
-			//and record its index as well
-			Eigen::Vector3d eivNl; 
-			btl::utility::avgNormals<double>(vNormals,*cit_vvNormalIdx,&eivNl);
-			PRINT(eivNl);
-			vAvgNl.push_back(eivNl);
-			vAvgNlSamplingIdx.push_back(i);
-		}
-	}
+
+	std::vector< tp_normal_hist_bin > vNormalHist;//idx of sampling the unit half sphere of top pyramid
+	//_vvIdx is organized as r(elevation)*c(azimuth) and stores the idx of Normals
+	normalHistogram(vNormals,nSampleElevation,&vNormalHist);
+	
 	//re-cluster the normals
-	_vvLabelNormalIdx.clear();
+	_vvLabelPointIdx.clear();
 	std::vector<short> vLabel(vNormals.size(),-1);
-	std::vector<Eigen::Vector3d>::const_iterator cit_vAvgNl = vAvgNl.begin();
 	short nLabel =0;
-	for (std::vector<unsigned int>::const_iterator cit_vSamplingIdx = vAvgNlSamplingIdx.begin();
-		cit_vSamplingIdx!=vAvgNlSamplingIdx.end(); cit_vSamplingIdx++,cit_vAvgNl++,nLabel++)
+	for(unsigned int uIdxBin = 0; uIdxBin < vNormalHist.size(); uIdxBin++)
 	{
+
 		//get neighborhood of a sampling bin
 		std::vector<unsigned int> vNeighourhood; 
-		btl::utility::getNeighbourIdxCylinder< unsigned int >(nSampleElevation,nSampleElevation*4,*cit_vSamplingIdx,&vNeighourhood);
+		btl::utility::getNeighbourIdxCylinder< unsigned int >(nSampleElevation,nSampleElevation*4,uIdxBin,&vNeighourhood);
 
 		//traverse the neighborhood and cluster the 
 		std::vector<unsigned int> vLabelNormalIdx;
 		for( std::vector<unsigned int>::const_iterator cit_vNeighbourhood=vNeighourhood.begin();
 			cit_vNeighbourhood!=vNeighourhood.end();cit_vNeighbourhood++)
 		{
-			btl::utility::normalCluster<double>(vNormals,_vvNormalIdx[*cit_vNeighbourhood],*cit_vAvgNl,dCosThreshold,nLabel,&vLabel,&vLabelNormalIdx);
+			btl::utility::normalCluster<double>(vNormals,vNormalHist[*cit_vNeighbourhood].first,vNormalHist[*cit_vNeighbourhood].second,dCosThreshold,nLabel,&vLabel,&vLabelNormalIdx);
 		}
 		Eigen::Vector3d eivAvgNl;
 		btl::utility::avgNormals<double>(vNormals,vLabelNormalIdx,&eivAvgNl);
-		_vvLabelNormalIdx.push_back(vLabelNormalIdx);
+		_vvLabelPointIdx.push_back(vLabelNormalIdx);
 		_vLabelAvgNormals.push_back(eivAvgNl);
 	}
 	return;
@@ -249,25 +260,111 @@ void CModel::loadPyramidAndDetectPlane()
 //cluster the top pyramid
 	clusterNormal();
 //enforce position continuity
+	//clear
+	_vvClusterPointIdx.clear();
 	//construct the label mat
 	const unsigned int uTopLevel=_cKinect._uPyrHeight-1;
 	const cv::Mat& cvmDepth = _vcvmPyramidDepths[uTopLevel];
 	const std::vector< Eigen::Vector3d >& vPts = _vvPyramidPts[uTopLevel];
-	short sLabel = 0;
-	std::vector< Eigen::Vector3d >::const_iterator cit_vLabelAvgNormals = _vLabelAvgNormals.begin();
-	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvLabelNormalIdx = _vvLabelNormalIdx.begin();
-	cit_vvLabelNormalIdx!=_vvLabelNormalIdx.end(); cit_vvLabelNormalIdx++,sLabel++,cit_vLabelAvgNormals)
+	const std::vector< Eigen::Vector3d >& vNls = _vvPyramidNormals[uTopLevel];
+	const double dLow  = -3;
+	const double dHigh =  3;
+	const int nSamples = 400;
+	const double dSampleStep = ( dHigh - dLow )/nSamples; 
+	const unsigned int nArea = 1;
+	typedef std::pair< double,unsigned int > tp_pair_hist_element; 
+	typedef std::pair< std::vector< tp_pair_hist_element >, double >      tp_pair_hist_bin;
+	typedef std::vector< tp_pair_hist_bin >								  tp_hist;
+	tp_hist	vDistHist; //histogram of distancte vector< vDist, cit_vIdx > 
+
+	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvLabelPointIdx = _vvLabelPointIdx.begin();
+	    cit_vvLabelPointIdx!=_vvLabelPointIdx.end(); cit_vvLabelPointIdx++)
 	{
-		for(std::vector< unsigned int >::const_iterator cit_vNormalIdx = cit_vvLabelNormalIdx->begin();
-			cit_vNormalIdx!=cit_vvLabelNormalIdx->end(); cit_vNormalIdx++)
+		vDistHist.clear();
+		vDistHist.resize(nSamples,tp_pair_hist_bin(std::vector<tp_pair_hist_element>(), 0.) );
+		//collect the distance 
+		for(std::vector< unsigned int >::const_iterator cit_vPointIdx = cit_vvLabelPointIdx->begin();
+			cit_vPointIdx!=cit_vvLabelPointIdx->end(); cit_vPointIdx++)
 		{
-			double dDist = vPts[*cit_vNormalIdx].dot(*cit_vLabelAvgNormals);
-			
+			double dDist = vPts[*cit_vPointIdx].dot(vNls[*cit_vPointIdx]);
+
+			int nBin = floor( (dDist -dLow)/ dSampleStep );
+			if( nBin >= 0 && nBin <nSamples)
+			{
+				vDistHist[nBin].first.push_back(tp_pair_hist_element(dDist,*cit_vPointIdx));
+				vDistHist[nBin].second += dDist;
+			}
 		}
-	}
-	//convert Depth to disparity domain;
-	cv::Mat cvmDisparity; float fMin, fMax;
-	btl::utility::convert2DisparityDomain<float>(cvmDepth,&cvmDisparity,&fMax,&fMin);
+
+		//calc the avg distance for each bin 
+		//construct a list for sorting
+		for(std::vector< tp_pair_hist_bin >::iterator cit_vDistHist = vDistHist.begin();
+			cit_vDistHist != vDistHist.end(); cit_vDistHist++ )
+		{
+			unsigned int uBinSize = cit_vDistHist->first.size();
+			if( uBinSize==0 ) continue;
+
+			//calculate avg distance
+			cit_vDistHist->second /= uBinSize;
+		}
+		const double dMergeDistance = dSampleStep*1.5;
+		//merge the bins whose distance is similar
+		enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
+		std::vector< tp_flag > vMergeFlags(nSamples,tp_flag::EMPTY); //==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
+		std::vector< tp_flag >::iterator it_vMergeFlags = vMergeFlags.begin()+1; 
+		std::vector< tp_flag >::iterator it_prev;
+		std::vector< tp_pair_hist_bin >::const_iterator cit_prev;
+		std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = vDistHist.end() - 1;
+	
+		for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist.begin() + 1;
+			cit_vDistHist != cit_endm1; cit_vDistHist++,it_vMergeFlags++ )
+		{
+			unsigned int uBinSize = cit_vDistHist->first.size();
+			if(0==uBinSize) continue;
+			*it_vMergeFlags = tp_flag::NO_MERGE;
+			cit_prev = cit_vDistHist -1;
+			it_prev  = it_vMergeFlags-1;
+			if( tp_flag::EMPTY == *it_prev ) continue;
+
+			if( fabs(cit_prev->second - cit_vDistHist->second) < dMergeDistance ) //avg distance smaller than the sample step.
+			{
+				//previou bin
+				if(tp_flag::NO_MERGE==*it_prev)
+					*it_prev = tp_flag::MERGE_WITH_RIGHT;
+				else if(tp_flag::MERGE_WITH_LEFT==*it_prev)
+					*it_prev = tp_flag::MERGE_WITH_BOTH;
+				//current bin
+				*it_vMergeFlags = tp_flag::MERGE_WITH_LEFT;
+			}//if mergable
+			
+		}//for each bin
+		//merge
+		std::vector< unsigned int > vCluster;
+		std::vector< tp_flag >::const_iterator cit_vMergeFlags = vMergeFlags.begin();
+		for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist.begin() + 1;
+			cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ )
+		{
+			if(tp_flag::EMPTY==*cit_vMergeFlags) continue;
+
+			if(tp_flag::NO_MERGE==*cit_vMergeFlags||tp_flag::MERGE_WITH_RIGHT==*cit_vMergeFlags||tp_flag::MERGE_WITH_BOTH==*cit_vMergeFlags||tp_flag::MERGE_WITH_LEFT==*cit_vMergeFlags)
+			{
+				for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
+					cit_vPair != cit_vDistHist->first.end(); cit_vPair++ )
+				{
+					vCluster.push_back( cit_vPair->second );
+				}
+			}
+			
+			if(tp_flag::NO_MERGE==*cit_vMergeFlags||tp_flag::MERGE_WITH_LEFT==*cit_vMergeFlags)
+			{
+				_vvClusterPointIdx.push_back(vCluster);
+				vCluster.clear();
+			}
+		}
+
+	}//for each normal label
+
+	return;
 }
 
 }//extra

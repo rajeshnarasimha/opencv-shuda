@@ -29,9 +29,9 @@ using namespace Eigen;
 
 class CKinectView;
 
-btl::extra::videosource::VideoSourceKinect _cVS;
-btl::extra::videosource::CKinectView _cView(_cVS);
-btl::extra::CModel _cM(_cVS);
+btl::extra::videosource::VideoSourceKinect* _pVS;
+btl::extra::videosource::CKinectView* _pView; 
+btl::extra::CModel* _pModel;
 
 Eigen::Vector3d _eivCentroid(.0, .0, -1.0 );
 double _dZoom = 1.;
@@ -87,6 +87,9 @@ double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uLevel = 3;
 unsigned int _uPyrHeight = 4;
 int _nColorIdx = 0;
+
+enum tp_diplay {NORMAL_CLUSTRE, DISTANCE_CLUSTER};
+tp_diplay _enumType = tp_diplay::NORMAL_CLUSTRE;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
@@ -158,33 +161,33 @@ void normalKeys ( unsigned char key, int x, int y )
         PRINT( _dSize );
         break;
     case '1':
-		_cVS._ePreFiltering = VideoSourceKinect::RAW;
-		_cM._eNormalExtraction = CModel::_PCL;
+		_pVS->_ePreFiltering = VideoSourceKinect::RAW;
+		_pModel->_eNormalExtraction = CModel::_PCL;
 		PRINTSTR(  "VideoSourceKinect::RAW" );
         break;
     case '2':
-		_cVS._ePreFiltering = VideoSourceKinect::RAW;
-		_cM._eNormalExtraction = CModel::_FAST;
+		_pVS->_ePreFiltering = VideoSourceKinect::RAW;
+		_pModel->_eNormalExtraction = CModel::_FAST;
 		PRINTSTR(  "VideoSourceKinect::RAW" );
         break;
     case '3':
-		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN;
+		_pVS->_ePreFiltering = VideoSourceKinect::GAUSSIAN;
 		PRINTSTR(  "VideoSourceKinect::GAUSSIAN" );
         break;
     case '4':
-		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1;
+		_pVS->_ePreFiltering = VideoSourceKinect::GAUSSIAN_C1;
 		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1" );
         break;
 	case '5':
-		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY;
+		_pVS->_ePreFiltering = VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY;
 		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY" );
 		break;
 	case '6':
-		_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
+		_pVS->_ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
 		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
 		break;
 	case '7':
-		_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+		_pVS->_ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
 		break;
 	case '8':
@@ -196,12 +199,12 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT(_uPyrHeight);
 		break;
 	case ']':
-		_cVS._dSigmaSpace += 1;
-		PRINT( _cVS._dSigmaSpace );
+		_pVS->_dSigmaSpace += 1;
+		PRINT( _pVS->_dSigmaSpace );
 		break;
 	case '[':
-		_cVS._dSigmaSpace -= 1;
-		PRINT( _cVS._dSigmaSpace );
+		_pVS->_dSigmaSpace -= 1;
+		PRINT( _pVS->_dSigmaSpace );
 		break;
 	case '0'://reset camera location
 		_dXAngle = 0.;
@@ -218,6 +221,9 @@ void specialKeys(int nKey_,int x, int y)
 	case GLUT_KEY_F1: //display camera
 		_nColorIdx++;
 		PRINT(_nColorIdx);
+		break;
+	case GLUT_KEY_F2:
+		_enumType = tp_diplay::NORMAL_CLUSTRE == _enumType? tp_diplay::DISTANCE_CLUSTER : tp_diplay::NORMAL_CLUSTRE;
 		break;
 	}
 }
@@ -365,19 +371,19 @@ void render3DPts()
 {
     if(_bCaptureCurrentFrame)
     {
-        _cVS._dThresholdDepth =_dDepthFilterThreshold;
-		_cVS._uPyrHeight = _uPyrHeight;
-        //_cVS.getNextFrame();
-		//_cM.loadFrame();
-		_cM.loadPyramidAndDetectPlane();
-		_cVS.centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
+        _pVS->_dThresholdDepth =_dDepthFilterThreshold;
+		_pVS->_uPyrHeight = _uPyrHeight;
+        //_pVS->getNextFrame();
+		//_pModel->loadFrame();
+		_pModel->loadPyramidAndDetectPlane();
+		_pVS->centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
 		_bCaptureCurrentFrame = false;
 		std::cout << "capture done.\n" << std::flush;
 	}
     
     const unsigned char* pColor;
     double x, y, z;
-	if(_uLevel>=_cVS._uPyrHeight)
+	if(_uLevel>=_pVS->_uPyrHeight)
 	{
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
@@ -388,12 +394,22 @@ void render3DPts()
 	else
 		glDisable(GL_LIGHTING);
 	
-	const std::vector< Eigen::Vector3d >& vPtsPlane=_cM._vvPyramidPts[_uPyrHeight-1] ;
-	const std::vector< Eigen::Vector3d >& vNormalsPlane = _cM._vvPyramidNormals[_uPyrHeight-1];
+	const std::vector< Eigen::Vector3d >* pvPtsPlane;
+	const std::vector< Eigen::Vector3d >* pvNormalsPlane; 
+	pvPtsPlane =&_pModel->_vvPyramidPts[_uPyrHeight-1];
+	pvNormalsPlane =& _pModel->_vvPyramidNormals[_uPyrHeight-1];
+	const std::vector< std::vector< unsigned int > >* pvvLabelPointIdx;
+	if(tp_diplay::NORMAL_CLUSTRE ==_enumType)
+	{
+		pvvLabelPointIdx = &_pModel->_vvLabelPointIdx;
+	}
+	else if(tp_diplay::DISTANCE_CLUSTER ==_enumType)
+	{
+		pvvLabelPointIdx = &_pModel->_vvClusterPointIdx;
+	}
 
-	const std::vector< std::vector< unsigned int > >& vvLabelNormalIdx = _cM._vvLabelNormalIdx;
-	std::vector< std::vector< unsigned int > >::const_iterator cit = vvLabelNormalIdx.begin();
-	for(int i=_nColorIdx; cit!=vvLabelNormalIdx.end(); cit++)
+	std::vector< std::vector< unsigned int > >::const_iterator cit = pvvLabelPointIdx->begin();
+	for(int i=_nColorIdx; cit!=pvvLabelPointIdx->end(); cit++)
 	{
 		if(cit->size()>100)// the plane larger than 1500 pixels
 		{
@@ -401,14 +417,14 @@ void render3DPts()
 			std::vector< unsigned int >::const_iterator citIdx = cit->begin();
 			for(; citIdx!=cit->end(); citIdx++)
 			{
-				renderDisk(vPtsPlane[*citIdx], vNormalsPlane[*citIdx], pColor,_uDisk, _uNormal, _bRenderNormal); 
+				renderDisk((*pvPtsPlane)[*citIdx], (*pvNormalsPlane)[*citIdx], pColor,_uDisk, _uNormal, _bRenderNormal); 
 			}
 		}
 	}
 	//render point cloud
-    const std::vector< Eigen::Vector3d >& vPts=_cM._vvPyramidPts[_uLevel] ;
-    const std::vector< Eigen::Vector3d >& vNormals = _cM._vvPyramidNormals[_uLevel];
-    const std::vector<const unsigned char*>& vColors = _cM._vvPyramidColors[_uLevel];
+    const std::vector< Eigen::Vector3d >& vPts=_pModel->_vvPyramidPts[_uLevel] ;
+    const std::vector< Eigen::Vector3d >& vNormals = _pModel->_vvPyramidNormals[_uLevel];
+    const std::vector<const unsigned char*>& vColors = _pModel->_vvPyramidColors[_uLevel];
     glPushMatrix();
     for (size_t i = 0; i < vPts.size (); ++i)
     {
@@ -449,8 +465,8 @@ void display ( void )
     render3DPts();
 
     glBindTexture(GL_TEXTURE_2D, _uTexture);
-    //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _cVS.cvRGB().data);
-    //_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
+    //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _pVS->cvRGB().data);
+    //_pView->renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -465,8 +481,8 @@ void display ( void )
     //renderAxis();
     //render3DPts();
     glBindTexture(GL_TEXTURE_2D, _uTexture);
-    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, _cVS.cvRGB().data);
-    _cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, _pVS->cvRGB().data);
+    _pView->renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 
     glutSwapBuffers();
     glutPostRedisplay();
@@ -476,7 +492,7 @@ void display ( void )
 void reshape ( int nWidth_, int nHeight_ )
 {
     //cout << "reshape() " << endl;
-    _cView.setIntrinsics( 1, btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
+    _pView->setIntrinsics( 1, btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
 
     // setup blending
     //glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -501,10 +517,10 @@ void init ( )
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    //_cM.loadFrame();
+    //_pModel->loadFrame();
 
-	_cM.loadPyramidAndDetectPlane();
-    _uTexture = _cView.LoadTexture( _cVS.cvRGB() );
+	_pModel->loadPyramidAndDetectPlane();
+    _uTexture = _pView->LoadTexture( _pVS->cvRGB() );
 
     _uDisk = glGenLists(1);
     GLUquadricObj *pQObj;
@@ -539,6 +555,10 @@ int main ( int argc, char** argv )
 {
     try
     {
+		_pVS = new btl::extra::videosource::VideoSourceKinect();
+		_pView = new btl::extra::videosource::CKinectView(*_pVS);
+		_pModel = new btl::extra::CModel(*_pVS);
+
         // Fill in the cloud data
         _cloud.width  = 640;
         _cloud.height = 480;
