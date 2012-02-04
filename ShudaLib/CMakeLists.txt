@@ -15,7 +15,7 @@ elseif( WIN32 )
 
 	set( EIGEN_INCLUDE_DIRS "C:/csxsl/install/eigen/include/eigen3" )
     include_directories ( ${EIGEN_INCLUDE_DIRS} )
-	include_directories ( "C:/Program Files/OpenNI/Include" )
+    include_directories ( "C:/Program Files/OpenNI/Include" )
     include_directories ( "C:/csxsl/install/boost_1_48_0/include" ) 
     include_directories ( "C:/csxsl/install/freeglut_x64/include" )
     include_directories ( "C:/csxsl/install/yaml-cpp/include" )

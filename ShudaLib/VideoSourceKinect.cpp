@@ -273,7 +273,7 @@ void VideoSourceKinect::transformIR2RGB ( const double* pIR_, const int& nN_, do
 
 	for ( int i = 0; i < nN_; i++ )
 	{
-		if ( abs ( * ( pIR_ + 2 ) ) < 0.0001 )
+		if ( fabs ( * ( pIR_ + 2 ) ) < 0.0001 )
 		{
 			* pRGB_++ = 0;
 			* pRGB_++ = 0;
