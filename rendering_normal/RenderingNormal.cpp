@@ -7,7 +7,7 @@
 #include <vector>
 #include <boost/lexical_cast.hpp>
 #include "Utility.hpp"
-#include "VideoSourceKinect.hpp"
+
 //camera calibration from a sequence of images
 #include <pcl/ModelCoefficients.h>
 #include <pcl/io/pcd_io.h>
@@ -19,6 +19,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/kdtree/kdtree.h>
+#include <opencv2/gpu/gpu.hpp>
+#include "VideoSourceKinect.hpp"
 #include "Model.h"
 
 using namespace btl; //for "<<" operator

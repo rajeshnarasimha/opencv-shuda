@@ -119,7 +119,8 @@ public:
 
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void exportImages(const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
-	void gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_  ) const;
+	void gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const;
+	void gpuUndistortIR  (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const;
 
 protected:	
 	void locate2DCorners(const std::vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, std::vector< std::vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
@@ -211,11 +212,14 @@ protected:
 	Eigen::Vector3d  _eivRelativeTranslation;
 
 	cv::Mat          _cvmMapXYRGB; //for undistortion
+	cv::Mat			 _cvmMapYRGB; //useless just for calling cv::remap
 	cv::Mat          _cvmMapXYIR; //for undistortion
-	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
-	cv::gpu::GpuMat  _cvgmMapX;
-	cv::gpu::GpuMat  _cvgmMapY;
-
+	cv::Mat			 _cvmMapYIR;
+	//gpu version
+	cv::gpu::GpuMat  _cvgmMapXRGB;
+	cv::gpu::GpuMat  _cvgmMapYRGB;
+	cv::gpu::GpuMat  _cvgmMapXIR;
+	cv::gpu::GpuMat  _cvgmMapYIR;
 public:
 
 	// duplicated camera parameters for speed up the VideoSourceKinect::align() in . because Eigen and cv matrix class is very slow.

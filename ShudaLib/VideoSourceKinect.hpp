@@ -16,7 +16,7 @@
 #include "calibratekinect.hpp"
 #include <XnCppWrapper.h>
 #include <opencv/highgui.h>
-#include <opencv2/gpu/gpu.hpp>
+
 namespace btl{
 namespace extra{
 namespace videosource{
@@ -69,7 +69,8 @@ public:
 	}
 
 	// convert the depth map/ir camera to be aligned with the rgb camera
-	void align( const cv::Mat& cvUndistortDepth_ );
+	void alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_);
+	void gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvUndistortDepth_ , cv::gpu::GpuMat* pcvAligned_);
 	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
 	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
@@ -92,12 +93,16 @@ protected:
 	//depth
     cv::Mat       _cvmDepth;
 	cv::Mat 	  _cvmUndistDepth;
+	cv::gpu::GpuMat _cvgmDepth;
+	cv::gpu::GpuMat _cvgmUndistDepth;
 	//rgb pyramid
 	std::vector< cv::Mat > _vcvmPyramidRGBs;
 
 	//depth pyramid (need to be initially allocated in constructor)
 	std::vector< cv::Mat > _vcvmPyramidDepths;
 	cv::Mat		  _cvmAlignedDepthL0;//640*480
+	cv::gpu::GpuMat _cvgmAlignedDepthL0;
+
 	//black and white
 	cv::Mat 	  _cvmUndistBW;
 	// temporary variables allocated in constructor and released in destructor

@@ -6,6 +6,8 @@
 #include "TestCuda.h"
 #include <vector>
 using namespace btl::utility;
+#include <opencv2/gpu/gpu.hpp>
+
 
 void testCVUtilOperators()
 {
@@ -322,6 +324,37 @@ void tryCVMatSetTo()
 	cvmMat.setTo(10);
 	PRINT(cvmMat);
 }
+void tryCVGPU()
+{
+	try
+	{
+		PRINTSTR("try cv::gpu::");
+		cv::Mat src_host = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example.jpg", CV_LOAD_IMAGE_GRAYSCALE);
+		cv::gpu::GpuMat dst, src;
+		src.upload(src_host);
+
+		cv::gpu::threshold(src, dst, 128.0, 255.0, CV_THRESH_BINARY);
+		
+		cv::Mat result_host;
+		dst.download(result_host);
+		cv::imshow("Result", result_host);
+		cv::waitKey();
+	}
+	catch(const cv::Exception& ex)
+	{
+		std::cout << "Error: " << ex.what() << std::endl;
+	}
+}
+
+void tryCV()
+{
+	PRINTSTR("try opencv.")
+	//tryCVPryDown();
+	//tryCVMat();
+	//tryCVOperator();
+	//tryCVMatSetTo();
+	tryCVGPU();
+}
 
 void tryEigen()
 {
@@ -338,18 +371,15 @@ int main()
 {
 	try
 	{
-		testException();
-		testCVUtil();
-		testCuda();
+		//testException();
+		//testCVUtil();
+		//testCuda();
 		//try Cpp
-		tryCpp();
+		//tryCpp();
 		//try CV
-		tryCVPryDown();
-		tryCVMat();
-		tryCVOperator();
-		tryCVMatSetTo();
+		tryCV();
 		//try Eigen
-		tryEigen();
+		//tryEigen();
 	}
 	catch ( std::runtime_error e )
 	{

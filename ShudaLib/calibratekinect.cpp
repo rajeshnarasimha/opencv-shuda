@@ -561,26 +561,31 @@ void CCalibrateKinect::convertRV2RM ( const std::vector< cv::Mat >& vMat_, std::
 
 void CCalibrateKinect::undistortRGB ( const cv::Mat& cvmRGB_, cv::Mat& Undistorted_ ) const
 {
-    cv::remap ( cvmRGB_, Undistorted_, _cvmMapXYRGB, _cvmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+    cv::remap ( cvmRGB_, Undistorted_, _cvmMapXYRGB, _cvmMapYRGB, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
 void CCalibrateKinect::gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const
 {
-	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapX, _cvgmMapY, cv::INTER_NEAREST );
+	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXRGB, _cvgmMapYRGB, cv::INTER_NEAREST );
 }
 
 void CCalibrateKinect::undistortIR ( const cv::Mat& cvmIR_, cv::Mat& Undistorted_ ) const
 {
-    cv::remap ( cvmIR_, Undistorted_, _cvmMapXYIR, _cvmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+    cv::remap ( cvmIR_, Undistorted_, _cvmMapXYIR, _cvmMapYRGB, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
+void CCalibrateKinect::gpuUndistortIR (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const
+{
+	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXRGB, _cvgmMapYRGB, cv::INTER_NEAREST );
+}
+
 void CCalibrateKinect::generateMapXY4UndistortRGB()
 {
     CHECK ( !_mRGBK.empty(),         "undistortImages(): K matrix cannot be empty.\n" );
     CHECK ( !_mRGBInvK.empty(),      "undistortImages(): inverse of K matrix cannot be empty.\n" );
     CHECK ( !_mRGBDistCoeffs.empty(), "undistortImages(): distortion coefficients cannot be empty.\n" );
 
-    btl::utility::map4UndistortImage<double> ( _nRows, _nCols, _mRGBK, _mRGBInvK, _mRGBDistCoeffs, &_cvmMapXYRGB, &_cvmMapY );
-	_cvgmMapX.upload(_cvmMapXYRGB);
-	_cvgmMapY.upload(_cvmMapY);
+    btl::utility::map4UndistortImage<double> ( _nRows, _nCols, _mRGBK, _mRGBInvK, _mRGBDistCoeffs, &_cvmMapXYRGB, &_cvmMapYRGB );
+	_cvgmMapXRGB.upload(_cvmMapXYRGB);
+	_cvgmMapYRGB.upload(_cvmMapYRGB);
 }
 void CCalibrateKinect::generateMapXY4UndistortIR()
 {
@@ -588,7 +593,9 @@ void CCalibrateKinect::generateMapXY4UndistortIR()
     CHECK ( !_mIRInvK.empty(),      "undistortImages(): inverse of K matrix cannot be empty.\n" );
     CHECK ( !_mIRDistCoeffs.empty(), "undistortImages(): distortion coefficients cannot be empty.\n" );
 
-    btl::utility::map4UndistortImage<double> ( _nRows, _nCols, _mIRK, _mIRInvK, _mIRDistCoeffs, &_cvmMapXYIR );
+    btl::utility::map4UndistortImage<double> ( _nRows, _nCols, _mIRK, _mIRInvK, _mIRDistCoeffs, &_cvmMapXYIR, &_cvmMapYIR );
+	_cvgmMapXIR.upload(_cvmMapXYIR);
+	_cvgmMapYIR.upload(_cvmMapYIR);
 }
 void CCalibrateKinect::undistortImages ( const std::vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, std::vector< cv::Mat >* pvUndistorted_ ) const
 {
@@ -937,6 +944,8 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
 	cv::Mat_<int> _cvmImageResolution; std::vector<int> vTemp;
 	cFSRead ["cvmImageResolution"] >> _cvmImageResolution;
 	_cvmImageResolution >> vTemp;	vTemp >> _vImageResolution;
+	_nRows = _vImageResolution(1);
+	_nCols = _vImageResolution(0);
 	cFSRead ["mIRK"] >> _mIRK;
 	cFSRead ["mIRDistCoeffs"] >> _mIRDistCoeffs;
 	cFSRead ["cvmRelativeRotation"] >> _cvmRelativeRotation;
