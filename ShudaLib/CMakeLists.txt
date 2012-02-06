@@ -1,7 +1,10 @@
 cmake_minimum_required (VERSION 2.6)
 
 project (ShudaLib)
-FIND_PACKAGE( OpenCV REQUIRED )
+find_package( OpenCV REQUIRED )
+
+find_package( CUDA )
+include(FindCUDA)
 
 if( UNIX )
     message(STATUS "platform: UNIX")
@@ -23,17 +26,22 @@ endif()
 find_package(PCL 1.2 REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 #find all files
-file(GLOB HEADERS "[a-zA-Z]*.h" "[a-zA-Z]*.hpp" )
+file(GLOB HEADERS "[a-zA-Z]*.h" "[a-zA-Z]*.hpp"   )
 message(STATUS "header names: ${HEADERS}")
 file(GLOB SOURCES "[a-zA-Z]*.cpp")
 message(STATUS "source names: ${SOURCES}")
 file(GLOB TESTERS "test/[a-zA-Z]*.cpp")
 message(STATUS "tester names: ${TESTERS}")
+file(GLOB CUDASOURCES "cuda/[a-zA-Z]*.cu")
+message(STATUS "cuda sources names: ${CUDASOURCES}")
+file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h")
+message(STATUS "cuda sources names: ${CUDAHEADERS}")
+
 
 add_library( ShudaLib ${SOURCES} ${HEADERS} )
-
+cuda_add_library( CudaLib ${CUDASOURCES} ${CUDAHEADERS} ) 
 add_executable( TestShudaLib ${TESTERS} )
-target_link_libraries( TestShudaLib ${OpenCV_LIBS} )
+target_link_libraries( TestShudaLib ${OpenCV_LIBS} CudaLib )
 
 if(MSVC)
 	if(NOT BUILD_SHARED_LIBS)
@@ -44,6 +52,14 @@ if(MSVC)
 			MINSIZEREL_POSTFIX "${LIB_TARGET_SUFFIX}"
 			RELWITHDEBINFO_POSTFIX "${LIB_TARGET_SUFFIX}"
 		)
+		# correct library names
+        set_target_properties(CudaLib PROPERTIES
+			DEBUG_POSTFIX "${LIB_TARGET_SUFFIX}d"
+			RELEASE_POSTFIX "${LIB_TARGET_SUFFIX}"
+			MINSIZEREL_POSTFIX "${LIB_TARGET_SUFFIX}"
+			RELWITHDEBINFO_POSTFIX "${LIB_TARGET_SUFFIX}"
+		)
+
         # correct executable names
 		set_target_properties(TestShudaLib PROPERTIES
 			DEBUG_POSTFIX "${LIB_TARGET_SUFFIX}d"
@@ -56,7 +72,8 @@ endif()
 
 #install 
 install( TARGETS ShudaLib  DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
+install( TARGETS CudaLib   DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
 install( TARGETS TestShudaLib DESTINATION "${PROJECT_SOURCE_DIR}/bin" )
-install( FILES ${HEADERS} DESTINATION "${PROJECT_SOURCE_DIR}/include")
+install( FILES ${HEADERS} ${CUDAHEADERS} DESTINATION "${PROJECT_SOURCE_DIR}/include")
 
 

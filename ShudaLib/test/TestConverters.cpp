@@ -3,6 +3,7 @@
 #include "../Converters.hpp"
 #include "../CVUtil.hpp"
 #include "../EigenUtil.hpp"
+#include "TestCuda.h"
 #include <vector>
 using namespace btl::utility;
 
@@ -339,6 +340,7 @@ int main()
 	{
 		testException();
 		testCVUtil();
+		testCuda();
 		//try Cpp
 		tryCpp();
 		//try CV
