@@ -16,7 +16,7 @@
 #include "calibratekinect.hpp"
 #include <XnCppWrapper.h>
 #include <opencv/highgui.h>
-
+#include <opencv2/gpu/gpu.hpp>
 namespace btl{
 namespace extra{
 namespace videosource{
@@ -86,12 +86,15 @@ protected:
     xn::DepthMetaData  _cDepthMD;
 	//rgb
     cv::Mat       _cvmRGB;
+	cv::Mat       _cvmUndistRGB;
+	cv::gpu::GpuMat _cvgmRGB;
+	cv::gpu::GpuMat _cvgmUndistRGB;
 	//depth
     cv::Mat       _cvmDepth;
 	cv::Mat 	  _cvmUndistDepth;
 	//rgb pyramid
 	std::vector< cv::Mat > _vcvmPyramidRGBs;
-	cv::Mat       _cvmUndistRGB;
+
 	//depth pyramid (need to be initially allocated in constructor)
 	std::vector< cv::Mat > _vcvmPyramidDepths;
 	cv::Mat		  _cvmAlignedDepthL0;//640*480

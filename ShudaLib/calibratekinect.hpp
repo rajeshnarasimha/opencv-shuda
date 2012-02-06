@@ -119,7 +119,7 @@ public:
 
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void exportImages(const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
-
+	void gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_  ) const;
 
 protected:	
 	void locate2DCorners(const std::vector< cv::Mat >& vImages_,  const int& nX_, const int& nY_, std::vector< std::vector<cv::Point2f> >* pvv2DCorners_, int nPatternType_ = SQUARE) const;
@@ -137,6 +137,7 @@ protected:
 
     virtual void save();
     virtual void load();
+
 
 
 private:
@@ -188,13 +189,14 @@ private:
 	std::string _strImageDirectory;
 protected:
     Eigen::Vector2i _vImageResolution; //x,y;
+	int _nRows, _nCols;
 // camera intrinsics serialized
     //rgb
     cv::Mat_<double> _mRGBK; 
     cv::Mat_<double> _mRGBInvK; // not serialized
     cv::Mat_<double> _mRGBDistCoeffs;
 	Eigen::Matrix3d	 _eimRGBK;
-	Eigen::Matrix3d     _eimRGBInvK;
+	Eigen::Matrix3d  _eimRGBInvK;
     //ir
     cv::Mat_<double> _mIRK; 
     cv::Mat_<double> _mIRInvK; 
@@ -211,6 +213,8 @@ protected:
 	cv::Mat          _cvmMapXYRGB; //for undistortion
 	cv::Mat          _cvmMapXYIR; //for undistortion
 	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
+	cv::gpu::GpuMat  _cvgmMapX;
+	cv::gpu::GpuMat  _cvgmMapY;
 
 public:
 

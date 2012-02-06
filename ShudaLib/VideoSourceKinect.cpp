@@ -104,23 +104,22 @@ void VideoSourceKinect::getNextFrame()
     
     //XnStatus nRetVal = _cContext.WaitOneUpdateAll( _cIRGen );
     //CHECK_RC ( nRetVal, "UpdateData failed: " );
+		  
+	for( unsigned int i = 0; i < __aKinectWxH[0]; i++)
+	{
+        // notice that OpenCV is use BGR order
+        *pRGB++ = uchar(pRGBImg->nRed);
+        *pRGB++ = uchar(pRGBImg->nGreen);
+        *pRGB++ = uchar(pRGBImg->nBlue);
+		pRGBImg++;
 
-	for ( unsigned int y = 0; y < _cImgMD.YRes(); y++ )
-    {
-        for ( unsigned int x = 0; x < _cImgMD.XRes(); x++ )
-        {
-            // notice that OpenCV is use BGR order
-            *pRGB++ = uchar(pRGBImg->nRed);
-            *pRGB++ = uchar(pRGBImg->nGreen);
-            *pRGB++ = uchar(pRGBImg->nBlue);
-			pRGBImg++;
-
-			*pcvDepth++ = *pDepth++;
-        }
+		*pcvDepth++ = *pDepth++;
     }
-
+	_cvgmRGB.upload(_cvmRGB);
 	// not fullly understand the lense distortion model used by OpenNI.
-	undistortRGB( _cvmRGB, _cvmUndistRGB );
+	//undistortRGB( _cvmRGB, _cvmUndistRGB );
+	gpuUndistortRGB(_cvgmRGB,_cvgmUndistRGB);
+	_cvgmUndistRGB.download(_cvmUndistRGB);
 	undistortRGB( _cvmDepth, _cvmUndistDepth );
 	cvtColor( _cvmUndistRGB, _cvmUndistBW, CV_RGB2GRAY );
 

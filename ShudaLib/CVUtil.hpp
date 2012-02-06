@@ -212,6 +212,46 @@ Eigen::Matrix< T, 2, 1 > distortPoint ( const Eigen::Matrix< T, 2, 1 >& eivUndis
 }
 
 template < class T >
+void map4UndistortImage ( const int& nRows_, const int& nCols_, const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_, cv::Mat* pMapXY, cv::Mat* pMapY = NULL )
+{
+	short *pXYData;
+	float *pXData, *pYData;
+	if(pMapY)
+	{
+		pMapXY->create(nRows_, nCols_, CV_32FC1 );
+		pMapY ->create(nRows_, nCols_, CV_32FC1 );
+		pXData = ( float* ) pMapXY->data; 
+		pYData = ( float* ) pMapY->data; 
+	}
+	else
+	{
+		pMapXY->create ( nRows_, nCols_, CV_16SC2 );
+		pXYData = ( short* ) pMapXY->data; 
+	}
+	
+	for ( int y = 0; y < nRows_; ++y )
+	{
+		for ( int x = 0; x < nCols_; ++x )
+		{
+			Eigen::Matrix< T, 2, 1> undistorted ( x, y );
+			Eigen::Matrix< T, 2, 1> distorted = distortPoint< T > ( undistorted, cvmK_, cvmInvK_, cvmDistCoeffs_ );
+			if(pMapY)
+			{
+				*pXData++ = ( float ) distorted ( 0 );
+				*pYData++ = ( float ) distorted ( 1 );
+			}
+			else
+			{
+				*pXYData++ = short ( distorted ( 0 ) + 0.5 );
+				*pXYData++ = short ( distorted ( 1 ) + 0.5 );
+			}
+		}
+	}
+
+	return;
+}
+/*
+template < class T >
 void map4UndistortImage ( const Eigen::Vector2i& eivImageSize_, const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_, cv::Mat* pMapXY )
 {
     pMapXY->create ( eivImageSize_ ( 1 ), eivImageSize_ ( 0 ), CV_16SC2 );
@@ -237,7 +277,7 @@ void map4UndistortImage ( const Eigen::Vector2i& eivImageSize_, const cv::Mat_< 
 
     return;
 }
-
+*/
 template < class T >
 void undistortImage ( const cv::Mat& cvmImage_,  const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_, cv::Mat* pUndistorted_ )
 {
