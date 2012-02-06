@@ -2,6 +2,7 @@
 
 #include <vector>
 #include "Utility.hpp"
+#include "opencv2/gpu/gpu.hpp"
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 

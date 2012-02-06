@@ -5,6 +5,7 @@
 * @version 1.0
 * @date 2011-02-23
 */
+#include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Utility.hpp"
 
@@ -115,12 +116,17 @@ void VideoSourceKinect::getNextFrame()
 
 		*pcvDepth++ = *pDepth++;
     }
-	_cvgmRGB.upload(_cvmRGB);
 	// not fullly understand the lense distortion model used by OpenNI.
 	//undistortRGB( _cvmRGB, _cvmUndistRGB );
-	gpuUndistortRGB(_cvgmRGB,_cvgmUndistRGB);
+	//undistortIR( _cvmDepth, _cvmUndistDepth );
+
+	_cvgmRGB.upload(_cvmRGB);
+	_cvgmDepth.upload(_cvmDepth);
+	gpuUndistortRGB(_cvgmRGB,&_cvgmUndistRGB);
+	gpuUndistortIR (_cvgmDepth,&_cvgmUndistDepth);
 	_cvgmUndistRGB.download(_cvmUndistRGB);
-	undistortRGB( _cvmDepth, _cvmUndistDepth );
+	_cvgmUndistDepth.download(_cvmUndistDepth);
+	
 	cvtColor( _cvmUndistRGB, _cvmUndistBW, CV_RGB2GRAY );
 
 #ifdef TIMER	
@@ -131,11 +137,12 @@ void VideoSourceKinect::getNextFrame()
     switch( _ePreFiltering )
     {
 		case RAW: //default
-			align( _cvmUndistDepth );
+			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			//alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
 			break;
         case GAUSSIAN:
 			PRINT(_dSigmaSpace);
-			align( _cvmUndistDepth );
+			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
 			{
 				cv::Mat cvmGaussianFiltered;
 				cv::GaussianBlur(_cvmAlignedDepthL0, cvmGaussianFiltered, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
@@ -145,7 +152,7 @@ void VideoSourceKinect::getNextFrame()
         case GAUSSIAN_C1:
 			PRINT(_dThresholdDepth);
 			PRINT(_dSigmaSpace);
-			align( _cvmUndistDepth );
+			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
 			{
 				cv::Mat cvmGaussianFiltered;
 				cv::GaussianBlur(_cvmAlignedDepthL0, cvmGaussianFiltered, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
@@ -155,13 +162,13 @@ void VideoSourceKinect::getNextFrame()
         case GAUSSIAN_C1_FILTERED_IN_DISPARTY:
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
-			align( _cvmUndistDepth );
+			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  );
 			btl::utility::gaussianC1FilterInDisparity<float>( &_cvmAlignedDepthL0, _dSigmaDisparity, _dSigmaSpace );
             break;
 		case BILATERAL_FILTERED_IN_DISPARTY:
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
-			align( _cvmUndistDepth ); //generate _cvmDepthRGBL0
+			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  ); //generate _cvmDepthRGBL0
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
 			break;
 		case PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
@@ -169,7 +176,7 @@ void VideoSourceKinect::getNextFrame()
 			PRINT(_dSigmaSpace);
 			PRINT(_uPyrHeight);
 	//level 0
-			align( _cvmUndistDepth ); //generate _cvmDepthRGBL0
+			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  ); //generate _cvmDepthRGBL0
 			//bilateral filtering in disparity domain
 			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
 			_vcvmPyramidDepths.clear();
@@ -198,11 +205,16 @@ void VideoSourceKinect::getNextFrame()
 	//cout << " getNextFrame() ends."<< endl;
     return;
 }
+void VideoSourceKinect::gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvgmUndistortDepth_ , cv::gpu::GpuMat* pcvgmAligned_)
+{
+	BTL_ASSERT( cvgmUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::align() input must be unsigned short CV_16UC1");
+	BTL_ASSERT( pcvgmAligned_->cols == KINECT_WIDTH && pcvgmAligned_->rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.");
 
-void VideoSourceKinect::align( const cv::Mat& cvUndistortDepth_ )
+}
+void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_)
 {
 	BTL_ASSERT( cvUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::align() input must be unsigned short CV_16UC1");
-	BTL_ASSERT( cvUndistortDepth_.cols == KINECT_WIDTH && cvUndistortDepth_.rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.")
+	BTL_ASSERT( cvUndistortDepth_.cols == KINECT_WIDTH && cvUndistortDepth_.rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.");
 	//align( (const unsigned short*)cvUndistortDepth_.data );
 	const unsigned short* pDepth = (const unsigned short*)cvUndistortDepth_.data;
 	// initialize the Registered depth as NULLs
@@ -232,7 +244,7 @@ void VideoSourceKinect::align( const cv::Mat& cvUndistortDepth_ )
 	//transform from IR coordinate to RGB coordinate
 	transformIR2RGB  ( _pIRWorld, KINECT_WxH, _pRGBWorld );
 	//project RGB coordinate to image to register the depth with rgb image
-	projectRGB       ( _pRGBWorld, KINECT_WxH, _pRGBWorldRGB, &_cvmAlignedDepthL0 );
+	projectRGB       ( _pRGBWorld, KINECT_WxH, _pRGBWorldRGB, &(*pcvAligned_) );
 
 	//cout << "registration() end."<< std::endl;
 }
