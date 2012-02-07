@@ -328,8 +328,8 @@ void tryCVGPU()
 {
 	try
 	{
-		PRINTSTR("try cv::gpu::");
-		cv::Mat src_host = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example.jpg", CV_LOAD_IMAGE_GRAYSCALE);
+		PRINTSTR("try cv::gpu");
+		cv::Mat src_host = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example1.jpg", CV_LOAD_IMAGE_GRAYSCALE);
 		cv::gpu::GpuMat dst, src;
 		src.upload(src_host);
 
