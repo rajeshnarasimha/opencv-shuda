@@ -8,7 +8,6 @@
 using namespace btl::utility;
 #include <opencv2/gpu/gpu.hpp>
 
-
 void testCVUtilOperators()
 {
 	{
@@ -329,7 +328,7 @@ void tryCVGPU()
 	try
 	{
 		PRINTSTR("try cv::gpu");
-		cv::Mat src_host = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example1.jpg", CV_LOAD_IMAGE_GRAYSCALE);
+		cv::Mat src_host = cv::imread("C:\\csxsl\\src\\opencv-shuda\\ShudaLib\\test_data\\example.jpg", CV_LOAD_IMAGE_GRAYSCALE);
 		cv::gpu::GpuMat dst, src;
 		src.upload(src_host);
 
@@ -346,6 +345,16 @@ void tryCVGPU()
 	}
 }
 
+template <bool, typename T1, typename T2> struct Select { typedef T1 type; };
+template <typename T1, typename T2> struct Select<false, T1, T2> { typedef T2 type; };
+void tryCVTypeSelect()
+{
+	PRINTSTR( "template <bool, typename T1, typename T2> struct Select { typedef T1 type; };" );
+	Select<2,float,int>::type f=0.1;
+	PRINT(f);
+	Select<false,float,int>::type i=0.1;
+	PRINT(i);
+}
 void tryCV()
 {
 	PRINTSTR("try opencv.")
@@ -353,6 +362,7 @@ void tryCV()
 	//tryCVMat();
 	//tryCVOperator();
 	//tryCVMatSetTo();
+	tryCVTypeSelect();
 	tryCVGPU();
 }
 
