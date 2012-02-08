@@ -12,6 +12,7 @@
 //turn on timer
 #define TIMER 
 //#define INFO
+#include <boost/shared_ptr.hpp>
 
 #include "calibratekinect.hpp"
 #include <XnCppWrapper.h>
@@ -40,6 +41,10 @@ static unsigned int __aKinectWxH[4] = {KINECT_WxH,KINECT_WxH_L1,KINECT_WxH_L2,KI
 class VideoSourceKinect : public CCalibrateKinect
 {
 public:
+	//type
+	typedef boost::shared_ptr<VideoSourceKinect> tp_shared_ptr;
+
+	//constructor
     VideoSourceKinect();
     virtual ~VideoSourceKinect();
 

@@ -31,9 +31,9 @@ using namespace Eigen;
 
 class CKinectView;
 
-btl::extra::videosource::VideoSourceKinect* _pVS;
-btl::extra::videosource::CKinectView* _pView; 
-btl::extra::CModel* _pModel;
+btl::extra::videosource::VideoSourceKinect::tp_shared_ptr _pVS;
+btl::extra::videosource::CKinectView::tp_shared_ptr _pView; 
+btl::extra::CModel::tp_shared_ptr _pModel;
 
 Eigen::Vector3d _eivCentroid(.0, .0, -1.0 );
 double _dZoom = 1.;
@@ -572,9 +572,9 @@ int main ( int argc, char** argv )
 {
     try
     {
-		_pVS = new btl::extra::videosource::VideoSourceKinect();
-		_pView = new btl::extra::videosource::CKinectView(*_pVS);
-		_pModel = new btl::extra::CModel(*_pVS);
+		_pVS.reset( new btl::extra::videosource::VideoSourceKinect() );
+		_pView.reset( new btl::extra::videosource::CKinectView(*_pVS) );
+		_pModel.reset( new btl::extra::CModel(*_pVS) );
 
         // Fill in the cloud data
         _cloud.width  = 640;
