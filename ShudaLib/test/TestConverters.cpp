@@ -383,11 +383,11 @@ int main()
 	{
 		//testException();
 		//testCVUtil();
-		//testCuda();
+		testCuda();
 		//try Cpp
 		//tryCpp();
 		//try CV
-		tryCV();
+		//tryCV();
 		//try Eigen
 		//tryEigen();
 	}

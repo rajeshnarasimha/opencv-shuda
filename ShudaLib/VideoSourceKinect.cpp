@@ -8,6 +8,7 @@
 #include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Utility.hpp"
+#include "cuda/CudaLib.h"
 
 #include <iostream>
 #include <string>
@@ -209,6 +210,15 @@ void VideoSourceKinect::gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvgmUndisto
 {
 	BTL_ASSERT( cvgmUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::align() input must be unsigned short CV_16UC1");
 	BTL_ASSERT( pcvgmAligned_->cols == KINECT_WIDTH && pcvgmAligned_->rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.");
+	pcvgmAligned_->create(cvgmUndistortDepth_.size(),CV_32FC1);
+	pcvgmAligned_->setTo(0);
+	cv::gpu::GpuMat cvgmIRWorld,cvgmRGBWorld;
+	//unproject the depth map to IR coordinate
+	gpuUnProjectIR		( cvgmUndistortDepth_,_dFxIR,_dFyIR,_uIR,_vIR, &cvgmIRWorld );
+	//transform from IR coordinate to RGB coordinate
+	gpuTransformIR2RGB  ( cvgmIRWorld, &cvgmRGBWorld );
+	//project RGB coordinate to image to register the depth with rgb image
+	gpuProjectRGB       ( cvgmRGBWorld,&(*pcvgmAligned_) );
 
 }
 void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_)
@@ -247,6 +257,15 @@ void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv
 	projectRGB       ( _pRGBWorld, KINECT_WxH, _pRGBWorldRGB, &(*pcvAligned_) );
 
 	//cout << "registration() end."<< std::endl;
+}
+void VideoSourceKinect::gpuUnProjectIR (const cv::gpu::GpuMat& cvgmUndistortDepth_, 
+	const double& dFxIR_, const double& dFyIR_, const double& uIR_, const double& vIR_,
+	cv::gpu::GpuMat* pcvgmIRWorld_ )
+{
+	cv::gpu::GpuMat& cvgmIRWorld_ = *pcvgmIRWorld_;
+	cvgmIRWorld_.create(cvgmUndistortDepth_.size(),CV_32FC3);
+	btl::cuda_util::cudaUnProjectIR(cvgmUndistortDepth_, dFxIR_, dFyIR_, uIR_, vIR_, &cvgmIRWorld_);
+
 }
 void VideoSourceKinect::unprojectIR ( const unsigned short* pCamera_, const int& nN_, double* pWorld_ )
 {
@@ -453,6 +472,16 @@ void VideoSourceKinect::cloneFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
 	{
 		*pcvmDepth_ = _cvmAlignedDepthL0.clone();
 	}
+}
+
+void VideoSourceKinect::gpuTransformIR2RGB( const cv::gpu::GpuMat& cvgmIRWorld_, cv::gpu::GpuMat* cvgmRGBWorld_ )
+{
+	throw std::exception("The method or operation is not implemented.");
+}
+
+void VideoSourceKinect::gpuProjectRGB( const cv::gpu::GpuMat& cvgmRGBWorld_, cv::gpu::GpuMat* pcvgmAligned_ )
+{
+	throw std::exception("The method or operation is not implemented.");
 }
 
 

@@ -6,7 +6,7 @@
 //using namespace boost::posix_time;
 //using namespace boost::gregorian;
 using namespace std;
-
+#include <opencv2/gpu/gpu.hpp>
 #include "../cuda/CudaLib.h"
 #include "../OtherUtil.hpp"
 
@@ -16,43 +16,23 @@ int testCuda()
 	const int nRow = 4;
 	const int nCol = 6;
 	const int N = nRow*nCol;
-    float *pDepth, *pDisparity, *pDepthResult;
+	cv::Mat cvmDepth( nRow,nCol,CV_32F );
+	cv::Mat cvmDisparity,cvmResult;
 
-    // allocate the memory on the CPU
-	pDepth     = (float*)malloc( N * sizeof(float) );
-	pDisparity = (float*)malloc( N * sizeof(float) );
-	pDepthResult = (float*)malloc( N * sizeof(float) );
-
+	float* pDepth = (float*) cvmDepth.data;
     // fill the arrays 'a' and 'b' on the CPU
     for (int i=0; i<N; i++) {
-        pDepth[i] = i;
-        pDisparity[i] = 0;
+        *pDepth++ = i;
     }
 
-    //time_duration cTD0;
-    //ptime cT0 ( microsec_clock::local_time() );
-
-    btl::cuda_util::cudaDepth2Disparity( pDepth, nRow, nCol, pDisparity ); 
-	btl::cuda_util::cudaDisparity2Depth( pDisparity, nRow, nCol, pDepthResult ); 
-    //ptime cT1 ( microsec_clock::local_time() );
-    //time_duration cTDAll = cT1 - cT0 ;
-
-    //cout << " Overall            = " << cTDAll << endl;
-    
-    // verify that the GPU did the work we requested
-    bool success = true;
-    for (int i=0; i<N; i++) {
-		cout << pDepth[i] << " + " << pDisparity[i] <<  " + " << pDepthResult[i] << endl; 
-    }
-    
-    //ptime cT2 ( microsec_clock::local_time() );
-    //time_duration cTDP = cT2 - cT1 ;
-
-    //cout << " Check result       = " << cTDP << endl;
-
-    // free the memory we allocated on the CPU
-    free( pDepth );
-    free( pDisparity );
-
+	cv::gpu::GpuMat cvgmDepth,cvgmDisparity,cvgmResult;
+	cvgmDepth.upload(cvmDepth);
+	PRINT(cvmDepth);
+    btl::cuda_util::cudaDepth2Disparity( cvgmDepth, &cvgmDisparity ); 
+	btl::cuda_util::cudaDisparity2Depth( cvgmDisparity, &cvgmResult ); 
+	cvgmDisparity.download(cvmDisparity);
+	PRINT(cvmDisparity);
+	cvgmResult.download(cvmResult);
+	PRINT(cvmResult);
     return 0;
 }

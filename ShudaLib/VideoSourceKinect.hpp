@@ -82,6 +82,11 @@ public:
 	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
 	//un-project individual depth
 	void unprojectRGBGL ( const cv::Mat& cvmDepth_, const int& r,const int& c, double* pWorld_, int nLevel /*= 0*/ ); 
+	void gpuUnProjectIR (const cv::gpu::GpuMat& cvgmUndistortDepth_, 
+		const double& dFxIR_, const double& dFyIR_, const double& uIR_, const double& vIR_, 
+		cv::gpu::GpuMat* pcvgmIRWorld_ );
+	void gpuTransformIR2RGB( const cv::gpu::GpuMat& cvgmIRWorld_, cv::gpu::GpuMat* cvgmRGBWorld_ );
+	void gpuProjectRGB( const cv::gpu::GpuMat& cvgmRGBWorld_, cv::gpu::GpuMat* pcvgmAligned_ );
 
 protected:
 	//openni

@@ -16,85 +16,88 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#include <opencv2/gpu/gpu.hpp>
+#include <opencv2/gpu/devmem2d.hpp>
+#include "common.hpp" //copied from opencv
+
 namespace btl
 {
 namespace cuda_util
 {
 
-__global__ void kernelDepth2Disparity( const float *pDepth_, float *pDisparity_ ) {
-    int nX = blockIdx.x;
-	int nY = blockIdx.y; // built-in variable defined by CUDA.
-	int nIdx = nX + nY*gridDim.x;
-                          // cuda allow 2D blocks
-	if(fabsf(pDepth_[nIdx]) > 1.0e-38 )
-		pDisparity_[nIdx] = 1.f/pDepth_[nIdx] ;
-	else
-		pDisparity_[nIdx] = 1.0e+38;
-}
-
-__global__ void kernelDisparity2Depth( const float *pDisparity_, float *pDepth_ ) {
-    int nX = blockIdx.x;
-	int nY = blockIdx.y; // built-in variable defined by CUDA.
-	int nIdx = nX + nY*gridDim.x;
-                          // cuda allow 2D blocks
-	if(fabsf(pDisparity_[nIdx]) > 1.0e-38 )
-		pDepth_[nIdx] = 1.f/pDisparity_[nIdx] ;
-	else
-		pDepth_[nIdx] = 1.0e+38;
-}
-
-
-int cudaDepth2Disparity( const float* pDepth_, const int& nRow_, const int& nCol_, float *pDisparity_  )
+__global__ void kernelInverse(cv::gpu::DevMem2Df cvgmDepth_, cv::gpu::DevMem2Df cvgmDisparity_)
 {
-	int nSize = nRow_*nCol_;
-    // handler of GPU memory
-    float *dev_pDepth, *dev_pDisparity;
+    const int nX = blockDim.x * blockIdx.x + threadIdx.x;
+    const int nY = blockDim.y * blockIdx.y + threadIdx.y;
 
-    // allocate the memory on the GPU
-	cudaMalloc( (void**)&dev_pDepth, nSize * sizeof(float) );
-	cudaMalloc( (void**)&dev_pDisparity, nSize * sizeof(float) );
-
-    // copy the arrays 'a' and 'b' to the GPU
-	cudaMemcpy( dev_pDepth,     pDepth_,     nSize * sizeof(float), cudaMemcpyHostToDevice );
-
-	dim3    blocks(nCol_,nRow_);
-    kernelDepth2Disparity<<<blocks,1>>>( dev_pDepth, dev_pDisparity );
-
-    // copy the array 'c' back from the GPU to the CPU
-	cudaMemcpy( pDisparity_, dev_pDisparity, nSize * sizeof(float), cudaMemcpyDeviceToHost );
-
-    // free the memory we allocated on the GPU
-	cudaFree( dev_pDepth );
-	cudaFree( dev_pDisparity );
-   
-    return 0;
+	if(fabsf(cvgmDepth_.ptr(nY)[nX]) > 1.0e-38 )
+		cvgmDisparity_.ptr(nY)[nX] = 1.f/cvgmDepth_.ptr(nY)[nX];
+	else
+		cvgmDisparity_.ptr(nY)[nX] = 1.0e+38;
 }
 
-int cudaDisparity2Depth( const float* pDisparity_, const int& nRow_, const int& nCol_, float *pDepth_  )
+void cudaDepth2Disparity( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pcvgmDisparity_ )
 {
-	int nSize = nRow_*nCol_;
-    // handler of GPU memory
-    float *dev_pDepth, *dev_pDisparity;
-
-    // allocate the memory on the GPU
-	cudaMalloc( (void**)&dev_pDepth, nSize * sizeof(float) );
-	cudaMalloc( (void**)&dev_pDisparity, nSize * sizeof(float) );
-
-    // copy the arrays 'a' and 'b' to the GPU
-	cudaMemcpy( dev_pDisparity, pDisparity_, nSize * sizeof(float), cudaMemcpyHostToDevice );
-
-	dim3    blocks(nCol_,nRow_);
-	kernelDisparity2Depth<<<blocks,1>>>( dev_pDisparity, dev_pDepth );
-
-    // copy the array 'c' back from the GPU to the CPU
-	cudaMemcpy( pDepth_, dev_pDepth, nSize * sizeof(float), cudaMemcpyDeviceToHost );
-
-    // free the memory we allocated on the GPU
-	cudaFree( dev_pDepth );
-	cudaFree( dev_pDisparity );
-   
-    return 0;
+	pcvgmDisparity_->create(cvgmDepth_.size(),CV_32F);
+	//define grid and block
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmDepth_.cols, block.x), cv::gpu::divUp(cvgmDepth_.rows, block.y));
+	//run kernel
+	kernelInverse<<<grid,block>>>( cvgmDepth_,*pcvgmDisparity_ );
 }
+
+void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat* pcvgmDepth_ )
+{
+	pcvgmDepth_->create(cvgmDisparity_.size(),CV_32F);
+	//define grid and block
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmDisparity_.cols, block.x), cv::gpu::divUp(cvgmDisparity_.rows, block.y));
+	//run kernel
+	kernelInverse<<<grid,block>>>( cvgmDisparity_,*pcvgmDepth_ );
+}
+
+//global constant used by kernelUnprojectIR() and cudaUnProjectIR()
+__constant__ double _aIRCameraParameter[4];// f_x, f_y, u, v for IR camera; constant memory declaration
+
+__global__ void kernelUnprojectIR(cv::gpu::DevMem2D_<unsigned short> cvgmDepth_,
+	cv::gpu::DevMem2D_<float3> cvgmIRWorld_)
+{
+    const int nX = blockDim.x * blockIdx.x + threadIdx.x;
+    const int nY = blockDim.y * blockIdx.y + threadIdx.y;
+
+	if (nX < cvgmIRWorld_.cols && nY < cvgmIRWorld_.rows)
+    {
+		float3& temp = cvgmIRWorld_.ptr(nY)[nX];
+        temp.z = (cvgmDepth_.ptr(nY)[nX] + 5) /1000.f;//convert to meter z 5 million meter is added according to experience. as the OpenNI
+		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+		temp.x = (nX - _aIRCameraParameter[2]) / _aIRCameraParameter[0] * temp.z;
+		temp.y = (nY - _aIRCameraParameter[3]) / _aIRCameraParameter[1] * temp.z;
+    }
+	return;
+}
+
+void cudaUnProjectIR(const cv::gpu::GpuMat& cvgmDepth_ ,
+	const double& dFxIR_, const double& dFyIR_, const double& uIR_, const double& vIR_, 
+	cv::gpu::GpuMat* pcvgmIRWorld_ )
+{
+	//constant definition
+	size_t sN = sizeof(double) * 4;
+	double* pIRCameraParameters = (double*) malloc( sN );
+	*pIRCameraParameters++  = dFxIR_;
+	*pIRCameraParameters++  = dFyIR_;
+	*pIRCameraParameters++  = uIR_;
+	*pIRCameraParameters    = vIR_;
+	cudaSafeCall( cudaMemcpyToSymbol(_aIRCameraParameter, pIRCameraParameters, sN) );
+	//define grid and block
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmDepth_.cols, block.x), cv::gpu::divUp(cvgmDepth_.rows, block.y));
+	//run kernel
+    kernelUnprojectIR<<<grid,block>>>( cvgmDepth_,*pcvgmIRWorld_ );
+	//release temporary pointers
+	free(pIRCameraParameters);
+	return;
+}
+
 
 }//cuda_util
 }//btl
