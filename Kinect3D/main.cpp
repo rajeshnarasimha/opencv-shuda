@@ -352,7 +352,8 @@ void display ( void )
 {
 	//load data from video source and model
 	_cVS._uPyrHeight = _uPyrHeight;
-    _cM.loadPyramid();
+    //_cM.loadPyramid();
+	_cVS.getNextFrame();
 	_cVS.centroidGL(&_eivCentroid);
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -431,9 +432,10 @@ void init ( )
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
+	_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
 	_cVS._uPyrHeight = _uPyrHeight;
-	_cM.loadPyramid();
+	_cVS.getNextFrame();
+	//_cM.loadPyramid();
 	_uTexture = _cView.LoadTexture( _cVS.cvRGB() );
 
 	_uDisk = glGenLists(1);

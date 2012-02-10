@@ -37,9 +37,9 @@ message(STATUS "cuda sources names: ${CUDASOURCES}")
 file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h")
 message(STATUS "cuda sources names: ${CUDAHEADERS}")
 
-
+cuda_add_library( CudaLib ${CUDASOURCES} ${CUDAHEADERS} )
 add_library( ShudaLib ${SOURCES} ${HEADERS} )
-cuda_add_library( CudaLib ${CUDASOURCES} ${CUDAHEADERS} ) 
+ 
 add_executable( TestShudaLib ${TESTERS} )
 target_link_libraries( TestShudaLib ${OpenCV_LIBS} CudaLib )
 

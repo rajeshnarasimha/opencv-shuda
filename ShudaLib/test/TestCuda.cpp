@@ -10,7 +10,27 @@ using namespace std;
 #include "../cuda/CudaLib.h"
 #include "../OtherUtil.hpp"
 
-int testCuda()
+void tryCudaFloat3()
+{
+	PRINTSTR("try Cuda float3 type:");
+	const int nRow = 4;
+	const int nCol = 6;
+	const int N = nRow*nCol*3;
+	cv::Mat cvmDepth( nRow,nCol,CV_32FC3 );
+	
+	float* pDepth = (float*) cvmDepth.data;
+	// fill the arrays 'a' and 'b' on the CPU
+	for (int i=0; i<N; i++) {
+		*pDepth++ = i;
+	}
+	PRINT(cvmDepth);
+	cv::gpu::GpuMat cvgmDepth, cvgmOut; cvgmDepth.upload(cvmDepth);
+	btl::cuda_util::cudaTestFloat3(cvgmDepth,&cvgmOut);
+	cv::Mat cvmOut;
+	cvgmOut.download(cvmOut);
+	PRINT(cvmOut);
+}
+void testCudaDisparity()
 {
 	PRINTSTR("test Cuda: cudaDepth2Disparity() && cudaDisparity2Depth()");
 	const int nRow = 4;
@@ -34,5 +54,10 @@ int testCuda()
 	PRINT(cvmDisparity);
 	cvgmResult.download(cvmResult);
 	PRINT(cvmResult);
-    return 0;
+    return;
+}
+
+void cudaTestTry()
+{
+	tryCudaFloat3();
 }
