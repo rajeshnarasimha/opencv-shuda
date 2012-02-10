@@ -405,7 +405,7 @@ void bilateralFilterInDisparity(cv::Mat* pcvDepth_, double dSigmaDisparity_, dou
 	BTL_ASSERT(pcvDepth_->channels()==1,"CVUtil::bilateralFilterInDisparity(): the input must be 1 channel depth map")
 	cv::Mat& cvDepth_ = *pcvDepth_;
 	cv::Mat cvDisparity, cvFilteredDisparity;
-
+	
 	btl::utility::convert2DisparityDomain< T >( cvDepth_, &cvDisparity );
 	cv::bilateralFilter(cvDisparity, cvFilteredDisparity,0, dSigmaDisparity_, dSigmaSpace_); // filter size has to be an odd number.
 	btl::utility::convert2DepthDomain< T >( cvFilteredDisparity,&cvDepth_, cvDepth_.type() );

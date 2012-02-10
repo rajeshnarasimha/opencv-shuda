@@ -77,8 +77,11 @@ public:
 	void alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_);
 	void gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvUndistortDepth_ , cv::gpu::GpuMat* pcvAligned_);
 	void unprojectIR( const unsigned short* pCamera_,const int& nN_, double* pWorld_ );
+	void unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* cvmIRWorld_);
 	void transformIR2RGB( const double* pIR_,const int& nN_, double* pRGB_ );
+	void transformIR2RGB ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld );
 	void projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ );
+	void projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ );
 	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
 	//un-project individual depth
 	void unprojectRGBGL ( const cv::Mat& cvmDepth_, const int& r,const int& c, double* pWorld_, int nLevel /*= 0*/ ); 
@@ -87,6 +90,9 @@ public:
 		cv::gpu::GpuMat* pcvgmIRWorld_ );
 	void gpuTransformIR2RGB( const cv::gpu::GpuMat& cvgmIRWorld_, cv::gpu::GpuMat* cvgmRGBWorld_ );
 	void gpuProjectRGB( const cv::gpu::GpuMat& cvgmRGBWorld_, cv::gpu::GpuMat* pcvgmAligned_ );
+	void findRange(const cv::Mat& cvmMat_);
+	void findRange(const cv::gpu::GpuMat& cvgmMat_);
+	void alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_);
 
 protected:
 	//openni
@@ -112,7 +118,10 @@ protected:
 	std::vector< cv::Mat > _vcvmPyramidDepths;
 	cv::Mat		  _cvmAlignedDepthL0;//640*480
 	cv::gpu::GpuMat _cvgmAlignedDepthL0;
-
+	//temporary file but will be faster to be allocated only once.
+	cv::gpu::GpuMat _cvgmIRWorld,_cvgmRGBWorld;
+	cv::gpu::GpuMat _cvgmDisparity;
+	cv::gpu::GpuMat _cvgmDisparityFiltered;
 	//black and white
 	cv::Mat 	  _cvmUndistBW;
 	// temporary variables allocated in constructor and released in destructor

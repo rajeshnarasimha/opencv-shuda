@@ -5,6 +5,7 @@
 * @version 1.0
 * @date 2011-02-23
 */
+//#define INFO
 #include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Utility.hpp"
@@ -68,12 +69,23 @@ VideoSourceKinect::VideoSourceKinect ()
 	// refreshed for every frame
 	_pRGBWorld    = new double[ KINECT_WxHx3 ];//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	_pRGBWorldRGB = new double[ KINECT_WxHx3 ];//aligned to RGB image of the X,Y,Z coordinate
+	// pre-allocate cvgm to increase the speed
+	_cvgmIRWorld .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
+	_cvgmRGBWorld.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
+	_cvgmAlignedDepthL0.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
+	_cvgmDisparity.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
+	_cvgmDisparityFiltered.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
 
+	//other
     _ePreFiltering = RAW; 
 	//definition of parameters
 	_dThresholdDepth = 10;
 	_dSigmaSpace = 2;
 	_uPyrHeight = 1;
+
+	//default centroid follows opencv-convention
+	_dXCentroid = _dYCentroid = 0;
+	_dZCentroid = 1.0;
 
 	std::cout << " Done. " << std::endl;
 }
@@ -86,7 +98,40 @@ VideoSourceKinect::~VideoSourceKinect()
 	delete [] _pRGBWorld;
 	delete [] _pRGBWorldRGB;
 }
-
+void VideoSourceKinect::findRange(const cv::gpu::GpuMat& cvgmMat_)
+{
+	cv::Mat cvmMat;
+	cvgmMat_.download(cvmMat);
+	findRange(cvmMat);
+}
+void VideoSourceKinect::findRange(const cv::Mat& cvmMat_)
+{
+	//BTL_ASSERT(cvmMat_.type()==CV_32F,"findRange() must be CV_32F");
+	int N,s;
+	switch(cvmMat_.type())
+	{
+	case CV_32F:
+		N = cvmMat_.cols*cvmMat_.rows;
+		s = 1;
+		break;
+	case CV_32FC3:
+		N = cvmMat_.cols*cvmMat_.rows*3;
+		s = 3;
+		break;
+	}
+	float* pData = (float*) cvmMat_.data;
+	float fMin =  1.0e+20f;
+	float fMax = -1.0e+20f;
+	for( int i=s-1; i< N; i+=s)
+	{
+		float tmp = *pData ++;
+		fMin = fMin > tmp? tmp : fMin;
+		fMax = fMax < tmp? tmp : fMax;
+	}
+	PRINT(fMax);
+	PRINT(fMin);
+	return;
+}
 void VideoSourceKinect::getNextFrame()
 {
     //get next frame
@@ -125,8 +170,7 @@ void VideoSourceKinect::getNextFrame()
 	_cvgmDepth.upload(_cvmDepth);
 	gpuUndistortRGB(_cvgmRGB,&_cvgmUndistRGB);
 	gpuUndistortIR (_cvgmDepth,&_cvgmUndistDepth);
-	_cvgmUndistRGB.download(_cvmUndistRGB);
-	_cvgmUndistDepth.download(_cvmUndistDepth);
+	//findRange(_cvgmUndistDepth);
 	
 	cvtColor( _cvmUndistRGB, _cvmUndistBW, CV_RGB2GRAY );
 
@@ -139,11 +183,14 @@ void VideoSourceKinect::getNextFrame()
     {
 		case RAW: //default
 			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			_cvgmAlignedDepthL0.download(_cvmAlignedDepthL0);
 			//alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
 			break;
         case GAUSSIAN:
 			PRINT(_dSigmaSpace);
-			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
+			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			_cvgmAlignedDepthL0.download(_cvmAlignedDepthL0);
+			//alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
 			{
 				cv::Mat cvmGaussianFiltered;
 				cv::GaussianBlur(_cvmAlignedDepthL0, cvmGaussianFiltered, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
@@ -153,7 +200,9 @@ void VideoSourceKinect::getNextFrame()
         case GAUSSIAN_C1:
 			PRINT(_dThresholdDepth);
 			PRINT(_dSigmaSpace);
-			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
+			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			_cvgmAlignedDepthL0.download(_cvmAlignedDepthL0);
+			//alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0 );
 			{
 				cv::Mat cvmGaussianFiltered;
 				cv::GaussianBlur(_cvmAlignedDepthL0, cvmGaussianFiltered, cv::Size(0,0), _dSigmaSpace, _dSigmaSpace);
@@ -163,23 +212,35 @@ void VideoSourceKinect::getNextFrame()
         case GAUSSIAN_C1_FILTERED_IN_DISPARTY:
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
-			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  );
+			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			_cvgmAlignedDepthL0.download(_cvmAlignedDepthL0);
+			//alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  );
 			btl::utility::gaussianC1FilterInDisparity<float>( &_cvmAlignedDepthL0, _dSigmaDisparity, _dSigmaSpace );
             break;
 		case BILATERAL_FILTERED_IN_DISPARTY:
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
-			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  ); //generate _cvmDepthRGBL0
-			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
+			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			btl::cuda_util::cudaDepth2Disparity(_cvgmAlignedDepthL0, &_cvgmDisparity );
+			btl::cuda_util::cudaBilateralFiltering(_cvgmDisparity,_dSigmaSpace,_dSigmaDisparity,&_cvgmDisparityFiltered);
+			btl::cuda_util::cudaDisparity2Depth(_cvgmDisparity, &_cvgmAlignedDepthL0 );
+			_cvgmAlignedDepthL0.download(_cvmAlignedDepthL0);
+			//alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  ); //generate _cvmDepthRGBL0
+			//btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
 			break;
 		case PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
 			PRINT(_dSigmaDisparity);
 			PRINT(_dSigmaSpace);
 			PRINT(_uPyrHeight);
-	//level 0
-			alignDepthWithRGB( _cvmUndistDepth, &_cvmAlignedDepthL0  ); //generate _cvmDepthRGBL0
+			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedDepthL0 );
+			btl::cuda_util::cudaDepth2Disparity(_cvgmAlignedDepthL0, &_cvgmDisparity );
+			btl::cuda_util::cudaBilateralFiltering(_cvgmDisparity,_dSigmaSpace,_dSigmaDisparity,&_cvgmDisparityFiltered);
+			btl::cuda_util::cudaDisparity2Depth(_cvgmDisparity, &_cvgmAlignedDepthL0 );
+			_cvgmAlignedDepthL0.download(_cvmAlignedDepthL0);
+			_cvgmUndistRGB.download(_cvmUndistRGB);
+			//alignDepthWithRGB2( _cvmUndistDepth, &_cvmAlignedDepthL0  ); //generate _cvmDepthRGBL0
 			//bilateral filtering in disparity domain
-			btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
+			//btl::utility::bilateralFilterInDisparity<float>(&_cvmAlignedDepthL0,_dSigmaDisparity,_dSigmaSpace);
 			_vcvmPyramidDepths.clear();
 			_vcvmPyramidRGBs.clear();
 			_vcvmPyramidDepths.push_back(_cvmAlignedDepthL0);
@@ -206,20 +267,65 @@ void VideoSourceKinect::getNextFrame()
 	//cout << " getNextFrame() ends."<< endl;
     return;
 }
+
 void VideoSourceKinect::gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvgmUndistortDepth_ , cv::gpu::GpuMat* pcvgmAligned_)
 {
-	BTL_ASSERT( cvgmUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::align() input must be unsigned short CV_16UC1");
-	BTL_ASSERT( pcvgmAligned_->cols == KINECT_WIDTH && pcvgmAligned_->rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.");
-	pcvgmAligned_->create(cvgmUndistortDepth_.size(),CV_32FC1);
-	pcvgmAligned_->setTo(0);
-	cv::gpu::GpuMat cvgmIRWorld,cvgmRGBWorld;
-	//unproject the depth map to IR coordinate
-	gpuUnProjectIR		( cvgmUndistortDepth_,_dFxIR,_dFyIR,_uIR,_vIR, &cvgmIRWorld );
-	//transform from IR coordinate to RGB coordinate
-	gpuTransformIR2RGB  ( cvgmIRWorld, &cvgmRGBWorld );
-	//project RGB coordinate to image to register the depth with rgb image
-	gpuProjectRGB       ( cvgmRGBWorld,&(*pcvgmAligned_) );
+	BTL_ASSERT( cvgmUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::gpuAlignDepthWithRGB() input must be unsigned short CV_16UC1");
 
+	pcvgmAligned_->setTo(0);
+
+	//unproject the depth map to IR coordinate
+	gpuUnProjectIR		( cvgmUndistortDepth_,_dFxIR,_dFyIR,_uIR,_vIR, &_cvgmIRWorld );
+	//findRange(cvgmIRWorld);
+	//transform from IR coordinate to RGB coordinate
+	gpuTransformIR2RGB  ( _cvgmIRWorld, &_cvgmRGBWorld );
+	//findRange(cvgmRGBWorld);
+	//project RGB coordinate to image to register the depth with rgb image
+	//cv::gpu::GpuMat cvgmAligned_(cvgmUndistortDepth_.size(),CV_32FC1);
+	gpuProjectRGB       ( _cvgmRGBWorld, pcvgmAligned_ );
+	//findRange(*pcvgmAligned_);
+
+}
+void VideoSourceKinect::gpuUnProjectIR (const cv::gpu::GpuMat& cvgmUndistortDepth_, 
+	const double& dFxIR_, const double& dFyIR_, const double& uIR_, const double& vIR_,
+	cv::gpu::GpuMat* pcvgmIRWorld_ )
+{
+	cv::gpu::GpuMat& cvgmIRWorld_ = *pcvgmIRWorld_;
+	btl::cuda_util::cudaUnProjectIR(cvgmUndistortDepth_, dFxIR_, dFyIR_, uIR_, vIR_, &cvgmIRWorld_);
+	return;
+}
+void VideoSourceKinect::gpuTransformIR2RGB( const cv::gpu::GpuMat& cvgmIRWorld_, cv::gpu::GpuMat* pcvgmRGBWorld_ )
+{
+	cv::gpu::GpuMat& cvgmRGBWorld_ = *pcvgmRGBWorld_;
+	btl::cuda_util::cudaTransformIR2RGB(cvgmIRWorld_, _aR, _aRT, &cvgmRGBWorld_);
+	return;
+}
+void VideoSourceKinect::gpuProjectRGB( const cv::gpu::GpuMat& cvgmRGBWorld_, cv::gpu::GpuMat* pcvgmAligned_ )
+{
+	cv::gpu::GpuMat& cvgmAligned_ = *pcvgmAligned_;
+	btl::cuda_util::cudaProjectRGB(cvgmRGBWorld_, _dFxRGB, _dFyRGB, _uRGB, _vRGB, &cvgmAligned_ );
+	return;
+}
+void VideoSourceKinect::alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_)
+{
+	BTL_ASSERT( cvUndistortDepth_.type() == CV_16UC1, "VideoSourceKinect::align() input must be unsigned short CV_16UC1");
+	BTL_ASSERT( cvUndistortDepth_.cols == KINECT_WIDTH && cvUndistortDepth_.rows == KINECT_HEIGHT, "VideoSourceKinect::align() input must be 640x480.");
+	//align( (const unsigned short*)cvUndistortDepth_.data );
+	const unsigned short* pDepth = (const unsigned short*)cvUndistortDepth_.data;
+	// initialize the Registered depth as NULLs
+	_cvmAlignedDepthL0.setTo(0);
+	cv::Mat cvmIRWorld (cvUndistortDepth_.size(),CV_32FC3);
+	//unproject the depth map to IR coordinate
+	unprojectIR      ( cvUndistortDepth_, &cvmIRWorld );
+	//findRange(cvmIRWorld);
+	cv::Mat cvmRGBWorld(cvUndistortDepth_.size(),CV_32FC3);
+	//transform from IR coordinate to RGB coordinate
+	transformIR2RGB  ( cvmIRWorld, &cvmRGBWorld );
+	//findRange(cvmRGBWorld);
+	//project RGB coordinate to image to register the depth with rgb image
+	projectRGB       ( cvmRGBWorld,&(*pcvAligned_) );
+	//findRange(*pcvAligned_);
+	return;
 }
 void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_)
 {
@@ -228,6 +334,7 @@ void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv
 	//align( (const unsigned short*)cvUndistortDepth_.data );
 	const unsigned short* pDepth = (const unsigned short*)cvUndistortDepth_.data;
 	// initialize the Registered depth as NULLs
+	_cvmAlignedDepthL0.setTo(0);
 	double* pM = _pRGBWorldRGB ;
 	for ( int i = 0; i < KINECT_WxH; i++ )
 	{
@@ -235,19 +342,19 @@ void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv
 		*pM++ = 0;
 		*pM++ = 0;
 	}
-	_cvmAlignedDepthL0.setTo(0);
+	
 	//btl::utility::clearMat<float>(0,&_cvmAlignedDepthL0);
 
 	//collecting depths
 	unsigned short* pMovingPxDIR = _pPxDIR;
 	//column-major  
 	for ( unsigned short r = 0; r < KINECT_HEIGHT; r++ )
-	for ( unsigned short c = 0; c < KINECT_WIDTH; c++ )
-	{
-		*pMovingPxDIR++ = c;  	    //x
-		*pMovingPxDIR++ = r;        //y
-		*pMovingPxDIR++ = *pDepth++;//depth
-	}
+		for ( unsigned short c = 0; c < KINECT_WIDTH; c++ )
+		{
+			*pMovingPxDIR++ = c;  	    //x
+			*pMovingPxDIR++ = r;        //y
+			*pMovingPxDIR++ = *pDepth++;//depth
+		}
 
 	//unproject the depth map to IR coordinate
 	unprojectIR      ( _pPxDIR, KINECT_WxH, _pIRWorld );
@@ -255,17 +362,23 @@ void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv
 	transformIR2RGB  ( _pIRWorld, KINECT_WxH, _pRGBWorld );
 	//project RGB coordinate to image to register the depth with rgb image
 	projectRGB       ( _pRGBWorld, KINECT_WxH, _pRGBWorldRGB, &(*pcvAligned_) );
-
 	//cout << "registration() end."<< std::endl;
 }
-void VideoSourceKinect::gpuUnProjectIR (const cv::gpu::GpuMat& cvgmUndistortDepth_, 
-	const double& dFxIR_, const double& dFyIR_, const double& uIR_, const double& vIR_,
-	cv::gpu::GpuMat* pcvgmIRWorld_ )
-{
-	cv::gpu::GpuMat& cvgmIRWorld_ = *pcvgmIRWorld_;
-	cvgmIRWorld_.create(cvgmUndistortDepth_.size(),CV_32FC3);
-	btl::cuda_util::cudaUnProjectIR(cvgmUndistortDepth_, dFxIR_, dFyIR_, uIR_, vIR_, &cvgmIRWorld_);
 
+void VideoSourceKinect::unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* pcvmIRWorld_)
+{
+	float* pWorld_ = (float*) pcvmIRWorld_->data;
+	const unsigned short* pCamera_=  (const unsigned short*) cvmDepth_.data;
+	for(int r = 0; r<cvmDepth_.rows; r++)
+	for(int c = 0; c<cvmDepth_.cols; c++)
+	{
+		* ( pWorld_ + 2 ) = ( *pCamera_ + 5 ) / 1000.f; //convert to meter z 5 million meter is added according to experience. as the OpenNI
+		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+		* pWorld_		  = ( c - _uIR ) / _dFxIR * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+		* ( pWorld_ + 1 ) = ( r - _vIR ) / _dFyIR * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+		pCamera_ ++;
+		pWorld_ += 3;
+	}
 }
 void VideoSourceKinect::unprojectIR ( const unsigned short* pCamera_, const int& nN_, double* pWorld_ )
 {
@@ -289,6 +402,39 @@ void VideoSourceKinect::unprojectIR ( const unsigned short* pCamera_, const int&
 
 	return;
 }
+void VideoSourceKinect::transformIR2RGB  ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld_ )
+{
+	//_aR[0] [1] [2]
+	//   [3] [4] [5]
+	//   [6] [7] [8]
+	//_aT[0]
+	//   [1]
+	//   [2]
+	//  pRGB_ = _aR * ( pIR_ - _aT )
+	//  	  = _aR * pIR_ - _aR * _aT
+	//  	  = _aR * pIR_ - _aRT
+
+	float* pRGB_ = (float*) pcvmRGBWorld_->data;
+	const float* pIR_=  (float*) cvmIRWorld.data;
+	for(int r = 0; r<cvmIRWorld.rows; r++)
+	for(int c = 0; c<cvmIRWorld.cols; c++)
+	{
+		if ( fabs ( * ( pIR_ + 2 ) ) < 0.0001 )
+		{
+			* pRGB_++ = 0;
+			* pRGB_++ = 0;
+			* pRGB_++ = 0;
+		}
+		else
+		{
+			* pRGB_++ = _aR[0] * *pIR_ + _aR[1] * *(pIR_+1) + _aR[2] * *(pIR_+2) - _aRT[0];
+			* pRGB_++ = _aR[3] * *pIR_ + _aR[4] * *(pIR_+1) + _aR[5] * *(pIR_+2) - _aRT[1];
+			* pRGB_++ = _aR[6] * *pIR_ + _aR[7] * *(pIR_+1) + _aR[8] * *(pIR_+2) - _aRT[2];
+		}
+
+		pIR_ += 3;
+	}
+}
 void VideoSourceKinect::transformIR2RGB ( const double* pIR_, const int& nN_, double* pRGB_ )
 {
 	//_aR[0] [1] [2]
@@ -311,14 +457,49 @@ void VideoSourceKinect::transformIR2RGB ( const double* pIR_, const int& nN_, do
 		}
 		else
 		{
-			* pRGB_++ = _aR[0] * *pIR_ + _aR[1] * * ( pIR_ + 1 ) + _aR[2] * * ( pIR_ + 2 ) - _aRT[0];
-			* pRGB_++ = _aR[3] * *pIR_ + _aR[4] * * ( pIR_ + 1 ) + _aR[5] * * ( pIR_ + 2 ) - _aRT[1];
-			* pRGB_++ = _aR[6] * *pIR_ + _aR[7] * * ( pIR_ + 1 ) + _aR[8] * * ( pIR_ + 2 ) - _aRT[2];
+			* pRGB_++ = _aR[0] * *pIR_ + _aR[1] * *(pIR_+1) + _aR[2] * *(pIR_+2) - _aRT[0];
+			* pRGB_++ = _aR[3] * *pIR_ + _aR[4] * *(pIR_+1) + _aR[5] * *(pIR_+2) - _aRT[1];
+			* pRGB_++ = _aR[6] * *pIR_ + _aR[7] * *(pIR_+1) + _aR[8] * *(pIR_+2) - _aRT[2];
 		}
 
 		pIR_ += 3;
 	}
 
+	return;
+}
+void VideoSourceKinect::projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ )
+{
+	//cout << "projectRGB() starts." << std::endl;
+	unsigned short nX, nY;
+	int nIdx1,nIdx2;
+	float dX,dY,dZ;
+
+	CHECK( CV_32FC1 == pcvAlignedRGB_->type(), "the depth pyramid level 1 must be CV_32FC1" );
+	float* pWorld_ = (float*) cvmRGBWorld_.data;
+	float* pDepth = (float*) pcvAlignedRGB_->data;
+
+	for ( int i = 0; i < KINECT_WxH; i++ )
+	{
+		dX = *   pWorld_;
+		dY = * ( pWorld_ + 1 );
+		dZ = * ( pWorld_ + 2 );
+		if ( fabs ( dZ ) > 0.0000001 )
+		{
+			// get 2D image projection in RGB image of the XYZ in the world
+			nX = int( _dFxRGB * dX / dZ + _uRGB + 0.5 );
+			nY = int( _dFyRGB * dY / dZ + _vRGB + 0.5 );
+
+			// set 2D rgb XYZ
+			if ( nX >= 0 && nX < KINECT_WIDTH && nY >= 0 && nY < KINECT_HEIGHT )
+			{
+				nIdx1= nY * KINECT_WIDTH + nX; //1 channel
+				nIdx2= ( nIdx1 ) * 3; //3 channel
+				pDepth    [ nIdx1   ] = float(dZ*1000);
+				//PRINT( nX ); PRINT( nY ); PRINT( pWorld_ );
+			}
+		}
+		pWorld_ += 3;
+	}
 	return;
 }
 void VideoSourceKinect::projectRGB ( double* pWorld_, const int& nN_, double* pRGBWorld_, cv::Mat* pDepthL1_ )
@@ -461,7 +642,6 @@ void VideoSourceKinect::clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vecto
 	}
 	return;
 }
-
 void VideoSourceKinect::cloneFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
 {
 	if (pcvmRGB_)
@@ -474,15 +654,9 @@ void VideoSourceKinect::cloneFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
 	}
 }
 
-void VideoSourceKinect::gpuTransformIR2RGB( const cv::gpu::GpuMat& cvgmIRWorld_, cv::gpu::GpuMat* cvgmRGBWorld_ )
-{
-	throw std::exception("The method or operation is not implemented.");
-}
 
-void VideoSourceKinect::gpuProjectRGB( const cv::gpu::GpuMat& cvgmRGBWorld_, cv::gpu::GpuMat* pcvgmAligned_ )
-{
-	throw std::exception("The method or operation is not implemented.");
-}
+
+
 
 
 

@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 2.6)
 project (RenderingNormal)
 
 find_package(OpenCV REQUIRED)
+find_package( CUDA )
+include(FindCUDA)
 
 if( UNIX )
     include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib/include" )
@@ -12,7 +14,7 @@ if( UNIX )
     set( FLANN_LIBRARY "/usr/local/lib64/libflann.so" )
 
     # set collection of libraries
-    set ( EXTRA_LIBS ${EXTRA_LIBS} ShudaLib OpenNI boost_system boost_filesystem boost_serialization yaml-cpp glut GLU opencv_core
+    set ( EXTRA_LIBS ${EXTRA_LIBS} ShudaLib CudaLib OpenNI boost_system boost_filesystem boost_serialization yaml-cpp glut GLU opencv_core
     opencv_highgui opencv_calib3d opencv_features2d opencv_video opencv_imgproc GLEW)
 
 elseif( WIN32 )
@@ -33,8 +35,9 @@ elseif( WIN32 )
     link_directories ( "C:/csxsl/install/glew_170_win64/lib" )
     if(MSVC)
         set(SHUDALIB optimized ShudaLib debug ShudaLibd)
+	set(CUDALIB  optimized CudaLib  debug CudaLibd)
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
-        set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
+	set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
         boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
     endif()
 

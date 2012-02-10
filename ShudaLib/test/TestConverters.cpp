@@ -383,7 +383,7 @@ int main()
 	{
 		//testException();
 		//testCVUtil();
-		testCuda();
+		cudaTestTry();
 		//try Cpp
 		//tryCpp();
 		//try CV

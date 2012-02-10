@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (Kinect3D)
 find_package( OpenCV )
+find_package( CUDA )
+include(FindCUDA)
 
 if( UNIX )
     include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib/include" )
@@ -31,8 +33,9 @@ elseif( WIN32 )
     link_directories ( "C:/csxsl/install/glew_170_win64/lib" )
     if(MSVC)
         set(SHUDALIB optimized ShudaLib debug ShudaLibd)
-    	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
-        set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
+	set(CUDALIB  optimized CudaLib  debug CudaLibd )
+	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
+        set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
         boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
     endif()
 endif()

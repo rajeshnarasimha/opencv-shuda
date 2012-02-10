@@ -79,12 +79,12 @@ void CModel::convert2PointCloudModelGL(const cv::Mat& cvmDepth_,const cv::Mat& c
 	switch(_eNormalExtraction)
 	{
 	case _FAST:
-		PRINTSTR(  "CModel::_FAST" );
+		//PRINTSTR(  "CModel::_FAST" );
 		btl::utility::normalEstimationGL<double>(_pPointL0,cvmRGB_,pvColor_,pvPt_,pvNormal_,pvX_,pvY_);
 		break;
 	case _PCL:
-		PRINTSTR(  "CModel::_PCL" );
-		PRINT(_nKNearest);
+		//PRINTSTR(  "CModel::_PCL" );
+		//PRINT(_nKNearest);
 		btl::utility::normalEstimationGLPCL<double>(_pPointL0,cvmRGB_,_nKNearest, pvColor_,pvPt_,pvNormal_);
 		break;
 	}
