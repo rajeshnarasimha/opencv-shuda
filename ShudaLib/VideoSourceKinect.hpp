@@ -52,11 +52,10 @@ public:
 
     // 1. need to call getNextFrame() before hand
     // 2. RGB color channel (rather than BGR as used by cv::imread())
-    const cv::Mat&            cvRGB()     const { return  _cvmUndistRGB; }
-	const cv::Mat& 			  cvBW()      const { return  _cvmUndistBW; }
+    const cv::Mat&            cvRGB()     const { return  _vcvmPyrRGBs[0]; }
 	const double*		alignedDepth()    const { return  _pRGBWorldRGB; }
 
-	void cloneFrame(cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_);
+	void cloneRawFrame(cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_);
 	void clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_);
 	//opencv convention
 	void centroid( Eigen::Vector3d* peivCentroid_ ) const 
@@ -93,8 +92,9 @@ public:
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 	void alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_);
+	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 
-protected:
+public:
 	//openni
     xn::Context        _cContext;
     xn::ImageGenerator _cImgGen;
@@ -102,28 +102,33 @@ protected:
     xn::DepthGenerator _cDepthGen;
     xn::DepthMetaData  _cDepthMD;
 	//rgb
-    cv::Mat       _cvmRGB;
-	cv::Mat       _cvmUndistRGB;
+    cv::Mat			_cvmRGB;
 	cv::gpu::GpuMat _cvgmRGB;
 	cv::gpu::GpuMat _cvgmUndistRGB;
 	//depth
     cv::Mat       _cvmDepth;
-	cv::Mat 	  _cvmUndistDepth;
 	cv::gpu::GpuMat _cvgmDepth;
 	cv::gpu::GpuMat _cvgmUndistDepth;
 	//rgb pyramid
-	std::vector< cv::Mat > _vcvmPyramidRGBs;
-
+	std::vector< cv::Mat > _vcvmPyrRGBs;
 	//depth pyramid (need to be initially allocated in constructor)
-	std::vector< cv::Mat > _vcvmPyramidDepths;
-	cv::Mat		  _cvmAlignedDepthL0;//640*480
-	cv::gpu::GpuMat _cvgmAlignedDepthL0;
+	std::vector< cv::Mat > _vcvmPyrDepths;
+	//gpu
+	std::vector< cv::gpu::GpuMat > _vcvgmPyrDepths;
+	std::vector< cv::gpu::GpuMat > _vcvgmPyrDisparity;
+	std::vector< cv::gpu::GpuMat > _vcvgmPyr32FC1Tmp;
+	std::vector< cv::gpu::GpuMat > _vcvgmPyrRGBs;
+	std::vector< cv::gpu::GpuMat > _vcvgmPyrPts;
+	std::vector< cv::gpu::GpuMat > _vcvgmPyrNls;
+
+	std::vector< cv::Mat> _vcvmPyrPts;
+	std::vector< cv::Mat> _vcvmPyrNls;
+
+	cv::Mat		    _cvmAlignedRawDepth;//640*480
+	cv::gpu::GpuMat _cvgmAlignedRawDepth;
 	//temporary file but will be faster to be allocated only once.
 	cv::gpu::GpuMat _cvgmIRWorld,_cvgmRGBWorld;
-	cv::gpu::GpuMat _cvgmDisparity;
-	cv::gpu::GpuMat _cvgmDisparityFiltered;
-	//black and white
-	cv::Mat 	  _cvmUndistBW;
+	cv::gpu::GpuMat _cvgm32FC1Tmp;
 	// temporary variables allocated in constructor and released in destructor
 	unsigned short* _pPxDIR; //2D coordinate along with depth for ir image, column-major
 	double*  _pIRWorld;      //XYZ w.r.t. IR camera reference system 
@@ -139,8 +144,8 @@ protected:
 public:
 	//parameters
 	double _dThresholdDepth; //threshold for filtering depth
-	double _dSigmaSpace; //degree of blur for the bilateral filter
-	double _dSigmaDisparity;
+	float _fSigmaSpace; //degree of blur for the bilateral filter
+	float _fSigmaDisparity;
 	unsigned int _uPyrHeight;//the height of pyramid
 	enum {  RAW, GAUSSIAN, GAUSSIAN_C1, GAUSSIAN_C1_FILTERED_IN_DISPARTY, 
 		BILATERAL_FILTERED_IN_DISPARTY, PYRAMID_BILATERAL_FILTERED_IN_DISPARTY } _ePreFiltering;

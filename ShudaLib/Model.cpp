@@ -47,8 +47,7 @@ void CModel::loadPyramid()
 	_vvX.clear();_vvY.clear();
 	_uCurrent++;
 	//load from video source
-	if(_cKinect._ePreFiltering != VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY)
-		_cKinect._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+	_cKinect._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 	_cKinect.getNextFrame();
 	_cKinect.clonePyramid(&_vcvmPyramidRGBs,&_vcvmPyramidDepths);
 	_cKinect.centroid(&_eivCentroid);

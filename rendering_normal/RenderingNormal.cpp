@@ -201,12 +201,12 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT(_uPyrHeight);
 		break;
 	case ']':
-		_pVS->_dSigmaSpace += 1;
-		PRINT( _pVS->_dSigmaSpace );
+		_pVS->_fSigmaSpace += 1;
+		PRINT( _pVS->_fSigmaSpace );
 		break;
 	case '[':
-		_pVS->_dSigmaSpace -= 1;
-		PRINT( _pVS->_dSigmaSpace );
+		_pVS->_fSigmaSpace -= 1;
+		PRINT( _pVS->_fSigmaSpace );
 		break;
 	case '0'://reset camera location
 		_dXAngle = 0.;

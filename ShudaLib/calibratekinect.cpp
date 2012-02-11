@@ -46,13 +46,13 @@ CCalibrateKinect::CCalibrateKinect()
     _aRT[1] = vRT ( 1 );
     _aRT[2] = vRT ( 2 );
 
-    _dFxIR = eiMatIRK() ( 0, 0 );
-    _dFyIR = eiMatIRK() ( 1, 1 );
+    _fFxIR = eiMatIRK() ( 0, 0 );
+    _fFyIR = eiMatIRK() ( 1, 1 );
     _uIR  = eiMatIRK() ( 0, 2 );
     _vIR  = eiMatIRK() ( 1, 2 );
 
-    _dFxRGB = eiMatRGBK() ( 0, 0 );
-    _dFyRGB = eiMatRGBK() ( 1, 1 );
+    _fFxRGB = eiMatRGBK() ( 0, 0 );
+    _fFyRGB = eiMatRGBK() ( 1, 1 );
     _uRGB  = eiMatRGBK() ( 0, 2 );
     _vRGB  = eiMatRGBK() ( 1, 2 );
 

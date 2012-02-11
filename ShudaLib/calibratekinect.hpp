@@ -227,8 +227,8 @@ public:
 	// initialized in constructor after load of the _cCalibKinect.
 	double _aR[9];	// Relative rotation transpose
 	double _aRT[3]; // aRT =_aR * T, the relative translation
-	double _dFxIR, _dFyIR, _uIR, _vIR; //_dFxIR, _dFyIR IR camera focal length
-	double _dFxRGB,_dFyRGB,_uRGB,_vRGB;
+	float _fFxIR, _fFyIR, _uIR, _vIR; //_dFxIR, _dFyIR IR camera focal length
+	float _fFxRGB,_fFyRGB,_uRGB,_vRGB;
 	
 	enum {IR_CAMERA, RGB_CAMERA } 	_nCameraType;
 	enum {CIRCLE, SQUARE} 			_nPatternType;
