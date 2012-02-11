@@ -7,6 +7,7 @@
 #include <vector>
 #include <boost/lexical_cast.hpp>
 #include "Converters.hpp"
+#include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 //camera calibration from a sequence of images
@@ -22,7 +23,7 @@ class CKinectView;
 
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView(_cVS);
-btl::extra::CModel _cM(_cVS);
+//btl::extra::CModel _cM(_cVS);
 
 Eigen::Vector3d _eivCentroid(.0, .0, .0 );
 double _dZoom = 1.;
@@ -60,7 +61,7 @@ bool _bEnableLighting = false;
 double _dDepthFilterThreshold = 10;
 GLUquadricObj *_pQObj;
 int _nDensity = 2;
-double _dSize = 0.2; // range from 0.05 to 1 by step 0.05
+float _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 1;
 unsigned int _uLevel = 0;
 
@@ -135,12 +136,10 @@ void processNormalKeys ( unsigned char key, int x, int y )
 		break;
 	case '1':
 		_cVS._ePreFiltering = VideoSourceKinect::RAW;
-		_cM._eNormalExtraction = CModel::_PCL;
 		PRINTSTR(  "VideoSourceKinect::RAW" );
 		break;
 	case '2':
 		_cVS._ePreFiltering = VideoSourceKinect::RAW;
-		_cM._eNormalExtraction = CModel::_FAST;
 		PRINTSTR(  "VideoSourceKinect::RAW" );
 		break;
 	case '3':
@@ -172,12 +171,12 @@ void processNormalKeys ( unsigned char key, int x, int y )
 		PRINT(_uPyrHeight);
 		break;
 	case ']':
-		_cVS._dSigmaSpace += 1;
-		PRINT( _cVS._dSigmaSpace );
+		_cVS._fSigmaSpace += 1;
+		PRINT( _cVS._fSigmaSpace );
 		break;
 	case '[':
-		_cVS._dSigmaSpace -= 1;
-		PRINT( _cVS._dSigmaSpace );
+		_cVS._fSigmaSpace -= 1;
+		PRINT( _cVS._fSigmaSpace );
 		break;
 	case '0'://reset camera location
 		_dXAngle = 0.;
@@ -282,7 +281,35 @@ void renderAxis()
     glEnd();
     glPopMatrix();
 }
+template< typename T >
+void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, const unsigned char* pColor_, const T& dSize_, GLuint uDisk_, GLuint uNormal_, bool bRenderNormal_ )
+{
+	glColor3ubv( pColor_ );
 
+	glPushMatrix();
+	glTranslatef( x, y, z );
+
+	if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
+	{
+		PRINT( dNz );
+		return;
+	}
+
+	T dA = atan2(dNx,dNz);
+	T dxz= sqrt( dNx*dNx + dNz*dNz );
+	T dB = atan2(dNy,dxz);
+
+	glRotatef(-dB*180 / M_PI,1,0,0 );
+	glRotatef( dA*180 / M_PI,0,1,0 );
+	T dR = -z/0.5;
+	glScalef( dR*dSize_, dR*dSize_, dR*dSize_ );
+	glCallList(uDisk_);
+	if( bRenderNormal_ )
+	{
+		glCallList(uNormal_);
+	}
+	glPopMatrix();
+}
 void render3DPts()
 {
 	const unsigned char* pColor;
@@ -292,56 +319,29 @@ void render3DPts()
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
 	}
-	const std::vector< Eigen::Vector3d >& vPts =_cM._vvPyramidPts[_uLevel] ;
-	const std::vector< Eigen::Vector3d >& vNormals = _cM._vvPyramidNormals[_uLevel];
-	const std::vector<const unsigned char*>& vColors = _cM._vvPyramidColors[_uLevel];
+	const cv::Mat& cvmPts =_cVS._vcvmPyrPts[_uLevel] ;
+	const cv::Mat& cvmNls =_cVS._vcvmPyrNls[_uLevel] ;
+	const cv::Mat& cvmRGBs =_cVS._vcvmPyrRGBs[_uLevel] ;
+	const float* pPt = (float*) cvmPts.data;
+	const float* pNl = (float*) cvmNls.data;
+	const unsigned char* pRGB = (const unsigned char*) cvmRGBs.data;
 	glPushMatrix();
 	// Generate the data
-	for (size_t i = 0; i < vPts.size (); ++i)
+	for( int r = 0; r < cvmPts.rows; r++ )
+	for( int c = 0; c < cvmPts.cols; c++ )
 	{
 		if( _bEnableLighting )
 			glEnable(GL_LIGHTING);
 		else
 			glDisable(GL_LIGHTING);
+		/*
 		if ( 1 != _nDensity && i % _nDensity != 1 ) // skip some points; when 1 == i, all dots wills drawn;
 		{
 			continue;
-		}
+		}*/
 
-		pColor = vColors[i];
-		glColor3ubv( pColor );
-
-		glPushMatrix();
-		x =  vPts[i](0);
-		y =  vPts[i](1);
-		z =  vPts[i](2);
-		glTranslated( x, y, z );
-
-		double dNx, dNy, dNz;// in opengl default coordinate
-		dNx = vNormals[i](0);
-		dNy = vNormals[i](1);
-		dNz = vNormals[i](2);
-
-		if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-		{
-			PRINT( dNz );
-			continue;
-		}
-
-		double dA = atan2(dNx,dNz);
-		double dxz= sqrt( dNx*dNx + dNz*dNz );
-		double dB = atan2(dNy,dxz);
-
-		glRotated(-dB*180 / M_PI,1,0,0 );
-		glRotated( dA*180 / M_PI,0,1,0 );
-		double dR = -z/0.5;
-		glScaled( dR*_dSize, dR*_dSize, dR*_dSize );
-		glCallList(_uDisk);
-		if( _bRenderNormal )
-		{
-			glCallList(_uNormal);
-		}
-		glPopMatrix();
+		renderDisk<float>(*pPt++,*pPt++,*pPt++,*pNl++,*pNl++,*pNl++,pRGB,_dSize,_uDisk,_uNormal,_bRenderNormal);
+		pRGB += 3;
 	}
 	glPopMatrix();
 
@@ -353,6 +353,7 @@ void display ( void )
 	//load data from video source and model
 	_cVS._uPyrHeight = _uPyrHeight;
     //_cM.loadPyramid();
+	_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;//VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 	_cVS.getNextFrame();
 	_cVS.centroidGL(&_eivCentroid);
 	//set viewport
