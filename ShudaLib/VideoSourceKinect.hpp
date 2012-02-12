@@ -83,16 +83,12 @@ public:
 	void projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ );
 	void unprojectRGB ( const cv::Mat& cvmDepth_, double* pWorld_, int nLevel = 0 );
 	//un-project individual depth
-	void unprojectRGBGL ( const cv::Mat& cvmDepth_, const int& r,const int& c, double* pWorld_, int nLevel /*= 0*/ ); 
-	void gpuUnProjectIR (const cv::gpu::GpuMat& cvgmUndistortDepth_, 
-		const double& dFxIR_, const double& dFyIR_, const double& uIR_, const double& vIR_, 
-		cv::gpu::GpuMat* pcvgmIRWorld_ );
-	void gpuTransformIR2RGB( const cv::gpu::GpuMat& cvgmIRWorld_, cv::gpu::GpuMat* cvgmRGBWorld_ );
-	void gpuProjectRGB( const cv::gpu::GpuMat& cvgmRGBWorld_, cv::gpu::GpuMat* pcvgmAligned_ );
+	void unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_ );
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 	void alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_);
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
+	void fastNormalEstimationGL(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_);
 
 public:
 	//openni
@@ -106,8 +102,9 @@ public:
 	cv::gpu::GpuMat _cvgmRGB;
 	cv::gpu::GpuMat _cvgmUndistRGB;
 	//depth
-    cv::Mat       _cvmDepth;
+    cv::Mat         _cvmDepth;
 	cv::gpu::GpuMat _cvgmDepth;
+	cv::Mat         _cvmUndistDepth;
 	cv::gpu::GpuMat _cvgmUndistDepth;
 	//rgb pyramid
 	std::vector< cv::Mat > _vcvmPyrRGBs;
@@ -121,8 +118,8 @@ public:
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrPts;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrNls;
 
-	std::vector< cv::Mat> _vcvmPyrPts;
-	std::vector< cv::Mat> _vcvmPyrNls;
+	cv::Mat* _vcvmPyrPts[4];
+	cv::Mat* _vcvmPyrNls[4];
 
 	cv::Mat		    _cvmAlignedRawDepth;//640*480
 	cv::gpu::GpuMat _cvgmAlignedRawDepth;
@@ -137,6 +134,10 @@ public:
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
 	double*  _pRGBWorldRGB; //(need to be initially allocated in constructor)
+
+	cv::Mat _cvmIRWorld; 
+	cv::Mat _cvmRGBWorld;
+
 	// the centroid of all depth point defined in RGB camera system
 	// (opencv-default camera reference system convention)
 	double _dXCentroid, _dYCentroid, _dZCentroid; 

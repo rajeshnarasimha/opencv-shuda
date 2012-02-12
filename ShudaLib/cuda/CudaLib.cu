@@ -50,10 +50,10 @@ __global__ void kernelInverse(const cv::gpu::DevMem2Df cvgmIn_, cv::gpu::DevMem2
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
 
-	if(fabsf(cvgmIn_.ptr(nY)[nX]) > 1.0e-38 )
+	if(fabsf(cvgmIn_.ptr(nY)[nX]) > 1.0e-20 )
 		cvgmOut_.ptr(nY)[nX] = 1.f/cvgmIn_.ptr(nY)[nX];
 	else
-		cvgmOut_.ptr(nY)[nX] = 1.0e+38;
+		cvgmOut_.ptr(nY)[nX] = 0.f;
 }
 
 void cudaDepth2Disparity( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pcvgmDisparity_ )
@@ -79,7 +79,7 @@ void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat
 //global constant used by kernelUnprojectIR() and cudaUnProjectIR()
 __constant__ float _aIRCameraParameter[4];// f_x, f_y, u, v for IR camera; constant memory declaration
 
-__global__ void kernelUnprojectIR(const cv::gpu::DevMem2D_<unsigned short> cvgmDepth_,
+__global__ void kernelUnprojectIR(const cv::gpu::DevMem2Df cvgmDepth_,
 	cv::gpu::DevMem2D_<float3> cvgmIRWorld_)
 {
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
@@ -87,12 +87,21 @@ __global__ void kernelUnprojectIR(const cv::gpu::DevMem2D_<unsigned short> cvgmD
 
 	if (nX < cvgmIRWorld_.cols && nY < cvgmIRWorld_.rows)
     {
+		const float& depth = cvgmDepth_.ptr(nY)[nX];
 		float3& temp = cvgmIRWorld_.ptr(nY)[nX];
-        temp.z = (cvgmDepth_.ptr(nY)[nX] + 5) /1000.f;//convert to meter z 5 million meter is added according to experience. as the OpenNI
-		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-		temp.x = (nX - _aIRCameraParameter[2]) / _aIRCameraParameter[0] * temp.z;
-		temp.y = (nY - _aIRCameraParameter[3]) / _aIRCameraParameter[1] * temp.z;
-    }
+		
+		if(40.f < depth && depth < 3000.f ) //truncate, depth is captured from openni and always > 0
+		{
+			temp.z = depth /1000.f;//convert to meter z 5 million meter is added according to experience. as the OpenNI
+			//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+			temp.x = (nX - _aIRCameraParameter[2]) / _aIRCameraParameter[0] * temp.z;
+			temp.y = (nY - _aIRCameraParameter[3]) / _aIRCameraParameter[1] * temp.z;
+		}
+		else
+		{
+			temp.x = temp.y = temp.z = 0.f;
+		}
+	}
 	return;
 }
 
@@ -131,15 +140,15 @@ __global__ void kernelTransformIR2RGB(const cv::gpu::DevMem2D_<float3> cvgmIRWor
     {
 		float3& rgbWorld = cvgmRGBWorld_.ptr(nY)[nX];
 		const float3& irWorld  = cvgmIRWorld_ .ptr(nY)[nX];
-		if( fabsf( irWorld.z ) < 0.0001 )
-		{
-			rgbWorld.x = rgbWorld.y = rgbWorld.z = 0;
-		}
-		else
+		if( 0.004f < fabsf( irWorld.z ) && fabsf( irWorld.z) < 3.f )
 		{
 			rgbWorld.x = _aR[0] * irWorld.x + _aR[1] * irWorld.y + _aR[2] * irWorld.z - _aRT[0];
 			rgbWorld.y = _aR[3] * irWorld.x + _aR[4] * irWorld.y + _aR[5] * irWorld.z - _aRT[1];
 			rgbWorld.z = _aR[6] * irWorld.x + _aR[7] * irWorld.y + _aR[8] * irWorld.z - _aRT[2];
+		}
+		else
+		{
+			rgbWorld.x = rgbWorld.y = rgbWorld.z = 0;
 		}
     }
 	return;
@@ -163,23 +172,21 @@ __global__ void kernelProjectRGB(const cv::gpu::DevMem2D_<float3> cvgmRGBWorld_,
 {
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
-
+	// cvgmAligned_ must be preset to zero;
 	if (nX < cvgmRGBWorld_.cols && nY < cvgmRGBWorld_.rows)
     {
 		const float3& rgbWorld = cvgmRGBWorld_.ptr(nY)[nX];
-		if( fabsf( rgbWorld.z ) > 0.000001 )
+		if( 0.004 < fabsf( rgbWorld.z ) && fabsf( rgbWorld.z ) < 3 )
 		{
 			// get 2D image projection in RGB image of the XYZ in the world
 			int nXAligned = __float2int_rn( _aRGBCameraParameter[0] * rgbWorld.x / rgbWorld.z + _aRGBCameraParameter[2] );
 			int nYAligned = __float2int_rn( _aRGBCameraParameter[1] * rgbWorld.y / rgbWorld.z + _aRGBCameraParameter[3] );
 			if ( nXAligned >= 0 && nXAligned < cvgmRGBWorld_.cols && nYAligned >= 0 && nYAligned < cvgmRGBWorld_.rows )
 			{
-				cvgmAligned_.ptr(nYAligned)[nXAligned] = rgbWorld.z*1000;
-				cvgmAligned_.ptr(nY)[nX] = rgbWorld.z*1000;
+				cvgmAligned_.ptr(nYAligned)[nXAligned] = rgbWorld.z;
 			}
 		}
     }
-
 	return;
 }
 void cudaProjectRGB(const cv::gpu::GpuMat& cvgmRGBWorld_, 
@@ -218,29 +225,29 @@ __global__ void bilateralKernel (const cv::gpu::DevMem2Df src, cv::gpu::DevMem2D
     const int R = 6;       //static_cast<int>(sigma_space * 1.5);
     const int D = R * 2 + 1;
 
-    int value = src.ptr (y)[x];
+    float fValueCentre = src.ptr (y)[x];
 
     int tx = min (x - D / 2 + D, src.cols - 1);
     int ty = min (y - D / 2 + D, src.rows - 1);
 
-    float sum1 = 0;
-    float sum2 = 0;
+    double sum1 = 0;
+    double sum2 = 0;
 
     for (int cy = max (y - D / 2, 0); cy < ty; ++cy)
     for (int cx = max (x - D / 2, 0); cx < tx; ++cx)
     {
-        int tmp = src.ptr (cy)[cx];
+        float fValueNeighbour = src.ptr (cy)[cx];
 
-        float space2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-        float color2 = (value - tmp) * (value - tmp);
+        double space2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        double color2 = (fValueCentre - fValueNeighbour) * (fValueCentre - fValueNeighbour);
 
-        float weight = __expf (-(space2 * _aSigma2InvHalf[0] + color2 * _aSigma2InvHalf[1]) );
+        double weight = __expf (-(space2 * _aSigma2InvHalf[0] + color2 * _aSigma2InvHalf[1]) );
 
-        sum1 += tmp * weight;
+        sum1 += fValueNeighbour * weight;
         sum2 += weight;
     }
 
-    dst.ptr (y)[x] = __float2int_rn (sum1 / sum2);
+    dst.ptr (y)[x] = sum1 / sum2;
 	return;
 }
 
@@ -256,7 +263,7 @@ void cudaBilateralFiltering(const cv::gpu::GpuMat& cvgmSrc_, const float& fSigma
 	dim3 block(32, 8);
     dim3 grid(cv::gpu::divUp(cvgmSrc_.cols, block.x), cv::gpu::divUp(cvgmSrc_.rows, block.y));
 	//run kernel
-    kernelProjectRGB<<<grid,block>>>( cvgmSrc_,*pcvgmDst_ );
+    bilateralKernel<<<grid,block>>>( cvgmSrc_,*pcvgmDst_ );
 	//release temporary pointers
 	free(pSigma);
 	return;
@@ -310,14 +317,22 @@ __global__ void kernelUnprojectRGBGL (const cv::gpu::DevMem2Df cvgmDepths_, cons
     return;
 
 	float3& pt = cvgmPts_.ptr(nY)[nX];
+	const float depth = cvgmDepths_.ptr(nY)[nX];
 
-	pt.z = cvgmDepths_.ptr(nY)[nX]/1000.f;
-	//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-	pt.x = ( nX*uScale_  - _aRGBCameraParameter[2] ) / _aRGBCameraParameter[0] * pt.z; 
-	pt.y = ( nY*uScale_  - _aRGBCameraParameter[3] ) / _aRGBCameraParameter[1] * pt.z; 
-	//convert from opencv convention to opengl convention
-	pt.y = -pt.y;
-	pt.z = -pt.z;
+	if( 0.004 < fabsf( depth ) && fabsf( depth ) < 3 )
+	{
+		pt.z = depth;
+		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+		pt.x = ( nX*uScale_  - _aRGBCameraParameter[2] ) / _aRGBCameraParameter[0] * pt.z; 
+		pt.y = ( nY*uScale_  - _aRGBCameraParameter[3] ) / _aRGBCameraParameter[1] * pt.z; 
+		//convert from opencv convention to opengl convention
+		pt.y = -pt.y;
+		pt.z = -pt.z;
+	}
+	else
+	{
+		pt.x = pt.y = pt.z = 0.f;
+	}
 }
 void cudaUnprojectRGBGL ( const cv::gpu::GpuMat& cvgmDepths_, 
 	const float& fFxRGB_,const float& fFyRGB_,const float& uRGB_, const float& vRGB_, unsigned int uLevel_, 
@@ -351,7 +366,7 @@ __global__ void kernelFastNormalEstimationGL (const cv::gpu::DevMem2D_<float3> c
 	const float3& pt1= cvgmPts_.ptr(nY)[nX+1]; //right 
 	const float3& pt2= cvgmPts_.ptr(nY+1)[nX]; //down
 
-	if(pt.z<0.001||pt1.z<0.001||pt2.z<0.001) return;
+	if(fabsf(pt.z)<0.00001||fabsf(pt1.z)<0.00001||fabsf(pt2.z)<0.00001) return;
 
 	float3 v1;
 	v1.x = pt1.x-pt.x;
@@ -373,6 +388,13 @@ __global__ void kernelFastNormalEstimationGL (const cv::gpu::DevMem2D_<float3> c
 	n.x /= norm;
 	n.y /= norm;
 	n.z /= norm;
+	if( n.z<0 )
+	{
+		n.x = -n.x;
+		n.y = -n.y;
+		n.z = -n.z;
+	}
+	return;
 }
 
 void cudaFastNormalEstimationGL(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ )
