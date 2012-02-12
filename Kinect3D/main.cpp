@@ -1,5 +1,5 @@
 //display kinect depth in real-time
-#define INFO
+//#define INFO
 
 #include <GL/glew.h>
 #include <iostream>
@@ -291,7 +291,7 @@ void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, 
 
 	if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
 	{
-		PRINT( dNz );
+		//PRINT( dNz );
 		return;
 	}
 
@@ -319,8 +319,8 @@ void render3DPts()
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
 	}
-	const cv::Mat& cvmPts =_cVS._vcvmPyrPts[_uLevel] ;
-	const cv::Mat& cvmNls =_cVS._vcvmPyrNls[_uLevel] ;
+	const cv::Mat& cvmPts =*_cVS._vcvmPyrPts[_uLevel] ;
+	const cv::Mat& cvmNls =*_cVS._vcvmPyrNls[_uLevel] ;
 	const cv::Mat& cvmRGBs =_cVS._vcvmPyrRGBs[_uLevel] ;
 	const float* pPt = (float*) cvmPts.data;
 	const float* pNl = (float*) cvmNls.data;
@@ -339,8 +339,13 @@ void render3DPts()
 		{
 			continue;
 		}*/
-
-		renderDisk<float>(*pPt++,*pPt++,*pPt++,*pNl++,*pNl++,*pNl++,pRGB,_dSize,_uDisk,_uNormal,_bRenderNormal);
+		float x = *pPt++;
+		float y = *pPt++;
+		float z = *pPt++;
+		float dNx = *pNl++;
+		float dNy = *pNl++;
+		float dNz = *pNl++;
+		renderDisk<float>( x,y,z,dNx,dNy,dNz,pRGB,_dSize,_uDisk,_uNormal,_bRenderNormal);
 		pRGB += 3;
 	}
 	glPopMatrix();
@@ -353,7 +358,7 @@ void display ( void )
 	//load data from video source and model
 	_cVS._uPyrHeight = _uPyrHeight;
     //_cM.loadPyramid();
-	_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;//VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+	_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 	_cVS.getNextFrame();
 	_cVS.centroidGL(&_eivCentroid);
 	//set viewport
@@ -433,7 +438,7 @@ void init ( )
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
+	_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 	_cVS._uPyrHeight = _uPyrHeight;
 	_cVS.getNextFrame();
 	//_cM.loadPyramid();

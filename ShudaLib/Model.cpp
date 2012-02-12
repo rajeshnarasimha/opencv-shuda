@@ -103,21 +103,21 @@ void CModel::loadPyramidAndDetectPlanePCL()
 	_cKinect.clonePyramid(&_vcvmPyramidRGBs,&_vcvmPyramidDepths);
 	_cKinect.centroid(&_eivCentroid);
 	//detect plane in the top pyramid
-	std::vector<int> vX,vY;
-	detectPlanePCL(2,&vX,&vY);
-	//extract plane
-	extractPlaneGL(2,vX,vY,&_veivPlane);
-	//convert raw data to point cloud data
-	for(unsigned int i=0;i<_vcvmPyramidDepths.size();i++)
-	{
-		std::vector<const unsigned char*> vColors;
-		std::vector<Eigen::Vector3d> vPts;
-		std::vector<Eigen::Vector3d> vNormals;
-		convert2PointCloudModelGL(_vcvmPyramidDepths[i],_vcvmPyramidRGBs[i],i,&vColors,&vPts,&vNormals);
-		_vvPyramidColors.push_back(vColors);
-		_vvPyramidPts.push_back(vPts);
-		_vvPyramidNormals.push_back(vNormals);
-	}
+	//std::vector<int> vX,vY;
+	//detectPlanePCL(2,&vX,&vY);
+	////extract plane
+	//extractPlaneGL(2,vX,vY,&_veivPlane);
+	////convert raw data to point cloud data
+	//for(unsigned int i=0;i<_vcvmPyramidDepths.size();i++)
+	//{
+	//	std::vector<const unsigned char*> vColors;
+	//	std::vector<Eigen::Vector3d> vPts;
+	//	std::vector<Eigen::Vector3d> vNormals;
+	//	convert2PointCloudModelGL(_vcvmPyramidDepths[i],_vcvmPyramidRGBs[i],i,&vColors,&vPts,&vNormals);
+	//	_vvPyramidColors.push_back(vColors);
+	//	_vvPyramidPts.push_back(vPts);
+	//	_vvPyramidNormals.push_back(vNormals);
+	//}
 	return;
 }
 void CModel::extractPlaneGL(unsigned int uLevel_, const std::vector<int>& vX_, const std::vector<int>& vY_, std::vector<Eigen::Vector3d>* pvPlane_)
@@ -129,7 +129,7 @@ void CModel::extractPlaneGL(unsigned int uLevel_, const std::vector<int>& vX_, c
 		int x = vX_[i];
 		int y = vY_[i];
 		Eigen::Vector3d eivPt;
-		_cKinect.unprojectRGBGL(cvmDepth,y,x,eivPt.data(),uLevel_);
+		//_cKinect.unprojectRGBGL(cvmDepth,y,x,eivPt.data(),uLevel_);
 		pvPlane_->push_back(eivPt);
 		cvmDepth.at<float>(y,x)=0.f;
 	}
