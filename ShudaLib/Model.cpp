@@ -21,9 +21,6 @@ CModel::CModel(VideoSourceKinect& cKinect_)
 	:_cKinect(cKinect_)
 {
 	//allocate
-	//control
-	_nKNearest = 6;
-
 	for(int i=0; i<4; i++)
 	{
 		int nRows = KINECT_HEIGHT>>i; 
@@ -35,76 +32,6 @@ CModel::CModel(VideoSourceKinect& cKinect_)
 }
 CModel::~CModel(void)
 {
-}
-void CModel::storeCurrentFrame()
-{
-	return;
-}
-
-void CModel::extractPlaneGL(unsigned int uLevel_, const std::vector<int>& vX_, const std::vector<int>& vY_, std::vector<Eigen::Vector3d>* pvPlane_)
-{
-	cv::Mat& cvmDepth = _vcvmPyramidDepths[uLevel_];
-	pvPlane_->clear();
-	for (unsigned int i=0;i<vX_.size(); i++)
-	{
-		int x = vX_[i];
-		int y = vY_[i];
-		Eigen::Vector3d eivPt;
-		//_cKinect.unprojectRGBGL(cvmDepth,y,x,eivPt.data(),uLevel_);
-		pvPlane_->push_back(eivPt);
-		cvmDepth.at<float>(y,x)=0.f;
-	}
-}
-void CModel::detectPlanePCL(unsigned int uLevel_,std::vector<int>* pvXIdx_, std::vector<int>* pvYIdx_)
-{
-	const cv::Mat& cvmDepth = _vcvmPyramidDepths[uLevel_];
-	//do plane detection in disparity domain
-	cv::Mat	cvmDisparity;
-	float fMin,fMax,fRange,fRatio;
-	btl::utility::convert2DisparityDomain<float>(cvmDepth,&cvmDisparity,&fMax,&fMin);
-	//normalize the x y into the same scale as disparity
-	fRange = fMax - fMin;
-	PRINT(fRange);
-	fRatio = fRange/cvmDepth.cols;//make the x
-	//each pixel in cvmDisparity is now equivalent to (x*fRatio, y*fRatio, disparity)
-	//construct PCL point cloud data
-	float* pDisparity = (float*)cvmDisparity.data;
-	pcl::PointCloud<pcl::PointXYZ> pclNoneZero;
-	
-	for(int r = 0; r<cvmDisparity.rows; r++)
-	for(int c = 0; c<cvmDisparity.cols; c++)
-	{
-		float dz = *pDisparity;
-		if( fabs(dz) > SMALL )
-		{
-			pcl::PointXYZ point(c*fRatio,r*fRatio,dz);
-			pclNoneZero.push_back(point);
-		}
-		pDisparity++;
-	}
-	//detect
-	pcl::ModelCoefficients::Ptr pCoefficients (new pcl::ModelCoefficients);
-	pcl::PointIndices::Ptr pInliers (new pcl::PointIndices);
-	// Create the segmentation object
-	pcl::SACSegmentation<pcl::PointXYZ> cSeg;
-	// Optional
-	cSeg.setOptimizeCoefficients (true);
-	// Mandatory
-	cSeg.setModelType (pcl::SACMODEL_PLANE);
-	cSeg.setMethodType (pcl::SAC_RANSAC);
-	cSeg.setDistanceThreshold (fRange/1000.);
-	cSeg.setInputCloud (pclNoneZero.makeShared ());
-	cSeg.segment (*pInliers, *pCoefficients);
-	// retrieve inliers
-	pvXIdx_->clear();pvYIdx_->clear();
-	for (size_t i = 0; i < pInliers->indices.size (); ++i)
-	{
-		int y = int( pclNoneZero.points[pInliers->indices[i]].y/fRatio + .5);
-		int x = int( pclNoneZero.points[pInliers->indices[i]].x/fRatio + .5);
-		pvYIdx_->push_back(y);
-		pvXIdx_->push_back(x);
-	}
-	return;
 }
 void CModel::normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_)
 {
