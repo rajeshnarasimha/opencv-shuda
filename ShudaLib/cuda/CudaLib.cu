@@ -227,33 +227,31 @@ __global__ void bilateralKernel (const cv::gpu::DevMem2Df src, cv::gpu::DevMem2D
 
     float fValueCentre = src.ptr (y)[x];
 
-    int tx = min (x - D / 2 + D, src.cols - 1);
-    int ty = min (y - D / 2 + D, src.rows - 1);
+    int tx = min (x - D/2 + D, src.cols - 1);
+    int ty = min (y - D/2 + D, src.rows - 1);
 
     double sum1 = 0;
     double sum2 = 0;
 
-    for (int cy = max (y - D / 2, 0); cy < ty; ++cy)
-    for (int cx = max (x - D / 2, 0); cx < tx; ++cx)
+    for (int cy = max (y - D/2, 0); cy < ty; ++cy)
+    for (int cx = max (x - D/2, 0); cx < tx; ++cx)
     {
-        float fValueNeighbour = src.ptr (cy)[cx];
-
+        float  fValueNeighbour = src.ptr (cy)[cx];
         double space2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
         double color2 = (fValueCentre - fValueNeighbour) * (fValueCentre - fValueNeighbour);
-
         double weight = __expf (-(space2 * _aSigma2InvHalf[0] + color2 * _aSigma2InvHalf[1]) );
 
         sum1 += fValueNeighbour * weight;
         sum2 += weight;
     }
 
-    dst.ptr (y)[x] = sum1 / sum2;
+    dst.ptr (y)[x] = sum1/sum2;
 	return;
 }
 
 void cudaBilateralFiltering(const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaSpace_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_ )
 {
-		//constant definition
+	//constant definition
 	size_t sN = sizeof(float) * 2;
 	float* const pSigma = (float*) malloc( sN );
 	pSigma[0] = 0.5f / (fSigmaSpace_ * fSigmaSpace_);
@@ -366,39 +364,48 @@ __global__ void kernelFastNormalEstimationGL (const cv::gpu::DevMem2D_<float3> c
 	const float3& pt1= cvgmPts_.ptr(nY)[nX+1]; //right 
 	const float3& pt2= cvgmPts_.ptr(nY+1)[nX]; //down
 
-	if(fabsf(pt.z)<0.00001||fabsf(pt1.z)<0.00001||fabsf(pt2.z)<0.00001) return;
+	if(fabsf(pt.z)<0.0000001||fabsf(pt1.z)<0.0000001||fabsf(pt2.z)<0.0000001) return;
 
-	float3 v1;
+	double3 v1;
 	v1.x = pt1.x-pt.x;
 	v1.y = pt1.y-pt.y;
 	v1.z = pt1.z-pt.z;
-	float3 v2;
+	double3 v2;
 	v2.x = pt2.x-pt.x;
 	v2.y = pt2.y-pt.y;
 	v2.z = pt2.z-pt.z;
 	//n = v1 x v2
-	float3& n = cvgmNls_.ptr(nY)[nX];
+	double3 n;
 	n.x = v1.y*v2.z - v1.z*v2.y;
 	n.y = v1.z*v2.x - v1.x*v2.z;
 	n.z = v1.x*v2.y - v1.y*v2.x;
 	//normalization
-	float norm = sqrtf(n.x*n.x + n.y*n.y + n.z*n.z);
+	double norm = sqrtf(n.x*n.x + n.y*n.y + n.z*n.z);
 
-	if( norm < 0.0000001 ) return;
+	if( norm < 1.0e-50 ) return;
 	n.x /= norm;
 	n.y /= norm;
 	n.z /= norm;
-	if( n.z<0 )
+
+	float3& fN = cvgmNls_.ptr(nY)[nX];
+	if( -n.x*pt.x - n.y*pt.y - n.z*pt.z <0 ) //this gives (0-pt).dot( n ); 
 	{
-		n.x = -n.x;
-		n.y = -n.y;
-		n.z = -n.z;
+		fN.x = -n.x;
+		fN.y = -n.y;
+		fN.z = -n.z;
+	}
+	else
+	{
+		fN.x = n.x;
+		fN.y = n.y;
+		fN.z = n.z;
 	}
 	return;
 }
 
 void cudaFastNormalEstimationGL(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ )
 {
+	pcvgmNls_->setTo(0);
 	dim3 block (32, 8);
 	dim3 grid (cv::gpu::divUp (cvgmPts_.cols, block.x), cv::gpu::divUp (cvgmPts_.rows, block.y));
 	kernelFastNormalEstimationGL<<<grid, block>>>(cvgmPts_, *pcvgmNls_ );

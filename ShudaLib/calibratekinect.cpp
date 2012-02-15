@@ -982,8 +982,8 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
 void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ )
 {
     // set intrinsics
-    double dWidth = _cCK.imageResolution() ( 0 ) * nScaleViewport_;
-    double dHeight = _cCK.imageResolution() ( 1 ) * nScaleViewport_;
+    double dWidth = _cVS.imageResolution() ( 0 ) * nScaleViewport_;
+    double dHeight = _cVS.imageResolution() ( 1 ) * nScaleViewport_;
 //    glutReshapeWindow( int ( dWidth ), int ( dHeight ) );
 
     //PRINT(dWidth);
@@ -992,7 +992,7 @@ void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_
     glMatrixMode ( GL_PROJECTION );
 
     Eigen::Matrix3d mK;
-    mK = _cCK.eiMatK ( nCameraType_ );
+    mK = _cVS.eiMatK ( nCameraType_ );
 
     //PRINT( mK );
     double u = mK ( 0, 2 );
@@ -1027,13 +1027,12 @@ void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_
 }
 
 
-GLuint CKinectView::LoadTexture ( const cv::Mat& img )
+void CKinectView::LoadTexture ( const cv::Mat& img )
 {
-    GLuint uTexture;
     glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
-    glGenTextures ( 1, &uTexture );
-    glBindTexture ( GL_TEXTURE_2D, uTexture );
+    glGenTextures ( 1, &_uTexture );
+    glBindTexture ( GL_TEXTURE_2D, _uTexture );
     glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
     glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
     glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST ); // cheap scaling when image bigger than texture
@@ -1048,11 +1047,11 @@ GLuint CKinectView::LoadTexture ( const cv::Mat& img )
 
     // 2d texture, 3 colors, width, height, RGB in that order, byte data, and the data.
     //gluBuild2DMipmaps ( GL_TEXTURE_2D, GL_RGB, img.cols, img.rows,  GL_RGB, GL_UNSIGNED_BYTE, img.data );
-    return uTexture;
+    return;
 }
 void CKinectView::renderOnImage ( int nX_, int nY_ )
 {
-    Eigen::Matrix3d mK = _cCK.eiMatK ( CCalibrateKinect::RGB_CAMERA );
+    Eigen::Matrix3d mK = _cVS.eiMatK ( CCalibrateKinect::RGB_CAMERA );
 
     const double u = mK ( 0, 2 );
     const double v = mK ( 1, 2 );
@@ -1070,15 +1069,20 @@ void CKinectView::renderOnImage ( int nX_, int nY_ )
     //draw principle point
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
-void CKinectView::renderCamera ( GLuint uTexture_, int nCameraType_, int nCameraRender_, double dPhysicalFocalLength_ ) const //dPhysicalFocalLength_ = .02 by default
+void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, 
+	int nCameraRender_ /*= ALL_CAMERA*/, double dPhysicalFocalLength_ /*= .02*/ ) const //dPhysicalFocalLength_ = .02 by default
 {
-    Eigen::Matrix3d mK = _cCK.eiMatK ( nCameraType_ );
+	glBindTexture(GL_TEXTURE_2D, _uTexture);
+	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmRGB_.cols,cvmRGB_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmRGB_.data);
+
+
+    Eigen::Matrix3d mK = _cVS.eiMatK ( nCameraType_ );
 
     const double u = mK ( 0, 2 );
     const double v = mK ( 1, 2 );
     const double f = ( mK ( 0, 0 ) + mK ( 1, 1 ) ) / 2.;
-    const double dW = _cCK.imageResolution() ( 0 );
-    const double dH = _cCK.imageResolution() ( 1 );
+    const double dW = _cVS.imageResolution() ( 0 );
+    const double dH = _cVS.imageResolution() ( 1 );
 
     // Draw principle point
     double dT =  v;
@@ -1132,7 +1136,7 @@ void CKinectView::renderCamera ( GLuint uTexture_, int nCameraType_, int nCamera
     {
         glEnable ( GL_TEXTURE_2D );
         glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-        glBindTexture ( GL_TEXTURE_2D, uTexture_ );
+        glBindTexture ( GL_TEXTURE_2D, _uTexture );
 
         //glColor3d(1., 1., 1.); glLineWidth(.5);
         glBegin ( GL_QUADS );
@@ -1167,6 +1171,27 @@ void CKinectView::renderCamera ( GLuint uTexture_, int nCameraType_, int nCamera
     glEnd();
 */
     return;
+}
+void CKinectView::init()
+{
+	_uDisk = glGenLists(1);
+	GLUquadricObj *pQObj;
+	_pQObj = gluNewQuadric();
+	gluQuadricDrawStyle(_pQObj, GLU_FILL); //LINE); /* wireframe */
+	gluQuadricNormals(_pQObj, GLU_SMOOTH);// FLAT);//
+	glNewList(_uDisk, GL_COMPILE);
+	gluDisk(_pQObj, 0.0, 0.01, 9, 1);
+	glEndList();
+
+	_uNormal = glGenLists(2);
+	glNewList(_uNormal, GL_COMPILE);
+	glDisable(GL_LIGHTING);
+	glBegin(GL_LINES);
+	glColor3d(1.,0.,0.);
+	glVertex3d(0.,0.,0.);
+	glVertex3d(0.,0.,0.016);
+	glEnd();
+	glEndList();
 }
 
 } //namespace videosource

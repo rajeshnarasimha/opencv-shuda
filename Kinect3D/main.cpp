@@ -51,20 +51,16 @@ bool _bLButtonDown;
 bool _bRButtonDown;
 
 unsigned short _nWidth, _nHeight;
-GLuint _uTexture;
 
 bool _bCaptureCurrentFrame = false;
-GLuint _uDisk;
-GLuint _uNormal;
 bool _bRenderNormal = false;
 bool _bEnableLighting = false;
 double _dDepthFilterThreshold = 10;
-GLUquadricObj *_pQObj;
 int _nDensity = 2;
 float _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 1;
 unsigned int _uLevel = 0;
-
+VideoSourceKinect::tp_frame _eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 void processNormalKeys ( unsigned char key, int x, int y )
 {
 	switch( key )
@@ -135,40 +131,24 @@ void processNormalKeys ( unsigned char key, int x, int y )
 		PRINT( _dSize );
 		break;
 	case '1':
-		_cVS._ePreFiltering = VideoSourceKinect::RAW;
-		PRINTSTR(  "VideoSourceKinect::RAW" );
-		break;
-	case '2':
-		_cVS._ePreFiltering = VideoSourceKinect::RAW;
-		PRINTSTR(  "VideoSourceKinect::RAW" );
-		break;
-	case '3':
-		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN;
-		PRINTSTR(  "VideoSourceKinect::GAUSSIAN" );
-		break;
-	case '4':
-		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1;
-		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1" );
-		break;
-	case '5':
-		_cVS._ePreFiltering = VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY;
-		PRINTSTR(  "VideoSourceKinect::GAUSSIAN_C1_FILTERED_IN_DISPARTY" );
-		break;
-	case '6':
-		_cVS._ePreFiltering = VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY;
+		_uLevel = 0;
+		_eFrameType = VideoSourceKinect::GPU_RAW;
 		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
 		break;
-	case '7':
-		_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+	case '2':
+		_uLevel = 0;
+		_eFrameType = VideoSourceKinect::CPU_RAW;
+		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
+		break;
+	case '3':
+		_uLevel = 0;
+		_eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
 		break;
-	case '8':
-		_uLevel = ++_uLevel%_uPyrHeight;
-		PRINT(_uLevel);
-		break;
 	case '9':
-		_uPyrHeight++;
-		PRINT(_uPyrHeight);
+		_uLevel = ++_uLevel%_uPyrHeight;
+		
+		PRINT(_uLevel);
 		break;
 	case ']':
 		_cVS._fSigmaSpace += 1;
@@ -319,33 +299,41 @@ void render3DPts()
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
 	}
-	const cv::Mat& cvmPts =*_cVS._vcvmPyrPts[_uLevel] ;
-	const cv::Mat& cvmNls =*_cVS._vcvmPyrNls[_uLevel] ;
+	const cv::Mat& cvmPts =*_cVS._acvmShrPtrPyrPts[_uLevel] ;
+	const cv::Mat& cvmNls =*_cVS._acvmShrPtrPyrNls[_uLevel] ;
 	const cv::Mat& cvmRGBs =_cVS._vcvmPyrRGBs[_uLevel] ;
 	const float* pPt = (float*) cvmPts.data;
 	const float* pNl = (float*) cvmNls.data;
 	const unsigned char* pRGB = (const unsigned char*) cvmRGBs.data;
 	glPushMatrix();
 	// Generate the data
+	int i = 0;
 	for( int r = 0; r < cvmPts.rows; r++ )
-	for( int c = 0; c < cvmPts.cols; c++ )
+	for( int c = 0; c < cvmPts.cols; c++ , i++)
 	{
 		if( _bEnableLighting )
 			glEnable(GL_LIGHTING);
 		else
 			glDisable(GL_LIGHTING);
-		/*
-		if ( 1 != _nDensity && i % _nDensity != 1 ) // skip some points; when 1 == i, all dots wills drawn;
+		if( 1 != _nDensity && i % _nDensity != 1 ) // skip some points; when 1 == i, all dots wills drawn;
 		{
+			pRGB += 3;
+			pNl  += 3;
+			pPt  += 3;
 			continue;
-		}*/
-		float x = *pPt++;
-		float y = *pPt++;
-		float z = *pPt++;
+		}
+		
 		float dNx = *pNl++;
 		float dNy = *pNl++;
 		float dNz = *pNl++;
-		renderDisk<float>( x,y,z,dNx,dNy,dNz,pRGB,_dSize,_uDisk,_uNormal,_bRenderNormal);
+		if(fabs(dNz) + fabs(dNy) + fabs(dNx) < 0.00001) 
+			int a = 3;
+		
+		float x = *pPt++;
+		float y = *pPt++;
+		float z = *pPt++;
+		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) 
+			_cView.renderDisk<float>(x,y,z,dNx,dNy,dNz,pRGB,_dSize,_bRenderNormal);
 		pRGB += 3;
 	}
 	glPopMatrix();
@@ -356,10 +344,18 @@ void render3DPts()
 void display ( void )
 {
 	//load data from video source and model
-	_cVS._uPyrHeight = _uPyrHeight;
-    //_cM.loadPyramid();
-	_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
-	_cVS.getNextFrame();
+	switch( _eFrameType )
+	{
+	case VideoSourceKinect::CPU_RAW:
+		_cVS.getNextFrame(VideoSourceKinect::CPU_RAW);
+		break;
+	case VideoSourceKinect::GPU_RAW:
+		_cVS.getNextFrame(VideoSourceKinect::GPU_RAW);
+		break;
+	case VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
+		_cVS.getNextPyramid(_uPyrHeight);
+		break;
+	}
 	_cVS.centroidGL(&_eivCentroid);
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -384,8 +380,6 @@ void display ( void )
     // render objects
     renderAxis();
 	render3DPts();
-    glBindTexture(GL_TEXTURE_2D, _uTexture);
-    //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _cVS.cvRGB().data);
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 	//set viewport 2
@@ -401,10 +395,8 @@ void display ( void )
 	// render objects
     renderAxis();
 	//render3DPts();
-	glBindTexture(GL_TEXTURE_2D, _uTexture);
-    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, _cVS.cvRGB().data);
-
-	_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
+	_cView.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
+	_cView.renderCamera( CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[_uLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -426,7 +418,14 @@ void reshape ( int nWidth_, int nHeight_ )
 	glutReshapeWindow( int ( _nWidth ), int ( _nHeight ) );
     return;
 }
-
+void setPyramid()
+{
+	_eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+	_uPyrHeight = 4;
+	_uLevel = 3;
+	_cVS.getNextPyramid(_uPyrHeight);
+	_cView.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
+}
 void init ( )
 {
 	glClearColor ( 0.1f,0.1f,0.4f,1.0f );
@@ -438,31 +437,8 @@ void init ( )
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	_cVS._ePreFiltering = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
-	_cVS._uPyrHeight = _uPyrHeight;
-	_cVS.getNextFrame();
-	//_cM.loadPyramid();
-	_uTexture = _cView.LoadTexture( _cVS.cvRGB() );
-
-	_uDisk = glGenLists(1);
-	GLUquadricObj *pQObj;
-	_pQObj = gluNewQuadric();
-	gluQuadricDrawStyle(_pQObj, GLU_FILL); //LINE); /* wireframe */
-	gluQuadricNormals(_pQObj, GLU_SMOOTH);// FLAT);//
-	glNewList(_uDisk, GL_COMPILE);
-	gluDisk(_pQObj, 0.0, 0.01, 9, 1);
-	glEndList();
-
-	_uNormal = glGenLists(2);
-	glNewList(_uNormal, GL_COMPILE);
-	glDisable(GL_LIGHTING);
-	glBegin(GL_LINES);
-	glColor3d(1.,0.,0.);
-	glVertex3d(0.,0.,0.);
-	glVertex3d(0.,0.,0.016);
-	glEnd();
-	glEndList();
-
+	setPyramid();
+	_cView.init();
 	// light
 	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
@@ -492,76 +468,14 @@ int main ( int argc, char** argv )
         glutDisplayFunc ( display );
         glutMainLoop();
 	}
-    catch ( CError& e )
-    {
-        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
-        {
+    catch ( CError& e )  {
+        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) ) {
             std::cerr << "Error Info: " << *mi << std::endl;
         }
     }
-	catch ( std::runtime_error& e )
-	{
+	catch ( std::runtime_error& e ){
 		PRINTSTR( e.what() );
 	}
 
     return 0;
 }
-
-/*
-// display the content of depth and rgb
-int main ( int argc, char** argv )
-{
-    try
-    {
-		btl::extra::videosource::VideoSourceKinect cVS;
-		Mat cvImage( 480,  640, CV_8UC1 );
-		int n = 0;
-
-		cv::namedWindow ( "rgb", 1 );
-		cv::namedWindow ( "ir", 2 );
-    	while ( true )
-    	{
-			cVS.getNextFrame();
-	    	cv::imshow ( "rgb", cVS.cvRGB() );
-			for( int r = 0; r< cVS.cvDepth().rows; r++ )
-				for( int c = 0; c< cVS.cvDepth().cols; c++ )
-				{
-					double dDepth = cVS.cvDepth().at< unsigned short > (r, c);
-					dDepth = dDepth > 2500? 2500: dDepth;
-					cvImage.at<unsigned char>(r,c) = (unsigned char)(dDepth/2500.*256); 
-					//PRINT( int(cvImage.at<unsigned char>(r,c)) );
-				}
-			cv::imshow ( "ir",  cvImage );
-			int key = cvWaitKey ( 10 );
-			PRINT( key );
-			if ( key == 1048675 )//c
-       		{
-				cout << "c pressed... " << endl;
-				//capture depth map	
-           		std::string strNum = boost::lexical_cast<string> ( n );
-           		std::string strIRFileName = "ir" + strNum + ".bmp";
-           		cv::imwrite ( strIRFileName.c_str(), cvImage );
-           		n++;
-       		}
-
-    	    if ( key == 1048689 ) //q
-        	{
-            	break;
-        	}
-    	}
-
-        return 0;
-    }
-    catch ( CError& e )
-    {
-        if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
-        {
-            std::cerr << "Error Info: " << *mi << std::endl;
-        }
-    }
-
-    return 0;
-}
-*/
-
-

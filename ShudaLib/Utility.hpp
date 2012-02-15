@@ -140,7 +140,7 @@ void normalEstimationGLPCL( const T* pDepth_, const cv::Mat& cvmRGB_, int nKNear
 
 
 template< class T >
-void normalVotes( const double* pNormal_, const double& dS_, int* pR_, int* pC_)
+void normalVotes( const T* pNormal_, const double& dS_, int* pR_, int* pC_)
 {
 	//pNormal[3] is a normal defined in a right-hand reference
 	//system with positive-z the elevation, and counter-clockwise from positive-x is
@@ -150,47 +150,50 @@ void normalVotes( const double* pNormal_, const double& dS_, int* pR_, int* pC_)
 	//*pC_ is the discretized azimuth
 
 	//normal follows GL-convention
-	const double& dNx = pNormal_[0];
-	const double& dNy = pNormal_[1];
-	const double& dNz = pNormal_[2];
+	const double dNx = pNormal_[0];
+	const double dNy = pNormal_[1];
+	const double dNz = pNormal_[2];
 
 	double dA = atan2(dNy,dNx); //atan2 ranges from -pi to pi
 	dA = dA <0 ? dA+2*M_PI :dA; // this makes sure that dA ranging from 0 to 2pi
 	double dyx= sqrt( dNx*dNx + dNy*dNy );
 	double dE = atan2(dNz,dyx);
 
-	*pC_ = int(floor(dA/dS_));
-	*pR_ = int(floor(dE/dS_));
+	*pC_ = floor(dA/dS_);
+	*pR_ = floor(dE/dS_);
 
 }
 
 template< class T >
-void avgNormals(const std::vector<Eigen::Vector3d>& vNormals_,const std::vector<unsigned int>& vNormalIdx_, Eigen::Vector3d* peivAvgNl_)
+void avgNormals(const cv::Mat& cvmNls_,const std::vector<unsigned int>& vNlIdx_, Eigen::Vector3d* peivAvgNl_)
 {
 	//note that not all normals in vNormals_ will be averaged
 	*peivAvgNl_ << 0,0,0;
-	for(std::vector<unsigned int>::const_iterator cit_vNormalIdx = vNormalIdx_.begin();
-		cit_vNormalIdx!=vNormalIdx_.end(); cit_vNormalIdx++)
+	const float* const pNl = (float*)cvmNls_.data;
+	for(std::vector<unsigned int>::const_iterator cit_vNlIdx = vNlIdx_.begin();
+		cit_vNlIdx!=vNlIdx_.end(); cit_vNlIdx++)
 	{
-		*peivAvgNl_+=vNormals_[*cit_vNormalIdx];
+		unsigned int nOffset = (*cit_vNlIdx)*3;
+		*peivAvgNl_+=Eigen::Vector3d(pNl[nOffset],pNl[nOffset+1],pNl[nOffset+2]);
 	}
 	peivAvgNl_->normalize();
 }
 
 template< class T >
-bool isNormalSimilar( const Eigen::Vector3d& eivNormal1_, const Eigen::Vector3d& eivNormal2_, const double& dCosThreshold_)
+bool isNormalSimilar( const T* pNormal1_, const Eigen::Vector3d& eivNormal2_, const double& dCosThreshold_)
 {
 	//if the angle between eivNormal1_ and eivNormal2_ is larger than dCosThreshold_
 	//the two normal is not similar and return false
-	double dCos = eivNormal1_.dot(eivNormal2_);
+	T dCos = pNormal1_[0]*eivNormal2_[0] + pNormal1_[1]*eivNormal2_[1] + pNormal1_[2]*eivNormal2_[2];
 	if(dCos>dCosThreshold_)
 		return true;
 	else
 		return false;
 }
-
+/*
 template< class T >
-void normalCluster( const std::vector<Eigen::Vector3d>& vNormal_, const std::vector< Eigen::Vector3d>& veivNlCluster_, int nSamples_, std::vector<unsigned int>* pvLabel_)
+void normalCluster( const std::vector<Eigen::Vector3d>& vNormal_, const std::vector< Eigen::Vector3d>& veivNlCluster_, 
+	int nSamples_, std::vector<unsigned int>* pvLabel_)
 {
 	//normalCluster is an exhaustive function to cluster a vector of normals onto a vector of pre-calculated
 	//normal clusters. the labeling will be returned
@@ -211,24 +214,23 @@ void normalCluster( const std::vector<Eigen::Vector3d>& vNormal_, const std::vec
 		}//for all clusters
 	}//for all normals
 	return;
-}
+}*/
 template< class T >
-void normalCluster( const std::vector<Eigen::Vector3d>& vNormals_,const std::vector< unsigned int >& vNormalIdx_, 
+void normalCluster( const cv::Mat& cvmNls_,const std::vector< unsigned int >& vNlIdx_, 
 	const Eigen::Vector3d& eivClusterCenter_, 
-	const double& dCosThreshold_, const short& sLabel_, std::vector<short>* pvLabel_, std::vector< unsigned int >* pvNormalIdx_ )
+	const double& dCosThreshold_, const short& sLabel_, cv::Mat* pcvmLabel_, std::vector< unsigned int >* pvNlIdx_ )
 {
 	//the pvLabel_ must be same length as vNormal_ 
 	//with each element assigned with a NEGATIVE value
-	BTL_ASSERT(vNormals_.size()==pvLabel_->size(),"btl::utility::normalClustere() vNormal_ must be the same length as pvLabel_");
-	for( std::vector< unsigned int >::const_iterator cit_vNormalIdx_ = vNormalIdx_.begin();
-		cit_vNormalIdx_!= vNormalIdx_.end(); cit_vNormalIdx_++ )
-	{
-		if( (*pvLabel_)[*cit_vNormalIdx_]<0 && // the normal hasnt been labeled
-			btl::utility::isNormalSimilar< double >(vNormals_[*cit_vNormalIdx_],eivClusterCenter_,dCosThreshold_))
-		{
-			(*pvLabel_)[*cit_vNormalIdx_] = sLabel_;
-			pvNormalIdx_->push_back(*cit_vNormalIdx_);
-		}
+	const float* pNl = (const float*)cvmNls_.data; 
+	short* pLabel = (short*) pcvmLabel_->data;
+	for( std::vector< unsigned int >::const_iterator cit_vNlIdx_ = vNlIdx_.begin();
+		cit_vNlIdx_!= vNlIdx_.end(); cit_vNlIdx_++ ){
+		int nOffset = (*cit_vNlIdx_)*3;
+		if( pLabel[*cit_vNlIdx_]<0 && btl::utility::isNormalSimilar< float >(pNl+nOffset,eivClusterCenter_,dCosThreshold_) )	{
+			pLabel[*cit_vNlIdx_] = sLabel_;
+			pvNlIdx_->push_back(*cit_vNlIdx_);
+		}//if
 	}
 	return;
 }
