@@ -5,7 +5,9 @@
 * @version 1.0
 * @date 2011-02-23
 */
-#define INFO
+//#define INFO
+//#define TIMER
+
 #include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Utility.hpp"

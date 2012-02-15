@@ -1,5 +1,5 @@
 #define INFO
-
+#define TIMER
 #include <vector>
 #include "Utility.hpp"
 #include "opencv2/gpu/gpu.hpp"
@@ -137,7 +137,6 @@ void CModel::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,
 	//define constants
 	const int nSampleElevation = 4;
 	const double dCosThreshold = std::cos(M_PI_4/nSampleElevation);
-	const unsigned short usMinArea = btl::extra::videosource::__aKinectWxH[uPyrLevel_]/60;
 	const cv::Mat& cvmNls = *_cKinect._acvmShrPtrPyrNls[uPyrLevel_];
 	//make a histogram on the top pyramid
 	std::vector< tp_normal_hist_bin > vNormalHist;//idx of sampling the unit half sphere of top pyramid
@@ -149,7 +148,7 @@ void CModel::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,
 	pcvmLabel_->setTo(-1);
 	short nLabel =0;
 	for(unsigned int uIdxBin = 0; uIdxBin < vNormalHist.size(); uIdxBin++){
-		if(vNormalHist[uIdxBin].first.size() < usMinArea ) continue;
+		if(vNormalHist[uIdxBin].first.size() < _usMinArea ) continue;
 		//get neighborhood of a sampling bin
 		std::vector<unsigned int> vNeighourhood; 
 		btl::utility::getNeighbourIdxCylinder< unsigned int >(nSampleElevation,nSampleElevation*4,uIdxBin,&vNeighourhood);
@@ -217,7 +216,7 @@ void CModel::clusterDistance( const unsigned short uPyrLevel_, const std::vector
 	const double dHigh =  3;
 	const int nSamples = 400;
 	const double dSampleStep = ( dHigh - dLow )/nSamples; 
-	const double dMergeStep = dSampleStep*1.5;
+	const double dMergeStep = dSampleStep;
 
 	tp_hist	vDistHist; //histogram of distancte vector< vDist, cit_vIdx > 
 	short sLabel = 0;
@@ -235,13 +234,26 @@ void CModel::clusterDistance( const unsigned short uPyrLevel_, const std::vector
 }
 void CModel::detectPlaneFromCurrentFrame(const short uPyrLevel_)
 {
+	//get next frame
+#ifdef TIMER	
+	// timer on
+	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+#endif
 //load pyramids
 	_cKinect.getNextPyramid(4); //output _vvN
+	_usMinArea = btl::extra::videosource::__aKinectWxH[uPyrLevel_]/60;
 //cluster the top pyramid
 	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
 //enforce position continuity
-	clusterDistance(3,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
-	
+	clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
+
+#ifdef TIMER
+	// timer off
+	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+	_cTDAll = _cT1 - _cT0 ;
+	_fFPS = 1000.f/_cTDAll.total_milliseconds();
+	PRINT( _fFPS );
+#endif
 	return;
 }
 
@@ -282,10 +294,12 @@ void CModel::mergeBins( const std::vector< tp_flag >& vMergeFlags_, const tp_his
 			if(CModel::EMPTY==*cit_vMergeFlags) continue;
 			if(CModel::NO_MERGE==*cit_vMergeFlags||CModel::MERGE_WITH_RIGHT==*cit_vMergeFlags||
 				CModel::MERGE_WITH_BOTH==*cit_vMergeFlags||CModel::MERGE_WITH_LEFT==*cit_vMergeFlags){
-					for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
-						cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
-							pDistanceLabel[cit_vPair->second] = *pLabel_;
-					}//for 
+					if(cit_vDistHist->first.size()>_usMinArea){
+						for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
+							cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
+								pDistanceLabel[cit_vPair->second] = *pLabel_;
+						}//for 
+					}//if
 			}
 			if(CModel::NO_MERGE==*cit_vMergeFlags||CModel::MERGE_WITH_LEFT==*cit_vMergeFlags){
 				(*pLabel_)++;

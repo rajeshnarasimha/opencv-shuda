@@ -1,7 +1,6 @@
 #ifndef BTL_EXTRA_MODEL
 #define BTL_EXTRA_MODEL
 
-
 namespace btl
 {
 namespace extra
@@ -70,11 +69,18 @@ private:
 	//frame pyramid
 	std::vector< cv::Mat > _vcvmPyramidRGBs;
 	std::vector< cv::Mat > _vcvmPyramidDepths;
-
+	//the minmum area of a cluster
+	unsigned short _usMinArea;
 	//frame index
 	unsigned int _uCurrent;
 	//video source
 	btl::extra::videosource::VideoSourceKinect& _cKinect;
+#ifdef TIMER
+	//timer
+	boost::posix_time::ptime _cT0, _cT1;
+	boost::posix_time::time_duration _cTDAll;
+	float _fFPS;//frame per second
+#endif
 public:
 	//control
 	int _nKNearest; // for normal extraction using PCL

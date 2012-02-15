@@ -10,7 +10,7 @@
 */
 
 //turn on timer
-#define TIMER 
+
 //#define INFO
 #include <boost/shared_ptr.hpp>
 
