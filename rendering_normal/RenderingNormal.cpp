@@ -1,6 +1,6 @@
 //display kinect depth in real-time
 #define INFO
-
+#define TIMER
 #include <GL/glew.h>
 #include <iostream>
 #include <string>
@@ -86,7 +86,7 @@ double _dDepthFilterThreshold = 0.01;
 GLUquadricObj *_pQObj;
 int _nDensity = 2;
 float _fSize = 0.2; // range from 0.05 to 1 by step 0.05
-unsigned int _uLevel = 3;
+unsigned int _uLevel = 2;
 unsigned int _uPyrHeight = 4;
 int _nColorIdx = 0;
 
@@ -162,13 +162,11 @@ void normalKeys ( unsigned char key, int x, int y )
         glutPostRedisplay();
         PRINT( _fSize );
         break;
-    
 	case '8':
 		_uLevel = ++_uLevel%_uPyrHeight;
 		_pView->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
 		PRINT(_uLevel);
 		break;
-	
 	case ']':
 		_pVS->_fSigmaSpace += 1;
 		PRINT( _pVS->_fSigmaSpace );
@@ -348,7 +346,8 @@ void renderDisk(const Eigen::Vector3d& eivPt_, const Eigen::Vector3d& eivNl_, co
 }
 void render3DPts()
 {
-    if(_bCaptureCurrentFrame) {
+    //if(_bCaptureCurrentFrame) 
+	{
 		_pModel->detectPlaneFromCurrentFrame(_uLevel);
 		_pVS->centroidGL( &_eivCentroid );// get centroid of the depth map for display reasons
 		_bCaptureCurrentFrame = false;
