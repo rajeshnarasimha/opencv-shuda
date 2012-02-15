@@ -14,27 +14,35 @@ public:
 	//type
 	typedef boost::shared_ptr<CModel> tp_shared_ptr;
 private:
+	//normal histogram type
 	typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
+	//distance histogram type
+	typedef std::pair< double,unsigned int >						  tp_pair_hist_element; 
+	typedef std::pair< std::vector< tp_pair_hist_element >, double >  tp_pair_hist_bin;
+	typedef std::vector< tp_pair_hist_bin >							  tp_hist;
+
 	enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
-//    typedef enum tp_flag1 tp_flag; 
 public:
 	CModel( VideoSourceKinect& cKinect_ );
 	~CModel(void);
 	//loaders
-	void loadFrame(); //load depth and rgb from video source and convert it to point cloud data
+	void storeCurrentFrame(); //load depth and rgb from video source and convert it to point cloud data
 	void loadPyramid(); //load pyramid
 	void convert2PointCloudModelGL(const cv::Mat& cvmDepth_,const cv::Mat& cvmRGB_, unsigned int uLevel_, std::vector<const unsigned char*>* vColor_, 
 		std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_, 
 		std::vector< int >* pvX_=NULL, std::vector< int >* pvY_=NULL);
 	void detectPlanePCL(unsigned int uLevel_,std::vector<int>* pvXIdx_, std::vector<int>* pvYIdx_);
-	void loadPyramidAndDetectPlane();
+	void detectPlaneFromCurrentFrame(const short uPyrLevel_);
 	void loadPyramidAndDetectPlanePCL();
 	//extract a plane from depth map and convert to GL convention point cloud
 	void extractPlaneGL(unsigned int uLevel_, const std::vector<int>& vX_, const std::vector<int>& vY_, std::vector<Eigen::Vector3d>* pvPlane_);
-	void clusterNormal();
+	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
 protected:
-	void normalHistogram( const std::vector<Eigen::Vector3d>& vNormal_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_);
-
+	void normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_);
+	void distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& nSamples, const std::vector< unsigned int >& vIdx_, tp_hist* pvDistHist );
+	void calcMergeFlag( const tp_hist& vDistHist, const double& dSampleStep, std::vector< tp_flag >* vMergeFlags );
+	void mergeBins( const std::vector< tp_flag >& vMergeFlags_, const tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ );
+	void clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ );
 public:
 	//global model
 	std::vector< Eigen::Vector3d > _vGlobalPts;
@@ -53,6 +61,9 @@ public:
 	std::vector< Eigen::Vector3d > _vLabelAvgNormals;
 	//planes
 	std::vector< Eigen::Vector3d > _veivPlane;
+	//clusters
+	boost::shared_ptr<cv::Mat>   _acvmShrPtrNormalClusters[4];
+	boost::shared_ptr<cv::Mat> _acvmShrPtrDistanceClusters[4];
 private:
 	//frame data
 	Eigen::Vector3d _eivCentroid;
@@ -62,11 +73,6 @@ private:
 
 	//frame index
 	unsigned int _uCurrent;
-	// refreshed for every frame
-	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
-	//in the format of the RGB image
-	double* _pPointL0;
-	
 	//video source
 	btl::extra::videosource::VideoSourceKinect& _cKinect;
 public:

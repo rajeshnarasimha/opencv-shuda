@@ -234,6 +234,7 @@ public:
 	enum {CIRCLE, SQUARE} 			_nPatternType;
 };
 
+
 class CKinectView
 {
 public:
@@ -242,20 +243,52 @@ public:
 
 public:
 	CKinectView( CCalibrateKinect& cCK_)
-	:_cCK(cCK_)
-	{
-	}
-
-	GLuint LoadTexture(const cv::Mat& img);
+	:_cVS(cCK_)
+	{}
+	void init();
+	void LoadTexture(const cv::Mat& img);
 	void setIntrinsics(unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ );
-	void renderCamera( GLuint uTexture_, int nCameraType_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02 ) const;
+	void renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02  ) const /*dPhysicalFocalLength_ = .02 by default */;
 	void renderOnImage( int nX_, int nY_ );
 
 	enum {ALL_CAMERA, NONE_CAMERA} _nCameraRender;
+	GLuint _uDisk;
+	GLuint _uNormal;
+	GLuint _uTexture;
+	GLUquadricObj *_pQObj;
 
+	template< typename T >
+	void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ )
+	{
+		glColor3ubv( pColor_ );
+
+		glPushMatrix();
+		glTranslatef( x, y, z );
+
+		if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
+		{
+			//PRINT( dNz );
+			return;
+		}
+
+		T dA = atan2(dNx,dNz);
+		T dxz= sqrt( dNx*dNx + dNz*dNz );
+		T dB = atan2(dNy,dxz);
+
+		glRotatef(-dB*180 / M_PI,1,0,0 );
+		glRotatef( dA*180 / M_PI,0,1,0 );
+		T dR = -z/0.5;
+		glScalef( dR*dSize_, dR*dSize_, dR*dSize_ );
+		glCallList(_uDisk);
+		if( bRenderNormal_ )
+		{
+			glCallList(_uNormal);
+		}
+		glPopMatrix();
+	}
 
 protected:
-	CCalibrateKinect& _cCK;
+	CCalibrateKinect& _cVS;
 };
 
 
