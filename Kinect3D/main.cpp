@@ -24,35 +24,14 @@ class CKinectView;
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView(_cVS);
 //btl::extra::CModel _cM(_cVS);
-
-Eigen::Vector3d _eivCentroid(.0, .0, .0 );
-double _dZoom = 1.;
-double _dZoomLast = 1.;
-double _dScale = .1;
-
 Matrix4d _mGLMatrix;
 double _dNear = 0.01;
 double _dFar  = 10.;
 
-double _dXAngle = 0;
-double _dYAngle = 0;
-double _dXLastAngle = 0;
-double _dYLastAngle = 0;
-double _dX = 0;
-double _dY = 0;
-double _dXLast = 0;
-double _dYLast = 0;
-
-int  _nXMotion = 0;
-int  _nYMotion = 0;
-int  _nXLeftDown, _nYLeftDown;
-int  _nXRightDown, _nYRightDown;
-bool _bLButtonDown;
-bool _bRButtonDown;
+Eigen::Vector3d _eivCentroid(.0, .0, .0 );
 
 unsigned short _nWidth, _nHeight;
 
-bool _bCaptureCurrentFrame = false;
 bool _bRenderNormal = false;
 bool _bEnableLighting = false;
 double _dDepthFilterThreshold = 10;
@@ -63,28 +42,11 @@ unsigned int _uLevel = 0;
 VideoSourceKinect::tp_frame _eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
 void processNormalKeys ( unsigned char key, int x, int y )
 {
+	_cView.normalKeys( key, x, y);
 	switch( key )
 	{
 	case 27:
 		exit ( 0 );
-		break;
-	case 'g':
-		//zoom in
-		glDisable( GL_BLEND );
-		_dZoom += _dScale;
-		glutPostRedisplay();
-		PRINT( _dZoom );
-		break;
-	case 'h':
-		//zoom out
-		glDisable( GL_BLEND );
-		_dZoom -= _dScale;
-		glutPostRedisplay();
-		PRINT( _dZoom );
-		break;
-	case 'c':
-		//capture current frame the depth map and color
-		_bCaptureCurrentFrame = true;
 		break;
 	case '>':
 		_dDepthFilterThreshold += 10.0;
@@ -158,137 +120,19 @@ void processNormalKeys ( unsigned char key, int x, int y )
 		_cVS._fSigmaSpace -= 1;
 		PRINT( _cVS._fSigmaSpace );
 		break;
-	case '0'://reset camera location
-		_dXAngle = 0.;
-		_dYAngle = 0.;
-		_dZoom = 1.;
-		break;
     }
 
     return;
 }
 void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 {
-	if ( nButton_ == GLUT_LEFT_BUTTON )
-	{
-		if ( nState_ == GLUT_DOWN )
-		{
-			_nXMotion = _nYMotion = 0;
-			_nXLeftDown    = nX_;
-			_nYLeftDown    = nY_;
-
-			_bLButtonDown = true;
-		}
-		else if( nState_ == GLUT_UP )// button up
-		{
-			_dXLastAngle = _dXAngle;
-			_dYLastAngle = _dYAngle;
-			_bLButtonDown = false;
-		}
-		glutPostRedisplay();
-	}
-	else if ( GLUT_RIGHT_BUTTON )
-	{
-		if ( nState_ == GLUT_DOWN )
-		{
-			_nXMotion = _nYMotion = 0;
-			_nXRightDown  = nX_;
-			_nYRightDown  = nY_;
-			_dZoomLast    = _dZoom;
-			_bRButtonDown = true;
-		}
-		else if( nState_ == GLUT_UP )
-		{
-			_dXLast = _dX;
-			_dYLast = _dY;
-			_bRButtonDown = false;
-		}
-		glutPostRedisplay();
-	}
-
+	_cView.mouseClick( nButton_, nState_ ,nX_,nY_ );
 	return;
 }
 void mouseMotion ( int nX_, int nY_ )
 {
-	if ( _bLButtonDown == true )
-	{
-		glDisable     ( GL_BLEND );
-		_nXMotion = nX_ - _nXLeftDown;
-		_nYMotion = nY_ - _nYLeftDown;
-		_dXAngle  = _dXLastAngle + _nXMotion;
-		_dYAngle  = _dYLastAngle + _nYMotion;
-	}
-	else if ( _bRButtonDown == true )
-	{
-		glDisable     ( GL_BLEND );
-		_nXMotion = nX_ - _nXRightDown;
-		_nYMotion = nY_ - _nYRightDown;
-		_dX  = _dXLast + _nXMotion;
-		_dY  = _dYLast + _nYMotion;
-		_dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
-	}
-
-	glutPostRedisplay();
-}
-void renderAxis()
-{
-    glPushMatrix();
-    float fAxisLength = 1.f;
-    float fLengthWidth = 1;
-
-    glLineWidth( fLengthWidth );
-    // x axis
-    glColor3f ( 1., .0, .0 );
-    glBegin ( GL_LINES );
-
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vXAxis; vXAxis << fAxisLength, .0, .0;
-    glVertex3d ( vXAxis(0), vXAxis(1), vXAxis(2) );
-    glEnd();
-    // y axis
-    glColor3f ( .0, 1., .0 );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vYAxis; vYAxis << .0, fAxisLength, .0;
-    glVertex3d ( vYAxis(0), vYAxis(1), vYAxis(2) );
-    glEnd();
-    // z axis
-    glColor3f ( .0, .0, 1. );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vZAxis; vZAxis << .0, .0, fAxisLength;
-    glVertex3d ( vZAxis(0), vZAxis(1), vZAxis(2) );
-    glEnd();
-    glPopMatrix();
-}
-template< typename T >
-void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, const unsigned char* pColor_, const T& dSize_, GLuint uDisk_, GLuint uNormal_, bool bRenderNormal_ )
-{
-	glColor3ubv( pColor_ );
-
-	glPushMatrix();
-	glTranslatef( x, y, z );
-
-	if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-	{
-		//PRINT( dNz );
-		return;
-	}
-
-	T dA = atan2(dNx,dNz);
-	T dxz= sqrt( dNx*dNx + dNz*dNz );
-	T dB = atan2(dNy,dxz);
-
-	glRotatef(-dB*180 / M_PI,1,0,0 );
-	glRotatef( dA*180 / M_PI,0,1,0 );
-	T dR = -z/0.5;
-	glScalef( dR*dSize_, dR*dSize_, dR*dSize_ );
-	glCallList(uDisk_);
-	if( bRenderNormal_ )
-	{
-		glCallList(uNormal_);
-	}
-	glPopMatrix();
+	_cView.mouseMotion( nX_,nY_ );
+	return;
 }
 void render3DPts()
 {
@@ -307,9 +151,7 @@ void render3DPts()
 	const unsigned char* pRGB = (const unsigned char*) cvmRGBs.data;
 	glPushMatrix();
 	// Generate the data
-	int i = 0;
-	for( int r = 0; r < cvmPts.rows; r++ )
-	for( int c = 0; c < cvmPts.cols; c++ , i++)
+	for( int i = 0; i < cvmPts.total(); i++)
 	{
 		if( _bEnableLighting )
 			glEnable(GL_LIGHTING);
@@ -365,20 +207,14 @@ void display ( void )
     // load the matrix to set camera pose
 	glLoadIdentity();
 	//glLoadMatrixd( _mGLMatrix.data() );
-	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // 5. translate back to the original camera pose
-	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
-	_dZoom = _dZoom > 10? 10: _dZoom;
-	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
-	glRotated ( _dXAngle, 0, 1 ,0 );                             // 3. rotate horizontally
-	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
-	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
+	_cView.viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// light position in 3d
 	GLfloat light_position[] = { 3.0, 1.0, 1.0, 1.0 };
 	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 	
     // render objects
-    renderAxis();
+    _cView.renderAxisGL();
 	render3DPts();
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
@@ -393,7 +229,7 @@ void display ( void )
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render objects
-    renderAxis();
+    _cView.renderAxisGL();
 	//render3DPts();
 	_cView.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
 	_cView.renderCamera( CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[_uLevel] );

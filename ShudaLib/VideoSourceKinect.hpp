@@ -121,7 +121,7 @@ public:
 
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrNls[4]; //CV_32FC3 type
-	
+
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
 	cv::Mat		     _cvmAlignedRawDepth;//640*480

@@ -360,23 +360,23 @@ void VideoSourceKinect::unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, c
 	//unit is meter
 	//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
 	//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
-	int nScale = 1 << nLevel;
+	//int nScale = 1 << nLevel;
 
-	float *pDepth = (float*) cvmDepth_.data;
-	float *pWorld_ = (float*) pcvmPts_->data;
+	//float *pDepth = (float*) cvmDepth_.data;
+	//float *pWorld_ = (float*) pcvmPts_->data;
 
-	for ( int r = 0; r < cvmDepth_.rows; r++ )
-	for ( int c = 0; c < cvmDepth_.cols; c++ )
-	{
-		* ( pWorld_ + 2 ) = *pDepth++;
-		* ( pWorld_ + 2 ) /= 1000.f;
-		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-		*   pWorld_		  = ( c*nScale - _uRGB ) / _fFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-		* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _fFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
-		* ( pWorld_ + 1 ) = -*( pWorld_ + 1 );
-		* ( pWorld_ + 2 ) = -*( pWorld_ + 2 );
-		pWorld_ += 3;
-	}
+	//for ( int r = 0; r < cvmDepth_.rows; r++ )
+	//for ( int c = 0; c < cvmDepth_.cols; c++ )
+	//{
+	//	* ( pWorld_ + 2 ) = *pDepth++;
+	//	* ( pWorld_ + 2 ) /= 1000.f;
+	//	//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+	//	*   pWorld_		  = ( c*nScale - _uRGB ) / _fFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
+	//	* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _fFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+	//	* ( pWorld_ + 1 ) = -*( pWorld_ + 1 );
+	//	* ( pWorld_ + 2 ) = -*( pWorld_ + 2 );
+	//	pWorld_ += 3;
+	//}
 
 	return;
 }
