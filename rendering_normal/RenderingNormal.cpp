@@ -269,81 +269,44 @@ void mouseMotion ( int nX_, int nY_ )
 
     glutPostRedisplay();
 }
-
-void renderAxis()
+void renderVolumeGL( const float fSize_)
 {
-    glDisable(GL_LIGHTING);
-
-    glPushMatrix();
-    float fAxisLength = 1.f;
-    float fLengthWidth = 1;
-
-    glLineWidth( fLengthWidth );
-    // x axis
-    glColor3f ( 1., .0, .0 );
-    glBegin ( GL_LINES );
-
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vXAxis;
-    vXAxis << fAxisLength, .0, .0;
-    glVertex3d ( vXAxis(0), vXAxis(1), vXAxis(2) );
-    glEnd();
-    // y axis
-    glColor3f ( .0, 1., .0 );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vYAxis;
-    vYAxis << .0, fAxisLength, .0;
-    glVertex3d ( vYAxis(0), vYAxis(1), vYAxis(2) );
-    glEnd();
-    // z axis
-    glColor3f ( .0, .0, 1. );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vZAxis;
-    vZAxis << .0, .0, fAxisLength;
-    glVertex3d ( vZAxis(0), vZAxis(1), vZAxis(2) );
-    glEnd();
-    glPopMatrix();
+	float fHS = fSize_/2.f;
+	// x axis
+	glColor3f ( 1.f, .0f, .0f );
+	//top
+	glBegin ( GL_LINE_LOOP );
+	glVertex3f ( fHS, fHS, fHS ); 
+	glVertex3f ( fHS, fHS,-fHS ); 
+	glVertex3f (-fHS, fHS,-fHS ); 
+	glVertex3f (-fHS, fHS, fHS ); 
+	glEnd();
+	//bottom
+	glBegin ( GL_LINE_LOOP );
+	glVertex3f ( fHS,-fHS, fHS ); 
+	glVertex3f ( fHS,-fHS,-fHS ); 
+	glVertex3f (-fHS,-fHS,-fHS ); 
+	glVertex3f (-fHS,-fHS, fHS ); 
+	glEnd();
+	//middle
+	glBegin ( GL_LINES );
+	glVertex3f ( fHS, fHS, fHS ); 
+	glVertex3f ( fHS,-fHS, fHS ); 
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f ( fHS, fHS,-fHS ); 
+	glVertex3f ( fHS,-fHS,-fHS ); 
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f (-fHS, fHS,-fHS ); 
+	glVertex3f (-fHS,-fHS,-fHS ); 
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f (-fHS, fHS, fHS ); 
+	glVertex3f (-fHS,-fHS, fHS ); 
+	glEnd();
 }
-void renderDisk(const Eigen::Vector3d& eivPt_, const Eigen::Vector3d& eivNl_, const unsigned char* pColor_,
-	GLuint uDisk_, GLuint uNormal_, bool bRenderNormal_ )
-{
-	glColor3ubv( pColor_ );
 
-	glPushMatrix();
-	double x,y,z;
-	x =  eivPt_(0);
-	y =  eivPt_(1);
-	z =  eivPt_(2);
-	glTranslated( x, y, z );
-
-	double dNx, dNy, dNz;// in opengl default coordinate
-	dNx = eivNl_(0);
-	dNy = eivNl_(1);
-	dNz = eivNl_(2);
-
-	if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-	{
-		PRINT( dNz );
-		return;
-	}
-
-	double dA = atan2(dNx,dNz);
-	double dxz= sqrt( dNx*dNx + dNz*dNz );
-	double dB = atan2(dNy,dxz);
-
-	glRotated(-dB*180 / M_PI,1,0,0 );
-	glRotated( dA*180 / M_PI,0,1,0 );
-	double dR = -z/0.5;
-	glScaled( dR*_fSize, dR*_fSize, dR*_fSize );
-	glCallList(uDisk_);
-	if( bRenderNormal_ )
-	{
-		glCallList(uNormal_);
-	}
-	glPopMatrix();
-}
 void render3DPts()
 {
     //if(_bCaptureCurrentFrame) 
@@ -407,7 +370,6 @@ void render3DPts()
 
     return;
 }
-
 void display ( void )
 {
 	_pVS->_fThresholdDepthInMeter =_dDepthFilterThreshold;
@@ -437,7 +399,8 @@ void display ( void )
     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
     // render objects
-    renderAxis();
+    _pView->renderAxisGL();
+	renderVolumeGL(2);
     render3DPts();
 
     //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _pVS->cvRGB().data);

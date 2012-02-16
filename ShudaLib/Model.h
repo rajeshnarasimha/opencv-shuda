@@ -10,7 +10,7 @@ using namespace btl::utility;
 class CVolume
 {
 
-}
+};
 
 class CModel
 {

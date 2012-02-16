@@ -6,6 +6,7 @@
 #include <vector>
 #include <boost/lexical_cast.hpp>
 #include <Converters.hpp>
+#include <opencv2/gpu/gpumat.hpp>
 #include <VideoSourceKinect.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <algorithm>
@@ -58,18 +59,16 @@ unsigned short _nWidth, _nHeight;
 GLuint _uTextureFirst;
 GLuint _uTextureSecond;
 
-SKeyFrame _asKFs[50];
+SKeyFrame<float>::tp_shared_ptr _aShrPtrKFs[50];
 int _nKFCounter = 1; //key frame counter
 int _nRFCounter = 0; //reference frame counter
-vector< SKeyFrame* > _vKFPtrs;
-vector< int > _vRFIdx;
-
+std::vector< SKeyFrame<float>::tp_shared_ptr* > _vShrPtrsKF;
+std::vector< int > _vRFIdx;
 
 bool _bContinuous = true;
 bool _bPrevStatus = true;
 bool _bDisplayCamera = true;
 bool _bRenderReference = true;
-
 bool _bCapture = false;
 
 int _nN = 1;
@@ -134,7 +133,7 @@ void normalKeys ( unsigned char key, int x, int y )
         //reset
 		_nKFCounter=1;
 		_nRFCounter=0;
-		_vKFPtrs.clear();
+		_vShrPtrsKF.clear();
         init();
         glutPostRedisplay();
         break;
@@ -157,25 +156,24 @@ void normalKeys ( unsigned char key, int x, int y )
 			if( _nRFCounter ==  _nKFCounter )
 				_nRFCounter--;
 			_nKFCounter--;
-			_vKFPtrs.pop_back();
+			_vShrPtrsKF.pop_back();
 		}
 		glutPostRedisplay();
 		break;
+	/*
 	case 'v':
-		//use current keyframe as a reference
-		if( _nRFCounter <_nKFCounter )
-		{
-			_nRFCounter = _nKFCounter-1;
-			_vRFIdx.push_back( _nRFCounter );
-			SKeyFrame& s1stKF = _asKFs[_nRFCounter];
-			s1stKF._bIsReferenceFrame = true;
-    		//construct KD tree
-    		s1stKF.constructKDTree();
-			glutPostRedisplay();
-		}
-		break;
+			//use current keyframe as a reference
+			if( _nRFCounter <_nKFCounter )
+			{
+				_nRFCounter = _nKFCounter-1;
+				_vRFIdx.push_back( _nRFCounter );
+				SKeyFrame<float>& s1stKF = _aShrPtrKFs[_nRFCounter];
+				s1stKF._bIsReferenceFrame = true;
+				glutPostRedisplay();
+			}
+			break;*/
 	case ',':
-		_mGLMatrix = _vKFPtrs[ _nView ]->setView();
+		_mGLMatrix = (*_vShrPtrsKF[ _nView ])->setView();
 		resetModelViewParameters();
 		glutPostRedisplay();
 		break;
@@ -310,6 +308,8 @@ void mouseMotion ( int nX_, int nY_ )
 
 void init ( )
 {
+	for(int i=0; i <50; i++){ _aShrPtrKFs[i].reset(new SKeyFrame<float>(_cVS));	}
+		
     _mGLMatrix.setIdentity();
     glClearColor ( 0.0, 0.0, 0.0, 1.0 );
     glClearDepth ( 1.0 );
@@ -325,49 +325,49 @@ void init ( )
     glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
 // store a frame and detect feature points for tracking.
-    _cVS.getNextFrame();
+    _cVS.getNextFrame(VideoSourceKinect::GPU_RAW);
     // load as texture
-    _uTextureFirst = _cView.LoadTexture ( _cVS.cvRGB() );
-	SKeyFrame& s1stKF = _asKFs[0];
+    _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
+	SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
-    s1stKF.assign ( _cVS.cvRGB(), _cVS.alignedDepth() );
+    p1stKF->assign ( _cVS._vcvmPyrRGBs[0], (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
     //corner detection and ranking ( first frame )
-    s1stKF.detectCorners();
-    //construct KD tree
-    s1stKF.constructKDTree();
-	s1stKF._bIsReferenceFrame = true;
+    p1stKF->detectCorners();
+    //to match in brute force so no need to construct KD tree
+    //s1stKF.constructKDTree();
+	p1stKF->_bIsReferenceFrame = true;
 // ( second frame )
-    _uTextureSecond = _cView.LoadTexture ( _cVS.cvRGB() );
+    //_uTextureSecond = _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
     //s1stKF.save2XML ( "0" );
 	
-	_vKFPtrs.push_back( &s1stKF );
+	_vShrPtrsKF.push_back( &p1stKF );
     return;
 }
 
 void display ( void )
 {
 // update frame
-    _cVS.getNextFrame();
+    _cVS.getNextFrame(VideoSourceKinect::GPU_RAW);
 // ( second frame )
     // assign the rgb and depth to the current frame.
-	SKeyFrame& sCurrentKF = _asKFs[_nKFCounter];
-    sCurrentKF.assign ( _cVS.cvRGB(), _cVS.alignedDepth() );
+	SKeyFrame<float>::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
+    pCurrentKF->assign ( _cVS._vcvmPyrRGBs[0],  (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
 
     if ( _bCapture && _nKFCounter < 50 )
     {
-		SKeyFrame& s1stKF = _asKFs[_nRFCounter];
+		SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
         _bCapture = false;
         // detect corners
-        sCurrentKF.detectCorners();
+        pCurrentKF->detectCorners();
 
-        sCurrentKF.detectCorrespondences ( s1stKF );
+        pCurrentKF->detectCorrespondences ( *p1stKF );
 
-        sCurrentKF.calcRT ( s1stKF );
+        pCurrentKF->calcRT ( *p1stKF );
 
- 		sCurrentKF.applyRelativePose( s1stKF );
+ 		pCurrentKF->applyRelativePose( *p1stKF );
 
-		_vKFPtrs.push_back( &sCurrentKF );
+		_vShrPtrsKF.push_back( &pCurrentKF );
 
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
@@ -400,15 +400,15 @@ void display ( void )
 	//sCurrentKF.renderCamera( _cView, _uTextureFirst );
 
 
-	for( vector< SKeyFrame* >::iterator cit = _vKFPtrs.begin(); cit!= _vKFPtrs.end(); cit++ )
+	for( vector< SKeyFrame<float>::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ )
 	{
-		(*cit)->renderCamera( _cView, _uTextureFirst,_bDisplayCamera );
+		(**cit)->renderCamera( _bDisplayCamera );
 	}
 
 if(_bRenderReference)
 {
 	renderPattern();
-    renderAxis();
+    _cView.renderAxisGL();
 }
 
 // render second viewport
@@ -416,9 +416,7 @@ if(_bRenderReference)
     glScissor  ( _nWidth / 2, 0, _nWidth / 2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-    glBindTexture ( GL_TEXTURE_2D, _uTextureSecond );
-    glTexSubImage2D ( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGB, GL_UNSIGNED_BYTE, _cVS.cvRGB().data );
-    _cView.renderCamera ( _uTextureSecond, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
+    //_cView.renderCamera ( _uTextureSecond, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
 
 // rendering
     /*

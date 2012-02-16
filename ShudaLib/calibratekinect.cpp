@@ -1194,6 +1194,40 @@ void CKinectView::init()
 	glEndList();
 }
 
+void CKinectView::renderAxisGL() const
+{
+	glDisable(GL_LIGHTING);
+
+	glPushMatrix();
+	float fAxisLength = 1.f;
+	float fLengthWidth = 1;
+	Eigen::Vector3f vOrigin,vXAxis,vYAxis,vZAxis;
+	vOrigin<< .0f, .0f, .0f;
+	vXAxis << fAxisLength, .0f, .0f;
+	vYAxis << .0f, fAxisLength, .0f;
+	vZAxis << .0f, .0f, fAxisLength;
+
+	glLineWidth( fLengthWidth );
+	// x axis
+	glColor3f ( 1.f, .0f, .0f );
+	glBegin ( GL_LINES );
+	glVertex3fv ( vOrigin.data() );
+	glVertex3fv ( vXAxis.data() );
+	glEnd();
+	// y axis
+	glColor3f ( .0f, 1.f, .0f );
+	glBegin ( GL_LINES );
+	glVertex3fv ( vOrigin.data() );
+	glVertex3fv ( vYAxis.data() );
+	glEnd();
+	// z axis
+	glColor3f ( .0f, .0f, 1.f );
+	glBegin ( GL_LINES );
+	glVertex3fv ( vOrigin.data() );
+	glVertex3fv ( vZAxis.data());
+	glEnd();
+	glPopMatrix();
+}
 } //namespace videosource
 } //namespace extra
 } //namespace btl
