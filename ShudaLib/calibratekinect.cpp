@@ -1228,6 +1228,18 @@ void CKinectView::renderAxisGL() const
 	glEnd();
 	glPopMatrix();
 }
+
+void CKinectView::viewerGL()
+{
+	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // 5. translate back to the original camera pose
+	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
+	_dZoom = _dZoom > 10? 10: _dZoom;
+	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
+	glRotated ( _dXAngle, 0, 1 ,0 );                             // 3. rotate horizontally
+	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
+	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
+}
+
 } //namespace videosource
 } //namespace extra
 } //namespace btl

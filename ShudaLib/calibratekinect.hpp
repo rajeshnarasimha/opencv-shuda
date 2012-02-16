@@ -244,13 +244,124 @@ public:
 public:
 	CKinectView( CCalibrateKinect& cCK_)
 	:_cVS(cCK_)
-	{}
+	{
+		_dZoom = 1.;
+		_dZoomLast = 1.;
+		_dScale = .1;
+
+		_dXAngle = 0;
+		_dYAngle = 0;
+		_dXLastAngle = 0;
+		_dYLastAngle = 0;
+		_dX = 0;
+		_dY = 0;
+		_dXLast = 0;
+		_dYLast = 0;
+
+		_nXMotion = 0;
+		_nYMotion = 0;
+	}
 	void init();
+	void viewerGL();
 	void LoadTexture(const cv::Mat& img);
 	void setIntrinsics(unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ );
 	void renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02  ) const /*dPhysicalFocalLength_ = .02 by default */;
 	void renderOnImage( int nX_, int nY_ );
 	void renderAxisGL() const;
+
+	void normalKeys ( unsigned char key, int x, int y )
+	{
+		switch( key )
+		{
+		case 27:
+			exit ( 0 );
+			break;
+		case 'g':
+			//zoom in
+			glDisable( GL_BLEND );
+			_dZoom += _dScale;
+			glutPostRedisplay();
+			PRINT( _dZoom );
+			break;
+		case 'h':
+			//zoom out
+			glDisable( GL_BLEND );
+			_dZoom -= _dScale;
+			glutPostRedisplay();
+			PRINT( _dZoom );
+			break;
+		case '0'://reset camera location
+			_dXAngle = 0.;
+			_dYAngle = 0.;
+			_dZoom = 1.;
+			break;
+		}
+
+		return;
+	}
+	void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
+	{
+		if ( nButton_ == GLUT_LEFT_BUTTON )
+		{
+			if ( nState_ == GLUT_DOWN )
+			{
+				_nXMotion = _nYMotion = 0;
+				_nXLeftDown    = nX_;
+				_nYLeftDown    = nY_;
+
+				_bLButtonDown = true;
+			}
+			else if( nState_ == GLUT_UP )// button up
+			{
+				_dXLastAngle = _dXAngle;
+				_dYLastAngle = _dYAngle;
+				_bLButtonDown = false;
+			}
+			glutPostRedisplay();
+		}
+		else if ( GLUT_RIGHT_BUTTON )
+		{
+			if ( nState_ == GLUT_DOWN )
+			{
+				_nXMotion = _nYMotion = 0;
+				_nXRightDown  = nX_;
+				_nYRightDown  = nY_;
+				_dZoomLast    = _dZoom;
+				_bRButtonDown = true;
+			}
+			else if( nState_ == GLUT_UP )
+			{
+				_dXLast = _dX;
+				_dYLast = _dY;
+				_bRButtonDown = false;
+			}
+			glutPostRedisplay();
+		}
+
+		return;
+	}
+	void mouseMotion ( int nX_, int nY_ )
+	{
+		if ( _bLButtonDown == true )
+		{
+			glDisable     ( GL_BLEND );
+			_nXMotion = nX_ - _nXLeftDown;
+			_nYMotion = nY_ - _nYLeftDown;
+			_dXAngle  = _dXLastAngle + _nXMotion;
+			_dYAngle  = _dYLastAngle + _nYMotion;
+		}
+		else if ( _bRButtonDown == true )
+		{
+			glDisable     ( GL_BLEND );
+			_nXMotion = nX_ - _nXRightDown;
+			_nYMotion = nY_ - _nYRightDown;
+			_dX  = _dXLast + _nXMotion;
+			_dY  = _dYLast + _nYMotion;
+			_dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
+		}
+
+		glutPostRedisplay();
+	}
 	template< typename T >
 	void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, 
 		const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ );
@@ -260,7 +371,26 @@ public:
 	GLuint _uTexture;
 	GLUquadricObj *_pQObj;
 
-	
+	Eigen::Vector3d _eivCentroid;
+	double _dZoom;
+	double _dZoomLast;
+	double _dScale;
+
+	double _dXAngle;
+	double _dYAngle;
+	double _dXLastAngle;
+	double _dYLastAngle;
+	double _dX;
+	double _dY;
+	double _dXLast;
+	double _dYLast;
+
+	int  _nXMotion;
+	int  _nYMotion;
+	int  _nXLeftDown, _nYLeftDown;
+	int  _nXRightDown, _nYRightDown;
+	bool _bLButtonDown;
+	bool _bRButtonDown;
 
 protected:
 	CCalibrateKinect& _cVS;
