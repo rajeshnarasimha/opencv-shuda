@@ -194,7 +194,6 @@ void renderVolumeGL( const float fSize_)
 
 void render3DPts()
 {
-   
     double x, y, z;
 	if(_uLevel>=_pVS->_uPyrHeight){
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");

@@ -1,5 +1,6 @@
 #ifndef BTL_CUDA_HEADER
 #define BTL_CUDA_HEADER
+#include "../OtherUtil.hpp"
 
 namespace btl { namespace cuda_util
 {
@@ -16,10 +17,11 @@ void cudaProjectRGB(const cv::gpu::GpuMat& cvgmRGBWorld_,
 	cv::gpu::GpuMat* pcvgmAligned_ );
 void cudaBilateralFiltering(const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaSpace_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_ );
 void cudaPyrDown (const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_);
-void cudaUnprojectRGBGL ( const cv::gpu::GpuMat& cvgmDepths_, 
+void cudaUnprojectRGB ( const cv::gpu::GpuMat& cvgmDepths_, 
 	const float& fFxRGB_,const float& fFyRGB_,const float& uRGB_, const float& vRGB_, unsigned int uLevel_, 
-	cv::gpu::GpuMat* pcvgmPts_ );
-void cudaFastNormalEstimationGL(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
+	cv::gpu::GpuMat* pcvgmPts_, 
+	btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL );
+void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 
 }//cuda_util
 }//btl

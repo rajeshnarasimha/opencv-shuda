@@ -87,9 +87,8 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	CHECK ( 	B_.rows() == 3, " absoluteOrientation() requires the input matrix B_ is a 3 x N matrix. " );
 	CHECK ( 	A_.cols() == B_.cols(), " absoluteOrientation() requires the columns of input matrix A_ and B_ are equal. " );
 
-
 	//Compute the centroid of each point set
-	Eigen::Vector3d eivCentroidA, eivCentroidB;
+	Eigen::Vector3d eivCentroidA(0,0,0), eivCentroidB(0,0,0);
 	for ( int nC = 0; nC < A_.cols(); nC++ ){
 		eivCentroidA += A_.col ( nC );
 		eivCentroidB += B_.col ( nC );
@@ -110,10 +109,11 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	//PRINT( Bn );
 
 	//Compute the quaternions
-	Eigen::Matrix4d M, Ma, Mb;
+	Eigen::Matrix4d M; M.setZero();
+	Eigen::Matrix4d Ma, Mb;
 	for ( int nC = 0; nC < A_.cols(); nC++ ){
 		//pure imaginary Shortcuts
-		Eigen::Vector4d a, b;
+		Eigen::Vector4d a(0,0,0,0), b(0,0,0,0);
 		a ( 1 ) = An ( 0, nC );
 		a ( 2 ) = An ( 1, nC );
 		a ( 3 ) = An ( 2, nC );
@@ -122,13 +122,13 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 		b ( 3 ) = Bn ( 2, nC );
 		//cross products
 		Ma << a ( 0 ), -a ( 1 ), -a ( 2 ), -a ( 3 ),
-    		  a ( 1 ),  a ( 0 ),  a ( 3 ), -a ( 2 ),
-			  a ( 2 ), -a ( 3 ),  a ( 0 ),  a ( 1 ),
-			  a ( 3 ),  a ( 2 ), -a ( 1 ),  a ( 0 );
+			a ( 1 ),  a ( 0 ),  a ( 3 ), -a ( 2 ),
+			a ( 2 ), -a ( 3 ),  a ( 0 ),  a ( 1 ),
+			a ( 3 ),  a ( 2 ), -a ( 1 ),  a ( 0 );
 		Mb << b ( 0 ), -b ( 1 ), -b ( 2 ), -b ( 3 ),
-			  b ( 1 ),  b ( 0 ), -b ( 3 ),  b ( 2 ),
-			  b ( 2 ),  b ( 3 ),  b ( 0 ), -b ( 1 ),
-			  b ( 3 ), -b ( 2 ),  b ( 1 ),  b ( 0 );
+			b ( 1 ),  b ( 0 ), -b ( 3 ),  b ( 2 ),
+			b ( 2 ),  b ( 3 ),  b ( 0 ), -b ( 1 ),
+			b ( 3 ), -b ( 2 ),  b ( 1 ),  b ( 0 );
 		//Add up
 		M += Ma.transpose() * Mb;
 	}
@@ -152,22 +152,22 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 	Eigen::Vector4d e;
 	e << eigensolver.eigenvectors().col ( n ) ( 0 ).real(),
-		 eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
-		 eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
-		 eigensolver.eigenvectors().col ( n ) ( 3 ).real();
+		eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
+		eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
+		eigensolver.eigenvectors().col ( n ) ( 3 ).real();
 
 	//PRINT( e );
 
 	Eigen::Matrix4d M1, M2, R;
 	//Compute the rotation matrix
 	M1 <<  e ( 0 ), -e ( 1 ), -e ( 2 ), -e ( 3 ),
-		   e ( 1 ),  e ( 0 ),  e ( 3 ), -e ( 2 ),
-		   e ( 2 ), -e ( 3 ),  e ( 0 ),  e ( 1 ),
-		   e ( 3 ),  e ( 2 ), -e ( 1 ),  e ( 0 );
+		e ( 1 ),  e ( 0 ),  e ( 3 ), -e ( 2 ),
+		e ( 2 ), -e ( 3 ),  e ( 0 ),  e ( 1 ),
+		e ( 3 ),  e ( 2 ), -e ( 1 ),  e ( 0 );
 	M2 <<  e ( 0 ), -e ( 1 ), -e ( 2 ), -e ( 3 ),
-		   e ( 1 ),  e ( 0 ), -e ( 3 ),  e ( 2 ),
-		   e ( 2 ),  e ( 3 ),  e ( 0 ), -e ( 1 ),
-		   e ( 3 ), -e ( 2 ),  e ( 1 ),  e ( 0 );
+		e ( 1 ),  e ( 0 ), -e ( 3 ),  e ( 2 ),
+		e ( 2 ),  e ( 3 ),  e ( 0 ), -e ( 1 ),
+		e ( 3 ), -e ( 2 ),  e ( 1 ),  e ( 0 );
 	R = M1.transpose() * M2;
 	( *pR_ ) = R.block ( 1, 1, 3, 3 );
 

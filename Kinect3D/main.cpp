@@ -41,7 +41,7 @@ int _nDensity = 2;
 float _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 1;
 unsigned int _uLevel = 0;
-VideoSourceKinect::tp_frame _eFrameType = VideoSourceKinect::GPU_PYRAMID;
+VideoSourceKinect::tp_frame _eFrameType = VideoSourceKinect::GPU_PYRAMID_GL;
 void normalKeys ( unsigned char key, int x, int y )
 {
 	_pGL->normalKeys( key, x, y);
@@ -95,11 +95,11 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _dSize );
 		break;
 	case '1':
-		_eFrameType = VideoSourceKinect::GPU_PYRAMID;
+		_eFrameType = VideoSourceKinect::GPU_PYRAMID_GL;
 		PRINTSTR(  "VideoSourceKinect::GPU_PYRAMID" );
 		break;
 	case '2':
-		_eFrameType = VideoSourceKinect::CPU_PYRAMID;
+		_eFrameType = VideoSourceKinect::CPU_PYRAMID_GL;
 		PRINTSTR(  "VideoSourceKinect::CPU_PYRAMID" );
 		break;
 	case '9':
@@ -182,11 +182,11 @@ void display ( void )
 	//load data from video source and model
 	switch( _eFrameType )
 	{
-	case VideoSourceKinect::GPU_PYRAMID:
-		_cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID);
+	case VideoSourceKinect::GPU_PYRAMID_GL:
+		_cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID_GL);
 		break;
-	case VideoSourceKinect::CPU_PYRAMID:
-		_cVS.getNextFrame(VideoSourceKinect::CPU_PYRAMID);
+	case VideoSourceKinect::CPU_PYRAMID_GL:
+		_cVS.getNextFrame(VideoSourceKinect::CPU_PYRAMID_GL);
 		break;
 	}
 	//set viewport
@@ -243,7 +243,7 @@ void reshape ( int nWidth_, int nHeight_ ){
     return;
 }
 void setPyramid(){
-	_eFrameType = VideoSourceKinect::GPU_PYRAMID;
+	_eFrameType = VideoSourceKinect::GPU_PYRAMID_GL;
 	_uPyrHeight = 4;
 	_uLevel = 3;
 	_cVS.getNextPyramid(_uPyrHeight);

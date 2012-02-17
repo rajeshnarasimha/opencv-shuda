@@ -39,7 +39,7 @@ unsigned short _nWidth, _nHeight;
 GLuint _uTextureFirst;
 GLuint _uTextureSecond;
 
-SKeyFrame<float>::tp_shared_ptr _aShrPtrKFs[50];
+SKeyFrame<float>::tp_shared_ptr _aShrPtrKFs[10];
 int _nKFCounter = 1; //key frame counter
 int _nRFCounter = 0; //reference frame counter
 std::vector< SKeyFrame<float>::tp_shared_ptr* > _vShrPtrsKF;
@@ -94,8 +94,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 	case 'd':
 		//remove last key frame
 		if(_nKFCounter >0 ) {
-			if( _nRFCounter ==  _nKFCounter )
-				_nRFCounter--;
+			if( _nRFCounter ==  _nKFCounter ) _nRFCounter--;
 			_nKFCounter--;
 			_vShrPtrsKF.pop_back();
 		}
@@ -130,7 +129,7 @@ void mouseMotion ( int nX_, int nY_ ){
 
 void init ( )
 {
-	for(int i=0; i <50; i++){ _aShrPtrKFs[i].reset(new SKeyFrame<float>(_cVS));	}
+	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new SKeyFrame<float>(_cVS));	}
 		
     _mGLMatrix.setIdentity();
     _pGL->clearColorDepth();
@@ -147,7 +146,7 @@ void init ( )
 
 	_pGL->init();
 // store a frame and detect feature points for tracking.
-    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID);
+    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID_CV);
     // load as texture
     _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
 	SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
@@ -167,13 +166,13 @@ void init ( )
 
 void display ( void ) {
 // update frame
-    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID);
+    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
     // assign the rgb and depth to the current frame.
 	SKeyFrame<float>::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
     pCurrentKF->assign ( _cVS._vcvmPyrRGBs[0],  (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
 
-    if ( _bCapture && _nKFCounter < 50 ) {
+    if ( _bCapture && _nKFCounter < 10 ) {
 		SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
         _bCapture = false;
         // detect corners
@@ -195,7 +194,7 @@ void display ( void ) {
     glScissor  ( 0, 0, _nWidth / 2, _nHeight );
     // after set the intrinsics and extrinsics
     // load the matrix to set camera pose
-    glLoadIdentity();
+    //glLoadIdentity();
 	glLoadMatrixd( _mGLMatrix.data() );
 	_pGL->viewerGL();
 
@@ -260,7 +259,7 @@ void reshape ( int nWidth_, int nHeight_ ) {
 
 int main ( int argc, char** argv ) {
     try {
-		_pGL.reset(new btl::gl_util::CGLUtil);
+		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
