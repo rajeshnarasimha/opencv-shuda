@@ -50,12 +50,10 @@ private:
 	unsigned short _usMinArea;
 	//video source
 	btl::extra::videosource::VideoSourceKinect& _cKinect;
-#ifdef TIMER
 	//timer
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
 	float _fFPS;//frame per second
-#endif
 };
 
 

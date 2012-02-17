@@ -90,13 +90,10 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 	//Compute the centroid of each point set
 	Eigen::Vector3d eivCentroidA, eivCentroidB;
-
-	for ( int nC = 0; nC < A_.cols(); nC++ )
-	{
+	for ( int nC = 0; nC < A_.cols(); nC++ ){
 		eivCentroidA += A_.col ( nC );
 		eivCentroidB += B_.col ( nC );
 	}
-
 	eivCentroidA /= A_.cols();
 	eivCentroidB /= A_.cols();
 	//PRINT( eivCentroidA );
@@ -104,9 +101,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 	//Remove the centroid
 	Eigen::MatrixXd An ( 3, A_.cols() ), Bn ( 3, A_.cols() );
-
-	for ( int nC = 0; nC < A_.cols(); nC++ )
-	{
+	for ( int nC = 0; nC < A_.cols(); nC++ ){
 		An.col ( nC ) = A_.col ( nC ) - eivCentroidA;
 		Bn.col ( nC ) = B_.col ( nC ) - eivCentroidB;
 	}
@@ -116,9 +111,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 	//Compute the quaternions
 	Eigen::Matrix4d M, Ma, Mb;
-
-	for ( int nC = 0; nC < A_.cols(); nC++ )
-	{
+	for ( int nC = 0; nC < A_.cols(); nC++ ){
 		//pure imaginary Shortcuts
 		Eigen::Vector4d a, b;
 		a ( 1 ) = An ( 0, nC );
@@ -129,29 +122,26 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 		b ( 3 ) = Bn ( 2, nC );
 		//cross products
 		Ma << a ( 0 ), -a ( 1 ), -a ( 2 ), -a ( 3 ),
-			a ( 1 ),  a ( 0 ),  a ( 3 ), -a ( 2 ),
-			a ( 2 ), -a ( 3 ),  a ( 0 ),  a ( 1 ),
-			a ( 3 ),  a ( 2 ), -a ( 1 ),  a ( 0 );
+    		  a ( 1 ),  a ( 0 ),  a ( 3 ), -a ( 2 ),
+			  a ( 2 ), -a ( 3 ),  a ( 0 ),  a ( 1 ),
+			  a ( 3 ),  a ( 2 ), -a ( 1 ),  a ( 0 );
 		Mb << b ( 0 ), -b ( 1 ), -b ( 2 ), -b ( 3 ),
-			b ( 1 ),  b ( 0 ), -b ( 3 ),  b ( 2 ),
-			b ( 2 ),  b ( 3 ),  b ( 0 ), -b ( 1 ),
-			b ( 3 ), -b ( 2 ),  b ( 1 ),  b ( 0 );
+			  b ( 1 ),  b ( 0 ), -b ( 3 ),  b ( 2 ),
+			  b ( 2 ),  b ( 3 ),  b ( 0 ), -b ( 1 ),
+			  b ( 3 ), -b ( 2 ),  b ( 1 ),  b ( 0 );
 		//Add up
 		M += Ma.transpose() * Mb;
 	}
 
 	Eigen::EigenSolver <Eigen::Matrix4d> eigensolver ( M );
-
 	Eigen::Matrix< std::complex< double >, 4, 1 > v = eigensolver.eigenvalues();
 
 	//find the largest eigenvalue;
 	double dLargest = -1000000;
 	int n;
 
-	for ( int i = 0; i < 4; i++ )
-	{
-		if ( dLargest < v ( i ).real() )
-		{
+	for ( int i = 0; i < 4; i++ ) {
+		if ( dLargest < v ( i ).real() ) {
 			dLargest = v ( i ).real();
 			n = i;
 		}
@@ -162,46 +152,39 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 
 	Eigen::Vector4d e;
 	e << eigensolver.eigenvectors().col ( n ) ( 0 ).real(),
-		eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
-		eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
-		eigensolver.eigenvectors().col ( n ) ( 3 ).real();
+		 eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
+		 eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
+		 eigensolver.eigenvectors().col ( n ) ( 3 ).real();
 
 	//PRINT( e );
 
 	Eigen::Matrix4d M1, M2, R;
 	//Compute the rotation matrix
 	M1 <<  e ( 0 ), -e ( 1 ), -e ( 2 ), -e ( 3 ),
-		e ( 1 ), e ( 0 ), e ( 3 ), -e ( 2 ),
-		e ( 2 ), -e ( 3 ), e ( 0 ), e ( 1 ),
-		e ( 3 ), e ( 2 ), -e ( 1 ), e ( 0 );
+		   e ( 1 ),  e ( 0 ),  e ( 3 ), -e ( 2 ),
+		   e ( 2 ), -e ( 3 ),  e ( 0 ),  e ( 1 ),
+		   e ( 3 ),  e ( 2 ), -e ( 1 ),  e ( 0 );
 	M2 <<  e ( 0 ), -e ( 1 ), -e ( 2 ), -e ( 3 ),
-		e ( 1 ), e ( 0 ), -e ( 3 ), e ( 2 ),
-		e ( 2 ), e ( 3 ), e ( 0 ), -e ( 1 ),
-		e ( 3 ), -e ( 2 ), e ( 1 ), e ( 0 );
+		   e ( 1 ),  e ( 0 ), -e ( 3 ),  e ( 2 ),
+		   e ( 2 ),  e ( 3 ),  e ( 0 ), -e ( 1 ),
+		   e ( 3 ), -e ( 2 ),  e ( 1 ),  e ( 0 );
 	R = M1.transpose() * M2;
 	( *pR_ ) = R.block ( 1, 1, 3, 3 );
 
 	//Compute the scale factor if necessary
-	if ( bEstimateScale_ )
-	{
+	if ( bEstimateScale_ ){
 		double a = 0, b = 0;
-
-		for ( int nC = 0; nC < A_.cols(); nC++ )
-		{
+		for ( int nC = 0; nC < A_.cols(); nC++ ) {
 			a += Bn.col ( nC ).transpose() * ( *pR_ ) * An.col ( nC );
 			b += Bn.col ( nC ).transpose() * Bn.col ( nC );
 		}
-
 		//PRINT( a );
 		//PRINT( b );
 		( *pdScale_ ) = b / a;
 	}
-	else
-	{
+	else{
 		( *pdScale_ ) = 1;
 	}
-
-
 	//Compute the final translation
 	( *pT_ ) = eivCentroidB - ( *pdScale_ ) * ( *pR_ ) * eivCentroidA;
 
@@ -209,8 +192,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	double dE = 0;
 	Eigen::Vector3d eivE;
 
-	for ( int nC = 0; nC < A_.cols(); nC++ )
-	{
+	for ( int nC = 0; nC < A_.cols(); nC++ ) {
 		eivE = B_.col ( nC ) - ( ( *pdScale_ ) * ( *pR_ ) * A_.col ( nC ) + ( *pT_ ) );
 		dE += eivE.norm();
 	}

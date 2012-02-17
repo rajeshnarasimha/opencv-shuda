@@ -10,6 +10,7 @@
 #include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
+#include "GLUtil.h"
 //camera calibration from a sequence of images
 
 using namespace btl; //for "<<" operator
@@ -23,6 +24,7 @@ class CKinectView;
 
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView(_cVS);
+btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 //btl::extra::CModel _cM(_cVS);
 Matrix4d _mGLMatrix;
 double _dNear = 0.01;
@@ -39,10 +41,10 @@ int _nDensity = 2;
 float _dSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 1;
 unsigned int _uLevel = 0;
-VideoSourceKinect::tp_frame _eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
-void processNormalKeys ( unsigned char key, int x, int y )
+VideoSourceKinect::tp_frame _eFrameType = VideoSourceKinect::GPU_PYRAMID;
+void normalKeys ( unsigned char key, int x, int y )
 {
-	_cView.normalKeys( key, x, y);
+	_pGL->normalKeys( key, x, y);
 	switch( key )
 	{
 	case 27:
@@ -93,23 +95,15 @@ void processNormalKeys ( unsigned char key, int x, int y )
 		PRINT( _dSize );
 		break;
 	case '1':
-		_uLevel = 0;
-		_eFrameType = VideoSourceKinect::GPU_RAW;
-		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
+		_eFrameType = VideoSourceKinect::GPU_PYRAMID;
+		PRINTSTR(  "VideoSourceKinect::GPU_PYRAMID" );
 		break;
 	case '2':
-		_uLevel = 0;
-		_eFrameType = VideoSourceKinect::CPU_RAW;
-		PRINTSTR(  "VideoSourceKinect::BILATERAL_FILTERED_IN_DISPARTY" );
-		break;
-	case '3':
-		_uLevel = 0;
-		_eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
-		PRINTSTR(  "VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY" );
+		_eFrameType = VideoSourceKinect::CPU_PYRAMID;
+		PRINTSTR(  "VideoSourceKinect::CPU_PYRAMID" );
 		break;
 	case '9':
 		_uLevel = ++_uLevel%_uPyrHeight;
-		
 		PRINT(_uLevel);
 		break;
 	case ']':
@@ -126,12 +120,12 @@ void processNormalKeys ( unsigned char key, int x, int y )
 }
 void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 {
-	_cView.mouseClick( nButton_, nState_ ,nX_,nY_ );
+	_pGL->mouseClick( nButton_, nState_ ,nX_,nY_ );
 	return;
 }
 void mouseMotion ( int nX_, int nY_ )
 {
-	_cView.mouseMotion( nX_,nY_ );
+	_pGL->mouseMotion( nX_,nY_ );
 	return;
 }
 void render3DPts()
@@ -175,7 +169,7 @@ void render3DPts()
 		float y = *pPt++;
 		float z = *pPt++;
 		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) 
-			_cView.renderDisk<float>(x,y,z,dNx,dNy,dNz,pRGB,_dSize,_bRenderNormal);
+			_pGL->renderDisk<float>(x,y,z,dNx,dNy,dNz,pRGB,_dSize,_bRenderNormal);
 		pRGB += 3;
 	}
 	glPopMatrix();
@@ -188,17 +182,13 @@ void display ( void )
 	//load data from video source and model
 	switch( _eFrameType )
 	{
-	case VideoSourceKinect::CPU_RAW:
-		_cVS.getNextFrame(VideoSourceKinect::CPU_RAW);
+	case VideoSourceKinect::GPU_PYRAMID:
+		_cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID);
 		break;
-	case VideoSourceKinect::GPU_RAW:
-		_cVS.getNextFrame(VideoSourceKinect::GPU_RAW);
-		break;
-	case VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
-		_cVS.getNextPyramid(_uPyrHeight);
+	case VideoSourceKinect::CPU_PYRAMID:
+		_cVS.getNextFrame(VideoSourceKinect::CPU_PYRAMID);
 		break;
 	}
-	_cVS.centroidGL(&_eivCentroid);
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
@@ -207,14 +197,14 @@ void display ( void )
     // load the matrix to set camera pose
 	glLoadIdentity();
 	//glLoadMatrixd( _mGLMatrix.data() );
-	_cView.viewerGL();	
+	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// light position in 3d
 	GLfloat light_position[] = { 3.0, 1.0, 1.0, 1.0 };
 	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 	
     // render objects
-    _cView.renderAxisGL();
+    _pGL->renderAxisGL();
 	render3DPts();
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
@@ -229,7 +219,7 @@ void display ( void )
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render objects
-    _cView.renderAxisGL();
+    _pGL->renderAxisGL();
 	//render3DPts();
 	_cView.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
 	_cView.renderCamera( CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[_uLevel] );
@@ -238,9 +228,7 @@ void display ( void )
 	glutPostRedisplay();
 
 }
-
-void reshape ( int nWidth_, int nHeight_ )
-{
+void reshape ( int nWidth_, int nHeight_ ){
 	//cout << "reshape() " << endl;
     _cView.setIntrinsics( 1, btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
 
@@ -254,18 +242,15 @@ void reshape ( int nWidth_, int nHeight_ )
 	glutReshapeWindow( int ( _nWidth ), int ( _nHeight ) );
     return;
 }
-void setPyramid()
-{
-	_eFrameType = VideoSourceKinect::PYRAMID_BILATERAL_FILTERED_IN_DISPARTY;
+void setPyramid(){
+	_eFrameType = VideoSourceKinect::GPU_PYRAMID;
 	_uPyrHeight = 4;
 	_uLevel = 3;
 	_cVS.getNextPyramid(_uPyrHeight);
 	_cView.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
 }
-void init ( )
-{
-	glClearColor ( 0.1f,0.1f,0.4f,1.0f );
-	glClearDepth ( 1.0 );
+void init ( ){
+	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
 	glEnable 	 ( GL_SCISSOR_TEST );
@@ -274,7 +259,7 @@ void init ( )
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	setPyramid();
-	_cView.init();
+	_pGL->init();
 	// light
 	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
@@ -284,19 +269,17 @@ void init ( )
 
 	glEnable(GL_RESCALE_NORMAL);
 	glEnable(GL_LIGHT0);
-
 }
 
-int main ( int argc, char** argv )
-{
-    try
-    {
+int main ( int argc, char** argv ){
+    try {
+		_pGL.reset( new btl::gl_util::CGLUtil() );
 		glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
 		init();
-        glutKeyboardFunc( processNormalKeys );
+        glutKeyboardFunc( normalKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
 

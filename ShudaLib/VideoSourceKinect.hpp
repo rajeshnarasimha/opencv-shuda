@@ -43,7 +43,7 @@ class VideoSourceKinect : public CCalibrateKinect
 public:
 	//type
 	typedef boost::shared_ptr<VideoSourceKinect> tp_shared_ptr;
-	enum tp_frame {  GPU_RAW, CPU_RAW, PYRAMID_BILATERAL_FILTERED_IN_DISPARTY } _ePreFiltering;
+	enum tp_frame {  CPU_PYRAMID, GPU_PYRAMID } _ePreFiltering;
 	//constructor
     VideoSourceKinect();
     virtual ~VideoSourceKinect();
@@ -53,7 +53,7 @@ public:
 	void getNextPyramid(const unsigned short& uPyrHeight_)
 	{
 		_uPyrHeight = uPyrHeight_>4? 4:uPyrHeight_;
-		getNextFrame(PYRAMID_BILATERAL_FILTERED_IN_DISPARTY);
+		getNextFrame(GPU_PYRAMID);
 		return;
 	}
     // 1. need to call getNextFrame() before hand
@@ -84,10 +84,10 @@ public:
 	void unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* cvmIRWorld_);
 	void transformIR2RGB ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld );
 	void projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ );
-	void unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_ );
+	void unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_, bool bGLConvertion_=true );
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
-	void fastNormalEstimationGL(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_);
+	void fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_);
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 
 public:
@@ -121,6 +121,7 @@ public:
 
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrNls[4]; //CV_32FC3 type
+	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrRGBs[4];
 
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
@@ -144,11 +145,10 @@ public:
 	float _fSigmaDisparity; 
 	unsigned int _uPyrHeight;//the height of pyramid
 
-#ifdef TIMER
 	//timer
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
-#endif
+	float _fFPS;//frame per second
 };
 
 } //namespace videosource

@@ -113,7 +113,7 @@ struct SKeyFrame
 		cBruteMatcher.matchSingle(this->_cvgmDescriptors, sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
 		cv::gpu::BruteForceMatcher_GPU< L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
 		std::sort( _vMatches.begin(), _vMatches.end() );
-		if (_vMatches.size()> 100) { _vMatches.erase( _vMatches.begin()+100, _vMatches.end() ); }
+		if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+100, _vMatches.end() ); }
         return;
     }
 	//
@@ -127,15 +127,15 @@ struct SKeyFrame
             int nKeyPointIdxCur = cit->queryIdx;
             int nKeyPointIdx1st = cit->trainIdx;
 
-            int nXCur = int ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.x + .5 );
-            int nYCur = int ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.y + .5 );
-            int nX1st = int ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.x + .5 );
-            int nY1st = int ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.y + .5 );
+            int nXCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.x );
+            int nYCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.y );
+            int nX1st = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.x );
+            int nY1st = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.y );
 
             int nDepthIdxCur = nYCur * 640 * 3 + nXCur * 3;
             int nDepthIdx1st = nY1st * 640 * 3 + nX1st * 3;
 
-            if ( abs ( _pDepth[ nDepthIdxCur + 2 ] ) > 0.0001 && abs ( sReferenceKF_._pDepth[ nDepthIdx1st + 2 ] ) > 0.0001 )
+            if ( fabs ( _pDepth[ nDepthIdxCur + 2 ] ) > 0.0001 && fabs ( sReferenceKF_._pDepth[ nDepthIdx1st + 2 ] ) > 0.0001 )
             {
                 _vDepthIdxCur  .push_back ( nDepthIdxCur );
                 _vDepthIdx1st  .push_back ( nDepthIdx1st );
@@ -198,12 +198,13 @@ struct SKeyFrame
             eim1st ( 2, i ) = sReferenceKF_._pDepth[ *cit_1st + 2 ];
             i++;
         }
-
+		PRINT( eimCur );
+		PRINT( eim1st );
         double dS2;
         double dErrorBest = absoluteOrientation < double > ( eim1st, eimCur ,  false, &_eimR, &_eivT, &dS2 );
-        //PRINT ( dErrorBest );
-        //PRINT ( _eimR );
-        //PRINT ( _eivT );
+		PRINT ( dErrorBest );
+		PRINT ( _eimR );
+		PRINT ( _eivT );
 
         //for ( int i = 0; i < 2; i++ )
         {
@@ -286,7 +287,7 @@ struct SKeyFrame
 		_eivT = _eimR*sReferenceKF_._eivT + _eivT;
 	}
 
-	void renderCamera( GLuint uTexture_, bool bRenderCamera_=true) const{
+	void renderCamera( bool bRenderCamera_ ) const{
 		const Eigen::Matrix3d& mR1  = _eimR;
     	const Eigen::Vector3d& vT1  = _eivT;
     	Eigen::Matrix4d mGLM1 = setOpenGLModelViewMatrix ( mR1, vT1 );
@@ -301,10 +302,9 @@ struct SKeyFrame
 			glColor3d( 1, 1, 1);
 			glLineWidth(1);
 		}
-		if(bRenderCamera_){
-			//glColor4d( 1,1,1,0.5 );
-	    	_pView->renderCamera ( btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, _cvmRGB, btl::extra::videosource::CKinectView::ALL_CAMERA, .2 );
-		}
+		//glColor4d( 1,1,1,0.5 );
+	    _pView->renderCamera ( btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, _cvmRGB, btl::extra::videosource::CKinectView::ALL_CAMERA, .2, bRenderCamera_);
+
 		renderDepth();
 	    glPopMatrix();
 	}

@@ -115,8 +115,8 @@ public:
     void importKinectIntrinsics();
 	void importKinectIntrinsicsYML();
     void undistortImages(const std::vector< cv::Mat >& vImages_,  const cv::Mat_<double>& cvmK_, const cv::Mat_<double>& cvmInvK_, const cv::Mat_<double>& cvmDistCoeffs_, std::vector< cv::Mat >* pvRGBUndistorted ) const;
-	void undistortRGB(const cv::Mat& cvmRGB_, cv::Mat& Undistorted_ ) const;
-	void undistortIR (const cv::Mat& cvmIR_, cv::Mat& Undistorted_ ) const;
+	void undistortRGB ( const cv::Mat& cvmRGB_, cv::Mat* pcvmUndistorted_ ) const;
+	void undistortIR ( const cv::Mat& cvmIR_, cv::Mat* pcvmUndistorted_ ) const;
 
 	void loadImages ( const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, std::vector< cv::Mat >* pvImgs_ ) const;
 	void exportImages(const boost::filesystem::path& cFullPath_, const std::vector< std::string >& vImgNames_, const std::vector< cv::Mat >& vImgs_ ) const;
@@ -243,188 +243,19 @@ public:
 
 public:
 	CKinectView( CCalibrateKinect& cCK_)
-	:_cVS(cCK_)
-	{
-		_dZoom = 1.;
-		_dZoomLast = 1.;
-		_dScale = .1;
-
-		_dXAngle = 0;
-		_dYAngle = 0;
-		_dXLastAngle = 0;
-		_dYLastAngle = 0;
-		_dX = 0;
-		_dY = 0;
-		_dXLast = 0;
-		_dYLast = 0;
-
-		_nXMotion = 0;
-		_nYMotion = 0;
-	}
-	void init();
-	void viewerGL();
+	:_cVS(cCK_)	{}
 	void LoadTexture(const cv::Mat& img);
 	void setIntrinsics(unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ );
-	void renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02  ) const /*dPhysicalFocalLength_ = .02 by default */;
+	void renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02, bool bRenderTexture_=true ) const /*dPhysicalFocalLength_ = .02 by default */;
 	void renderOnImage( int nX_, int nY_ );
-	void renderAxisGL() const;
 
-	void normalKeys ( unsigned char key, int x, int y )
-	{
-		switch( key )
-		{
-		case 27:
-			exit ( 0 );
-			break;
-		case 'g':
-			//zoom in
-			glDisable( GL_BLEND );
-			_dZoom += _dScale;
-			glutPostRedisplay();
-			PRINT( _dZoom );
-			break;
-		case 'h':
-			//zoom out
-			glDisable( GL_BLEND );
-			_dZoom -= _dScale;
-			glutPostRedisplay();
-			PRINT( _dZoom );
-			break;
-		case '0'://reset camera location
-			_dXAngle = 0.;
-			_dYAngle = 0.;
-			_dZoom = 1.;
-			break;
-		}
-
-		return;
-	}
-	void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
-	{
-		if ( nButton_ == GLUT_LEFT_BUTTON )
-		{
-			if ( nState_ == GLUT_DOWN )
-			{
-				_nXMotion = _nYMotion = 0;
-				_nXLeftDown    = nX_;
-				_nYLeftDown    = nY_;
-
-				_bLButtonDown = true;
-			}
-			else if( nState_ == GLUT_UP )// button up
-			{
-				_dXLastAngle = _dXAngle;
-				_dYLastAngle = _dYAngle;
-				_bLButtonDown = false;
-			}
-			glutPostRedisplay();
-		}
-		else if ( GLUT_RIGHT_BUTTON )
-		{
-			if ( nState_ == GLUT_DOWN )
-			{
-				_nXMotion = _nYMotion = 0;
-				_nXRightDown  = nX_;
-				_nYRightDown  = nY_;
-				_dZoomLast    = _dZoom;
-				_bRButtonDown = true;
-			}
-			else if( nState_ == GLUT_UP )
-			{
-				_dXLast = _dX;
-				_dYLast = _dY;
-				_bRButtonDown = false;
-			}
-			glutPostRedisplay();
-		}
-
-		return;
-	}
-	void mouseMotion ( int nX_, int nY_ )
-	{
-		if ( _bLButtonDown == true )
-		{
-			glDisable     ( GL_BLEND );
-			_nXMotion = nX_ - _nXLeftDown;
-			_nYMotion = nY_ - _nYLeftDown;
-			_dXAngle  = _dXLastAngle + _nXMotion;
-			_dYAngle  = _dYLastAngle + _nYMotion;
-		}
-		else if ( _bRButtonDown == true )
-		{
-			glDisable     ( GL_BLEND );
-			_nXMotion = nX_ - _nXRightDown;
-			_nYMotion = nY_ - _nYRightDown;
-			_dX  = _dXLast + _nXMotion;
-			_dY  = _dYLast + _nYMotion;
-			_dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
-		}
-
-		glutPostRedisplay();
-	}
-	template< typename T >
-	void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, 
-		const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ );
-	enum {ALL_CAMERA, NONE_CAMERA} _nCameraRender;
-	GLuint _uDisk;
-	GLuint _uNormal;
-	GLuint _uTexture;
-	GLUquadricObj *_pQObj;
-
-	Eigen::Vector3d _eivCentroid;
-	double _dZoom;
-	double _dZoomLast;
-	double _dScale;
-
-	double _dXAngle;
-	double _dYAngle;
-	double _dXLastAngle;
-	double _dYLastAngle;
-	double _dX;
-	double _dY;
-	double _dXLast;
-	double _dYLast;
-
-	int  _nXMotion;
-	int  _nYMotion;
-	int  _nXLeftDown, _nYLeftDown;
-	int  _nXRightDown, _nYRightDown;
-	bool _bLButtonDown;
-	bool _bRButtonDown;
+	enum {ALL_CAMERA, NONE_CAMERA} _eCameraRender;
 
 protected:
+	GLuint _uTexture;
 	CCalibrateKinect& _cVS;
 };
 
-template< typename T >
-void CKinectView::renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ )
-{
-	glColor3ubv( pColor_ );
-
-	glPushMatrix();
-	glTranslatef( x, y, z );
-
-	if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-	{
-		//PRINT( dNz );
-		return;
-	}
-
-	T dA = atan2(dNx,dNz);
-	T dxz= sqrt( dNx*dNx + dNz*dNz );
-	T dB = atan2(dNy,dxz);
-
-	glRotatef(-dB*180 / M_PI,1,0,0 );
-	glRotatef( dA*180 / M_PI,0,1,0 );
-	T dR = -z/0.5;
-	glScalef( dR*dSize_, dR*dSize_, dR*dSize_ );
-	glCallList(_uDisk);
-	if( bRenderNormal_ )
-	{
-		glCallList(_uNormal);
-	}
-	glPopMatrix();
-};
 
 } //namespace videosource
 } //namespace extra

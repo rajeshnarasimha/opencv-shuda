@@ -13,6 +13,7 @@
 #include <utility>
 #include "KeyFrame.hpp"
 #include <boost/lexical_cast.hpp>
+#include "GLUtil.h"
 //camera calibration from a sequence of images
 
 using namespace btl; //for "<<" operator
@@ -27,33 +28,12 @@ using namespace cv;
 
 btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView ( _cVS );
+btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
-Eigen::Vector3d _eivCamera ( 0.0, -1.0, -1.0 );
-Eigen::Vector3d _eivCenter ( .0, .0, .0 );
-Eigen::Vector3d _eivUp ( .0, -1.0, 0.0 );
 Matrix4d _mGLMatrix;
 
 double _dNear = 0.01;
 double _dFar  = 10.;
-
-double _dXAngle = 0;
-double _dYAngle = 0;
-double _dXLastAngle = 0;
-double _dYLastAngle = 0;
-
-double _dZoom = 1.;
-
-double _dX = 0;
-double _dY = 0;
-double _dXLast = 0;
-double _dYLast = 0;
-
-int  _nXMotion = 0;
-int  _nYMotion = 0;
-int  _nXLeftDown, _nYLeftDown;
-int  _nXRightDown, _nYRightDown;
-bool _bLButtonDown;
-bool _bRButtonDown;
 
 unsigned short _nWidth, _nHeight;
 GLuint _uTextureFirst;
@@ -76,21 +56,8 @@ int _nView = 0;
 
 void init();
 
-void resetModelViewParameters()
-{
-    _eivCamera = Vector3d(0., 0., 0.);
-    _eivCenter = Vector3d(0., 0., -1.);
-    _eivUp     = Vector3d(0., 1., 0.);
-
-    _dXAngle = _dYAngle = 0;
-    _dX = _dY = 0;
-    _dZoom = 1;
-}
-
-void specialKeys( int key, int x, int y )
-{
-	switch ( key )
-	{
+void specialKeys( int key, int x, int y ){
+	switch ( key ) {
 	case GLUT_KEY_F2: //display camera
 		_bDisplayCamera = !_bDisplayCamera;
 		glutPostRedisplay();
@@ -102,33 +69,8 @@ void specialKeys( int key, int x, int y )
 	}
 }
 
-void normalKeys ( unsigned char key, int x, int y )
-{
-    switch ( key )
-    {
-    case 27:
-        exit ( 0 );
-        break;
-    case 'i':
-        //zoom in
-        glDisable     ( GL_BLEND );
-        _dZoom += 0.2;
-        glutPostRedisplay();
-        break;
-    case 'k':
-        //zoom out
-        glDisable     ( GL_BLEND );
-        _dZoom -= 0.2;
-        glutPostRedisplay();
-        break;
-    case '<':
-        _dYAngle += 1.0;
-        glutPostRedisplay();
-        break;
-    case '>':
-        _dYAngle -= 1.0;
-        glutPostRedisplay();
-        break;
+void normalKeys ( unsigned char key, int x, int y ){
+    switch ( key ) {
     case 'r':
         //reset
 		_nKFCounter=1;
@@ -151,8 +93,7 @@ void normalKeys ( unsigned char key, int x, int y )
         break;
 	case 'd':
 		//remove last key frame
-		if(_nKFCounter >0 )
-		{
+		if(_nKFCounter >0 ) {
 			if( _nRFCounter ==  _nKFCounter )
 				_nRFCounter--;
 			_nKFCounter--;
@@ -172,138 +113,19 @@ void normalKeys ( unsigned char key, int x, int y )
 				glutPostRedisplay();
 			}
 			break;*/
-	case ',':
+	case '0':
 		_mGLMatrix = (*_vShrPtrsKF[ _nView ])->setView();
-		resetModelViewParameters();
-		glutPostRedisplay();
 		break;
     }
-
+	_pGL->normalKeys(key,x,y);
     return;
 }
 
-void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
-{
-    if ( nButton_ == GLUT_LEFT_BUTTON )
-    {
-        if ( nState_ == GLUT_DOWN )
-        {
-            _nXMotion = _nYMotion = 0;
-            _nXLeftDown    = nX_;
-            _nYLeftDown    = nY_;
-
-            _bLButtonDown = true;
-        }
-        else
-        {
-            _dXLastAngle = _dXAngle;
-            _dYLastAngle = _dYAngle;
-            _bLButtonDown = false;
-        }
-
-        glutPostRedisplay();
-    }
-    else if ( GLUT_RIGHT_BUTTON )
-    {
-        if ( nState_ == GLUT_DOWN )
-        {
-            _nXMotion = _nYMotion = 0;
-            _nXRightDown    = nX_;
-            _nYRightDown    = nY_;
-
-            _bRButtonDown = true;
-        }
-        else
-        {
-            _dXLast = _dX;
-            _dYLast = _dY;
-            _bRButtonDown = false;
-        }
-
-        glutPostRedisplay();
-    }
-
-    return;
+void mouseClick ( int nButton_, int nState_, int nX_, int nY_ ){
+    _pGL->mouseClick(nButton_,nState_,nX_,nY_);
 }
-
-void renderPattern()
-{
-    glPushMatrix();
-    const std::vector<cv::Point3f>& vPts = _cVS.pattern();
-    glPointSize ( 3 );
-    glColor3d ( .0 , .8 , .8 );
-    glBegin ( GL_POINTS );
-
-    for ( std::vector<cv::Point3f>::const_iterator constItr = vPts.begin(); constItr < vPts.end() ; ++ constItr )
-    {
-        glVertex3f ( constItr->x,  constItr->z, -constItr->y );
-        glVertex3f ( constItr->x,  constItr->z,  constItr->y );
-        glVertex3f ( -constItr->x,  constItr->z, -constItr->y );
-        glVertex3f ( -constItr->x,  constItr->z,  constItr->y );
-
-    }
-
-    glEnd();
-    glPopMatrix();
-    return;
-}
-
-void renderAxis()
-{
-    glPushMatrix();
-    float fAxisLength = 1.f;
-    float fLengthWidth = 1;
-
-    glLineWidth ( fLengthWidth );
-    // x axis
-    glColor3f ( 1., .0, .0 );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vXAxis;
-    vXAxis << fAxisLength, .0, .0;
-    glVertex3d ( vXAxis ( 0 ), vXAxis ( 1 ), vXAxis ( 2 ) );
-    glEnd();
-    // y axis
-    glColor3f ( .0, 1., .0 );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vYAxis;
-    vYAxis << .0, fAxisLength, .0;
-    glVertex3d ( vYAxis ( 0 ), vYAxis ( 1 ), vYAxis ( 2 ) );
-    glEnd();
-    // z axis
-    glColor3f ( .0, .0, 1. );
-    glBegin ( GL_LINES );
-    glVertex3d ( .0, .0, .0 );
-    Vector3d vZAxis;
-    vZAxis << .0, .0, fAxisLength;
-    glVertex3d ( vZAxis ( 0 ), vZAxis ( 1 ), vZAxis ( 2 ) );
-    glEnd();
-    glPopMatrix();
-}
-
-void mouseMotion ( int nX_, int nY_ )
-{
-    if ( _bLButtonDown == true )
-    {
-        glDisable     ( GL_BLEND );
-        _nXMotion = nX_ - _nXLeftDown;
-        _nYMotion = nY_ - _nYLeftDown;
-        _dXAngle  = _dXLastAngle + _nXMotion;
-        _dYAngle  = _dYLastAngle + _nYMotion;
-    }
-    else if ( _bRButtonDown == true )
-    {
-        glDisable     ( GL_BLEND );
-        _nXMotion = nX_ - _nXRightDown;
-        _nYMotion = nY_ - _nYRightDown;
-        _dX  = _dXLast + _nXMotion;
-        _dY  = _dYLast + _nYMotion;
-        _eivCamera ( 0 ) = _dX / 50.;
-        _eivCamera ( 1 ) = _dY / 50.;
-    }
-
-    glutPostRedisplay();
+void mouseMotion ( int nX_, int nY_ ){
+    _pGL->mouseMotion(nX_,nY_);
 }
 
 void init ( )
@@ -311,8 +133,7 @@ void init ( )
 	for(int i=0; i <50; i++){ _aShrPtrKFs[i].reset(new SKeyFrame<float>(_cVS));	}
 		
     _mGLMatrix.setIdentity();
-    glClearColor ( 0.0, 0.0, 0.0, 1.0 );
-    glClearDepth ( 1.0 );
+    _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
     glEnable     ( GL_DEPTH_TEST );
     glEnable 	 ( GL_SCISSOR_TEST );
@@ -324,8 +145,9 @@ void init ( )
 
     glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
+	_pGL->init();
 // store a frame and detect feature points for tracking.
-    _cVS.getNextFrame(VideoSourceKinect::GPU_RAW);
+    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID);
     // load as texture
     _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
 	SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
@@ -334,8 +156,6 @@ void init ( )
     p1stKF->assign ( _cVS._vcvmPyrRGBs[0], (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
     //corner detection and ranking ( first frame )
     p1stKF->detectCorners();
-    //to match in brute force so no need to construct KD tree
-    //s1stKF.constructKDTree();
 	p1stKF->_bIsReferenceFrame = true;
 // ( second frame )
     //_uTextureSecond = _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
@@ -345,35 +165,27 @@ void init ( )
     return;
 }
 
-void display ( void )
-{
+void display ( void ) {
 // update frame
-    _cVS.getNextFrame(VideoSourceKinect::GPU_RAW);
+    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID);
 // ( second frame )
     // assign the rgb and depth to the current frame.
 	SKeyFrame<float>::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
     pCurrentKF->assign ( _cVS._vcvmPyrRGBs[0],  (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
 
-    if ( _bCapture && _nKFCounter < 50 )
-    {
+    if ( _bCapture && _nKFCounter < 50 ) {
 		SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
         _bCapture = false;
         // detect corners
         pCurrentKF->detectCorners();
-
         pCurrentKF->detectCorrespondences ( *p1stKF );
-
         pCurrentKF->calcRT ( *p1stKF );
-
  		pCurrentKF->applyRelativePose( *p1stKF );
-
 		_vShrPtrsKF.push_back( &pCurrentKF );
-
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
     }
-	else if( _nKFCounter > 49 )
-	{
+	else if( _nKFCounter > 49 )	{
 		std::cout << "two many key frames to hold" << std::flush;  
 	}
 
@@ -385,38 +197,28 @@ void display ( void )
     // load the matrix to set camera pose
     glLoadIdentity();
 	glLoadMatrixd( _mGLMatrix.data() );
-
-    gluLookAt ( _eivCamera ( 0 ), _eivCamera ( 1 ), _eivCamera ( 2 ),  _eivCenter ( 0 ), _eivCenter ( 1 ), _eivCenter ( 2 ), _eivUp ( 0 ), _eivUp ( 1 ), _eivUp ( 2 ) );
-    glScaled ( _dZoom, _dZoom, _dZoom );
-    glRotated ( _dYAngle, 0, 1 , 0 );
-    glRotated ( _dXAngle, 1, 0 , 0 );
+	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     // render objects
-    //glBindTexture(GL_TEXTURE_2D, _uTexture);
-    //place the first camera in the world
-    //place the second camera in the world
-	//sCurrentKF.renderCamera( _cView, _uTextureFirst );
-
-
-	for( vector< SKeyFrame<float>::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ )
-	{
+	for( vector< SKeyFrame<float>::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
 		(**cit)->renderCamera( _bDisplayCamera );
 	}
 
-if(_bRenderReference)
-{
-	renderPattern();
-    _cView.renderAxisGL();
-}
+	if(_bRenderReference) {
+		_pGL->renderAxisGL();
+		_pGL->renderPatternGL(0.1,10,10);
+		_pGL->renderPatternGL(1.,10,10);
+	}
 
 // render second viewport
     glViewport ( _nWidth / 2, 0, _nWidth / 2, _nHeight );
     glScissor  ( _nWidth / 2, 0, _nWidth / 2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-    //_cView.renderCamera ( _uTextureSecond, CCalibrateKinect::RGB_CAMERA, CKinectView::ALL_CAMERA, .2 );
+	_cView.LoadTexture(_cVS._vcvmPyrRGBs[0]);
+    _cView.renderCamera( CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[0], CKinectView::ALL_CAMERA, .2 );
 
 // rendering
     /*
@@ -430,19 +232,15 @@ if(_bRenderReference)
     }
     glEnd();
 	*/
-
-
     glutSwapBuffers();
 
-    if ( _bContinuous )
-    {
+    if ( _bContinuous ) {
         glutPostRedisplay();
     }
 
 }
 
-void reshape ( int nWidth_, int nHeight_ )
-{
+void reshape ( int nWidth_, int nHeight_ ) {
     //cout << "reshape() " << endl;
     _cView.setIntrinsics ( 1, btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
 
@@ -460,10 +258,9 @@ void reshape ( int nWidth_, int nHeight_ )
 
 
 
-int main ( int argc, char** argv )
-{
-    try
-    {
+int main ( int argc, char** argv ) {
+    try {
+		_pGL.reset(new btl::gl_util::CGLUtil);
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
@@ -477,16 +274,13 @@ int main ( int argc, char** argv )
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
         glutMainLoop();
-    }
-    catch ( CError& e )
-    {
-        if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
-        {
-            std::cerr << "Error Info: " << *mi << std::endl;
-        }
-    }
-	catch ( std::runtime_error& e )
-	{
+	}
+	catch ( CError& e )	{
+		if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )	{
+			std::cerr << "Error Info: " << *mi << std::endl;
+		}
+	}
+	catch ( std::runtime_error& e )	{
 		PRINTSTR( e.what() );
 	}
 

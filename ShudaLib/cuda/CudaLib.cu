@@ -80,17 +80,15 @@ void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat
 __constant__ float _aIRCameraParameter[4];// f_x, f_y, u, v for IR camera; constant memory declaration
 
 __global__ void kernelUnprojectIR(const cv::gpu::DevMem2Df cvgmDepth_,
-	cv::gpu::DevMem2D_<float3> cvgmIRWorld_)
-{
+	cv::gpu::DevMem2D_<float3> cvgmIRWorld_) {
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
 
-	if (nX < cvgmIRWorld_.cols && nY < cvgmIRWorld_.rows)
-    {
+	if (nX < cvgmIRWorld_.cols && nY < cvgmIRWorld_.rows) {
 		const float& depth = cvgmDepth_.ptr(nY)[nX];
 		float3& temp = cvgmIRWorld_.ptr(nY)[nX];
 		
-		if(40.f < depth && depth < 3000.f ) //truncate, depth is captured from openni and always > 0
+		if(400.f < depth && depth < 3000.f ) //truncate, depth is captured from openni and always > 0
 		{
 			temp.z = depth /1000.f;//convert to meter z 5 million meter is added according to experience. as the OpenNI
 			//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
@@ -130,7 +128,15 @@ void cudaUnprojectIR(const cv::gpu::GpuMat& cvgmDepth_ ,
 //global constant used by kernelUnprojectIR() and cudaTransformIR2RGB()
 __constant__ double _aR[9];// f_x, f_y, u, v for IR camera; constant memory declaration
 __constant__ double _aRT[3];
-
+	//_aR[0] [1] [2]
+	//   [3] [4] [5]
+	//   [6] [7] [8]
+	//_aT[0]
+	//   [1]
+	//   [2]
+	//  pRGB_ = _aR * ( pIR_ - _aT )
+	//  	  = _aR * pIR_ - _aR * _aT
+	//  	  = _aR * pIR_ - _aRT
 __global__ void kernelTransformIR2RGB(const cv::gpu::DevMem2D_<float3> cvgmIRWorld_, cv::gpu::DevMem2D_<float3> cvgmRGBWorld_)
 {
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
@@ -176,7 +182,7 @@ __global__ void kernelProjectRGB(const cv::gpu::DevMem2D_<float3> cvgmRGBWorld_,
 	if (nX < cvgmRGBWorld_.cols && nY < cvgmRGBWorld_.rows)
     {
 		const float3& rgbWorld = cvgmRGBWorld_.ptr(nY)[nX];
-		if( 0.004 < fabsf( rgbWorld.z ) && fabsf( rgbWorld.z ) < 3 )
+		if( 0.4 < fabsf( rgbWorld.z ) && fabsf( rgbWorld.z ) < 3 )
 		{
 			// get 2D image projection in RGB image of the XYZ in the world
 			int nXAligned = __float2int_rn( _aRGBCameraParameter[0] * rgbWorld.x / rgbWorld.z + _aRGBCameraParameter[2] );
@@ -317,18 +323,15 @@ __global__ void kernelUnprojectRGBGL (const cv::gpu::DevMem2Df cvgmDepths_, cons
 	float3& pt = cvgmPts_.ptr(nY)[nX];
 	const float depth = cvgmDepths_.ptr(nY)[nX];
 
-	if( 0.004 < fabsf( depth ) && fabsf( depth ) < 3 )
-	{
+	if( 0.4 < fabsf( depth ) && fabsf( depth ) < 3 ){
 		pt.z = depth;
-		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
 		pt.x = ( nX*uScale_  - _aRGBCameraParameter[2] ) / _aRGBCameraParameter[0] * pt.z; 
 		pt.y = ( nY*uScale_  - _aRGBCameraParameter[3] ) / _aRGBCameraParameter[1] * pt.z; 
 		//convert from opencv convention to opengl convention
 		pt.y = -pt.y;
 		pt.z = -pt.z;
 	}
-	else
-	{
+	else {
 		pt.x = pt.y = pt.z = 0.f;
 	}
 }
@@ -388,14 +391,12 @@ __global__ void kernelFastNormalEstimationGL (const cv::gpu::DevMem2D_<float3> c
 	n.z /= norm;
 
 	float3& fN = cvgmNls_.ptr(nY)[nX];
-	if( -n.x*pt.x - n.y*pt.y - n.z*pt.z <0 ) //this gives (0-pt).dot( n ); 
-	{
+	if( -n.x*pt.x - n.y*pt.y - n.z*pt.z <0 ){ //this gives (0-pt).dot( n ); 
 		fN.x = -n.x;
 		fN.y = -n.y;
 		fN.z = -n.z;
 	}
-	else
-	{
+	else{
 		fN.x = n.x;
 		fN.y = n.y;
 		fN.z = n.z;
