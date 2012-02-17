@@ -11,6 +11,7 @@
 #include <string>
 #include <boost/exception/all.hpp>
 #include <boost/preprocessor/stringize.hpp>
+#include "OtherUtil.hpp"
 
 namespace btl
 {
@@ -29,7 +30,7 @@ namespace utility
 
 #define SMALL 1e-50 // a small value
 #define BTL_MAX 10e20
-
+	enum tp_coordinate_convention { BTL_GL, BTL_CV };
 	//exception based on boost
 	typedef boost::error_info<struct tag_my_info, std::string> CErrorInfo;
 	struct CError: virtual boost::exception, virtual std::exception { };

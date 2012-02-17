@@ -43,17 +43,17 @@ class VideoSourceKinect : public CCalibrateKinect
 public:
 	//type
 	typedef boost::shared_ptr<VideoSourceKinect> tp_shared_ptr;
-	enum tp_frame {  CPU_PYRAMID, GPU_PYRAMID } _ePreFiltering;
+	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
+
 	//constructor
     VideoSourceKinect();
     virtual ~VideoSourceKinect();
 
-
-	void getNextFrame(tp_frame ePreFiltering_);
-	void getNextPyramid(const unsigned short& uPyrHeight_)
+	void getNextFrame(tp_frame eFrameType_);
+	void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_ = VideoSourceKinect::GPU_PYRAMID_GL)
 	{
 		_uPyrHeight = uPyrHeight_>4? 4:uPyrHeight_;
-		getNextFrame(GPU_PYRAMID);
+		getNextFrame(eFrameType_);
 		return;
 	}
     // 1. need to call getNextFrame() before hand
@@ -84,11 +84,13 @@ public:
 	void unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* cvmIRWorld_);
 	void transformIR2RGB ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld );
 	void projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ );
-	void unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_, bool bGLConvertion_=true );
+	void unprojectRGB ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_, btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL );
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 	void fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_);
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
+	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
+	void gpuBuildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
 
 public:
 	//openni

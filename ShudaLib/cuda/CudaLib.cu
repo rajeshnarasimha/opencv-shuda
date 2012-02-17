@@ -19,6 +19,7 @@
 #include <opencv2/gpu/gpu.hpp>
 #include <opencv2/gpu/devmem2d.hpp>
 #include "common.hpp" //copied from opencv
+#include "../OtherUtil.hpp"
 
 namespace btl
 {
@@ -312,7 +313,8 @@ void cudaPyrDown (const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaColor_, cv
 	cudaSafeCall ( cudaGetLastError () );
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-__global__ void kernelUnprojectRGBGL (const cv::gpu::DevMem2Df cvgmDepths_, const unsigned short uScale_, cv::gpu::DevMem2D_<float3> cvgmPts_ )
+__global__ void kernelUnprojectRGB (const cv::gpu::DevMem2Df cvgmDepths_, const unsigned short uScale_, cv::gpu::DevMem2D_<float3> cvgmPts_,
+	btl::utility::tp_coordinate_convention eConvention_ )
 {
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
@@ -328,16 +330,18 @@ __global__ void kernelUnprojectRGBGL (const cv::gpu::DevMem2Df cvgmDepths_, cons
 		pt.x = ( nX*uScale_  - _aRGBCameraParameter[2] ) / _aRGBCameraParameter[0] * pt.z; 
 		pt.y = ( nY*uScale_  - _aRGBCameraParameter[3] ) / _aRGBCameraParameter[1] * pt.z; 
 		//convert from opencv convention to opengl convention
-		pt.y = -pt.y;
-		pt.z = -pt.z;
+		if( btl::utility::tp_coordinate_convention::BTL_GL == eConvention_ ){
+			pt.y = -pt.y;
+			pt.z = -pt.z;
+		}
 	}
 	else {
 		pt.x = pt.y = pt.z = 0.f;
 	}
 }
-void cudaUnprojectRGBGL ( const cv::gpu::GpuMat& cvgmDepths_, 
+void cudaUnprojectRGB ( const cv::gpu::GpuMat& cvgmDepths_, 
 	const float& fFxRGB_,const float& fFyRGB_,const float& uRGB_, const float& vRGB_, unsigned int uLevel_, 
-	cv::gpu::GpuMat* pcvgmPts_ )
+	cv::gpu::GpuMat* pcvgmPts_, btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::tp_coordinate_convention::BTL_GL*/ )
 {
 	unsigned short uScale = 1<< uLevel_;
 	pcvgmPts_->setTo(0);
@@ -352,7 +356,7 @@ void cudaUnprojectRGBGL ( const cv::gpu::GpuMat& cvgmDepths_,
 	
 	dim3 block (32, 8);
 	dim3 grid (cv::gpu::divUp (pcvgmPts_->cols, block.x), cv::gpu::divUp (pcvgmPts_->rows, block.y));
-	kernelUnprojectRGBGL<<<grid, block>>>(cvgmDepths_, uScale, *pcvgmPts_ );
+	kernelUnprojectRGB<<<grid, block>>>(cvgmDepths_, uScale, *pcvgmPts_, eConvention_ );
 	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -404,7 +408,7 @@ __global__ void kernelFastNormalEstimationGL (const cv::gpu::DevMem2D_<float3> c
 	return;
 }
 
-void cudaFastNormalEstimationGL(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ )
+void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ )
 {
 	pcvgmNls_->setTo(0);
 	dim3 block (32, 8);
