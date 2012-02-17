@@ -509,10 +509,10 @@ void CCalibrateKinect::calibrate ()
 //    std::cout << "Camera calibrated." << std::endl;
    
     PRINT( _mIRK );
-        PRINT( _mRGBDistCoeffs );
+    PRINT( _mRGBDistCoeffs );
 
-        PRINT( _mRGBK );
-        PRINT( _mIRDistCoeffs );
+    PRINT( _mRGBK );
+    PRINT( _mIRDistCoeffs );
     
 }
 
@@ -559,22 +559,17 @@ void CCalibrateKinect::convertRV2RM ( const std::vector< cv::Mat >& vMat_, std::
     return;
 }
 
-void CCalibrateKinect::undistortRGB ( const cv::Mat& cvmRGB_, cv::Mat& Undistorted_ ) const
-{
-    cv::remap ( cvmRGB_, Undistorted_, _cvmMapXYRGB, _cvmMapYRGB, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+void CCalibrateKinect::undistortRGB ( const cv::Mat& cvmRGB_, cv::Mat* pcvmUndistorted_ ) const{
+         cv::remap(cvmRGB_,     *pcvmUndistorted_, _cvmMapXYRGB, _cvmMapYRGB,  cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
-void CCalibrateKinect::gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const
-{
-	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXRGB, _cvgmMapYRGB, cv::INTER_NEAREST );
+void CCalibrateKinect::gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const{
+	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXRGB, _cvgmMapYRGB, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 }
-
-void CCalibrateKinect::undistortIR ( const cv::Mat& cvmIR_, cv::Mat& Undistorted_ ) const
-{
-    cv::remap ( cvmIR_, Undistorted_, _cvmMapXYIR, _cvmMapYRGB, cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+void CCalibrateKinect::undistortIR ( const cv::Mat& cvmIR_, cv::Mat* pcvmUndistorted_ ) const{
+         cv::remap(cvmIR_,      *pcvmUndistorted_, _cvmMapXYIR,  _cvmMapYIR,   cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
-void CCalibrateKinect::gpuUndistortIR (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const
-{
-	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXRGB, _cvgmMapYRGB, cv::INTER_NEAREST );
+void CCalibrateKinect::gpuUndistortIR (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const{
+	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXIR,  _cvgmMapYIR,  cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 }
 
 void CCalibrateKinect::generateMapXY4UndistortRGB()
@@ -1070,11 +1065,12 @@ void CKinectView::renderOnImage ( int nX_, int nY_ )
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
 void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, 
-	int nCameraRender_ /*= ALL_CAMERA*/, double dPhysicalFocalLength_ /*= .02*/ ) const //dPhysicalFocalLength_ = .02 by default
+	int nCameraRender_ /*= ALL_CAMERA*/, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const //dPhysicalFocalLength_ = .02 by default
 {
-	glBindTexture(GL_TEXTURE_2D, _uTexture);
-	glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmRGB_.cols,cvmRGB_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmRGB_.data);
-
+	if(bRenderTexture_){
+		glBindTexture(GL_TEXTURE_2D, _uTexture);
+		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmRGB_.cols,cvmRGB_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmRGB_.data);
+	}
 
     Eigen::Matrix3d mK = _cVS.eiMatK ( nCameraType_ );
 
@@ -1132,7 +1128,7 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
     glPopAttrib();
 
     //draw frame
-    if ( ALL_CAMERA == nCameraRender_ )
+    if ( bRenderTexture_ && ALL_CAMERA == nCameraRender_ )
     {
         glEnable ( GL_TEXTURE_2D );
         glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
@@ -1172,74 +1168,6 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
 */
     return;
 }
-void CKinectView::init()
-{
-	_uDisk = glGenLists(1);
-	GLUquadricObj *pQObj;
-	_pQObj = gluNewQuadric();
-	gluQuadricDrawStyle(_pQObj, GLU_FILL); //LINE); /* wireframe */
-	gluQuadricNormals(_pQObj, GLU_SMOOTH);// FLAT);//
-	glNewList(_uDisk, GL_COMPILE);
-	gluDisk(_pQObj, 0.0, 0.01, 9, 1);
-	glEndList();
-
-	_uNormal = glGenLists(2);
-	glNewList(_uNormal, GL_COMPILE);
-	glDisable(GL_LIGHTING);
-	glBegin(GL_LINES);
-	glColor3d(1.,0.,0.);
-	glVertex3d(0.,0.,0.);
-	glVertex3d(0.,0.,0.016);
-	glEnd();
-	glEndList();
-}
-
-void CKinectView::renderAxisGL() const
-{
-	glDisable(GL_LIGHTING);
-
-	glPushMatrix();
-	float fAxisLength = 1.f;
-	float fLengthWidth = 1;
-	Eigen::Vector3f vOrigin,vXAxis,vYAxis,vZAxis;
-	vOrigin<< .0f, .0f, .0f;
-	vXAxis << fAxisLength, .0f, .0f;
-	vYAxis << .0f, fAxisLength, .0f;
-	vZAxis << .0f, .0f, fAxisLength;
-
-	glLineWidth( fLengthWidth );
-	// x axis
-	glColor3f ( 1.f, .0f, .0f );
-	glBegin ( GL_LINES );
-	glVertex3fv ( vOrigin.data() );
-	glVertex3fv ( vXAxis.data() );
-	glEnd();
-	// y axis
-	glColor3f ( .0f, 1.f, .0f );
-	glBegin ( GL_LINES );
-	glVertex3fv ( vOrigin.data() );
-	glVertex3fv ( vYAxis.data() );
-	glEnd();
-	// z axis
-	glColor3f ( .0f, .0f, 1.f );
-	glBegin ( GL_LINES );
-	glVertex3fv ( vOrigin.data() );
-	glVertex3fv ( vZAxis.data());
-	glEnd();
-	glPopMatrix();
-}
-
-void CKinectView::viewerGL()
-{
-	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // 5. translate back to the original camera pose
-	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
-	_dZoom = _dZoom > 10? 10: _dZoom;
-	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
-	glRotated ( _dXAngle, 0, 1 ,0 );                             // 3. rotate horizontally
-	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
-	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
-}
-
 } //namespace videosource
 } //namespace extra
 } //namespace btl

@@ -5,8 +5,8 @@
 * @version 1.0
 * @date 2011-02-23
 */
-//#define INFO
-//#define TIMER
+#define INFO
+#define TIMER
 
 #include <opencv2/gpu/gpu.hpp>
 #include "VideoSourceKinect.hpp"
@@ -88,12 +88,13 @@ VideoSourceKinect::VideoSourceKinect ()
 		_vcvmPyrRGBs  .push_back(cv::Mat(nRows,nCols,CV_8UC3 ));
 		_acvmShrPtrPyrPts[i].reset(new cv::Mat(nRows,nCols,CV_32FC3));
 		_acvmShrPtrPyrNls[i].reset(new cv::Mat(nRows,nCols,CV_32FC3));
+		_acvmShrPtrPyrRGBs[i].reset(new cv::Mat(nRows,nCols,CV_8UC3));
 		PRINTSTR("construct pyrmide level:");
 		PRINT(i);
 	}
 
 	//other
-    _ePreFiltering = PYRAMID_BILATERAL_FILTERED_IN_DISPARTY; 
+    _ePreFiltering = GPU_PYRAMID; 
 	//definition of parameters
 	_fThresholdDepthInMeter = 0.03f;
 	_fSigmaSpace = 2;
@@ -174,50 +175,37 @@ void VideoSourceKinect::getNextFrame(tp_frame ePreFiltering_)
 		*pcvDepth++ = *pDepth++;
     }
     switch( ePreFiltering_ ){
-		case GPU_RAW:
-			PRINT(_fSigmaDisparity);
-			PRINT(_fSigmaSpace);
-			_cvgmRGB.upload(_cvmRGB);
-			_cvgmDepth.upload(_cvmDepth);
-			gpuUndistortRGB(_cvgmRGB,&(_vcvgmPyrRGBs[0]));
-			gpuUndistortIR (_cvgmDepth,&_cvgmUndistDepth);
-			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedRawDepth );
-			btl::cuda_util::cudaUnprojectRGBGL(_cvgmAlignedRawDepth,_fFxRGB,_fFyRGB,_uRGB,_vRGB, 0,&_vcvgmPyrPts[0]);
-			btl::cuda_util::cudaFastNormalEstimationGL(_vcvgmPyrPts[0],&_vcvgmPyrNls[0]);
-			_vcvgmPyrPts[0].download(*_acvmShrPtrPyrPts[0]);
-			_vcvgmPyrNls[0].download(*_acvmShrPtrPyrNls[0]);
-			_vcvgmPyrRGBs[0].download(_vcvmPyrRGBs[0]);
-			break;
-		case CPU_RAW:
-			PRINT(_fSigmaDisparity);
-			PRINT(_fSigmaSpace);
+		case CPU_PYRAMID:
 			// not fullly understand the lense distortion model used by OpenNI.
-			undistortRGB( _cvmRGB, _cvmUndistRGB );
-			undistortIR( _cvmDepth, _cvmUndistDepth );
+			undistortRGB( _cvmRGB, &_vcvmPyrRGBs[0] );
+			undistortIR( _cvmDepth, &_cvmUndistDepth );
 			alignDepthWithRGB2(_cvmUndistDepth,&_vcvmPyrDepths[0]);
 			btl::utility::bilateralFilterInDisparity<float>(&_vcvmPyrDepths[0],_fSigmaDisparity,_fSigmaSpace);
 			unprojectRGBGL(_vcvmPyrDepths[0],0, &*_acvmShrPtrPyrPts[0]);
-			fastNormalEstimationGL(*_acvmShrPtrPyrPts[0],&*_acvmShrPtrPyrNls[0]);
+			fastNormalEstimation(*_acvmShrPtrPyrPts[0],&*_acvmShrPtrPyrNls[0]);
+			for( unsigned int i=1; i<_uPyrHeight; i++ )	{
+				cv::pyrDown(_vcvmPyrRGBs[i-1],_vcvmPyrRGBs[i]);
+				btl::utility::downSampling<float>(_vcvmPyrDepths[i-1],&_vcvmPyrDepths[i]);
+				btl::utility::bilateralFilterInDisparity<float>(&_vcvmPyrDepths[i],_fSigmaDisparity,_fSigmaSpace);
+				unprojectRGBGL(_vcvmPyrDepths[i],i, &*_acvmShrPtrPyrPts[i]);
+				fastNormalEstimation(*_acvmShrPtrPyrPts[i],&*_acvmShrPtrPyrNls[i]);
+			}
 			break;
-		case PYRAMID_BILATERAL_FILTERED_IN_DISPARTY:
-			PRINT(_fSigmaDisparity);
-			PRINT(_fSigmaSpace);
-			PRINT(_uPyrHeight);
+		case GPU_PYRAMID:
 			_cvgmRGB.upload(_cvmRGB);
 			_cvgmDepth.upload(_cvmDepth);
 			gpuUndistortRGB(_cvgmRGB,&(_vcvgmPyrRGBs[0]));
 			gpuUndistortIR (_cvgmDepth,&_cvgmUndistDepth);
 			gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedRawDepth );
-			btl::cuda_util::cudaDepth2Disparity(_cvgmAlignedRawDepth, &(_vcvgmPyr32FC1Tmp[0]) );
-			btl::cuda_util::cudaBilateralFiltering(_vcvgmPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&(_vcvgmPyrDisparity[0]));
-			btl::cuda_util::cudaDisparity2Depth(_vcvgmPyrDisparity[0],&(_vcvgmPyrDepths[0]));
+			btl::cuda_util::cudaDepth2Disparity(_cvgmAlignedRawDepth, &_vcvgmPyr32FC1Tmp[0]);
+			btl::cuda_util::cudaBilateralFiltering(_vcvgmPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&_vcvgmPyrDisparity[0]);
+			btl::cuda_util::cudaDisparity2Depth(_vcvgmPyrDisparity[0],&_vcvgmPyrDepths[0]);
 			btl::cuda_util::cudaUnprojectRGBGL(_vcvgmPyrDepths[0],_fFxRGB,_fFyRGB,_uRGB,_vRGB, 0,&_vcvgmPyrPts[0]);
 			btl::cuda_util::cudaFastNormalEstimationGL(_vcvgmPyrPts[0],&_vcvgmPyrNls[0]);
 			_vcvgmPyrRGBs[0].download(_vcvmPyrRGBs[0]);
 			_vcvgmPyrPts[0] .download(*_acvmShrPtrPyrPts[0]);
 			_vcvgmPyrNls[0] .download(*_acvmShrPtrPyrNls[0]);
-			for( unsigned int i=1; i<_uPyrHeight; i++ )
-			{
+			for( unsigned int i=1; i<_uPyrHeight; i++ )	{
 				cv::gpu::pyrDown(_vcvgmPyrRGBs[i-1],_vcvgmPyrRGBs[i]);
 				_vcvgmPyrRGBs[i].download(_vcvmPyrRGBs[i]);
 				btl::cuda_util::cudaPyrDown( _vcvgmPyrDisparity[i-1],_fSigmaDisparity,&_vcvgmPyr32FC1Tmp[i]);
@@ -234,7 +222,8 @@ void VideoSourceKinect::getNextFrame(tp_frame ePreFiltering_)
 // timer off
 	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
  	_cTDAll = _cT1 - _cT0 ;
-	PRINT( _cTDAll );
+	_fFPS = 1000.f/_cTDAll.total_milliseconds();
+	PRINT( _fFPS );
 #endif
 	//cout << " getNextFrame() ends."<< endl;
     return;
@@ -258,7 +247,7 @@ void VideoSourceKinect::gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvgmUndisto
 void VideoSourceKinect::alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_)
 {
 	// initialize the Registered depth as NULLs
-	_cvmAlignedRawDepth.setTo(0);
+	pcvAligned_->setTo(0);
 	//unproject the depth map to IR coordinate
 	unprojectIR      ( cvUndistortDepth_, &_cvmIRWorld );
 	//transform from IR coordinate to RGB coordinate
@@ -270,20 +259,25 @@ void VideoSourceKinect::alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , c
 void VideoSourceKinect::unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* pcvmIRWorld_)
 {
 	float* pWorld_ = (float*) pcvmIRWorld_->data;
+	float fZ;
 	const float* pCamera_=  (const float*) cvmDepth_.data;
 	for(int r = 0; r<cvmDepth_.rows; r++)
 	for(int c = 0; c<cvmDepth_.cols; c++)
 	{
-		* ( pWorld_ + 2 ) = ( *pCamera_ +5 ) / 1000.f; //convert to meter z 5 million meter is added according to experience. as the OpenNI
-		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-		*   pWorld_		  = ( c - _uIR ) / _fFxIR * *(pWorld_+2); // + 0.0025;     //x by experience.
-		* ( pWorld_ + 1 ) = ( r - _vIR ) / _fFyIR * *(pWorld_+2); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+		if ( 400.f < *pCamera_ && *pCamera_ < 3000.f){
+			* ( pWorld_ + 2 ) = ( *pCamera_ ) / 1000.f; //convert to meter z 5 million meter is added according to experience. as the OpenNI
+			//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+			*   pWorld_		  = ( c - _uIR ) / _fFxIR * *(pWorld_+2); // + 0.0025;     //x by experience.
+			* ( pWorld_ + 1 ) = ( r - _vIR ) / _fFyIR * *(pWorld_+2); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+		}
+		else{
+			*(pWorld_) = *(pWorld_+1) = *(pWorld_+2) = 0;
+		}
 		pCamera_ ++;
 		pWorld_ += 3;
 	}
 }
-void VideoSourceKinect::transformIR2RGB  ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld_ )
-{
+void VideoSourceKinect::transformIR2RGB  ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld_ ){
 	//_aR[0] [1] [2]
 	//   [3] [4] [5]
 	//   [6] [7] [8]
@@ -297,26 +291,21 @@ void VideoSourceKinect::transformIR2RGB  ( const cv::Mat& cvmIRWorld, cv::Mat* p
 	float* pRGB_ = (float*) pcvmRGBWorld_->data;
 	const float* pIR_=  (float*) cvmIRWorld.data;
 	for(int r = 0; r<cvmIRWorld.rows; r++)
-	for(int c = 0; c<cvmIRWorld.cols; c++)
-	{
-		if ( fabs ( * ( pIR_ + 2 ) ) < 0.0001 )
-		{
-			* pRGB_++ = 0;
-			* pRGB_++ = 0;
-			* pRGB_++ = 0;
-		}
-		else
-		{
+	for(int c = 0; c<cvmIRWorld.cols; c++){
+		if( 0.4f < fabsf( * ( pIR_ + 2 ) ) && fabsf( * ( pIR_ + 2 ) ) < 3.f ) {
 			* pRGB_++ = _aR[0] * *pIR_ + _aR[1] * *(pIR_+1) + _aR[2] * *(pIR_+2) - _aRT[0];
 			* pRGB_++ = _aR[3] * *pIR_ + _aR[4] * *(pIR_+1) + _aR[5] * *(pIR_+2) - _aRT[1];
 			* pRGB_++ = _aR[6] * *pIR_ + _aR[7] * *(pIR_+1) + _aR[8] * *(pIR_+2) - _aRT[2];
 		}
-
+		else {
+			* pRGB_++ = 0;
+			* pRGB_++ = 0;
+			* pRGB_++ = 0;
+		}
 		pIR_ += 3;
 	}
 }
-void VideoSourceKinect::projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ )
-{
+void VideoSourceKinect::projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ ){
 	//cout << "projectRGB() starts." << std::endl;
 	unsigned short nX, nY;
 	int nIdx1,nIdx2;
@@ -326,23 +315,19 @@ void VideoSourceKinect::projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAl
 	float* pWorld_ = (float*) cvmRGBWorld_.data;
 	float* pDepth = (float*) pcvAlignedRGB_->data;
 
-	for ( int i = 0; i < KINECT_WxH; i++ )
-	{
+	for ( int i = 0; i < KINECT_WxH; i++ ){
 		dX = *   pWorld_;
 		dY = * ( pWorld_ + 1 );
 		dZ = * ( pWorld_ + 2 );
-		if ( fabs ( dZ ) > 0.0000001 )
-		{
+		if (0.4 < fabsf( dZ ) && fabsf( dZ ) < 3){
 			// get 2D image projection in RGB image of the XYZ in the world
-			nX = int( _fFxRGB * dX / dZ + _uRGB + 0.5 );
-			nY = int( _fFyRGB * dY / dZ + _vRGB + 0.5 );
-
+			nX = cvRound( _fFxRGB * dX / dZ + _uRGB );
+			nY = cvRound( _fFyRGB * dY / dZ + _vRGB );
 			// set 2D rgb XYZ
-			if ( nX >= 0 && nX < KINECT_WIDTH && nY >= 0 && nY < KINECT_HEIGHT )
-			{
+			if ( nX >= 0 && nX < KINECT_WIDTH && nY >= 0 && nY < KINECT_HEIGHT ){
 				nIdx1= nY * KINECT_WIDTH + nX; //1 channel
 				nIdx2= ( nIdx1 ) * 3; //3 channel
-				pDepth    [ nIdx1   ] = float(dZ*1000);
+				pDepth    [ nIdx1   ] = float(dZ);
 				//PRINT( nX ); PRINT( nY ); PRINT( pWorld_ );
 			}
 		}
@@ -350,7 +335,7 @@ void VideoSourceKinect::projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAl
 	}
 	return;
 }
-void VideoSourceKinect::unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_ )
+void VideoSourceKinect::unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_, bool bGLConvertion_/*=true*/ )
 {
 	pcvmPts_->setTo(0);
 	// pCamer format
@@ -360,24 +345,29 @@ void VideoSourceKinect::unprojectRGBGL ( const cv::Mat& cvmDepth_, int nLevel, c
 	//unit is meter
 	//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
 	//for example: glVertex3d ( Pt(0), -Pt(1), -Pt(2) ); i.e. opengl-default reference system
-	//int nScale = 1 << nLevel;
+	int nScale = 1 << nLevel;
 
-	//float *pDepth = (float*) cvmDepth_.data;
-	//float *pWorld_ = (float*) pcvmPts_->data;
-
-	//for ( int r = 0; r < cvmDepth_.rows; r++ )
-	//for ( int c = 0; c < cvmDepth_.cols; c++ )
-	//{
-	//	* ( pWorld_ + 2 ) = *pDepth++;
-	//	* ( pWorld_ + 2 ) /= 1000.f;
-	//	//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-	//	*   pWorld_		  = ( c*nScale - _uRGB ) / _fFxRGB * *( pWorld_ + 2 ); // + 0.0025;     //x by experience.
-	//	* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _fFyRGB * *( pWorld_ + 2 ); // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
-	//	* ( pWorld_ + 1 ) = -*( pWorld_ + 1 );
-	//	* ( pWorld_ + 2 ) = -*( pWorld_ + 2 );
-	//	pWorld_ += 3;
-	//}
-
+	float *pDepth = (float*) cvmDepth_.data;
+	float *pWorld_ = (float*) pcvmPts_->data;
+	float fD;
+	for ( int r = 0; r < cvmDepth_.rows; r++ )
+	for ( int c = 0; c < cvmDepth_.cols; c++ )	{
+		fD = *pDepth++;
+		if( 0.4 < fabsf( fD ) && fabsf( fD ) < 3 ){
+			* ( pWorld_ + 2 ) = fD;
+			*   pWorld_		  = ( c*nScale - _uRGB ) / _fFxRGB * fD; // + 0.0025;     //x by experience.
+			* ( pWorld_ + 1 ) = ( r*nScale - _vRGB ) / _fFyRGB * fD; // - 0.00499814; //y the value is esimated using CCalibrateKinectExtrinsics::calibDepth(
+			//convert from opencv convention to opengl convention
+			if (bGLConvertion_){
+				* ( pWorld_ + 1 ) = -*( pWorld_ + 1 );
+				* ( pWorld_ + 2 ) = -*( pWorld_ + 2 );
+			}
+		}
+		else{
+			* pWorld_ = *(pWorld_+1) = *(pWorld_+2) = 0.f;
+		}
+		pWorld_ += 3;
+	}
 	return;
 }
 void VideoSourceKinect::clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_)
@@ -411,7 +401,7 @@ void VideoSourceKinect::cloneRawFrame( cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_ )
 		*pcvmDepth_ = _cvmAlignedRawDepth.clone();
 	}
 }
-void VideoSourceKinect::fastNormalEstimationGL(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_)
+void VideoSourceKinect::fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_)
 {
 	pcvmNls_->setTo(0);
 	Eigen::Vector3d n1, n2, n3;
@@ -422,14 +412,12 @@ void VideoSourceKinect::fastNormalEstimationGL(const cv::Mat& cvmPts_, cv::Mat* 
 	for( int r = 0; r < cvmPts_.rows; r++ )
 	for( int c = 0; c < cvmPts_.cols; c++ )
 	{
-		if (c == cvmPts_.cols-1 || r == cvmPts_.rows-1) 
-		{
+		if (c == cvmPts_.cols-1 || r == cvmPts_.rows-1) {
 			pPt_+=3;
 			pNl_+=3;
 			continue;
 		}
-		if ( c == 420 && r == 60 )
-	    {
+		if ( c == 420 && r == 60 ) {
 			int x = 0;
 		}
 		// skip the right and bottom boarder line
@@ -437,29 +425,25 @@ void VideoSourceKinect::fastNormalEstimationGL(const cv::Mat& cvmPts_, cv::Mat* 
 		Eigen::Vector3d pti1 ( pPt_[3],pPt_[4],pPt_[5] ); //left
 		Eigen::Vector3d ptj1 ( pPt_[cvmPts_.cols*3],pPt_[cvmPts_.cols*3+1],pPt_[cvmPts_.cols*3+2] ); //down
 
-		if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 )
-		{
+		if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 ) {
 			n1 = pti1 - pti;
 			n2 = ptj1 - pti;
 			n3 = n1.cross(n2);
 			double dNorm = n3.norm() ;
-			if ( dNorm > SMALL )
-			{
+			if ( dNorm > SMALL ) {
 				n3/=dNorm;
-				if ( n3(2) < 0 )
-				{
+				if ( -n3(0)*pti[0] - n3(1)*pPt_[1] - n3(2)*pPt_[2] <0 ) {
 					pNl_[0] = -n3(0);
 					pNl_[1] = -n3(1);
 					pNl_[2] = -n3(2);
 				}
-				else
-				{
+				else{
 					pNl_[0] = n3(0);
 					pNl_[1] = n3(1);
 					pNl_[2] = n3(2);
 				}
-			}
-		}
+			}//if dNorm
+		} //if
 
 		pPt_+=3;
 		pNl_+=3;
