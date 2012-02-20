@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (Kinect3D)
+project (KinectLiveview)
 find_package( OpenCV )
 find_package( CUDA )
 include(FindCUDA)
@@ -45,6 +45,6 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(Kinect3D main.cpp)
+add_executable(KinectLiveview KinectLiveview.cpp)
 # link with the 3d party libraries
-target_link_libraries( Kinect3D ${PCL_LIBRARIES} ${EXTRA_LIBS} )
+target_link_libraries( KinectLiveview ${PCL_LIBRARIES} ${EXTRA_LIBS} )

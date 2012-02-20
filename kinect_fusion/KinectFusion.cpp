@@ -16,11 +16,6 @@
 #include "GLUtil.h"
 //camera calibration from a sequence of images
 
-using namespace btl; //for "<<" operator
-using namespace utility;
-using namespace extra;
-using namespace videosource;
-using namespace Eigen;
 using namespace cv;
 
 //class CKinectView;
@@ -30,14 +25,10 @@ btl::extra::videosource::VideoSourceKinect _cVS;
 btl::extra::videosource::CKinectView _cView ( _cVS );
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
-Matrix4d _mGLMatrix;
-
 double _dNear = 0.01;
 double _dFar  = 10.;
 
 unsigned short _nWidth, _nHeight;
-GLuint _uTextureFirst;
-GLuint _uTextureSecond;
 
 SKeyFrame<float>::tp_shared_ptr _aShrPtrKFs[10];
 int _nKFCounter = 1; //key frame counter
@@ -113,7 +104,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 			}
 			break;*/
 	case '0':
-		_mGLMatrix = (*_vShrPtrsKF[ _nView ])->setView();
+		(*_vShrPtrsKF[ _nView ])->setView(&_pGL->_eimModelViewGL);
 		break;
     }
 	_pGL->normalKeys(key,x,y);
@@ -127,11 +118,9 @@ void mouseMotion ( int nX_, int nY_ ){
     _pGL->mouseMotion(nX_,nY_);
 }
 
-void init ( )
-{
+void init ( ){
 	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new SKeyFrame<float>(_cVS));	}
-		
-    _mGLMatrix.setIdentity();
+    
     _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
     glEnable     ( GL_DEPTH_TEST );
@@ -145,28 +134,26 @@ void init ( )
     glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
 	_pGL->init();
+	
 // store a frame and detect feature points for tracking.
-    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID_CV);
+    _cVS.getNextFrame(btl::extra::videosource::VideoSourceKinect::GPU_PYRAMID_CV);
     // load as texture
     _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
 	SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
     p1stKF->assign ( _cVS._vcvmPyrRGBs[0], (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
-    //corner detection and ranking ( first frame )
+    // corner detection and ranking ( first frame )
     p1stKF->detectCorners();
 	p1stKF->_bIsReferenceFrame = true;
-// ( second frame )
-    //_uTextureSecond = _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
-    //s1stKF.save2XML ( "0" );
-	
+	p1stKF->setView(&_pGL->_eimModelViewGL);
 	_vShrPtrsKF.push_back( &p1stKF );
     return;
 }
 
 void display ( void ) {
 // update frame
-    _cVS.getNextFrame(VideoSourceKinect::GPU_PYRAMID_CV);
+    _cVS.getNextFrame(btl::extra::videosource::VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
     // assign the rgb and depth to the current frame.
 	SKeyFrame<float>::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
@@ -193,9 +180,7 @@ void display ( void ) {
     glViewport ( 0, 0, _nWidth / 2, _nHeight );
     glScissor  ( 0, 0, _nWidth / 2, _nHeight );
     // after set the intrinsics and extrinsics
-    // load the matrix to set camera pose
     //glLoadIdentity();
-	glLoadMatrixd( _mGLMatrix.data() );
 	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -207,17 +192,19 @@ void display ( void ) {
 
 	if(_bRenderReference) {
 		_pGL->renderAxisGL();
-		_pGL->renderPatternGL(0.1,10,10);
+		_pGL->renderPatternGL(.1,20,20);
 		_pGL->renderPatternGL(1.,10,10);
+		_pGL->renderVoxelGL(2.f);
+		_pGL->renderOctTree(0.f,0.f,0.f,2.f,2);
 	}
 
 // render second viewport
-    glViewport ( _nWidth / 2, 0, _nWidth / 2, _nHeight );
-    glScissor  ( _nWidth / 2, 0, _nWidth / 2, _nHeight );
+    glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight );
+    glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	_cView.LoadTexture(_cVS._vcvmPyrRGBs[0]);
-    _cView.renderCamera( CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[0], CKinectView::ALL_CAMERA, .2 );
+    _cView.renderCamera( btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[0], btl::extra::videosource::CKinectView::ALL_CAMERA, .2 );
 
 // rendering
     /*
@@ -236,7 +223,6 @@ void display ( void ) {
     if ( _bContinuous ) {
         glutPostRedisplay();
     }
-
 }
 
 void reshape ( int nWidth_, int nHeight_ ) {
@@ -253,9 +239,6 @@ void reshape ( int nWidth_, int nHeight_ ) {
     glutReshapeWindow ( int ( _nWidth ), int ( _nHeight ) );
     return;
 }
-
-
-
 
 int main ( int argc, char** argv ) {
     try {
@@ -274,8 +257,8 @@ int main ( int argc, char** argv ) {
         glutDisplayFunc ( display );
         glutMainLoop();
 	}
-	catch ( CError& e )	{
-		if ( string const* mi = boost::get_error_info< CErrorInfo > ( e ) )	{
+	catch ( btl::utility::CError& e )	{
+		if ( string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) )	{
 			std::cerr << "Error Info: " << *mi << std::endl;
 		}
 	}

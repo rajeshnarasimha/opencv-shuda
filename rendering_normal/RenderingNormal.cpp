@@ -154,43 +154,6 @@ void mouseClick ( int nButton_, int nState_, int nX_, int nY_ ){
 void mouseMotion ( int nX_, int nY_ ){
 	_pGL->mouseMotion(nX_,nY_);
 }
-void renderVolumeGL( const float fSize_)
-{
-	float fHS = fSize_/2.f;
-	// x axis
-	glColor3f ( 1.f, .0f, .0f );
-	//top
-	glBegin ( GL_LINE_LOOP );
-	glVertex3f ( fHS, fHS, fHS ); 
-	glVertex3f ( fHS, fHS,-fHS ); 
-	glVertex3f (-fHS, fHS,-fHS ); 
-	glVertex3f (-fHS, fHS, fHS ); 
-	glEnd();
-	//bottom
-	glBegin ( GL_LINE_LOOP );
-	glVertex3f ( fHS,-fHS, fHS ); 
-	glVertex3f ( fHS,-fHS,-fHS ); 
-	glVertex3f (-fHS,-fHS,-fHS ); 
-	glVertex3f (-fHS,-fHS, fHS ); 
-	glEnd();
-	//middle
-	glBegin ( GL_LINES );
-	glVertex3f ( fHS, fHS, fHS ); 
-	glVertex3f ( fHS,-fHS, fHS ); 
-	glEnd();
-	glBegin ( GL_LINES );
-	glVertex3f ( fHS, fHS,-fHS ); 
-	glVertex3f ( fHS,-fHS,-fHS ); 
-	glEnd();
-	glBegin ( GL_LINES );
-	glVertex3f (-fHS, fHS,-fHS ); 
-	glVertex3f (-fHS,-fHS,-fHS ); 
-	glEnd();
-	glBegin ( GL_LINES );
-	glVertex3f (-fHS, fHS, fHS ); 
-	glVertex3f (-fHS,-fHS, fHS ); 
-	glEnd();
-}
 
 void render3DPts()
 {
@@ -271,7 +234,7 @@ void display ( void )
 
     // render objects
     _pGL->renderAxisGL();
-	renderVolumeGL(2);
+	_pGL->renderVolumeGL(2);
     render3DPts();
 
     //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _pVS->cvRGB().data);

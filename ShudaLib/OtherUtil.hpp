@@ -36,7 +36,7 @@ namespace utility
 	struct CError: virtual boost::exception, virtual std::exception { };
 #define THROW(what)\
 	{\
-	CError cE;\
+	btl::utility::CError cE;\
 	cE << CErrorInfo ( what );\
 	throw cE;\
 	}
@@ -45,7 +45,7 @@ namespace utility
 	{
 		CException(const std::string& str) : std::runtime_error(str) {}
 	};
-#define BTL_THROW(what) {throw CException(what);}
+#define BTL_THROW(what) {throw btl::utility::CException(what);}
 	//ASSERT condition to be true; other wise throw
 #define CHECK( AssertCondition_, Otherwise_) \
 	if ((AssertCondition_) != true)\

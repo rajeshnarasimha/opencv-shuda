@@ -11,7 +11,7 @@ namespace utility
 {
 
 template< class T >
-Eigen::Matrix< T , 4, 4 > setOpenGLModelViewMatrix ( const Eigen::Matrix< T, 3, 3 >& mR_, const Eigen::Matrix< T, 3, 1 >& vT_ )
+Eigen::Matrix< T , 4, 4 > setModelViewGLfromRTCV ( const Eigen::Matrix< T, 3, 3 >& mR_, const Eigen::Matrix< T, 3, 1 >& vT_ )
 {
     // column first for pGLMat_[16];
     // row first for Matrix3d;
@@ -48,7 +48,12 @@ Eigen::Matrix< T , 4, 4 > setOpenGLModelViewMatrix ( const Eigen::Matrix< T, 3, 
 
     return mMat;
 }
-
+template< class T >
+Eigen::Matrix< T , 4, 4 > setModelViewGLfromRCCV ( const Eigen::Matrix< T, 3, 3 >& mR_, const Eigen::Matrix< T, 3, 1 >& vC_ )
+{
+	Eigen::Matrix< T, 3,1> eivT = -mR.transpose()*vC_;
+	return setModelViewGLfromRTCV(mR_,vC_);
+}
 template< class T1, class T2 >
 void unprojectCamera2World ( const int& nX_, const int& nY_, const unsigned short& nD_, const Eigen::Matrix< T1, 3, 3 >& mK_, Eigen::Matrix< T2, 3, 1 >* pVec_ )
 {
@@ -56,16 +61,14 @@ void unprojectCamera2World ( const int& nX_, const int& nY_, const unsigned shor
 	//a right hand system.
 	//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
 	//	glVertex3d ( Pt(0), -Pt(1), -Pt(2) );
-	if ( nD_ > 400 )
-	{
+	if ( nD_ > 400 ) {
 		T2 dZ = nD_ / 1000.; //convert to meter
 		T2 dX = ( nX_ - mK_ ( 0, 2 ) ) / mK_ ( 0, 0 ) * dZ;
 		T2 dY = ( nY_ - mK_ ( 1, 2 ) ) / mK_ ( 1, 1 ) * dZ;
 		( *pVec_ ) << dX + 0.0025, dY, dZ + 0.00499814; // the value is esimated using CCalibrateKinectExtrinsics::calibDepth()
 		// 0.0025 by experience.
 	}
-	else
-	{
+	else {
 		( *pVec_ ) << 0, 0, 0;
 	}
 }
