@@ -22,8 +22,7 @@
 #include <opencv2/gpu/gpu.hpp>
 
 template<typename T>
-struct SKeyFrame
-{
+struct SKeyFrame {
 	typedef boost::shared_ptr<SKeyFrame<T>> tp_shared_ptr;
 	boost::shared_ptr<btl::extra::videosource::CKinectView> _pView;
     cv::Mat _cvmRGB;
@@ -31,14 +30,11 @@ struct SKeyFrame
     T* _pDepth;
 
     std::vector<cv::KeyPoint> _vKeyPoints;
+	std::vector<cv::DMatch> _vMatches;
 
 	cv::gpu::GpuMat _cvgmKeyPoints;
 	cv::gpu::GpuMat _cvgmDescriptors;
 	cv::gpu::GpuMat _cvgmBW;
-
-
-
-	std::vector<cv::DMatch> _vMatches;
 
 	Eigen::Matrix3d _eimR; //R & T is the relative pose w.r.t. the coordinate defined by the previous camera system.
     Eigen::Vector3d _eivT;
@@ -51,43 +47,14 @@ struct SKeyFrame
         _cvmBW .create ( 480, 640, CV_8UC1 );
         _pDepth = new T[921600];
         _eimR.setIdentity();
-        _eivT.setZero();
+        Eigen::Vector3d eivC (0.,0.,-1.5);
+		_eivT = -_eimR.transpose()*eivC;
 		_bIsReferenceFrame = false;
     }
 
     ~SKeyFrame() {
         delete [] _pDepth;
     }
-
-    /*
-    inline SKeyFrame& operator= ( const SKeyFrame& sKF_ ) {
-            sKF_._cvmRGB.copyTo ( _cvmRGB );
-            sKF_._cvmBW .copyTo ( _cvmBW  );
-            memcpy ( _pDepth, sKF_._pDepth, 921600 * sizeof ( double ) );
-            _eimR 			= sKF_._eimR;
-            _eivT 			= sKF_._eivT;
-    		_bIsReferenceFrame = sKF_._bIsReferenceFrame;
-    
-            _vDescriptors   = sKF_._vDescriptors;
-            _vPtPairs		= sKF_._vPtPairs;
-    		std::cout << " operator=1" << std::flush;
-    
-    		for(stdvector< KeyPoint >::const_iterator cit = sKF_._vKeyPoints.begin(); cit!= sKF_._vKeyPoints.end(); cit ++ )
-    		{
-    			_vKeyPoints.push_back( KeyPoint(  cit->pt, cit->size, cit->angle, cit->response, cit->octave, cit->class_id ) );
-    		}
-    		std::cout << " operator=2" << std::flush;
-    
-    		sKF_._cvmDescriptors.copyTo ( _cvmDescriptors );
-    
-            if ( !sKF_._pKDTree )
-            {
-                constructKDTree();
-            }
-    		std::cout << " operator=4" << std::flush;
-        }*/
-    
-
     void assign ( const cv::Mat& rgb_, const T* pD_ ) {
         rgb_.copyTo ( _cvmRGB );
 		_pView->LoadTexture(_cvmRGB);
@@ -107,7 +74,7 @@ struct SKeyFrame
         _pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
         return;
     }
-	//detect matches between current frame and referenc frame
+	//detect matches between current frame and reference frame
     void detectCorrespondences ( const SKeyFrame& sReferenceKF_ )  {
 		cv::gpu::BruteForceMatcher_GPU< L2<float> > cBruteMatcher;
 		cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
@@ -182,8 +149,7 @@ struct SKeyFrame
         vector<  int >::const_iterator cit_Cur = _vDepthIdxCur.begin();
         vector<  int >::const_iterator cit_1st = _vDepthIdx1st.begin();
 
-        for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_1st++ )
-        {
+        for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_1st++ ){
             eimCur ( 0, i ) = 			    _pDepth[ *cit_Cur     ];
             eimCur ( 1, i ) =  			    _pDepth[ *cit_Cur + 1 ];
             eimCur ( 2, i ) = 			    _pDepth[ *cit_Cur + 2 ];
@@ -193,93 +159,86 @@ struct SKeyFrame
             i++;
         }
         double dS2;
-        double dErrorBest = absoluteOrientation < double > ( eim1st, eimCur ,  false, &_eimR, &_eivT, &dS2 );
+        double dErrorBest = btl::utility::absoluteOrientation < double > ( eim1st, eimCur ,  false, &_eimR, &_eivT, &dS2 );
 		PRINT ( dErrorBest );
 		PRINT ( _eimR );
 		PRINT ( _eivT );
 		double dThreshold = dErrorBest;
-         //for ( int i = 0; i < 2; i++ )
-                {
-                    if ( nSize > 10 )
-                    {
+        //for ( int i = 0; i < 2; i++ )
+        {
+            if ( nSize > 10 ) {
                         
-                        // random generator
-                        boost::mt19937 rng;
-                        boost::uniform_real<> gen ( 0, 1 );
-                        boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
-                        double dError;
-                        Eigen::Matrix3d eimR;
-                        Eigen::Vector3d eivT;
-                        double dS;
-                        vector< int > vVoterIdx;
-                        Eigen::Matrix3d eimRBest;
-                        Eigen::Vector3d eivTBest;
-                        vector< int > vVoterIdxBest;
-                        int nMax = 0;
-                        vector < int > vRndIdx;
-                        Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
+                // random generator
+                boost::mt19937 rng;
+                boost::uniform_real<> gen ( 0, 1 );
+                boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
+                double dError;
+                Eigen::Matrix3d eimR;
+                Eigen::Vector3d eivT;
+                double dS;
+                vector< int > vVoterIdx;
+                Eigen::Matrix3d eimRBest;
+                Eigen::Vector3d eivTBest;
+                vector< int > vVoterIdxBest;
+                int nMax = 0;
+                vector < int > vRndIdx;
+                Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
         
-                        for ( int n = 0; n < 10000; n++ )
-                        {
-                            select5Rand (  eim1st, eimCur, dice, &eimYTmp, &eimXTmp );
-                            dError = absoluteOrientation < double > (  eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
+                for ( int n = 0; n < 1000; n++ ) {
+                    select5Rand (  eim1st, eimCur, dice, &eimYTmp, &eimXTmp );
+                    dError = btl::utility::absoluteOrientation < double > (  eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
         
-                            if ( dError > dThreshold ) {
-                                continue;
-                            }
+                    if ( dError > dThreshold ) {
+                        continue;
+                    }
         
-                            //voting
-                            int nVotes = voting ( eim1st, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
+                    //voting
+                    int nVotes = voting ( eim1st, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
+                    if ( nVotes > eimCur.cols() *.75 ) {
+                        nMax = nVotes;
+                        eimRBest = eimR;
+                        eivTBest = eivT;
+                        vVoterIdxBest = vVoterIdx;
+                        break;
+                    }
         
-                            if ( nVotes > eimCur.cols() *.75 )
-                            {
-                                nMax = nVotes;
-                                eimRBest = eimR;
-                                eivTBest = eivT;
-                                vVoterIdxBest = vVoterIdx;
-                                break;
-                            }
+                    if ( nVotes > nMax ){
+                        nMax = nVotes;
+                        eimRBest = eimR;
+                        eivTBest = eivT;
+                        vVoterIdxBest = vVoterIdx;
+                    }
+                }
         
-                            if ( nVotes > nMax )
-                            {
-                                nMax = nVotes;
-                                eimRBest = eimR;
-                                eivTBest = eivT;
-                                vVoterIdxBest = vVoterIdx;
-                            }
-                        }
+                if ( nMax <= 6 ){
+        			std::cout << "try increase the threshould" << std::endl;
+                    return ;
+                }
         
-                        if ( nMax <= 6 )
-                        {
-        					std::cout << "try increase the threshould" << std::endl;
-                            return ;
-                        }
+                Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
+                Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
+                selectInlier ( eim1st, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
+                dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &_eimR, &_eivT, &dS2 );
         
-                        Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
-                        Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
-                        selectInlier ( eim1st, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
-                        dErrorBest = absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &_eimR, &_eivT, &dS2 );
-        
-                        PRINT ( nMax );
-                        PRINT ( dErrorBest );
-                        PRINT ( _eimR );
-                        PRINT ( _eivT );
-                        nSize = nMax;
-                    }//if
-                }//for
-        
+                PRINT ( nMax );
+                PRINT ( dErrorBest );
+                PRINT ( _eimR );
+                PRINT ( _eivT );
+                nSize = nMax;
+            }//if
+        }//for
 
         return;
     }// calcRT
 
-	void applyRelativePose( const SKeyFrame& sReferenceKF_ ) 
-	{
+	void applyRelativePose( const SKeyFrame& sReferenceKF_ ) {
 		_eimR = _eimR*sReferenceKF_._eimR;
 		_eivT = _eimR*sReferenceKF_._eivT + _eivT;
 	}
 
 	void renderCamera( bool bRenderCamera_ ) const{
-		Eigen::Matrix4d mGLM1 = setView();
+		Eigen::Matrix4d mGLM1;
+		setView( &mGLM1 );
 	    mGLM1 = mGLM1.inverse().eval();
     	glPushMatrix();
 	    glMultMatrixd ( mGLM1.data() );
@@ -298,11 +257,9 @@ struct SKeyFrame
 	    glPopMatrix();
 	}
 
-	Eigen::Matrix4d setView() const {
-		const Eigen::Matrix3d& mR1  = _eimR;
-    	const Eigen::Vector3d& vT1  = _eivT;
-    	Eigen::Matrix4d mGLM = setOpenGLModelViewMatrix ( mR1, vT1 );
-		return mGLM;
+	void setView(Eigen::Matrix4d* pModelViewGL) const {
+    	*pModelViewGL = btl::utility::setModelViewGLfromRTCV ( _eimR, _eivT );
+		return;
 	}
 
     void renderDepth() const {

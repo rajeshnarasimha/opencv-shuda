@@ -11,7 +11,8 @@
 
 namespace btl{	namespace gl_util
 {
-CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/){
+CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/)
+:_eConvention(eConvention_){
 	_dZoom = 1.;
 	_dZoomLast = 1.;
 	_dScale = .1;
@@ -27,9 +28,9 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 
 	_nXMotion = 0;
 	_nYMotion = 0;
-	if( btl::utility::BTL_GL == eConvention_ )
+	if( btl::utility::BTL_GL == _eConvention )
 		_eivCentroid << 0, 0, -1;
-	else if( btl::utility::BTL_CV == eConvention_ )
+	else if( btl::utility::BTL_CV == _eConvention )
 		_eivCentroid << 0, 0,  1;
 }
 void CGLUtil::mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
@@ -137,12 +138,17 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 }
 void CGLUtil::viewerGL()
 {
+	// load the matrix to set camera pose
+	glLoadMatrixd( _eimModelViewGL.data() );
 	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // 5. translate back to the original camera pose
 	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
 	_dZoom = _dZoom > 10? 10: _dZoom;
 	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
-	glRotated ( _dXAngle, 0, 1 ,0 );                             // 3. rotate horizontally
-	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
+	if( btl::utility::BTL_GL == _eConvention )
+		glRotated ( _dYAngle, 0, 1 ,0 );                         // 3. rotate horizontally
+	else if( btl::utility::BTL_CV == _eConvention )
+		glRotated ( _dYAngle, 0,-1 ,0 );                        
+	glRotated ( _dXAngle, 1, 0 ,0 );                             // 2. rotate vertically
 	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
 }
 void CGLUtil::renderAxisGL() const
@@ -187,14 +193,16 @@ void CGLUtil::clearColorDepth()
 }
 void CGLUtil::init()
 {
+	_eimModelViewGL.setIdentity();
+	//disk list
 	_uDisk = glGenLists(1);
 	_pQObj = gluNewQuadric();
 	gluQuadricDrawStyle(_pQObj, GLU_FILL); //LINE); /* wireframe */
 	gluQuadricNormals(_pQObj, GLU_SMOOTH);// FLAT);//
 	glNewList(_uDisk, GL_COMPILE);
-	gluDisk(_pQObj, 0.0, 0.01, 9, 1);
+	gluDisk(_pQObj, 0.0, 0.01, 4, 1);
 	glEndList();
-
+	//normal list
 	_uNormal = glGenLists(2);
 	glNewList(_uNormal, GL_COMPILE);
 	glDisable(GL_LIGHTING);
@@ -204,7 +212,20 @@ void CGLUtil::init()
 	glVertex3d(0.,0.,0.016);
 	glEnd();
 	glEndList();
+	//voxel list
+	_uVoxel = glGenLists(3);
+	glNewList(_uVoxel, GL_COMPILE);
+	glDisable(GL_LIGHTING);
+	renderVoxelGL(1.f);
+	glEndList();
+
+	_uOctTree = glGenLists(3);
+	glNewList(_uOctTree, GL_COMPILE);
+	glDisable(GL_LIGHTING);
+	renderOctTree(0,0,0,2,1);
+	glEndList();
 }
+
 
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
@@ -229,6 +250,44 @@ void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, 
 	glEnd();
 	glPopMatrix();
 	return;
+}
+
+void CGLUtil::renderVoxelGL( const float fSize_) const
+{
+	float fHS = fSize_/2.f;
+	// x axis
+	glColor3f ( 1.f, .0f, .0f );
+	//top
+	glBegin ( GL_LINE_LOOP );
+	glVertex3f ( fHS, fHS, fHS ); 
+	glVertex3f ( fHS, fHS,-fHS ); 
+	glVertex3f (-fHS, fHS,-fHS ); 
+	glVertex3f (-fHS, fHS, fHS ); 
+	glEnd();
+	//bottom
+	glBegin ( GL_LINE_LOOP );
+	glVertex3f ( fHS,-fHS, fHS ); 
+	glVertex3f ( fHS,-fHS,-fHS ); 
+	glVertex3f (-fHS,-fHS,-fHS ); 
+	glVertex3f (-fHS,-fHS, fHS ); 
+	glEnd();
+	//middle
+	glBegin ( GL_LINES );
+	glVertex3f ( fHS, fHS, fHS ); 
+	glVertex3f ( fHS,-fHS, fHS ); 
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f ( fHS, fHS,-fHS ); 
+	glVertex3f ( fHS,-fHS,-fHS ); 
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f (-fHS, fHS,-fHS ); 
+	glVertex3f (-fHS,-fHS,-fHS ); 
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f (-fHS, fHS, fHS ); 
+	glVertex3f (-fHS,-fHS, fHS ); 
+	glEnd();
 }
 
 
