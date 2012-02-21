@@ -4,7 +4,7 @@
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
-namespace shuda
+namespace btl{ namespace utility
 {
 
 COptim::COptim()
@@ -585,4 +585,5 @@ void COptim::MnBrak(double& a, double& b, double& c, double& fa, double& fb, dou
 	}
 }
 
-}//namespace shuda
+}//namespace utility
+}//namespace btl

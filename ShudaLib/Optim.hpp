@@ -28,7 +28,7 @@ using namespace btl::utility;
 #define OPTIM_SRAT	(1.618034)		// ratio of magnification in successive interval
 #define OPTIM_SLTD	(100.0)			// maximum magnification allowed
 
-namespace shuda
+namespace btl{ namespace utility
 {
 
 class COptim
@@ -170,5 +170,6 @@ protected:
 	vector< cv::Mat_<double> > m_vGs;
 };
 
-}//namespace shuda
+}//namespace utility
+}//namespace btl
 #endif

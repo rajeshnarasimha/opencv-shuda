@@ -10,12 +10,7 @@
 #include <map>
 //using namespace cv;
 
-namespace btl
-{
-namespace extra
-{
-namespace videosource
-{
+namespace btl { namespace kinect{
 
 CCalibrateKinect::CCalibrateKinect()
 {
@@ -1168,6 +1163,6 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
 */
     return;
 }
-} //namespace videosource
-} //namespace extra
+
+} //namespace kinect
 } //namespace btl

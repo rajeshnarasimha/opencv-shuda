@@ -45,6 +45,6 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(KinectFusion KinectFusion.cpp KeyFrame.hpp)
+add_executable(KinectFusion KinectFusion.cpp )
 # link with the 3d party libraries
 target_link_libraries( KinectFusion ${PCL_LIBRARIES} ${EXTRA_LIBS} )

@@ -46,9 +46,7 @@
 
 namespace btl
 {
-namespace extra
-{
-namespace videosource
+namespace kinect
 {
 
 using namespace btl;
@@ -257,8 +255,7 @@ protected:
 };
 
 
-} //namespace videosource
-} //namespace extra
+} //namespace kinect
 } //namespace btl
 
 #endif

@@ -22,7 +22,7 @@
 
 using namespace btl::utility;
 
-namespace btl{ namespace extra { namespace videosource
+namespace btl{ namespace kinect
 {
 
 VideoSourceKinect::VideoSourceKinect ()
@@ -466,10 +466,5 @@ void VideoSourceKinect::fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pc
 
 
 
-
-
-
-
-} //namespace videosource
-} //namespace extra
+} //namespace kinect
 } //namespace btl
