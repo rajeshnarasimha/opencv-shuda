@@ -116,6 +116,7 @@ public:
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrDepths;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrDisparity;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyr32FC1Tmp;
+
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrRGBs;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrPts;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrNls;

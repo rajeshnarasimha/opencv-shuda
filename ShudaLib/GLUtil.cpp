@@ -97,7 +97,6 @@ void CGLUtil::mouseMotion ( int nX_, int nY_ )
 
 	glutPostRedisplay();
 }
-
 void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 {
 	switch( key )
@@ -145,10 +144,10 @@ void CGLUtil::viewerGL()
 	_dZoom = _dZoom > 10? 10: _dZoom;
 	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
 	if( btl::utility::BTL_GL == _eConvention )
-		glRotated ( _dYAngle, 0, 1 ,0 );                         // 3. rotate horizontally
-	else if( btl::utility::BTL_CV == _eConvention )
-		glRotated ( _dYAngle, 0,-1 ,0 );                        
-	glRotated ( _dXAngle, 1, 0 ,0 );                             // 2. rotate vertically
+		glRotated ( _dXAngle, 0, 1 ,0 );                         // 3. rotate horizontally
+	else if( btl::utility::BTL_CV == _eConvention )						//mouse x-movement is the rotation around y-axis
+		glRotated ( _dXAngle, 0,-1 ,0 );                        
+	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
 	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
 }
 void CGLUtil::renderAxisGL() const
@@ -185,7 +184,6 @@ void CGLUtil::renderAxisGL() const
 	glEnd();
 	glPopMatrix();
 }
-
 void CGLUtil::clearColorDepth()
 {
 	glClearColor ( 0.1f,0.1f,0.4f,1.0f );
@@ -225,8 +223,6 @@ void CGLUtil::init()
 	renderOctTree(0,0,0,2,1);
 	glEndList();
 }
-
-
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
 	const float usStartZ = -usRows_/2*fSize_;
@@ -251,7 +247,6 @@ void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, 
 	glPopMatrix();
 	return;
 }
-
 void CGLUtil::renderVoxelGL( const float fSize_) const
 {
 	float fHS = fSize_/2.f;

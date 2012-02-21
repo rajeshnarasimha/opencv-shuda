@@ -23,17 +23,14 @@
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 #include "GLUtil.h"
+#include "Camera.h"
 
-using namespace btl; //for "<<" operator
-using namespace utility;
-using namespace extra;
-using namespace videosource;
 using namespace Eigen;
 
 class CKinectView;
 
-btl::extra::videosource::VideoSourceKinect::tp_shared_ptr _pVS;
-btl::extra::videosource::CKinectView::tp_shared_ptr _pView; 
+btl::kinect::VideoSourceKinect::tp_shared_ptr _pVS;
+btl::kinect::SCamera::tp_shared_ptr _pRGBCamera; 
 btl::extra::CModel::tp_shared_ptr _pModel;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
@@ -113,7 +110,7 @@ void normalKeys ( unsigned char key, int x, int y )
         break;
 	case '9':
 		_uLevel = ++_uLevel%_uPyrHeight;
-		_pView->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
+		_pRGBCamera->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
 		PRINT(_uLevel);
 		break;
 	case ']':
@@ -179,7 +176,7 @@ void render3DPts()
 		pLabel = (const short*)_pModel->_acvmShrPtrDistanceClusters[_uLevel]->data;
 	}
 
-	for( int i = 0; i < __aKinectWxH[_uLevel];i++){
+	for( int i = 0; i < btl::kinect::__aKinectWxH[_uLevel];i++){
 		int nColor = pLabel[i];
 		if(nColor<0) 
 		{	pNl+=3; pPt+=3; continue; }
@@ -234,7 +231,7 @@ void display ( void )
 
     // render objects
     _pGL->renderAxisGL();
-	_pGL->renderVolumeGL(2);
+	_pGL->renderVoxelGL(2.f);
     render3DPts();
 
     //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _pVS->cvRGB().data);
@@ -252,8 +249,8 @@ void display ( void )
     // render objects
     //renderAxis();
     //render3DPts();
-	_pView->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
-    _pView->renderCamera( CCalibrateKinect::RGB_CAMERA, _pVS->_vcvmPyrRGBs[_uLevel] );
+	_pRGBCamera->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
+    _pRGBCamera->renderCamera( _pVS->_vcvmPyrRGBs[_uLevel] );
 
     glutSwapBuffers();
     glutPostRedisplay();
@@ -263,7 +260,7 @@ void display ( void )
 void reshape ( int nWidth_, int nHeight_ )
 {
     //cout << "reshape() " << endl;
-    _pView->setIntrinsics( 1, btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
+    _pRGBCamera->setIntrinsics( 1, 0.01, 100 );
 
     // setup blending
     //glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -307,8 +304,8 @@ int main ( int argc, char** argv )
 {
     try
     {
-		_pVS.reset( new btl::extra::videosource::VideoSourceKinect() );
-		_pView.reset( new btl::extra::videosource::CKinectView(*_pVS) );
+		_pVS.reset( new btl::kinect::VideoSourceKinect() );
+		_pRGBCamera.reset( new btl::kinect::SCamera );
 		_pModel.reset( new btl::extra::CModel(*_pVS) );
 		_pGL.reset( new btl::gl_util::CGLUtil );
 

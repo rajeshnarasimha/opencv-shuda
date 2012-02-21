@@ -555,13 +555,13 @@ void CCalibrateKinect::convertRV2RM ( const std::vector< cv::Mat >& vMat_, std::
 }
 
 void CCalibrateKinect::undistortRGB ( const cv::Mat& cvmRGB_, cv::Mat* pcvmUndistorted_ ) const{
-         cv::remap(cvmRGB_,     *pcvmUndistorted_, _cvmMapXYRGB, _cvmMapYRGB,  cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+	cv::remap(cvmRGB_,     *pcvmUndistorted_, _cvmMapXYRGB, _cvmMapYRGB,  cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
 void CCalibrateKinect::gpuUndistortRGB (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const{
 	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXRGB, _cvgmMapYRGB, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 }
 void CCalibrateKinect::undistortIR ( const cv::Mat& cvmIR_, cv::Mat* pcvmUndistorted_ ) const{
-         cv::remap(cvmIR_,      *pcvmUndistorted_, _cvmMapXYIR,  _cvmMapYIR,   cv::INTER_NEAREST, cv::BORDER_CONSTANT );
+	cv::remap(cvmIR_,      *pcvmUndistorted_, _cvmMapXYIR,  _cvmMapYIR,   cv::INTER_NEAREST, cv::BORDER_CONSTANT );
 }
 void CCalibrateKinect::gpuUndistortIR (const cv::gpu::GpuMat& cvgmOrigin_, cv::gpu::GpuMat* pcvgmUndistorde_ ) const{
 	cv::gpu::remap(cvgmOrigin_, *pcvgmUndistorde_, _cvgmMapXIR,  _cvgmMapYIR,  cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
@@ -968,6 +968,7 @@ void CCalibrateKinect::importKinectIntrinsicsYML()
     return;
 }
 
+/*
 
 void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ )
 {
@@ -1015,8 +1016,6 @@ void CKinectView::setIntrinsics ( unsigned int nScaleViewport_, int nCameraType_
     // set intrinsics end.
     return;
 }
-
-
 void CKinectView::LoadTexture ( const cv::Mat& img )
 {
     glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
@@ -1060,7 +1059,7 @@ void CKinectView::renderOnImage ( int nX_, int nY_ )
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
 void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, 
-	int nCameraRender_ /*= ALL_CAMERA*/, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const //dPhysicalFocalLength_ = .02 by default
+	int nCameraRender_ / *= ALL_CAMERA* /, double dPhysicalFocalLength_ / *= .02* /, bool bRenderTexture_/ *=true* / ) const //dPhysicalFocalLength_ = .02 by default
 {
 	if(bRenderTexture_){
 		glBindTexture(GL_TEXTURE_2D, _uTexture);
@@ -1090,7 +1089,7 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
     dR *= dPhysicalFocalLength_;
 
     glPushAttrib ( GL_CURRENT_BIT );
-/*
+/ *
     //draw principle point
     glColor3d ( 0., 0., 1. );
     glPointSize ( 5 );
@@ -1119,7 +1118,7 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
     glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
     glVertex3d ( 0, dT, -dPhysicalFocalLength_ );
     glEnd();
-*/
+* /
     glPopAttrib();
 
     //draw frame
@@ -1142,7 +1141,7 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
         glEnd();
         glDisable ( GL_TEXTURE_2D );
     }
-/*
+/ *
     //glColor3d(1., 1., 1.); glLineWidth(1.);
     glBegin ( GL_LINES );
     glVertex3d ( 0,   0, 0 );
@@ -1160,9 +1159,11 @@ void CKinectView::renderCamera (int nCameraType_, const cv::Mat& cvmRGB_,
     glVertex3d ( 0,   0, 0 );
     glVertex3d ( dL, dB, -dPhysicalFocalLength_ );
     glEnd();
-*/
+* /
     return;
 }
+*/
+
 
 } //namespace kinect
 } //namespace btl

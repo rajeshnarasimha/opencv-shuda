@@ -16,25 +16,45 @@
 #include <opencv2/gpu/gpu.hpp>
 
 #include "Converters.hpp"
+#include <gl/freeglut.h>
+#include "Camera.h"
 #include "VideoSourceKinect.hpp"
 
 #include "KeyFrame.h"
 
 
-btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::CCalibrateKinect& cCK_){
-	_pView.reset(new btl::kinect::CKinectView(cCK_));
+btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera& sRGB_)
+:_sRGB(sRGB_){
+	//disparity
+	for(int i=0; i<4; i++){
+		int nRows = KINECT_HEIGHT>>i; 
+		int nCols = KINECT_WIDTH>>i;
+		//host
+		_acvmShrPtrPyrPts[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
+		_acvmShrPtrPyrNls[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
+		_acvmShrPtrPyrRGBs[i].reset(new cv::Mat(nRows,nCols,CV_8UC3));
+		_acvmShrPtrPyrBWs[i]  .reset(new cv::Mat(nRows,nCols,CV_8UC1));
+		//device
+		_acvgmShrPtrPyrPts[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
+		_acvgmShrPtrPyrNls[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
+		_acvgmShrPtrPyrRGBs[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
+		_acvgmShrPtrPyrBWs[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC1));
+		PRINTSTR("construct pyrmide level:");
+		PRINT(i);
+	}
+
 	_cvmRGB.create ( 480, 640, CV_8UC3 );
 	_cvmBW .create ( 480, 640, CV_8UC1 );
 	_pPts = new float[921600];
 	_eimR.setIdentity();
-	Eigen::Vector3d eivC (0.,0.,-1.5);
+	Eigen::Vector3d eivC (0.,0.,-1.5); //camera location in the world
 	_eivT = -_eimR.transpose()*eivC;
 	_bIsReferenceFrame = false;
 }
 
 void btl::kinect::CKeyFrame::assign ( const cv::Mat& rgb_, const float* pD_ ) {
 	rgb_.copyTo ( _cvmRGB );
-	_pView->LoadTexture(_cvmRGB);
+	_sRGB.LoadTexture(_cvmRGB);
 	// load depth
 	memcpy ( _pPts, pD_, 921600 * sizeof ( float ) );
 	// color to grayscale image
@@ -43,12 +63,58 @@ void btl::kinect::CKeyFrame::assign ( const cv::Mat& rgb_, const float* pD_ ) {
 	// clear corners
 	_bIsReferenceFrame = false;
 }
+void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
+	//host
+	_acvmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrPts[sLevel_]);
+	_acvmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrNls[sLevel_]);
+	_acvmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrRGBs[sLevel_]);
+	//device
+	_acvgmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrPts[sLevel_]);
+	_acvgmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrNls[sLevel_]);
+	_acvgmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrRGBs[sLevel_]);
+	_acvgmShrPtrPyrBWs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrBWs[sLevel_]);
+}
+
+void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
+	for(int i=0; i<4; i++) {
+		copyTo(pKF_,i);
+		PRINTSTR("copy pyrmide level:");
+		PRINT(i);
+	}
+	_bIsReferenceFrame = pKF_->_bIsReferenceFrame;
+}
 
 void btl::kinect::CKeyFrame::detectCorners(){
 	// detecting keypoints & computing descriptors
 	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(500));
 	(*_pSurf)(_cvgmBW, cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
 	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
+	return;
+}
+void btl::kinect::CKeyFrame::detectCorners(const short sLevel_){
+	// detecting keypoints & computing descriptors
+	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(500));
+	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
+	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
+	return;
+}
+void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ )  {
+	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(500));
+	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
+	//from current to reference
+	_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
+	(*_pSurf)(*sReferenceKF_._acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), sReferenceKF_._cvgmKeyPoints, sReferenceKF_._cvgmDescriptors,true);//make use of provided keypoints
+	//from reference to current
+	sReferenceKF_._cvgmKeyPoints.copyTo(_cvgmKeyPoints); sReferenceKF_._cvgmDescriptors.copyTo(_cvgmDescriptors);
+	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors,true);
+
+	//matching from current to reference
+	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
+	cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
+	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
+	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
+	std::sort( _vMatches.begin(), _vMatches.end() );
+	if (_vMatches.size()> 200) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
 	return;
 }
 
@@ -223,7 +289,7 @@ void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_ ) const{
 		glLineWidth(1);
 	}
 	//glColor4d( 1,1,1,0.5 );
-	_pView->renderCamera ( btl::kinect::CCalibrateKinect::RGB_CAMERA, _cvmRGB, btl::kinect::CKinectView::ALL_CAMERA, .2, bRenderCamera_);
+	_sRGB.renderCamera ( _cvmRGB, .2, bRenderCamera_);
 	//render dot clouds
 	renderDepth();
 	glPopMatrix();
