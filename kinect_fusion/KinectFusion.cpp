@@ -15,6 +15,7 @@
 #include "GLUtil.h"
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
+#include "Camera.h"
 #include "KeyFrame.h"
 //camera calibration from a sequence of images
 
@@ -23,8 +24,8 @@ using namespace cv;
 //class CKinectView;
 //class KeyPoint;
 
-btl::kinect::VideoSourceKinect _cVS;
-btl::kinect::CKinectView _cView ( _cVS );
+btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
+btl::kinect::SCamera::tp_shared_ptr _pRGBCamera;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
 double _dNear = 0.01;
@@ -121,7 +122,7 @@ void mouseMotion ( int nX_, int nY_ ){
 }
 
 void init ( ){
-	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_cVS));	}
+	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(*_pRGBCamera));	}
     
     _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
@@ -138,13 +139,13 @@ void init ( ){
 	_pGL->init();
 	
 // store a frame and detect feature points for tracking.
-    _cVS.getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
     // load as texture
-    _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
+    _pRGBCamera->LoadTexture ( _pKinect->_vcvmPyrRGBs[0] );
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
-    p1stKF->assign ( _cVS._vcvmPyrRGBs[0], (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
+    p1stKF->assign ( _pKinect->_vcvmPyrRGBs[0], (const float*)_pKinect->_acvmShrPtrPyrPts[0]->data );
     // corner detection and ranking ( first frame )
     p1stKF->detectCorners();
 	p1stKF->_bIsReferenceFrame = true;
@@ -155,11 +156,11 @@ void init ( ){
 
 void display ( void ) {
 // update frame
-    _cVS.getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
     // assign the rgb and depth to the current frame.
 	btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
-    pCurrentKF->assign ( _cVS._vcvmPyrRGBs[0],  (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
+    pCurrentKF->assign ( _pKinect->_vcvmPyrRGBs[0],  (const float*)_pKinect->_acvmShrPtrPyrPts[0]->data );
 
     if ( _bCapture && _nKFCounter < 10 ) {
 		btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
@@ -197,7 +198,7 @@ void display ( void ) {
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
 		_pGL->renderVoxelGL(2.f);
-		_pGL->renderOctTree(0.f,0.f,0.f,2.f,2);
+		_pGL->renderOctTree(0.f,0.f,0.f,2.f,4);
 	}
 
 // render second viewport
@@ -205,8 +206,8 @@ void display ( void ) {
     glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	_cView.LoadTexture(_cVS._vcvmPyrRGBs[0]);
-    _cView.renderCamera( btl::kinect::CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[0], btl::kinect::CKinectView::ALL_CAMERA, .2 );
+	_pRGBCamera->LoadTexture(_pKinect->_vcvmPyrRGBs[0]);
+    _pRGBCamera->renderCamera( _pKinect->_vcvmPyrRGBs[0], .2 );
 
 // rendering
     /*
@@ -229,7 +230,7 @@ void display ( void ) {
 
 void reshape ( int nWidth_, int nHeight_ ) {
     //cout << "reshape() " << endl;
-    _cView.setIntrinsics ( 1, btl::kinect::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
+    _pRGBCamera->setIntrinsics ( 1, 0.01, 100 );
 
     // setup blending
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -244,7 +245,9 @@ void reshape ( int nWidth_, int nHeight_ ) {
 
 int main ( int argc, char** argv ) {
     try {
+		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
+		_pRGBCamera.reset(new btl::kinect::SCamera);
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );

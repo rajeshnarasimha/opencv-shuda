@@ -7,7 +7,28 @@
 #include <vector>
 using namespace btl::utility;
 #include <opencv2/gpu/gpu.hpp>
+#include <gl/freeglut.h>
+#include "../Camera.h"
+void testSCamera()
+{
+	btl::kinect::SCamera sRGB;
+	sRGB.importYML();
+	PRINT(sRGB._fFx);
+	PRINT(sRGB._fFy);
+	PRINT(sRGB._u);
+	PRINT(sRGB._v);
+	PRINT(sRGB._sHeight);
+	PRINT(sRGB._sWidth);
 
+	btl::kinect::SCamera sIR(btl::kinect::SCamera::CAMERA_IR);
+	sIR.importYML();
+	PRINT(sIR._fFx);
+	PRINT(sIR._fFy);
+	PRINT(sIR._u);
+	PRINT(sIR._v);
+	PRINT(sIR._sHeight);
+	PRINT(sIR._sWidth);
+}
 void testCVUtilOperators()
 {
 	{
@@ -383,13 +404,14 @@ int main()
 	{
 		//testException();
 		//testCVUtil();
-		cudaTestTry();
+		//cudaTestTry();
 		//try Cpp
 		//tryCpp();
 		//try CV
 		//tryCV();
 		//try Eigen
 		//tryEigen();
+		testSCamera();
 	}
 	catch ( std::runtime_error e )
 	{

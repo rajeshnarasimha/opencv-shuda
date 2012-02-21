@@ -52,6 +52,8 @@ namespace kinect
 using namespace btl;
 using namespace utility;
 
+
+
 class CCalibrateKinect
 {
 
@@ -225,14 +227,17 @@ public:
 	// initialized in constructor after load of the _cCalibKinect.
 	double _aR[9];	// Relative rotation transpose
 	double _aRT[3]; // aRT =_aR * T, the relative translation
+
 	float _fFxIR, _fFyIR, _uIR, _vIR; //_dFxIR, _dFyIR IR camera focal length
 	float _fFxRGB,_fFyRGB,_uRGB,_vRGB;
-	
+
 	enum {IR_CAMERA, RGB_CAMERA } 	_nCameraType;
 	enum {CIRCLE, SQUARE} 			_nPatternType;
 };
 
 
+
+/*
 class CKinectView
 {
 public:
@@ -244,7 +249,7 @@ public:
 	:_cVS(cCK_)	{}
 	void LoadTexture(const cv::Mat& img);
 	void setIntrinsics(unsigned int nScaleViewport_, int nCameraType_, double dNear_, double dFar_ );
-	void renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02, bool bRenderTexture_=true ) const /*dPhysicalFocalLength_ = .02 by default */;
+	void renderCamera (int nCameraType_, const cv::Mat& cvmRGB_, int nCameraRender_ = ALL_CAMERA, double dPhysicalFocalLength_ = .02, bool bRenderTexture_=true ) const / *dPhysicalFocalLength_ = .02 by default * /;
 	void renderOnImage( int nX_, int nY_ );
 
 	enum {ALL_CAMERA, NONE_CAMERA} _eCameraRender;
@@ -252,7 +257,8 @@ public:
 protected:
 	GLuint _uTexture;
 	CCalibrateKinect& _cVS;
-};
+};*/
+
 
 
 } //namespace kinect
