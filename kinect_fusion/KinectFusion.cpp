@@ -11,9 +11,11 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <algorithm>
 #include <utility>
-#include "KeyFrame.hpp"
 #include <boost/lexical_cast.hpp>
 #include "GLUtil.h"
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+#include "KeyFrame.h"
 //camera calibration from a sequence of images
 
 using namespace cv;
@@ -21,8 +23,8 @@ using namespace cv;
 //class CKinectView;
 //class KeyPoint;
 
-btl::extra::videosource::VideoSourceKinect _cVS;
-btl::extra::videosource::CKinectView _cView ( _cVS );
+btl::kinect::VideoSourceKinect _cVS;
+btl::kinect::CKinectView _cView ( _cVS );
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
 double _dNear = 0.01;
@@ -30,10 +32,10 @@ double _dFar  = 10.;
 
 unsigned short _nWidth, _nHeight;
 
-SKeyFrame<float>::tp_shared_ptr _aShrPtrKFs[10];
+btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[10];
 int _nKFCounter = 1; //key frame counter
 int _nRFCounter = 0; //reference frame counter
-std::vector< SKeyFrame<float>::tp_shared_ptr* > _vShrPtrsKF;
+std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
 std::vector< int > _vRFIdx;
 
 bool _bContinuous = true;
@@ -119,7 +121,7 @@ void mouseMotion ( int nX_, int nY_ ){
 }
 
 void init ( ){
-	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new SKeyFrame<float>(_cVS));	}
+	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_cVS));	}
     
     _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
@@ -136,10 +138,10 @@ void init ( ){
 	_pGL->init();
 	
 // store a frame and detect feature points for tracking.
-    _cVS.getNextFrame(btl::extra::videosource::VideoSourceKinect::GPU_PYRAMID_CV);
+    _cVS.getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
     // load as texture
     _cView.LoadTexture ( _cVS._vcvmPyrRGBs[0] );
-	SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
+	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
     p1stKF->assign ( _cVS._vcvmPyrRGBs[0], (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
@@ -153,14 +155,14 @@ void init ( ){
 
 void display ( void ) {
 // update frame
-    _cVS.getNextFrame(btl::extra::videosource::VideoSourceKinect::GPU_PYRAMID_CV);
+    _cVS.getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
     // assign the rgb and depth to the current frame.
-	SKeyFrame<float>::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
+	btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
     pCurrentKF->assign ( _cVS._vcvmPyrRGBs[0],  (const float*)_cVS._acvmShrPtrPyrPts[0]->data );
 
     if ( _bCapture && _nKFCounter < 10 ) {
-		SKeyFrame<float>::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
+		btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
         _bCapture = false;
         // detect corners
         pCurrentKF->detectCorners();
@@ -186,14 +188,14 @@ void display ( void ) {
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     // render objects
-	for( vector< SKeyFrame<float>::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
+	for( vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
 		(**cit)->renderCamera( _bDisplayCamera );
 	}
 
 	if(_bRenderReference) {
 		_pGL->renderAxisGL();
-		_pGL->renderPatternGL(.1,20,20);
-		_pGL->renderPatternGL(1.,10,10);
+		_pGL->renderPatternGL(.1f,20.f,20.f);
+		_pGL->renderPatternGL(1.f,10.f,10.f);
 		_pGL->renderVoxelGL(2.f);
 		_pGL->renderOctTree(0.f,0.f,0.f,2.f,2);
 	}
@@ -204,7 +206,7 @@ void display ( void ) {
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	_cView.LoadTexture(_cVS._vcvmPyrRGBs[0]);
-    _cView.renderCamera( btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[0], btl::extra::videosource::CKinectView::ALL_CAMERA, .2 );
+    _cView.renderCamera( btl::kinect::CCalibrateKinect::RGB_CAMERA, _cVS._vcvmPyrRGBs[0], btl::kinect::CKinectView::ALL_CAMERA, .2 );
 
 // rendering
     /*
@@ -227,7 +229,7 @@ void display ( void ) {
 
 void reshape ( int nWidth_, int nHeight_ ) {
     //cout << "reshape() " << endl;
-    _cView.setIntrinsics ( 1, btl::extra::videosource::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
+    _cView.setIntrinsics ( 1, btl::kinect::CCalibrateKinect::RGB_CAMERA, 0.01, 100 );
 
     // setup blending
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency

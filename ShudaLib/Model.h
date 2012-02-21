@@ -28,7 +28,7 @@ private:
 	//mergeable flag for distance clustering
 	enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };//methods
 public:
-	CModel( VideoSourceKinect& cKinect_ );
+	CModel( btl::kinect::VideoSourceKinect& cKinect_ );
 	~CModel(void);
 	void detectPlaneFromCurrentFrame(const short uPyrLevel_);
 protected:
@@ -49,7 +49,7 @@ private:
 	//the minmum area of a cluster
 	unsigned short _usMinArea;
 	//video source
-	btl::extra::videosource::VideoSourceKinect& _cKinect;
+	btl::kinect::VideoSourceKinect& _cKinect;
 	//timer
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;

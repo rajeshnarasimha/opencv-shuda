@@ -14,13 +14,12 @@
 //#define INFO
 #include <boost/shared_ptr.hpp>
 
-#include "calibratekinect.hpp"
+#include "CalibrateKinect.hpp"
 #include <XnCppWrapper.h>
 #include <opencv/highgui.h>
 
 namespace btl{
-namespace extra{
-namespace videosource{
+namespace kinect{
 
 #define KINECT_WIDTH 640
 #define KINECT_HEIGHT 480
@@ -153,17 +152,9 @@ public:
 	float _fFPS;//frame per second
 };
 
-} //namespace videosource
-} //namespace extra
+} //namespace kinect
 } //namespace btl
 
-namespace btl{
-namespace extra{
-
-using videosource::VideoSourceKinect;
-
-} //namespace extra
-} //namespace btl
 
 
 #endif //BTL_EXTRA_VIDEOSOURCE_VIDEOSOURCEKINECT

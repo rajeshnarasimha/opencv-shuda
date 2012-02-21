@@ -17,7 +17,7 @@ namespace btl
 namespace extra
 {
 
-CModel::CModel(VideoSourceKinect& cKinect_)
+CModel::CModel(btl::kinect::VideoSourceKinect& cKinect_)
 	:_cKinect(cKinect_)
 {
 	//allocate
@@ -168,7 +168,7 @@ void CModel::detectPlaneFromCurrentFrame(const short uPyrLevel_)
 #endif
 //load pyramids
 	_cKinect.getNextPyramid(4); //output _vvN
-	_usMinArea = btl::extra::videosource::__aKinectWxH[uPyrLevel_]/60;
+	_usMinArea = btl::kinect::__aKinectWxH[uPyrLevel_]/60;
 //cluster the top pyramid
 	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
 //enforce position continuity
