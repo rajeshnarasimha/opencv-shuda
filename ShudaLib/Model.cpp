@@ -3,6 +3,10 @@
 #include <vector>
 #include "Utility.hpp"
 #include "opencv2/gpu/gpu.hpp"
+#include <XnCppWrapper.h>
+#include "Kinect.h"
+#include <gl/freeglut.h>
+#include "Camera.h"
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 

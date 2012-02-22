@@ -20,10 +20,14 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/kdtree/kdtree.h>
 #include <opencv2/gpu/gpu.hpp>
+#include <XnCppWrapper.h>
+#include <gl/freeglut.h>
+#include "Kinect.h"
+#include "Camera.h"
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 #include "GLUtil.h"
-#include "Camera.h"
+
 
 using namespace Eigen;
 
@@ -305,7 +309,7 @@ int main ( int argc, char** argv )
     try
     {
 		_pVS.reset( new btl::kinect::VideoSourceKinect() );
-		_pRGBCamera.reset( new btl::kinect::SCamera );
+		_pRGBCamera=_pVS->_pRGBCamera;
 		_pModel.reset( new btl::extra::CModel(*_pVS) );
 		_pGL.reset( new btl::gl_util::CGLUtil );
 

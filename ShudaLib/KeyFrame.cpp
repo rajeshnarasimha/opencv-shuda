@@ -16,9 +16,10 @@
 #include <opencv2/gpu/gpu.hpp>
 
 #include "Converters.hpp"
+#include "EigenUtil.hpp"
 #include <gl/freeglut.h>
 #include "Camera.h"
-#include "VideoSourceKinect.hpp"
+#include "Kinect.h"
 
 #include "KeyFrame.h"
 

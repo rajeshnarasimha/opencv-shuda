@@ -11,7 +11,8 @@ void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat
 void cudaUnprojectIR(const cv::gpu::GpuMat& cvgmDepth_ , 
 	const float& dFxIR_, const float& dFyIR_, const float& uIR_, const float& vIR_, 
 	cv::gpu::GpuMat* pcvgmIRWorld_ );
-void cudaTransformIR2RGB(const cv::gpu::GpuMat& cvgmIRWorld_, const double* aR_, const double* aRT_, cv::gpu::GpuMat* pcvgmRGBWorld_);
+//template void cudaTransformIR2RGB<float>(const cv::gpu::GpuMat& cvgmIRWorld_, const T* aR_, const T* aRT_, cv::gpu::GpuMat* pcvgmRGBWorld_);
+void cudaTransformIR2RGB(const cv::gpu::GpuMat& cvgmIRWorld_, const float* aR_, const float* aRT_, cv::gpu::GpuMat* pcvgmRGBWorld_);
 void cudaProjectRGB(const cv::gpu::GpuMat& cvgmRGBWorld_, 
 	const float& dFxRGB_, const float& dFyRGB_, const float& uRGB_, const float& vRGB_, 
 	cv::gpu::GpuMat* pcvgmAligned_ );

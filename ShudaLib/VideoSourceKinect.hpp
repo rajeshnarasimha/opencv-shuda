@@ -10,34 +10,13 @@
 */
 
 //turn on timer
-
 //#define INFO
-#include <boost/shared_ptr.hpp>
-
-#include "CalibrateKinect.hpp"
-#include <XnCppWrapper.h>
-#include <opencv/highgui.h>
 
 namespace btl{
 namespace kinect{
 
-#define KINECT_WIDTH 640
-#define KINECT_HEIGHT 480
-
-
-#define KINECT_WxH 307200
-#define KINECT_WxH_L1 76800 //320*240
-#define KINECT_WxH_L2 19200 //160*120
-#define KINECT_WxH_L3 4800  // 80*60
-
-#define KINECT_WxHx3 921600
-#define KINECT_WxHx3_L1 230400 
-#define KINECT_WxHx3_L2 57600
-
-static unsigned int __aKinectWxH[4] = {KINECT_WxH,KINECT_WxH_L1,KINECT_WxH_L2,KINECT_WxH_L3};
-
 //CCalibrateKinect is help to load camera parameters from 
-class VideoSourceKinect : public CCalibrateKinect
+class VideoSourceKinect //: public CCalibrateKinect
 {
 public:
 	//type
@@ -76,9 +55,10 @@ public:
 		(*peivCentroid_)(1) = - _dYCentroid;
 		(*peivCentroid_)(2) = - _dZCentroid;
 	}
-
+private:
+	void importYML();
 	// convert the depth map/ir camera to be aligned with the rgb camera
-	void alignDepthWithRGB2( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_); //cv::Mat version
+	void alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_); //cv::Mat version
 	void gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvUndistortDepth_ , cv::gpu::GpuMat* pcvAligned_);
 	void unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* cvmIRWorld_);
 	void transformIR2RGB ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld );
@@ -90,6 +70,7 @@ public:
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
 	void gpuBuildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
+
 
 public:
 	//openni
@@ -146,6 +127,14 @@ public:
 	float _fSigmaSpace; //degree of blur for the bilateral filter
 	float _fSigmaDisparity; 
 	unsigned int _uPyrHeight;//the height of pyramid
+
+	//cameras
+	boost::shared_ptr<SCamera> _pRGBCamera,_pIRCamera;
+	
+	// duplicated camera parameters for speed up the VideoSourceKinect::align() in . because Eigen and cv matrix class is very slow.
+	// initialized in constructor after load of the _cCalibKinect.
+	float _aR[9];	// Relative rotation transpose
+	float _aRT[3]; // aRT =_aR * T, the relative translation
 
 	//timer
 	boost::posix_time::ptime _cT0, _cT1;

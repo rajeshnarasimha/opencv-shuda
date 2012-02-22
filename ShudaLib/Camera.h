@@ -19,10 +19,19 @@ struct SCamera
 	void renderCamera (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ = .02, bool bRenderTexture_=true ) const;
 	void renderOnImage( int nX_, int nY_ );
 	void importYML();
-	//data
+	void generateMapXY4Undistort();
+
+	//camera parameters
 	float _fFx, _fFy, _u, _v; //_dFxIR, _dFyIR IR camera focal length
 	unsigned short _sWidth, _sHeight;
+	cv::Mat _cvmDistCoeffs;
+	//rendering
 	GLuint _uTexture;
+	cv::Mat          _cvmMapX; //for undistortion
+	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
+	cv::gpu::GpuMat  _cvgmMapX;
+	cv::gpu::GpuMat  _cvgmMapY;
+	//type
 	tp_camera _eType;
 };
 

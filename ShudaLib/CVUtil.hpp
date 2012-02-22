@@ -185,29 +185,29 @@ T depthInMeters ( int nX_, int nY_, const cv::Mat& cvmDepth_, const cv::Mat_< T 
 template < class T >
 Eigen::Matrix< T, 2, 1 > distortPoint ( const Eigen::Matrix< T, 2, 1 >& eivUndistorted_, const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_ )
 {
-    double xu = eivUndistorted_ ( 0 );
-    double yu = eivUndistorted_ ( 1 );
-    double xun = cvmInvK_ ( 0, 0 ) * xu + cvmInvK_ ( 0, 1 ) * yu + cvmInvK_ ( 0, 2 );
-    double yun = cvmInvK_ ( 1, 0 ) * xu + cvmInvK_ ( 1, 1 ) * yu + cvmInvK_ ( 1, 2 );
-    double x2 = xun * xun;
-    double y2 = yun * yun;
-    double xy = xun * yun;
-    double r2 = x2 + y2;
-    double r4 = r2 * r2;
-    double r6 = r4 * r2;
-    double k1 = cvmDistCoeffs_ ( 0 );
-    double k2 = cvmDistCoeffs_ ( 1 );
-    double k3 = cvmDistCoeffs_ ( 2 );
-    double k4 = cvmDistCoeffs_ ( 3 );
-    double k5 = cvmDistCoeffs_ ( 4 );
-    double dRadialDistortion ( 1.0 + k1 * r2 + k2 * r4 + k5 * r6 );
-    double dTangentialDistortionX = ( 2 * k3 * xy ) + ( k4 * ( r2 + 2 * x2 ) );
-    double dTangentialDistortionY = ( k3 * ( r2 + 2 * y2 ) ) + ( 2 * k4 * xy );
-    double xdn = ( xun * dRadialDistortion ) + dTangentialDistortionX;
-    double ydn = ( yun * dRadialDistortion ) + dTangentialDistortionY;
-    double xd = cvmK_ ( 0, 0 ) * xdn + cvmK_ ( 0, 1 ) * ydn + cvmK_ ( 0, 2 );
-    double yd = cvmK_ ( 1, 0 ) * xdn + cvmK_ ( 1, 1 ) * ydn + cvmK_ ( 1, 2 );
-    Eigen::Vector2d distorted ( xd, yd );
+    T xu = eivUndistorted_ ( 0 );
+    T yu = eivUndistorted_ ( 1 );
+    T xun = cvmInvK_ ( 0, 0 ) * xu + cvmInvK_ ( 0, 1 ) * yu + cvmInvK_ ( 0, 2 );
+    T yun = cvmInvK_ ( 1, 0 ) * xu + cvmInvK_ ( 1, 1 ) * yu + cvmInvK_ ( 1, 2 );
+    T x2 = xun * xun;
+    T y2 = yun * yun;
+    T xy = xun * yun;
+    T r2 = x2 + y2;
+    T r4 = r2 * r2;
+    T r6 = r4 * r2;
+    T k1 = cvmDistCoeffs_ ( 0 );
+    T k2 = cvmDistCoeffs_ ( 1 );
+    T k3 = cvmDistCoeffs_ ( 2 );
+    T k4 = cvmDistCoeffs_ ( 3 );
+    T k5 = cvmDistCoeffs_ ( 4 );
+    T dRadialDistortion ( 1.0 + k1 * r2 + k2 * r4 + k5 * r6 );
+    T dTangentialDistortionX = ( 2 * k3 * xy ) + ( k4 * ( r2 + 2 * x2 ) );
+    T dTangentialDistortionY = ( k3 * ( r2 + 2 * y2 ) ) + ( 2 * k4 * xy );
+    T xdn = ( xun * dRadialDistortion ) + dTangentialDistortionX;
+    T ydn = ( yun * dRadialDistortion ) + dTangentialDistortionY;
+    T xd = cvmK_ ( 0, 0 ) * xdn + cvmK_ ( 0, 1 ) * ydn + cvmK_ ( 0, 2 );
+    T yd = cvmK_ ( 1, 0 ) * xdn + cvmK_ ( 1, 1 ) * ydn + cvmK_ ( 1, 2 );
+    Eigen::Matrix<T, 2, 1> distorted ( xd, yd );
     return distorted;
 }
 
@@ -216,32 +216,26 @@ void map4UndistortImage ( const int& nRows_, const int& nCols_, const cv::Mat_< 
 {
 	short *pXYData;
 	float *pXData, *pYData;
-	if(pMapY)
-	{
+	if(pMapY){
 		pMapXY->create(nRows_, nCols_, CV_32FC1 );
 		pMapY ->create(nRows_, nCols_, CV_32FC1 );
 		pXData = ( float* ) pMapXY->data; 
 		pYData = ( float* ) pMapY->data; 
 	}
-	else
-	{
+	else{
 		pMapXY->create ( nRows_, nCols_, CV_16SC2 );
 		pXYData = ( short* ) pMapXY->data; 
 	}
 	
-	for ( int y = 0; y < nRows_; ++y )
-	{
-		for ( int x = 0; x < nCols_; ++x )
-		{
+	for ( int y = 0; y < nRows_; ++y )	{
+		for ( int x = 0; x < nCols_; ++x )	{
 			Eigen::Matrix< T, 2, 1> undistorted ( x, y );
 			Eigen::Matrix< T, 2, 1> distorted = distortPoint< T > ( undistorted, cvmK_, cvmInvK_, cvmDistCoeffs_ );
-			if(pMapY)
-			{
+			if(pMapY) {
 				*pXData++ = ( float ) distorted ( 0 );
 				*pYData++ = ( float ) distorted ( 1 );
 			}
-			else
-			{
+			else {
 				*pXYData++ = short ( distorted ( 0 ) + 0.5 );
 				*pXYData++ = short ( distorted ( 1 ) + 0.5 );
 			}
