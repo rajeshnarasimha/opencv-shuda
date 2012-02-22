@@ -7,6 +7,10 @@
 #include "Kinect.h"
 #include <gl/freeglut.h>
 #include "Camera.h"
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+#include "KeyFrame.h"
+#include <boost/scoped_ptr.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 
@@ -68,7 +72,7 @@ void CModel::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,
 	//define constants
 	const int nSampleElevation = 4;
 	const double dCosThreshold = std::cos(M_PI_4/nSampleElevation);
-	const cv::Mat& cvmNls = *_cKinect._acvmShrPtrPyrNls[uPyrLevel_];
+	const cv::Mat& cvmNls = *_cKinect._pFrame->_acvmShrPtrPyrNls[uPyrLevel_];
 	//make a histogram on the top pyramid
 	std::vector< tp_normal_hist_bin > vNormalHist;//idx of sampling the unit half sphere of top pyramid
 	//_vvIdx is organized as r(elevation)*c(azimuth) and stores the idx of Normals
@@ -141,8 +145,8 @@ void CModel::clusterDistance( const unsigned short uPyrLevel_, const std::vector
 {
 	cvmDistanceClusters_->setTo(-1);
 	//construct the label mat
-	const cv::Mat& cvmPts = *_cKinect._acvmShrPtrPyrPts[uPyrLevel_];
-	const cv::Mat& cvmNls = *_cKinect._acvmShrPtrPyrNls[uPyrLevel_];
+	const cv::Mat& cvmPts = *_cKinect._pFrame->_acvmShrPtrPyrPts[uPyrLevel_];
+	const cv::Mat& cvmNls = *_cKinect._pFrame->_acvmShrPtrPyrNls[uPyrLevel_];
 	const double dLow  = -3;
 	const double dHigh =  3;
 	const int nSamples = 400;

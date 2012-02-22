@@ -39,8 +39,6 @@ public:
     //const cv::Mat&           cvRGB()     const { return  _vcvmPyrRGBs[0]; }
 	//const double*		alignedDepth()    const { return  _pRGBWorldRGB; }
 
-	void cloneRawFrame(cv::Mat* pcvmRGB_, cv::Mat* pcvmDepth_);
-	void clonePyramid(std::vector<cv::Mat>* pvcvmRGB_, std::vector<cv::Mat>* pvcvmDepth_);
 	//opencv convention
 	void centroid( Eigen::Vector3d* peivCentroid_ ) const 
 	{
@@ -70,15 +68,24 @@ private:
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
 	void gpuBuildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
-
-
 public:
+	//parameters
+	float _fThresholdDepthInMeter; //threshold for filtering depth
+	float _fSigmaSpace; //degree of blur for the bilateral filter
+	float _fSigmaDisparity; 
+	unsigned int _uPyrHeight;//the height of pyramid
+	//cameras
+	boost::scoped_ptr<SCamera> _pRGBCamera;
+	boost::scoped_ptr<SCamera> _pIRCamera;
+	boost::scoped_ptr<CKeyFrame> _pFrame;
+private:
 	//openni
     xn::Context        _cContext;
     xn::ImageGenerator _cImgGen;
     xn::ImageMetaData  _cImgMD;
     xn::DepthGenerator _cDepthGen;
     xn::DepthMetaData  _cDepthMD;
+
 	//rgb
     cv::Mat			_cvmRGB;
 	cv::gpu::GpuMat _cvgmRGB;
@@ -90,21 +97,12 @@ public:
 	cv::Mat         _cvmUndistDepth;
 	cv::gpu::GpuMat _cvgmUndistDepth;
 	//rgb pyramid
-	std::vector< cv::Mat > _vcvmPyrRGBs;
 	//depth pyramid (need to be initially allocated in constructor)
 	std::vector< cv::Mat > _vcvmPyrDepths;
 	//gpu
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrDepths;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrDisparity;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyr32FC1Tmp;
-
-	std::vector< cv::gpu::GpuMat > _vcvgmPyrRGBs;
-	std::vector< cv::gpu::GpuMat > _vcvgmPyrPts;
-	std::vector< cv::gpu::GpuMat > _vcvgmPyrNls;
-
-	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function
-	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrNls[4]; //CV_32FC3 type
-	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrRGBs[4];
 
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
@@ -121,16 +119,6 @@ public:
 	// the centroid of all depth point defined in RGB camera system
 	// (opencv-default camera reference system convention)
 	double _dXCentroid, _dYCentroid, _dZCentroid; 
-
-	//parameters
-	float _fThresholdDepthInMeter; //threshold for filtering depth
-	float _fSigmaSpace; //degree of blur for the bilateral filter
-	float _fSigmaDisparity; 
-	unsigned int _uPyrHeight;//the height of pyramid
-
-	//cameras
-	boost::shared_ptr<SCamera> _pRGBCamera,_pIRCamera;
-	
 	// duplicated camera parameters for speed up the VideoSourceKinect::align() in . because Eigen and cv matrix class is very slow.
 	// initialized in constructor after load of the _cCalibKinect.
 	float _aR[9];	// Relative rotation transpose

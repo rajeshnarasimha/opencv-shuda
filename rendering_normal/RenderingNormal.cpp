@@ -24,6 +24,11 @@
 #include <gl/freeglut.h>
 #include "Kinect.h"
 #include "Camera.h"
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+#include "EigenUtil.hpp"
+#include "KeyFrame.h"
+#include <boost/scoped_ptr.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 #include "GLUtil.h"
@@ -33,8 +38,8 @@ using namespace Eigen;
 
 class CKinectView;
 
-btl::kinect::VideoSourceKinect::tp_shared_ptr _pVS;
-btl::kinect::SCamera::tp_shared_ptr _pRGBCamera; 
+btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
+btl::kinect::SCamera::tp_ptr _pRGBCamera; 
 btl::extra::CModel::tp_shared_ptr _pModel;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
@@ -114,16 +119,16 @@ void normalKeys ( unsigned char key, int x, int y )
         break;
 	case '9':
 		_uLevel = ++_uLevel%_uPyrHeight;
-		_pRGBCamera->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
+		_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
 		PRINT(_uLevel);
 		break;
 	case ']':
-		_pVS->_fSigmaSpace += 1;
-		PRINT( _pVS->_fSigmaSpace );
+		_pKinect->_fSigmaSpace += 1;
+		PRINT( _pKinect->_fSigmaSpace );
 		break;
 	case '[':
-		_pVS->_fSigmaSpace -= 1;
-		PRINT( _pVS->_fSigmaSpace );
+		_pKinect->_fSigmaSpace -= 1;
+		PRINT( _pKinect->_fSigmaSpace );
 		break;
     }
     return;
@@ -159,7 +164,7 @@ void mouseMotion ( int nX_, int nY_ ){
 void render3DPts()
 {
     double x, y, z;
-	if(_uLevel>=_pVS->_uPyrHeight){
+	if(_uLevel>=_pKinect->_uPyrHeight){
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
 	} 
@@ -169,8 +174,8 @@ void render3DPts()
 	else
 		glDisable(GL_LIGHTING);
 	
-	const float* pPt = (const float*)_pVS->_acvmShrPtrPyrPts[_uLevel]->data;
-	const float* pNl = (const float*)_pVS->_acvmShrPtrPyrNls[_uLevel]->data;
+	const float* pPt = (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[_uLevel]->data;
+	const float* pNl = (const float*)_pKinect->_pFrame->_acvmShrPtrPyrNls[_uLevel]->data;
 	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
 	const short* pLabel;
 	if(NORMAL_CLUSTRE ==_enumType){
@@ -253,8 +258,8 @@ void display ( void )
     // render objects
     //renderAxis();
     //render3DPts();
-	_pRGBCamera->LoadTexture( _pVS->_vcvmPyrRGBs[_uLevel] );
-    _pRGBCamera->renderCamera( _pVS->_vcvmPyrRGBs[_uLevel] );
+	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
+    _pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
 
     glutSwapBuffers();
     glutPostRedisplay();
@@ -306,11 +311,10 @@ void init ( )
 
 int main ( int argc, char** argv )
 {
-    try
-    {
-		_pVS.reset( new btl::kinect::VideoSourceKinect() );
-		_pRGBCamera=_pVS->_pRGBCamera;
-		_pModel.reset( new btl::extra::CModel(*_pVS) );
+    try{
+		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
+		_pRGBCamera=_pKinect->_pRGBCamera.get();
+		_pModel.reset( new btl::extra::CModel(*_pKinect) );
 		_pGL.reset( new btl::gl_util::CGLUtil );
 
         glutInit ( &argc, argv );

@@ -12,22 +12,24 @@ using namespace btl::utility;
 void testSCamera()
 {
 	btl::kinect::SCamera sRGB;
-	sRGB.importYML();
+	//sRGB.importYML();
 	PRINT(sRGB._fFx);
 	PRINT(sRGB._fFy);
 	PRINT(sRGB._u);
 	PRINT(sRGB._v);
 	PRINT(sRGB._sHeight);
 	PRINT(sRGB._sWidth);
+	PRINT(sRGB._cvmDistCoeffs);
 
 	btl::kinect::SCamera sIR(btl::kinect::SCamera::CAMERA_IR);
-	sIR.importYML();
+	//sIR.importYML();
 	PRINT(sIR._fFx);
 	PRINT(sIR._fFy);
 	PRINT(sIR._u);
 	PRINT(sIR._v);
 	PRINT(sIR._sHeight);
 	PRINT(sIR._sWidth);
+	PRINT(sIR._cvmDistCoeffs);
 }
 void testCVUtilOperators()
 {

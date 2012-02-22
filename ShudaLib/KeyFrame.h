@@ -6,7 +6,7 @@ namespace btl { namespace kinect {
 class CKeyFrame {
 public:
 	typedef boost::shared_ptr< CKeyFrame > tp_shared_ptr;
-	btl::kinect::SCamera& _sRGB;
+	btl::kinect::SCamera::tp_ptr _pRGB;
     cv::Mat _cvmRGB;
     cv::Mat _cvmBW;
 	cv::Mat _cvmPt;
@@ -35,7 +35,7 @@ public:
 
 	bool _bIsReferenceFrame;
 
-    CKeyFrame( btl::kinect::SCamera& sRGB_);
+    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGB_ );
 
     ~CKeyFrame() {
         delete [] _pPts;

@@ -7,6 +7,7 @@ struct SCamera
 {
 	//type
 	typedef boost::shared_ptr<SCamera> tp_shared_ptr;
+	typedef SCamera* tp_ptr;
 	enum tp_camera {CAMERA_RGB, CAMERA_IR};
 
 	//constructor
