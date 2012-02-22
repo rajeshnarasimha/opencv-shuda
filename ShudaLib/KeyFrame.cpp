@@ -24,8 +24,8 @@
 #include "KeyFrame.h"
 
 
-btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera& sRGB_)
-:_sRGB(sRGB_){
+btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGB_ )
+:_pRGB(pRGB_){
 	//disparity
 	for(int i=0; i<4; i++){
 		int nRows = KINECT_HEIGHT>>i; 
@@ -55,7 +55,7 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera& sRGB_)
 
 void btl::kinect::CKeyFrame::assign ( const cv::Mat& rgb_, const float* pD_ ) {
 	rgb_.copyTo ( _cvmRGB );
-	_sRGB.LoadTexture(_cvmRGB);
+	_pRGB->LoadTexture(_cvmRGB);
 	// load depth
 	memcpy ( _pPts, pD_, 921600 * sizeof ( float ) );
 	// color to grayscale image
@@ -290,7 +290,7 @@ void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_ ) const{
 		glLineWidth(1);
 	}
 	//glColor4d( 1,1,1,0.5 );
-	_sRGB.renderCamera ( _cvmRGB, .2, bRenderCamera_);
+	_pRGB->renderCamera ( _cvmRGB, .2, bRenderCamera_);
 	//render dot clouds
 	renderDepth();
 	glPopMatrix();

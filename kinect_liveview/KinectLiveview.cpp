@@ -10,9 +10,14 @@
 #include <opencv2/gpu/gpu.hpp>
 #include <XnCppWrapper.h>
 #include <boost/shared_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
 #include "Kinect.h"
 #include <gl/freeglut.h>
 #include "Camera.h"
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+#include "EigenUtil.hpp"
+#include "KeyFrame.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
@@ -25,9 +30,10 @@ using namespace Eigen;
 
 class CKinectView;
 
-btl::kinect::VideoSourceKinect _cVS;
-btl::kinect::SCamera::tp_shared_ptr& _pRGBCamera = _cVS._pRGBCamera;
+btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
+btl::kinect::SCamera::tp_ptr _pRGBCamera;
+
 //btl::extra::CModel _cM(_cVS);
 double _dNear = 0.01;
 double _dFar  = 10.;
@@ -109,12 +115,12 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT(_uLevel);
 		break;
 	case ']':
-		_cVS._fSigmaSpace += 1;
-		PRINT( _cVS._fSigmaSpace );
+		_pKinect->_fSigmaSpace += 1;
+		PRINT( _pKinect->_fSigmaSpace );
 		break;
 	case '[':
-		_cVS._fSigmaSpace -= 1;
-		PRINT( _cVS._fSigmaSpace );
+		_pKinect->_fSigmaSpace -= 1;
+		PRINT( _pKinect->_fSigmaSpace );
 		break;
     }
 
@@ -134,13 +140,13 @@ void render3DPts()
 {
 	const unsigned char* pColor;
 	double x, y, z;
-	if(_uLevel>=_cVS._uPyrHeight) {
+	if(_uLevel>=_pKinect->_uPyrHeight) {
 		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
 		_uLevel = 0;
 	}
-	const cv::Mat& cvmPts =*_cVS._acvmShrPtrPyrPts[_uLevel] ;
-	const cv::Mat& cvmNls =*_cVS._acvmShrPtrPyrNls[_uLevel] ;
-	const cv::Mat& cvmRGBs =_cVS._vcvmPyrRGBs[_uLevel] ;
+	const cv::Mat& cvmPts =*_pKinect->_pFrame->_acvmShrPtrPyrPts[_uLevel] ;
+	const cv::Mat& cvmNls =*_pKinect->_pFrame->_acvmShrPtrPyrNls[_uLevel] ;
+	const cv::Mat& cvmRGBs=*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] ;
 	const float* pPt = (float*) cvmPts.data;
 	const float* pNl = (float*) cvmNls.data;
 	const unsigned char* pRGB = (const unsigned char*) cvmRGBs.data;
@@ -180,10 +186,10 @@ void display ( void )
 	switch( _eFrameType )
 	{
 	case btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL:
-		_cVS.getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
 		break;
 	case btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL:
-		_cVS.getNextFrame(btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL);
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL);
 		break;
 	default:
 		break;
@@ -220,8 +226,8 @@ void display ( void )
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_pRGBCamera->LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
-	_pRGBCamera->renderCamera( _cVS._vcvmPyrRGBs[_uLevel] );
+	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
+	_pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -245,8 +251,8 @@ void setPyramid(){
 	_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
 	_uPyrHeight = 4;
 	_uLevel = 3;
-	_cVS.getNextPyramid(_uPyrHeight);
-	_pRGBCamera->LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
+	_pKinect->getNextPyramid(_uPyrHeight);
+	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
 }
 void init ( ){
 	_pGL->clearColorDepth();
@@ -272,8 +278,9 @@ void init ( ){
 
 int main ( int argc, char** argv ){
     try {
+		_pKinect.reset(new btl::kinect::VideoSourceKinect);
+		_pRGBCamera=_pKinect->_pRGBCamera.get();
 		_pGL.reset( new btl::gl_util::CGLUtil() );
-		_pRGBCamera = _cVS._pRGBCamera;
 		glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );

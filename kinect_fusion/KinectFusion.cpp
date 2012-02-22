@@ -17,6 +17,7 @@
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include "KeyFrame.h"
+#include <boost/scoped_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <VideoSourceKinect.hpp>
 
@@ -28,8 +29,8 @@ using namespace cv;
 //class KeyPoint;
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
-btl::kinect::SCamera::tp_shared_ptr _pRGBCamera;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
+btl::kinect::SCamera::tp_ptr _pRGBCamera;
 
 double _dNear = 0.01;
 double _dFar  = 10.;
@@ -125,7 +126,7 @@ void mouseMotion ( int nX_, int nY_ ){
 }
 
 void init ( ){
-	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(*_pRGBCamera));	}
+	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pRGBCamera));	}
     
     _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
@@ -144,11 +145,11 @@ void init ( ){
 // store a frame and detect feature points for tracking.
     _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
     // load as texture
-    _pRGBCamera->LoadTexture ( _pKinect->_vcvmPyrRGBs[0] );
+    _pRGBCamera->LoadTexture ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0] );
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
-    p1stKF->assign ( _pKinect->_vcvmPyrRGBs[0], (const float*)_pKinect->_acvmShrPtrPyrPts[0]->data );
+    p1stKF->assign ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0], (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[0]->data );
     // corner detection and ranking ( first frame )
     p1stKF->detectCorners();
 	p1stKF->_bIsReferenceFrame = true;
@@ -163,7 +164,7 @@ void display ( void ) {
 // ( second frame )
     // assign the rgb and depth to the current frame.
 	btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
-    pCurrentKF->assign ( _pKinect->_vcvmPyrRGBs[0],  (const float*)_pKinect->_acvmShrPtrPyrPts[0]->data );
+    pCurrentKF->assign ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0],  (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[0]->data );
 
     if ( _bCapture && _nKFCounter < 10 ) {
 		btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
@@ -209,8 +210,8 @@ void display ( void ) {
     glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	_pRGBCamera->LoadTexture(_pKinect->_vcvmPyrRGBs[0]);
-    _pRGBCamera->renderCamera( _pKinect->_vcvmPyrRGBs[0], .2 );
+	_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0]);
+    _pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0], .2 );
 
 // rendering
     /*
@@ -250,7 +251,7 @@ int main ( int argc, char** argv ) {
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
-		_pRGBCamera=_pKinect->_pRGBCamera;
+		_pRGBCamera=_pKinect->_pRGBCamera.get();
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
