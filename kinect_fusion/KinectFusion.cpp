@@ -7,16 +7,19 @@
 #include <boost/lexical_cast.hpp>
 #include <Converters.hpp>
 #include <opencv2/gpu/gpumat.hpp>
-#include <VideoSourceKinect.hpp>
-#include <opencv2/features2d/features2d.hpp>
-#include <algorithm>
 #include <utility>
 #include <boost/lexical_cast.hpp>
+#include <gl/freeglut.h>
+#include <XnCppWrapper.h>
 #include "GLUtil.h"
+#include "EigenUtil.hpp"
+#include "Camera.h"
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
-#include "Camera.h"
 #include "KeyFrame.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <VideoSourceKinect.hpp>
+
 //camera calibration from a sequence of images
 
 using namespace cv;
@@ -198,7 +201,7 @@ void display ( void ) {
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
 		_pGL->renderVoxelGL(2.f);
-		_pGL->renderOctTree(0.f,0.f,0.f,2.f,4);
+		_pGL->renderOctTree(0.f,0.f,0.f,2.f,2);
 	}
 
 // render second viewport
@@ -247,7 +250,7 @@ int main ( int argc, char** argv ) {
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
-		_pRGBCamera.reset(new btl::kinect::SCamera);
+		_pRGBCamera=_pKinect->_pRGBCamera;
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );

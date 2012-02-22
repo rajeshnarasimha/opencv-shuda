@@ -8,6 +8,12 @@
 #include <boost/lexical_cast.hpp>
 #include "Converters.hpp"
 #include <opencv2/gpu/gpu.hpp>
+#include <XnCppWrapper.h>
+#include <boost/shared_ptr.hpp>
+#include "Kinect.h"
+#include <gl/freeglut.h>
+#include "Camera.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 #include "GLUtil.h"
@@ -20,7 +26,7 @@ using namespace Eigen;
 class CKinectView;
 
 btl::kinect::VideoSourceKinect _cVS;
-btl::kinect::SCamera _sRGB;
+btl::kinect::SCamera::tp_shared_ptr& _pRGBCamera = _cVS._pRGBCamera;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 //btl::extra::CModel _cM(_cVS);
 double _dNear = 0.01;
@@ -214,8 +220,8 @@ void display ( void )
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_sRGB.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
-	_sRGB.renderCamera( _cVS._vcvmPyrRGBs[_uLevel] );
+	_pRGBCamera->LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
+	_pRGBCamera->renderCamera( _cVS._vcvmPyrRGBs[_uLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -223,7 +229,7 @@ void display ( void )
 }
 void reshape ( int nWidth_, int nHeight_ ){
 	//cout << "reshape() " << endl;
-    _sRGB.setIntrinsics( 1, 0.01, 100 );
+    _pRGBCamera->setIntrinsics( 1, 0.01, 100 );
 
     // setup blending 
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -240,7 +246,7 @@ void setPyramid(){
 	_uPyrHeight = 4;
 	_uLevel = 3;
 	_cVS.getNextPyramid(_uPyrHeight);
-	_sRGB.LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
+	_pRGBCamera->LoadTexture( _cVS._vcvmPyrRGBs[_uLevel] );
 }
 void init ( ){
 	_pGL->clearColorDepth();
@@ -267,6 +273,7 @@ void init ( ){
 int main ( int argc, char** argv ){
     try {
 		_pGL.reset( new btl::gl_util::CGLUtil() );
+		_pRGBCamera = _cVS._pRGBCamera;
 		glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );

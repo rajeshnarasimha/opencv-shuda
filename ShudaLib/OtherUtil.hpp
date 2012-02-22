@@ -11,7 +11,6 @@
 #include <string>
 #include <boost/exception/all.hpp>
 #include <boost/preprocessor/stringize.hpp>
-#include "OtherUtil.hpp"
 
 namespace btl
 {

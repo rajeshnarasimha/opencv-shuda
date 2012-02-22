@@ -127,8 +127,8 @@ void cudaUnprojectIR(const cv::gpu::GpuMat& cvgmDepth_ ,
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //global constant used by kernelUnprojectIR() and cudaTransformIR2RGB()
-__constant__ double _aR[9];// f_x, f_y, u, v for IR camera; constant memory declaration
-__constant__ double _aRT[3];
+__constant__ float _aR[9];// f_x, f_y, u, v for IR camera; constant memory declaration
+__constant__ float _aRT[3];
 	//_aR[0] [1] [2]
 	//   [3] [4] [5]
 	//   [6] [7] [8]
@@ -160,10 +160,10 @@ __global__ void kernelTransformIR2RGB(const cv::gpu::DevMem2D_<float3> cvgmIRWor
     }
 	return;
 }
-void cudaTransformIR2RGB(const cv::gpu::GpuMat& cvgmIRWorld_, const double* aR_, const double* aRT_, cv::gpu::GpuMat* pcvgmRGBWorld_)
+void cudaTransformIR2RGB(const cv::gpu::GpuMat& cvgmIRWorld_, const float* aR_, const float* aRT_, cv::gpu::GpuMat* pcvgmRGBWorld_)
 {
-	cudaSafeCall( cudaMemcpyToSymbol(_aR,  aR_,  9*sizeof(double)) );
-	cudaSafeCall( cudaMemcpyToSymbol(_aRT, aRT_, 3*sizeof(double)) );
+	cudaSafeCall( cudaMemcpyToSymbol(_aR,  aR_,  9*sizeof(float)) );
+	cudaSafeCall( cudaMemcpyToSymbol(_aRT, aRT_, 3*sizeof(float)) );
 	//define grid and block
 	dim3 block(32, 8);
     dim3 grid(cv::gpu::divUp(pcvgmRGBWorld_->cols, block.x), cv::gpu::divUp(pcvgmRGBWorld_->rows, block.y));

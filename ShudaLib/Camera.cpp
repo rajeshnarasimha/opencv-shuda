@@ -2,8 +2,11 @@
 #include <gl/freeglut.h>
 #include <opencv2/core/core.hpp>
 #include "boost/shared_ptr.hpp"
+#include <opencv2/gpu/gpumat.hpp>
 #include "Camera.h"
 #include <string>
+#include <Eigen/Core>
+#include "CVUtil.hpp"
 
 btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/ )
 	:_eType(eT_)
@@ -11,6 +14,44 @@ btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/ )
 	importYML();
 }
 
+void btl::kinect::SCamera::generateMapXY4Undistort()
+{
+	cv::Mat_<float> cvmK(3,3); cvmK.setTo(0.f);
+	cvmK.at<float>(0,0) = _fFx;cvmK.at<float>(1,1) = _fFy;cvmK.at<float>(2,2) = 1.f;
+	cvmK.at<float>(0,2) = _u;cvmK.at<float>(1,2) = _v;
+	cv::Mat_<float> cvmInvK = cvmK.inv(cv::DECOMP_SVD);
+	btl::utility::map4UndistortImage<float> ( _sHeight, _sWidth, cvmK, cvmInvK, _cvmDistCoeffs, &_cvmMapX, &_cvmMapY );
+	_cvgmMapX.upload(_cvmMapX);
+	_cvgmMapY.upload(_cvmMapY);
+}
+void btl::kinect::SCamera::importYML()
+{
+	std::string strFileName;
+	// create and open a character archive for output
+#if __linux__
+	strFileName = "/space/csxsl/src/opencv-shuda/Data/";
+	//cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
+#else if _WIN32 || _WIN64
+	strFileName = "C:\\csxsl\\src\\opencv-shuda\\Data\\";
+	//cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
+#endif
+	if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "CameraRGB.yml";}
+	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "CameraIR.yml";}
+
+	cv::FileStorage cFSRead ( strFileName, cv::FileStorage::READ );
+	cFSRead ["_fFx"] >> _fFx;
+	cFSRead ["_fFy"] >> _fFy;
+	cFSRead ["_u"] >> _u;
+	cFSRead ["_v"] >> _v;
+	cFSRead ["_sWidth"]  >> _sWidth;
+	cFSRead ["_sHeight"] >> _sHeight;
+	cFSRead ["_cvmDistCoeffs"] >> _cvmDistCoeffs;
+	cFSRead.release();
+
+	generateMapXY4Undistort();
+
+	return;
+}
 void btl::kinect::SCamera::setIntrinsics ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ )
 {
 //    glutReshapeWindow( int ( dWidth ), int ( dHeight ) );
@@ -74,7 +115,6 @@ void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
     //draw principle point
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
-
 void btl::kinect::SCamera::renderCamera (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	if(bRenderTexture_){
@@ -172,31 +212,6 @@ void btl::kinect::SCamera::renderCamera (const cv::Mat& cvmRGB_, double dPhysica
 */
     return;
 }
-void btl::kinect::SCamera::importYML()
-{
-	std::string strFileName;
-    // create and open a character archive for output
-#if __linux__
-	strFileName = "/space/csxsl/src/opencv-shuda/Data/";
-    //cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
-#else if _WIN32 || _WIN64
-	strFileName = "C:\\csxsl\\src\\opencv-shuda\\Data\\";
-	//cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
-#endif
-	if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "CameraRGB.yml";}
-	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "CameraIR.yml";}
 
-	cv::FileStorage cFSRead ( strFileName, cv::FileStorage::READ );
-	cFSRead ["_fFx"] >> _fFx;
-	cFSRead ["_fFy"] >> _fFy;
-	cFSRead ["_u"] >> _u;
-	cFSRead ["_v"] >> _v;
-	cFSRead ["_sWidth"]  >> _sWidth;
-	cFSRead ["_sHeight"] >> _sHeight;
-
-	cFSRead.release();
-
-    return;
-}
 
 

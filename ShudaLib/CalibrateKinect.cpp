@@ -30,10 +30,10 @@ CCalibrateKinect::CCalibrateKinect()
     _aR[0] = mRTrans ( 0, 0 );
     _aR[1] = mRTrans ( 0, 1 );
     _aR[2] = mRTrans ( 0, 2 );
-    _aR[3] = mRTrans ( 1, 0 );
-    _aR[4] = mRTrans ( 1, 1 );
-    _aR[5] = mRTrans ( 1, 2 );
-    _aR[6] = mRTrans ( 2, 0 );
+	_aR[3] = mRTrans ( 1, 0 );
+	_aR[4] = mRTrans ( 1, 1 );
+	_aR[5] = mRTrans ( 1, 2 );
+	_aR[6] = mRTrans ( 2, 0 );
     _aR[7] = mRTrans ( 2, 1 );
     _aR[8] = mRTrans ( 2, 2 );
 
