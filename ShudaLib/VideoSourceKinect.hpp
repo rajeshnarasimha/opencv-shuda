@@ -28,7 +28,7 @@ public:
     virtual ~VideoSourceKinect();
 
 	void getNextFrame(tp_frame eFrameType_);
-	void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_ = VideoSourceKinect::GPU_PYRAMID_GL)
+	void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
 	{
 		_uPyrHeight = uPyrHeight_>4? 4:uPyrHeight_;
 		getNextFrame(eFrameType_);
@@ -62,12 +62,13 @@ private:
 	void transformIR2RGB ( const cv::Mat& cvmIRWorld, cv::Mat* pcvmRGBWorld );
 	void projectRGB ( const cv::Mat& cvmRGBWorld_, cv::Mat* pcvAlignedRGB_ );
 	void unprojectRGB ( const cv::Mat& cvmDepth_, int nLevel, cv::Mat* pcvmPts_, btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL );
-	void findRange(const cv::Mat& cvmMat_);
-	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 	void fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_);
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
 	void gpuBuildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
+	//for debug
+	void findRange(const cv::Mat& cvmMat_);
+	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 public:
 	//parameters
 	float _fThresholdDepthInMeter; //threshold for filtering depth
@@ -113,7 +114,8 @@ private:
 	cv::Mat _cvmIRWorld; //XYZ w.r.t. IR camera reference system
 	cv::Mat _cvmRGBWorld;//XYZ w.r.t. RGB camera but indexed in IR image
 	//temporary file but will be faster to be allocated only once.
-	cv::gpu::GpuMat _cvgmIRWorld,_cvgmRGBWorld;
+	cv::gpu::GpuMat _cvgmIRWorld;
+	cv::gpu::GpuMat _cvgmRGBWorld;
 	cv::gpu::GpuMat _cvgm32FC1Tmp;
 
 	// the centroid of all depth point defined in RGB camera system

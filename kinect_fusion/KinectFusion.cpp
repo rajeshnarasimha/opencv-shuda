@@ -16,57 +16,36 @@
 #include "Camera.h"
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
+#include "GLUtil.h"
 #include "KeyFrame.h"
 #include <boost/scoped_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <VideoSourceKinect.hpp>
 
-//camera calibration from a sequence of images
-
-using namespace cv;
-
-//class CKinectView;
-//class KeyPoint;
-
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::kinect::SCamera::tp_ptr _pRGBCamera;
 
-double _dNear = 0.01;
-double _dFar  = 10.;
-
 unsigned short _nWidth, _nHeight;
 
 btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[10];
-int _nKFCounter = 1; //key frame counter
-int _nRFCounter = 0; //reference frame counter
 std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
 std::vector< int > _vRFIdx;
+int _nKFCounter = 1; //key frame counter
+int _nRFCounter = 0; //reference frame counter
 
 bool _bContinuous = true;
 bool _bPrevStatus = true;
-bool _bDisplayCamera = true;
 bool _bRenderReference = true;
 bool _bCapture = false;
 
 int _nN = 1;
 int _nView = 0;
 
-void init();
-
 void specialKeys( int key, int x, int y ){
-	switch ( key ) {
-	case GLUT_KEY_F2: //display camera
-		_bDisplayCamera = !_bDisplayCamera;
-		glutPostRedisplay();
-		break;
-	case GLUT_KEY_F3:
-		_bRenderReference = !_bRenderReference;
-		glutPostRedisplay();
-		break;
-	}
+	_pGL->specialKeys( key, x, y );
 }
-
+void init();
 void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
     case 'r':
@@ -126,7 +105,10 @@ void mouseMotion ( int nX_, int nY_ ){
 }
 
 void init ( ){
-	for(int i=0; i <10; i++){ _aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pRGBCamera));	}
+	for(int i=0; i <10; i++){ 
+		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pRGBCamera));	
+		_aShrPtrKFs[i]->_pGL = _pGL.get();
+	}
     
     _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
@@ -143,15 +125,13 @@ void init ( ){
 	_pGL->init();
 	
 // store a frame and detect feature points for tracking.
-    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+    _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
     // load as texture
     _pRGBCamera->LoadTexture ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0] );
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
-    p1stKF->assign ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0], (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[0]->data );
-    // corner detection and ranking ( first frame )
-    p1stKF->detectCorners();
+	_pKinect->_pFrame->copyTo(&*p1stKF);
 	p1stKF->_bIsReferenceFrame = true;
 	p1stKF->setView(&_pGL->_eimModelViewGL);
 	_vShrPtrsKF.push_back( &p1stKF );
@@ -160,23 +140,21 @@ void init ( ){
 
 void display ( void ) {
 // update frame
-    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+    _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
-    // assign the rgb and depth to the current frame.
-	btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
-    pCurrentKF->assign ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0],  (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[0]->data );
-
     if ( _bCapture && _nKFCounter < 10 ) {
+		// assign the rgb and depth to the current frame.
+		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
+		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
-        _bCapture = false;
         // detect corners
-        pCurrentKF->detectCorners();
-        pCurrentKF->detectCorrespondences ( *p1stKF );
-        pCurrentKF->calcRT ( *p1stKF );
+		pCurrentKF->detectConnectionFromCurrentToReference(*p1stKF,0);
+        pCurrentKF->calcRT ( *p1stKF,0 );
  		pCurrentKF->applyRelativePose( *p1stKF );
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
+		_bCapture = false;
     }
 	else if( _nKFCounter > 49 )	{
 		std::cout << "two many key frames to hold" << std::flush;  
@@ -193,11 +171,11 @@ void display ( void ) {
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     // render objects
-	for( vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
-		(**cit)->renderCamera( _bDisplayCamera );
+	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
+		(**cit)->renderCamera( _pGL->_bDisplayCamera, _pGL->_uLevel );
 	}
 
-	if(_bRenderReference) {
+	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
@@ -213,18 +191,6 @@ void display ( void ) {
 	_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0]);
     _pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0], .2 );
 
-// rendering
-    /*
-    //corners at the first frame
-    glPointSize ( 3 );
-    glColor3d ( 1, 0, 0 );
-    glBegin ( GL_POINTS );
-    for ( vector< Point2f >::const_iterator cit = _sPreviousKF._vCorners.begin(); cit != _sPreviousKF._vCorners.end(); cit++ )
-    {
-        _cView.renderOnImage ( cit->x, cit->y );
-    }
-    glEnd();
-	*/
     glutSwapBuffers();
 
     if ( _bContinuous ) {
@@ -252,6 +218,7 @@ int main ( int argc, char** argv ) {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
 		_pRGBCamera=_pKinect->_pRGBCamera.get();
+		
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
@@ -267,7 +234,7 @@ int main ( int argc, char** argv ) {
         glutMainLoop();
 	}
 	catch ( btl::utility::CError& e )	{
-		if ( string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) )	{
+		if ( std::string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) )	{
 			std::cerr << "Error Info: " << *mi << std::endl;
 		}
 	}

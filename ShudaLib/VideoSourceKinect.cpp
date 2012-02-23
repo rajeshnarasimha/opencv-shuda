@@ -19,6 +19,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
+#include "GLUtil.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "cuda/CudaLib.h"
@@ -250,6 +251,7 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 }
 void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eConvention_ )
 {
+	_pFrame->_eConvention = eConvention_;
 	// not fullly understand the lense distortion model used by OpenNI.
 	//undistortRGB( _cvmRGB, &*_pFrame->_acvmShrPtrPyrRGBs[0] );
 	cv::remap(_cvmRGB,_cvmUndistRGB,_pRGBCamera->_cvmMapX,_pRGBCamera->_cvmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT);
@@ -269,6 +271,7 @@ void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eCon
 }
 void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention eConvention_ )
 {
+	_pFrame->_eConvention = eConvention_;
 	_cvgmRGB.upload(_cvmRGB);
 	_cvgmDepth.upload(_cvmDepth);
 	//gpuUndistortRGB(_cvgmRGB,&(*_pFrame->_acvgmShrPtrPyrRGBs[0]));
@@ -284,8 +287,11 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 	_pFrame->_acvgmShrPtrPyrRGBs[0]->download(*_pFrame->_acvmShrPtrPyrRGBs[0]);
 	_pFrame->_acvgmShrPtrPyrPts[0]->download(*_pFrame->_acvmShrPtrPyrPts[0]);
 	_pFrame->_acvgmShrPtrPyrNls[0]->download(*_pFrame->_acvmShrPtrPyrNls[0]);
+	cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[0],*_pFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
+	_pFrame->_acvgmShrPtrPyrBWs[0]->download(*_pFrame->_acvmShrPtrPyrBWs[0]);
 	for( unsigned int i=1; i<_uPyrHeight; i++ )	{
 		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);
+		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
 		_pFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pFrame->_acvmShrPtrPyrRGBs[i]);
 		btl::cuda_util::cudaPyrDown( _vcvgmPyrDisparity[i-1],_fSigmaDisparity,&_vcvgmPyr32FC1Tmp[i]);
 		btl::cuda_util::cudaBilateralFiltering(_vcvgmPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&(_vcvgmPyrDisparity[i]));
@@ -294,6 +300,7 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
 		btl::cuda_util::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[i],&*_pFrame->_acvgmShrPtrPyrNls[i]);
 		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
+		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
 	}	
 	return;
 }

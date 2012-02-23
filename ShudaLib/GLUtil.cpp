@@ -2,6 +2,7 @@
 //#define TIMER
 
 //#define INFO
+#include <gl/glew.h>
 #include <boost/shared_ptr.hpp>
 #include <vector>
 #include <Eigen/Core>
@@ -28,10 +29,25 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 
 	_nXMotion = 0;
 	_nYMotion = 0;
-	if( btl::utility::BTL_GL == _eConvention )
+
+	if( btl::utility::BTL_GL == _eConvention )	{
 		_eivCentroid << 0, 0, -1;
-	else if( btl::utility::BTL_CV == _eConvention )
+		_aLight[0] = 3.0;
+		_aLight[1] = 1.0;
+		_aLight[2] = 1.0;
+		_aLight[3] = 1.0;
+	}
+	else if( btl::utility::BTL_CV == _eConvention ){
 		_eivCentroid << 0, 0,  1;
+		_aLight[0] = 3.0;
+		_aLight[1] = -1.0;
+		_aLight[2] = -1.0;
+		_aLight[3] = 1.0;
+	}
+	_bRenderNormal = false;
+	_bEnableLighting = false;
+	_fSize = 0.2;
+	_uLevel=0;
 }
 void CGLUtil::mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 {
@@ -97,6 +113,19 @@ void CGLUtil::mouseMotion ( int nX_, int nY_ )
 
 	glutPostRedisplay();
 }
+
+void CGLUtil::specialKeys( int key, int x, int y ){
+	switch ( key ) {
+	case GLUT_KEY_F2: //display camera
+		_bDisplayCamera = !_bDisplayCamera;
+		glutPostRedisplay();
+		break;
+	case GLUT_KEY_F3:
+		_bRenderReference = !_bRenderReference;
+		glutPostRedisplay();
+		break;
+	}
+}
 void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 {
 	switch( key )
@@ -118,6 +147,28 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 		glutPostRedisplay();
 		PRINT( _dZoom );
 		break;
+	case 'l':
+		_bEnableLighting = !_bEnableLighting;
+		glutPostRedisplay();
+		PRINT( _bEnableLighting );
+		break;
+	case 'n':
+		_bRenderNormal = !_bRenderNormal;
+		glutPostRedisplay();
+		PRINT( _bRenderNormal );
+		break;
+	case 'k':
+		_fSize += 0.05f;// range from 0.05 to 1 by step 0.05
+		_fSize = _fSize < 1 ? _fSize: 1;
+		glutPostRedisplay();
+		PRINT( _fSize );
+		break;
+	case 'j':
+		_fSize -= 0.05f;
+		_fSize = _fSize > 0.05? _fSize : 0.05;
+		glutPostRedisplay();
+		PRINT( _fSize );
+		break;
 	case '<':
 		_dYAngle += 1.0;
 		glutPostRedisplay();
@@ -125,6 +176,10 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 	case '>':
 		_dYAngle -= 1.0;
 		glutPostRedisplay();
+		break;
+	case '9':
+		_uLevel = ++_uLevel%4;
+		PRINT(_uLevel);
 		break;
 	case '0'://reset camera location
 		_dXAngle = 0.;
@@ -149,6 +204,9 @@ void CGLUtil::viewerGL()
 		glRotated ( _dXAngle, 0,-1 ,0 );                        
 	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
 	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
+
+	// light position in 3d
+	glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
 }
 void CGLUtil::renderAxisGL() const
 {
@@ -222,6 +280,16 @@ void CGLUtil::init()
 	glDisable(GL_LIGHTING);
 	renderOctTree(0,0,0,2,1);
 	glEndList();
+
+	// light
+	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
+
+	GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
+	glLightfv (GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+
+	glEnable(GL_RESCALE_NORMAL);
+	glEnable(GL_LIGHT0);
 }
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
