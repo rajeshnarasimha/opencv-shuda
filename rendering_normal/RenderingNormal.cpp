@@ -27,6 +27,7 @@
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include "EigenUtil.hpp"
+#include "GLUtil.h"
 #include "KeyFrame.h"
 #include <boost/scoped_ptr.hpp>
 #include "VideoSourceKinect.hpp"

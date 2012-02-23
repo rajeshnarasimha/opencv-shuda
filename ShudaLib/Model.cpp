@@ -9,6 +9,7 @@
 #include "Camera.h"
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
+#include "GLUtil.h"
 #include "KeyFrame.h"
 #include <boost/scoped_ptr.hpp>
 #include "VideoSourceKinect.hpp"
@@ -175,7 +176,7 @@ void CModel::detectPlaneFromCurrentFrame(const short uPyrLevel_)
 	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
 #endif
 //load pyramids
-	_cKinect.getNextPyramid(4); //output _vvN
+	_cKinect.getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL); //output _vvN
 	_usMinArea = btl::kinect::__aKinectWxH[uPyrLevel_]/60;
 //cluster the top pyramid
 	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);

@@ -17,6 +17,7 @@
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include "EigenUtil.hpp"
+#include "GLUtil.h"
 #include "KeyFrame.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "VideoSourceKinect.hpp"
@@ -34,22 +35,14 @@ btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::kinect::SCamera::tp_ptr _pRGBCamera;
 
-//btl::extra::CModel _cM(_cVS);
-double _dNear = 0.01;
-double _dFar  = 10.;
-
-Eigen::Vector3d _eivCentroid(.0, .0, .0 );
-
 unsigned short _nWidth, _nHeight;
-
-bool _bRenderNormal = false;
-bool _bEnableLighting = false;
 double _dDepthFilterThreshold = 10;
 int _nDensity = 2;
-float _fSize = 0.2; // range from 0.05 to 1 by step 0.05
-unsigned int _uPyrHeight = 1;
-unsigned int _uLevel = 0;
 btl::kinect::VideoSourceKinect::tp_frame _eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
+void specialKeys( int key, int x, int y ){
+	_pGL->specialKeys( key, x, y );
+}
+
 void normalKeys ( unsigned char key, int x, int y )
 {
 	_pGL->normalKeys( key, x, y);
@@ -69,16 +62,6 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _dDepthFilterThreshold );
 		glutPostRedisplay();
 		break;
-	case 'n':
-		_bRenderNormal = !_bRenderNormal;
-		glutPostRedisplay();
-		PRINT( _bRenderNormal );
-		break;
-	case 'l':
-		_bEnableLighting = !_bEnableLighting;
-		glutPostRedisplay();
-		PRINT( _bEnableLighting );
-		break;
 	case 'q':
 		_nDensity++;
 		glutPostRedisplay();
@@ -90,18 +73,6 @@ void normalKeys ( unsigned char key, int x, int y )
 		glutPostRedisplay();
 		PRINT( _nDensity );
 		break;
-	case 'k':
-		_fSize += 0.05f;// range from 0.05 to 1 by step 0.05
-		_fSize = _fSize < 1 ? _fSize: 1;
-		glutPostRedisplay();
-		PRINT( _fSize );
-		break;
-	case 'j':
-		_fSize -= 0.05f;
-		_fSize = _fSize > 0.05? _fSize : 0.05;
-		glutPostRedisplay();
-		PRINT( _fSize );
-		break;
 	case '1':
 		_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
 		PRINTSTR(  "VideoSourceKinect::GPU_PYRAMID" );
@@ -109,10 +80,6 @@ void normalKeys ( unsigned char key, int x, int y )
 	case '2':
 		_eFrameType = btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL;
 		PRINTSTR(  "VideoSourceKinect::CPU_PYRAMID" );
-		break;
-	case '9':
-		_uLevel = ++_uLevel%_uPyrHeight;
-		PRINT(_uLevel);
 		break;
 	case ']':
 		_pKinect->_fSigmaSpace += 1;
@@ -136,60 +103,16 @@ void mouseMotion ( int nX_, int nY_ )
 	_pGL->mouseMotion( nX_,nY_ );
 	return;
 }
-void render3DPts()
-{
-	const unsigned char* pColor;
-	double x, y, z;
-	if(_uLevel>=_pKinect->_uPyrHeight) {
-		PRINTSTR("CModel::pointCloud() uLevel_ is more than _uPyrHeight");
-		_uLevel = 0;
-	}
-	const cv::Mat& cvmPts =*_pKinect->_pFrame->_acvmShrPtrPyrPts[_uLevel] ;
-	const cv::Mat& cvmNls =*_pKinect->_pFrame->_acvmShrPtrPyrNls[_uLevel] ;
-	const cv::Mat& cvmRGBs=*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] ;
-	const float* pPt = (float*) cvmPts.data;
-	const float* pNl = (float*) cvmNls.data;
-	const unsigned char* pRGB = (const unsigned char*) cvmRGBs.data;
-	glPushMatrix();
-	// Generate the data
-	for( int i = 0; i < cvmPts.total(); i++)
-	{
-		if( _bEnableLighting )
-			glEnable(GL_LIGHTING);
-		else
-			glDisable(GL_LIGHTING);
-		if( 1 != _nDensity && i % _nDensity != 1 ) {// skip some points; when 1 == i, all dots wills drawn;
-			pRGB += 3;
-			pNl  += 3;
-			pPt  += 3;
-			continue;
-		}
-		float dNx = *pNl++;
-		float dNy = *pNl++;
-		float dNz = *pNl++;
-		
-		float x = *pPt++;
-		float y = *pPt++;
-		float z = *pPt++;
-		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) 
-			_pGL->renderDisk<float>(x,y,z,dNx,dNy,dNz,pRGB,_fSize,_bRenderNormal);
-		pRGB += 3;
-	}
-	glPopMatrix();
-
-	return;
-} 
-
 void display ( void )
 {
 	//load data from video source and model
 	switch( _eFrameType )
 	{
 	case btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL:
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
+		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
 		break;
 	case btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL:
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL);
+		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL);
 		break;
 	default:
 		break;
@@ -204,13 +127,11 @@ void display ( void )
 	//glLoadMatrixd( _mGLMatrix.data() );
 	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// light position in 3d
-	GLfloat light_position[] = { 3.0, 1.0, 1.0, 1.0 };
-	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 	
     // render objects
     _pGL->renderAxisGL();
-	render3DPts();
+	//_pKinect->_pFrame->render3DPts(_uLevel);
+	_pKinect->_pFrame->renderCamera(_pGL->_bDisplayCamera,_pGL->_uLevel);
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 	//set viewport 2
@@ -226,8 +147,8 @@ void display ( void )
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
-	_pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
+	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
+	_pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -249,10 +170,8 @@ void reshape ( int nWidth_, int nHeight_ ){
 }
 void setPyramid(){
 	_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
-	_uPyrHeight = 4;
-	_uLevel = 3;
-	_pKinect->getNextPyramid(_uPyrHeight);
-	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_uLevel] );
+	_pKinect->getNextFrame(_eFrameType);
+	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
 }
 void init ( ){
 	_pGL->clearColorDepth();
@@ -265,15 +184,7 @@ void init ( ){
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	setPyramid();
 	_pGL->init();
-	// light
-	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
-
-	GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
-	glLightfv (GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-
-	glEnable(GL_RESCALE_NORMAL);
-	glEnable(GL_LIGHT0);
+	
 }
 
 int main ( int argc, char** argv ){
@@ -281,12 +192,15 @@ int main ( int argc, char** argv ){
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pRGBCamera=_pKinect->_pRGBCamera.get();
 		_pGL.reset( new btl::gl_util::CGLUtil() );
+		_pKinect->_pFrame->_pGL=_pGL.get();
+
 		glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
 		init();
         glutKeyboardFunc( normalKeys );
+		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
 

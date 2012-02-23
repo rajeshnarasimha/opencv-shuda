@@ -36,7 +36,7 @@ namespace utility
 #define THROW(what)\
 	{\
 	btl::utility::CError cE;\
-	cE << CErrorInfo ( what );\
+	cE << btl::utility::CErrorInfo ( what );\
 	throw cE;\
 	}
 	//exception from btl2

@@ -1,4 +1,4 @@
-
+#define INFO
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include <boost/shared_ptr.hpp>
@@ -15,17 +15,18 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/gpu/gpu.hpp>
 
+#include "OtherUtil.hpp"
 #include "Converters.hpp"
 #include "EigenUtil.hpp"
 #include <gl/freeglut.h>
 #include "Camera.h"
 #include "Kinect.h"
-
+#include "GLUtil.h"
 #include "KeyFrame.h"
 
 
-btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGB_ )
-:_pRGB(pRGB_){
+btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
+:_pRGBCamera(pRGBCamera_){
 	//disparity
 	for(int i=0; i<4; i++){
 		int nRows = KINECT_HEIGHT>>i; 
@@ -44,26 +45,15 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGB_ )
 		PRINT(i);
 	}
 
-	_cvmRGB.create ( 480, 640, CV_8UC3 );
-	_cvmBW .create ( 480, 640, CV_8UC1 );
-	_pPts = new float[921600];
+	_eConvention = btl::utility::BTL_CV;
 	_eimR.setIdentity();
 	Eigen::Vector3d eivC (0.,0.,-1.5); //camera location in the world
 	_eivT = -_eimR.transpose()*eivC;
 	_bIsReferenceFrame = false;
+	_pGL = NULL;
 }
 
-void btl::kinect::CKeyFrame::assign ( const cv::Mat& rgb_, const float* pD_ ) {
-	rgb_.copyTo ( _cvmRGB );
-	_pRGB->LoadTexture(_cvmRGB);
-	// load depth
-	memcpy ( _pPts, pD_, 921600 * sizeof ( float ) );
-	// color to grayscale image
-	cvtColor ( _cvmRGB, _cvmBW, CV_RGB2GRAY );
-	_cvgmBW.upload(_cvmBW);
-	// clear corners
-	_bIsReferenceFrame = false;
-}
+
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
 	//host
 	_acvmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrPts[sLevel_]);
@@ -74,6 +64,7 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
 	_acvgmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrNls[sLevel_]);
 	_acvgmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrRGBs[sLevel_]);
 	_acvgmShrPtrPyrBWs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrBWs[sLevel_]);
+	pKF_->_eConvention = _eConvention;
 }
 
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
@@ -85,29 +76,18 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	_bIsReferenceFrame = pKF_->_bIsReferenceFrame;
 }
 
-void btl::kinect::CKeyFrame::detectCorners(){
-	// detecting keypoints & computing descriptors
-	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(500));
-	(*_pSurf)(_cvgmBW, cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
-	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
-	return;
-}
-void btl::kinect::CKeyFrame::detectCorners(const short sLevel_){
-	// detecting keypoints & computing descriptors
-	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(500));
-	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
-	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
-	return;
-}
 void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ )  {
 	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(500));
 	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
+	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
 	//from current to reference
 	_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
-	(*_pSurf)(*sReferenceKF_._acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), sReferenceKF_._cvgmKeyPoints, sReferenceKF_._cvgmDescriptors,true);//make use of provided keypoints
+	(*_pSurf)(*sReferenceKF_._acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), sReferenceKF_._cvgmKeyPoints, sReferenceKF_._cvgmDescriptors/*,true*/);//make use of provided keypoints
+	_pSurf->downloadKeypoints(sReferenceKF_._cvgmKeyPoints, sReferenceKF_._vKeyPoints);
 	//from reference to current
-	sReferenceKF_._cvgmKeyPoints.copyTo(_cvgmKeyPoints); sReferenceKF_._cvgmDescriptors.copyTo(_cvgmDescriptors);
-	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors,true);
+	//sReferenceKF_._cvgmKeyPoints.copyTo(_cvgmKeyPoints); sReferenceKF_._cvgmDescriptors.copyTo(_cvgmDescriptors);
+	//(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors,true);
+	//_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
 
 	//matching from current to reference
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
@@ -119,21 +99,13 @@ void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame&
 	return;
 }
 
-void btl::kinect::CKeyFrame::detectCorrespondences ( const CKeyFrame& sReferenceKF_ )  {
-	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
-	cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
-	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
-	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
-	std::sort( _vMatches.begin(), _vMatches.end() );
-	if (_vMatches.size()> 200) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
-	return;
-}
-
-void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_ ) {
+void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ ) {
 	CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
 	//calculate the R and T
+	//search for pairs of correspondences with depth data available.
+	const float*const  _pCurrentPts = (const float*)              _acvmShrPtrPyrPts[sLevel_]->data;
+	const float*const  _pReferencePts = (const float*)sReferenceKF_._acvmShrPtrPyrPts[sLevel_]->data;
 	std::vector< int > _vDepthIdxCur, _vDepthIdx1st, _vSelectedPairs;
-
 	for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++ ) {
 		int nKeyPointIdxCur = cit->queryIdx;
 		int nKeyPointIdx1st = cit->trainIdx;
@@ -146,7 +118,7 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_ ) {
 		int nDepthIdxCur = nYCur * 640 * 3 + nXCur * 3;
 		int nDepthIdx1st = nY1st * 640 * 3 + nX1st * 3;
 
-		if ( fabs ( _pPts[ nDepthIdxCur + 2 ] ) > 0.0001 && fabs ( sReferenceKF_._pPts[ nDepthIdx1st + 2 ] ) > 0.0001 ) {
+		if ( fabs ( _pCurrentPts[ nDepthIdxCur + 2 ] ) > 0.0001 && fabs (_pReferencePts[ nDepthIdx1st + 2 ] ) > 0.0001 ) {
 			_vDepthIdxCur  .push_back ( nDepthIdxCur );
 			_vDepthIdx1st  .push_back ( nDepthIdx1st );
 			_vSelectedPairs.push_back ( nKeyPointIdxCur );
@@ -194,12 +166,12 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_ ) {
         std::vector<  int >::const_iterator cit_1st = _vDepthIdx1st.begin();
 
         for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_1st++ ){
-            eimCur ( 0, i ) = 			    _pPts[ *cit_Cur     ];
-            eimCur ( 1, i ) =  			    _pPts[ *cit_Cur + 1 ];
-            eimCur ( 2, i ) = 			    _pPts[ *cit_Cur + 2 ];
-            eim1st ( 0, i ) = sReferenceKF_._pPts[ *cit_1st     ];
-            eim1st ( 1, i ) = sReferenceKF_._pPts[ *cit_1st + 1 ];
-            eim1st ( 2, i ) = sReferenceKF_._pPts[ *cit_1st + 2 ];
+            eimCur ( 0, i ) = _pCurrentPts[ *cit_Cur     ];
+            eimCur ( 1, i ) = _pCurrentPts[ *cit_Cur + 1 ];
+            eimCur ( 2, i ) = _pCurrentPts[ *cit_Cur + 2 ];
+            eim1st ( 0, i ) = _pReferencePts[ *cit_1st     ];
+            eim1st ( 1, i ) = _pReferencePts[ *cit_1st + 1 ];
+            eim1st ( 2, i ) = _pReferencePts[ *cit_1st + 2 ];
             i++;
         }
         double dS2;
@@ -275,7 +247,7 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_ ) {
     return;
 }// calcRT
 
-void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_ ) const{
+void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_,const unsigned short uLevel_/*=0*/ ) const{
 	Eigen::Matrix4d mGLM1;
 	setView( &mGLM1 );
 	mGLM1 = mGLM1.inverse().eval();
@@ -290,33 +262,42 @@ void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_ ) const{
 		glLineWidth(1);
 	}
 	//glColor4d( 1,1,1,0.5 );
-	_pRGB->renderCamera ( _cvmRGB, .2, bRenderCamera_);
+	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_]);
+	_pRGBCamera->renderCamera ( *_acvmShrPtrPyrRGBs[uLevel_], .2, bRenderCamera_);
 	//render dot clouds
-	renderDepth();
+	//renderDepth();
+	render3DPts(uLevel_);
 	glPopMatrix();
 }
 
-void btl::kinect::CKeyFrame::renderDepth() const {
-	const unsigned char* pColor = _cvmRGB.data;
-	const float* pDepth = _pPts;
+void btl::kinect::CKeyFrame::render3DPts(const unsigned short _uLevel) const {
+	float dNx,dNy,dNz;
+	float dX, dY, dZ;
+	const float* pPt = (const float*) _acvmShrPtrPyrPts[_uLevel]->data;
+	const float* pNl = (const float*) _acvmShrPtrPyrNls[_uLevel]->data;
+	const unsigned char* pRGB = (const unsigned char*) _acvmShrPtrPyrRGBs[_uLevel]->data;
 	glPushMatrix();
-	glPointSize ( 1. );
-	glBegin ( GL_POINTS );
-	for ( int i = 0; i < 307200; i++ ) {
-		float dX = *pDepth++;
-		float dY = *pDepth++;
-		float dZ = *pDepth++;
-
-		if ( fabs ( dZ ) > 0.001 ) {
-			glColor3ubv ( pColor );
-			glVertex3f ( dX, -dY, -dZ );
+	// Generate the data
+	if( _pGL && _pGL->_bEnableLighting ){glEnable(GL_LIGHTING);}
+	else                            	{glDisable(GL_LIGHTING);}
+	for( int i = 0; i < _acvmShrPtrPyrPts[_uLevel]->total(); i++,pRGB+=3,pNl+=3,pPt+=3){
+		if(btl::utility::BTL_GL == _eConvention ){
+			dNx = pNl[0];		dNy = pNl[1];		dNz = pNl[2];
+			dX =  pPt[0];		dY =  pPt[1];		dZ =  pPt[2];
 		}
-
-		pColor += 3;
+		else if(btl::utility::BTL_CV == _eConvention ){
+			dNx = pNl[0];		dNy =-pNl[1];		dNz =-pNl[2];
+			dX =  pPt[0];		dY = -pPt[1];		dZ = -pPt[2];
+		}
+		else{ BTL_THROW("render3DPts() shouldnt be here!");	}
+		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) {
+			if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pRGB,_pGL->_fSize,_pGL->_bRenderNormal); }
+			else { glColor3ubv ( pRGB ); glVertex3f ( dX, dY, dZ );}
+		}
 	}
-	glEnd();
 	glPopMatrix();
-}
+	return;
+} 
 
 void btl::kinect::CKeyFrame::selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_, Eigen::MatrixXd* peimXInlier_, Eigen::MatrixXd* peimYInlier_ ) {
 	CHECK ( vVoterIdx_.size() == peimXInlier_->cols(), " vVoterIdx_.size() must be equal to peimXInlier->cols(). " );

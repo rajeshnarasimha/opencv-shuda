@@ -16,6 +16,7 @@ namespace btl{	namespace gl_util
 	public:
 		//type
 		typedef boost::shared_ptr<CGLUtil> tp_shared_ptr;
+		typedef CGLUtil* tp_ptr;
 	public:
 		CGLUtil(btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL);
 		void clearColorDepth();
@@ -27,6 +28,7 @@ namespace btl{	namespace gl_util
 		// Esc: exit; g: zoom in; h:zoom out; 0: set to default position
 		//   <: rotate around Y; >:rotate around Y
 		void normalKeys ( unsigned char key, int x, int y );
+		void specialKeys( int key, int x, int y );
 		void mouseClick ( int nButton_, int nState_, int nX_, int nY_ );
 		void mouseMotion ( int nX_, int nY_ );
 
@@ -39,7 +41,12 @@ namespace btl{	namespace gl_util
 		void renderVoxel( const T& x, const T& y, const T& z, const T& dSize_ ) const;
 	public:
 		Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.
-
+		float _fSize; //disk size
+		bool _bRenderNormal;
+		bool _bEnableLighting;
+		bool _bDisplayCamera;
+		bool _bRenderReference;
+		unsigned short _uLevel;
 	private:
 		GLuint _uDisk;
 		GLuint _uNormal;
@@ -67,6 +74,9 @@ namespace btl{	namespace gl_util
 		int  _nXRightDown, _nYRightDown;
 		bool _bLButtonDown;
 		bool _bRButtonDown;
+
+		GLfloat _aLight[4];
+
 		btl::utility::tp_coordinate_convention _eConvention;
 	};
 
