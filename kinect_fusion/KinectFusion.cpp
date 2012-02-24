@@ -24,7 +24,6 @@
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-btl::kinect::SCamera::tp_ptr _pRGBCamera;
 
 unsigned short _nWidth, _nHeight;
 
@@ -106,7 +105,7 @@ void mouseMotion ( int nX_, int nY_ ){
 
 void init ( ){
 	for(int i=0; i <10; i++){ 
-		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pRGBCamera));	
+		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));	
 		_aShrPtrKFs[i]->_pGL = _pGL.get();
 	}
     
@@ -126,8 +125,6 @@ void init ( ){
 	
 // store a frame and detect feature points for tracking.
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-    // load as texture
-    _pRGBCamera->LoadTexture ( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0] );
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
@@ -169,18 +166,17 @@ void display ( void ) {
 	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
     // render objects
 	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
-		(**cit)->renderCamera( _pGL->_bDisplayCamera, _pGL->_uLevel );
+		(**cit)->renderCameraInGLWorld( _pGL->_bDisplayCamera, _pGL->_uLevel );
 	}
 
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
-		_pGL->renderVoxelGL(2.f);
-		_pGL->renderOctTree(0.f,0.f,0.f,2.f,2);
+		_pGL->renderVoxelGL(3.f);
+		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
 
 // render second viewport
@@ -188,8 +184,8 @@ void display ( void ) {
     glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0]);
-    _pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[0], .2 );
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel]);
+    _pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel], .2 );
 
     glutSwapBuffers();
 
@@ -200,7 +196,7 @@ void display ( void ) {
 
 void reshape ( int nWidth_, int nHeight_ ) {
     //cout << "reshape() " << endl;
-    _pRGBCamera->setIntrinsics ( 1, 0.01, 100 );
+    _pKinect->_pRGBCamera->setIntrinsics ( 1, 0.01, 100 );
 
     // setup blending
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -217,7 +213,7 @@ int main ( int argc, char** argv ) {
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
-		_pRGBCamera=_pKinect->_pRGBCamera.get();
+		//_pRGBCamera=_pKinect->_pRGBCamera.get();
 		
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );

@@ -17,7 +17,7 @@ struct SCamera
 	//rendering
 	void LoadTexture(const cv::Mat& img);
 	void setIntrinsics ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ );
-	void renderCamera (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ = .02, bool bRenderTexture_=true ) const;
+	void renderCameraInGLLocal (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ = .02, bool bRenderTexture_=true ) const;
 	void renderOnImage( int nX_, int nY_ );
 	void importYML();
 	void generateMapXY4Undistort();

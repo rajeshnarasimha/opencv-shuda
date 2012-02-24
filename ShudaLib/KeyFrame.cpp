@@ -24,6 +24,9 @@
 #include "GLUtil.h"
 #include "KeyFrame.h"
 
+#include <math.h>
+#include "CVUtil.hpp"
+#include "Utility.hpp"
 
 btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 :_pRGBCamera(pRGBCamera_){
@@ -41,6 +44,9 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 		_acvgmShrPtrPyrNls[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
 		_acvgmShrPtrPyrRGBs[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
 		_acvgmShrPtrPyrBWs[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC1));
+		//plane detection
+		_acvmShrPtrNormalClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
+		_acvmShrPtrDistanceClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
 		PRINTSTR("construct pyrmide level:");
 		PRINT(i);
 	}
@@ -50,6 +56,7 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 	Eigen::Vector3d eivC (0.,0.,-1.5); //camera location in the world
 	_eivT = -_eimR.transpose()*eivC;
 	_bIsReferenceFrame = false;
+	_bRenderPlane = false;
 	_pGL = NULL;
 }
 
@@ -247,7 +254,7 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsi
     return;
 }// calcRT
 
-void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_,const unsigned short uLevel_/*=0*/ ) const{
+void btl::kinect::CKeyFrame::renderCameraInGLWorld( bool bRenderCamera_,const unsigned short uLevel_/*=0*/ ) const{
 	Eigen::Matrix4d mGLM1;
 	setView( &mGLM1 );
 	mGLM1 = mGLM1.inverse().eval();
@@ -263,14 +270,14 @@ void btl::kinect::CKeyFrame::renderCamera( bool bRenderCamera_,const unsigned sh
 	}
 	//glColor4d( 1,1,1,0.5 );
 	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_]);
-	_pRGBCamera->renderCamera ( *_acvmShrPtrPyrRGBs[uLevel_], .2, bRenderCamera_);
+	_pRGBCamera->renderCameraInGLLocal ( *_acvmShrPtrPyrRGBs[uLevel_], .2, bRenderCamera_);
 	//render dot clouds
-	//renderDepth();
-	render3DPts(uLevel_);
+	if(_bRenderPlane) renderPlanesInGLLocal(uLevel_);
+	render3DPtsInGLLocal(uLevel_);
 	glPopMatrix();
 }
 
-void btl::kinect::CKeyFrame::render3DPts(const unsigned short _uLevel) const {
+void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short _uLevel) const {
 	float dNx,dNy,dNz;
 	float dX, dY, dZ;
 	const float* pPt = (const float*) _acvmShrPtrPyrPts[_uLevel]->data;
@@ -298,6 +305,60 @@ void btl::kinect::CKeyFrame::render3DPts(const unsigned short _uLevel) const {
 	glPopMatrix();
 	return;
 } 
+
+void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short _uLevel) const
+{
+	float dNx,dNy,dNz;
+	float dX, dY, dZ;
+	const float* pPt = (const float*)_acvmShrPtrPyrPts[_pGL->_uLevel]->data;
+	const float* pNl = (const float*)_acvmShrPtrPyrNls[_pGL->_uLevel]->data;
+	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
+	const short* pLabel;
+	if(NORMAL_CLUSTRE ==_eClusterType){
+		//pLabel = (const short*)_pModel->_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
+		pLabel = (const short*)_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
+	}
+	else if(DISTANCE_CLUSTER ==_eClusterType){
+		//pLabel = (const short*)_pModel->_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
+		pLabel = (const short*)_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
+	}
+	/*
+		)
+	for( int i = 0; i < btl::kinect::__aKinectWxH[_pGL->_uLevel];i++){
+			int nColor = pLabel[i];
+			if(nColor<0) 
+			{	pNl+=3; pPt+=3; continue; }
+			const unsigned char* pColor = btl::utility::__aColors[nColor+_nColorIdx%BTL_NUM_COLOR];
+			float dNx = *pNl++;
+		float dNy = *pNl++;
+		float dNz = *pNl++;
+		float x = *pPt++;
+		float y = *pPt++;
+		float z = *pPt++;
+			if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) 
+				_pGL->renderDisk<float>(x,y,z,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); 
+		}*/
+	
+	for( int i = 0; i < _acvmShrPtrPyrPts[_uLevel]->total(); i++,pNl+=3,pPt+=3){
+		int nColor = pLabel[i];
+		if(nColor<0) { continue; }
+		const unsigned char* pColor = btl::utility::__aColors[nColor/*+_nColorIdx*/%BTL_NUM_COLOR];
+		if(btl::utility::BTL_GL == _eConvention ){
+			dNx = pNl[0];		dNy = pNl[1];		dNz = pNl[2];
+			dX =  pPt[0];		dY =  pPt[1];		dZ =  pPt[2];
+		}
+		else if(btl::utility::BTL_CV == _eConvention ){
+			dNx = pNl[0];		dNy =-pNl[1];		dNz =-pNl[2];
+			dX =  pPt[0];		dY = -pPt[1];		dZ = -pPt[2];
+		}
+		else{ BTL_THROW("render3DPts() shouldnt be here!");	}
+		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) {
+			if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); }
+			else { glColor3ubv ( pColor ); glVertex3f ( dX, dY, dZ );}
+		}
+	}
+	return;
+}
 
 void btl::kinect::CKeyFrame::selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_, Eigen::MatrixXd* peimXInlier_, Eigen::MatrixXd* peimYInlier_ ) {
 	CHECK ( vVoterIdx_.size() == peimXInlier_->cols(), " vVoterIdx_.size() must be equal to peimXInlier->cols(). " );
@@ -393,3 +454,202 @@ void btl::kinect::CKeyFrame::select5Rand ( const Eigen::MatrixXd& eimX_, const E
 
 	return;
 }//end of function
+
+
+void btl::kinect::CKeyFrame::detectPlane (const short uPyrLevel_){
+	//get next frame
+#ifdef TIMER	
+	// timer on
+	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+#endif
+	BTL_ASSERT(btl::utility::BTL_CV == _eConvention, "CKeyFrame data convention must be opencv convention");
+	//load pyramids
+	_usMinArea = btl::kinect::__aKinectWxH[uPyrLevel_]/60;
+	//cluster the top pyramid
+	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
+	//enforce position continuity
+	clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
+	_bRenderPlane = true;
+	_eClusterType = NORMAL_CLUSTRE;
+#ifdef TIMER
+	// timer off
+	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+	_cTDAll = _cT1 - _cT0 ;
+	_fFPS = 1000.f/_cTDAll.total_milliseconds();
+	PRINT( _fFPS );
+#endif
+	return;
+}
+
+void btl::kinect::CKeyFrame::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_)
+{
+	//define constants
+	const int nSampleElevation = 4;
+	const double dCosThreshold = std::cos(M_PI_4/nSampleElevation);
+	const cv::Mat& cvmNls = *_acvmShrPtrPyrNls[uPyrLevel_];
+	//make a histogram on the top pyramid
+	std::vector< tp_normal_hist_bin > vNormalHist;//idx of sampling the unit half sphere of top pyramid
+	//_vvIdx is organized as r(elevation)*c(azimuth) and stores the idx of Normals
+	normalHistogram(cvmNls,nSampleElevation,&vNormalHist,btl::utility::BTL_CV);
+	
+	//re-cluster the normals
+	pvvLabelPointIdx_->clear();
+	pcvmLabel_->setTo(-1);
+	short nLabel =0;
+	for(unsigned int uIdxBin = 0; uIdxBin < vNormalHist.size(); uIdxBin++){
+		if(vNormalHist[uIdxBin].first.size() < _usMinArea ) continue;
+		//get neighborhood of a sampling bin
+		std::vector<unsigned int> vNeighourhood; 
+		btl::utility::getNeighbourIdxCylinder< unsigned int >(nSampleElevation,nSampleElevation*4,uIdxBin,&vNeighourhood);
+		//traverse the neighborhood and cluster the 
+		std::vector<unsigned int> vLabelNormalIdx;
+		for( std::vector<unsigned int>::const_iterator cit_vNeighbourhood=vNeighourhood.begin();
+			cit_vNeighbourhood!=vNeighourhood.end();cit_vNeighbourhood++) {
+			btl::utility::normalCluster<double>(cvmNls,vNormalHist[*cit_vNeighbourhood].first,vNormalHist[*cit_vNeighbourhood].second,dCosThreshold,nLabel,pcvmLabel_,&vLabelNormalIdx);
+		}
+		nLabel++;
+		pvvLabelPointIdx_->push_back(vLabelNormalIdx);
+		//compute average normal
+		/*Eigen::Vector3d eivAvgNl;
+		btl::utility::avgNormals<double>(cvmNls,vLabelNormalIdx,&eivAvgNl);
+		_vLabelAvgNormals.push_back(eivAvgNl);*/
+	}
+	return;
+}
+void btl::kinect::CKeyFrame::normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_,btl::utility::tp_coordinate_convention eCon_)
+{
+	//clear and re-initialize pvvIdx_
+	int nSampleAzimuth = nSamples_<<2; //nSamples*4
+	pvNormalHistogram_->clear();
+	pvNormalHistogram_->resize(nSamples_*nSampleAzimuth,tp_normal_hist_bin(std::vector<unsigned int>(),Eigen::Vector3d(0,0,0)));
+	const double dS = M_PI_2/nSamples_;//sampling step
+	int r,c,rc;
+	const float* pNl = (const float*) cvmNls_.data;
+	for(unsigned int i =0; i< cvmNls_.total(); i++, pNl+=3)	{
+		if( pNl[2]>0 || fabs(pNl[0])+fabs(pNl[1])+fabs(pNl[2])<0.0001 ) {continue;}
+		btl::utility::normalVotes<float>(pNl,dS,&r,&c,eCon_);
+		rc = r*nSampleAzimuth+c;
+		if(rc<0||rc>pvNormalHistogram_->size()){continue;}
+		(*pvNormalHistogram_)[rc].first.push_back(i);
+		(*pvNormalHistogram_)[rc].second += Eigen::Vector3d(pNl[0],pNl[1],pNl[2]);
+	}
+	//average the 
+	for(std::vector<tp_normal_hist_bin>::iterator it_vNormalHist = pvNormalHistogram_->begin();
+		it_vNormalHist!=pvNormalHistogram_->end(); it_vNormalHist++) {
+		if(it_vNormalHist->first.size()>0) {
+			it_vNormalHist->second.normalize();
+		}
+	}
+
+	return;
+}
+void btl::kinect::CKeyFrame::distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& nSamples, 
+	const std::vector< unsigned int >& vIdx_, tp_hist* pvDistHist )
+{
+	const double dLow  = -3;
+	const double dHigh =  3;
+	const double dSampleStep = ( dHigh - dLow )/nSamples; 
+
+	pvDistHist->clear();
+	pvDistHist->resize(nSamples,tp_pair_hist_bin(std::vector<tp_pair_hist_element>(), 0.) );
+	const float*const pPt = (float*) cvmPts_.data;
+	const float*const pNl = (float*) cvmNls_.data;
+	//collect the distance histogram
+	for(std::vector< unsigned int >::const_iterator cit_vPointIdx = vIdx_.begin();
+		cit_vPointIdx!=vIdx_.end(); cit_vPointIdx++)
+	{
+		unsigned int uOffset = (*cit_vPointIdx)*3;
+		double dDist = pPt[uOffset]*pNl[uOffset] + pPt[uOffset+1]*pNl[uOffset+1] + pPt[uOffset+2]*pNl[uOffset+2];
+
+		int nBin = floor( (dDist -dLow)/ dSampleStep );
+		if( nBin >= 0 && nBin <nSamples)
+		{
+			(*pvDistHist)[nBin].first.push_back(tp_pair_hist_element(dDist,*cit_vPointIdx));
+			(*pvDistHist)[nBin].second += dDist;
+		}
+	}
+
+	//calc the avg distance for each bin 
+	//construct a list for sorting
+	for(std::vector< tp_pair_hist_bin >::iterator cit_vDistHist = pvDistHist->begin();
+		cit_vDistHist != pvDistHist->end(); cit_vDistHist++ )
+	{
+		unsigned int uBinSize = cit_vDistHist->first.size();
+		if( uBinSize==0 ) continue;
+
+		//calculate avg distance
+		cit_vDistHist->second /= uBinSize;
+	}
+	return;
+}
+void btl::kinect::CKeyFrame::clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ )
+{
+	cvmDistanceClusters_->setTo(-1);
+	//construct the label mat
+	const cv::Mat& cvmPts = *_acvmShrPtrPyrPts[uPyrLevel_];
+	const cv::Mat& cvmNls = *_acvmShrPtrPyrNls[uPyrLevel_];
+	const double dLow  = -3;
+	const double dHigh =  3;
+	const int nSamples = 400;
+	const double dSampleStep = ( dHigh - dLow )/nSamples; 
+	const double dMergeStep = dSampleStep;
+
+	tp_hist	vDistHist; //histogram of distancte vector< vDist, cit_vIdx > 
+	short sLabel = 0;
+	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvLabelPointIdx = vvNormalClusterPtIdx_.begin();
+		cit_vvLabelPointIdx!=vvNormalClusterPtIdx_.end(); cit_vvLabelPointIdx++){
+			//collect 
+			distanceHistogram( cvmNls, cvmPts, nSamples, *cit_vvLabelPointIdx, &vDistHist );
+			std::vector< tp_flag > vMergeFlags(nSamples, btl::kinect::CKeyFrame::EMPTY); //==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
+			calcMergeFlag( vDistHist, dMergeStep, &vMergeFlags ); // EMPTY/NO_MERGE/MERGE_WITH_LEFT/MERGE_WITH_BOTH/MERGE_WITH_RIGHT 
+			//cluster
+			mergeDistanceBins( vMergeFlags, vDistHist, *cit_vvLabelPointIdx, &sLabel, &*_acvmShrPtrDistanceClusters[uPyrLevel_] );
+			sLabel++;
+	}//for each normal label
+}
+void btl::kinect::CKeyFrame::calcMergeFlag( const tp_hist& vDistHist, const double& dMergeDistance, std::vector< tp_flag >* pvMergeFlags_ ){
+	//merge the bins whose distance is similar
+	std::vector< tp_flag >::iterator it_vMergeFlags = pvMergeFlags_->begin()+1; 
+	std::vector< tp_flag >::iterator it_prev;
+	std::vector< tp_pair_hist_bin >::const_iterator cit_prev;
+	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = vDistHist.end() - 1;
+
+	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist.begin() + 1;
+		cit_vDistHist != cit_endm1; cit_vDistHist++,it_vMergeFlags++ ) {
+			unsigned int uBinSize = cit_vDistHist->first.size();
+			if(0==uBinSize) continue;
+			*it_vMergeFlags = btl::kinect::CKeyFrame::NO_MERGE;
+			cit_prev = cit_vDistHist -1;
+			it_prev  = it_vMergeFlags-1;
+			if( btl::kinect::CKeyFrame::EMPTY == *it_prev ) continue;
+
+			if( fabs(cit_prev->second - cit_vDistHist->second) < dMergeDistance ){ //avg distance smaller than the sample step.
+				//previou bin
+				if     (btl::kinect::CKeyFrame::NO_MERGE       ==*it_prev){	*it_prev = btl::kinect::CKeyFrame::MERGE_WITH_RIGHT;}
+				else if(btl::kinect::CKeyFrame::MERGE_WITH_LEFT==*it_prev){ *it_prev = btl::kinect::CKeyFrame::MERGE_WITH_BOTH; }
+				//current bin
+				*it_vMergeFlags = btl::kinect::CKeyFrame::MERGE_WITH_LEFT;
+			}//if mergable
+	}//for each bin
+}
+void btl::kinect::CKeyFrame::mergeDistanceBins( const std::vector< tp_flag >& vMergeFlags_, const tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ ){
+	std::vector< tp_flag >::const_iterator cit_vMergeFlags = vMergeFlags_.begin();
+	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = vDistHist_.end() - 1;
+	short* pDistanceLabel = (short*) pcvmLabel_->data;
+	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist_.begin() + 1;
+		cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ )	{
+			if(btl::kinect::CKeyFrame::EMPTY==*cit_vMergeFlags) continue;
+			if(btl::kinect::CKeyFrame::NO_MERGE==*cit_vMergeFlags||btl::kinect::CKeyFrame::MERGE_WITH_RIGHT==*cit_vMergeFlags||
+				btl::kinect::CKeyFrame::MERGE_WITH_BOTH==*cit_vMergeFlags||btl::kinect::CKeyFrame::MERGE_WITH_LEFT==*cit_vMergeFlags){
+					if(cit_vDistHist->first.size()>_usMinArea){
+						for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
+							cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
+								pDistanceLabel[cit_vPair->second] = *pLabel_;
+						}//for 
+					}//if
+			}
+			if(btl::kinect::CKeyFrame::NO_MERGE==*cit_vMergeFlags||btl::kinect::CKeyFrame::MERGE_WITH_LEFT==*cit_vMergeFlags){
+				(*pLabel_)++;
+			}
+	}//for
+}
