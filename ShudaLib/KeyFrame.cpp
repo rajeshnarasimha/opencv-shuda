@@ -472,7 +472,7 @@ void btl::kinect::CKeyFrame::detectPlane (const short uPyrLevel_){
 	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
 	//enforce position continuity
 	clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
-	_bRenderPlane = true;
+	//_bRenderPlane = true;
 	_eClusterType = NORMAL_CLUSTRE;
 #ifdef TIMER
 	// timer off
