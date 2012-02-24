@@ -30,8 +30,7 @@ CModel::CModel(btl::kinect::VideoSourceKinect& cKinect_)
 	:_cKinect(cKinect_)
 {
 	//allocate
-	for(int i=0; i<4; i++)
-	{
+	for(int i=0; i<4; i++) {
 		int nRows = KINECT_HEIGHT>>i; 
 		int nCols = KINECT_WIDTH>>i;
 		_acvmShrPtrNormalClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
@@ -42,30 +41,28 @@ CModel::CModel(btl::kinect::VideoSourceKinect& cKinect_)
 CModel::~CModel(void)
 {
 }
-void CModel::normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_)
+void CModel::detectPlaneFromCurrentFrame(const short uPyrLevel_)
 {
-	//clear and re-initialize pvvIdx_
-	int nSampleAzimuth = nSamples_<<2; //nSamples*4
-	pvNormalHistogram_->clear();
-	pvNormalHistogram_->resize(nSamples_*nSampleAzimuth,tp_normal_hist_bin(std::vector<unsigned int>(),Eigen::Vector3d(0,0,0)));
-	const double dS = M_PI_2/nSamples_;//sampling step
-	int r,c,rc;
-	const float* pNl = (const float*) cvmNls_.data;
-	for(unsigned int i =0; i< cvmNls_.total(); i++, pNl+=3)	{
-		if( pNl[2]<0 || fabs(pNl[0])+fabs(pNl[1])+fabs(pNl[2])<0.0001 ) {continue;}
-		btl::utility::normalVotes<float>(pNl,dS,&r,&c);
-		rc = r*nSampleAzimuth+c;
-		(*pvNormalHistogram_)[rc].first.push_back(i);
-		(*pvNormalHistogram_)[rc].second += Eigen::Vector3d(pNl[0],pNl[1],pNl[2]);
-	}
-	//average the 
-	for(std::vector<tp_normal_hist_bin>::iterator it_vNormalHist = pvNormalHistogram_->begin();
-		it_vNormalHist!=pvNormalHistogram_->end(); it_vNormalHist++) {
-		if(it_vNormalHist->first.size()>0) {
-			it_vNormalHist->second.normalize();
-		}
-	}
-
+	//get next frame
+#ifdef TIMER	
+	// timer on
+	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+#endif
+	//load pyramids
+	//_cKinect.getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL); //output _vvN
+	_cKinect.getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV); //output _vvN
+	_usMinArea = btl::kinect::__aKinectWxH[uPyrLevel_]/60;
+	//cluster the top pyramid
+	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
+	//enforce position continuity
+	clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
+#ifdef TIMER
+	// timer off
+	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+	_cTDAll = _cT1 - _cT0 ;
+	_fFPS = 1000.f/_cTDAll.total_milliseconds();
+	PRINT( _fFPS );
+#endif
 	return;
 }
 void CModel::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_)
@@ -77,7 +74,7 @@ void CModel::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,
 	//make a histogram on the top pyramid
 	std::vector< tp_normal_hist_bin > vNormalHist;//idx of sampling the unit half sphere of top pyramid
 	//_vvIdx is organized as r(elevation)*c(azimuth) and stores the idx of Normals
-	normalHistogram(cvmNls,nSampleElevation,&vNormalHist);
+	normalHistogram(cvmNls,nSampleElevation,&vNormalHist,btl::utility::BTL_CV);
 	
 	//re-cluster the normals
 	pvvLabelPointIdx_->clear();
@@ -101,6 +98,32 @@ void CModel::clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,
 		btl::utility::avgNormals<double>(cvmNls,vLabelNormalIdx,&eivAvgNl);
 		_vLabelAvgNormals.push_back(eivAvgNl);*/
 	}
+	return;
+}
+void CModel::normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_,btl::utility::tp_coordinate_convention eCon_)
+{
+	//clear and re-initialize pvvIdx_
+	int nSampleAzimuth = nSamples_<<2; //nSamples*4
+	pvNormalHistogram_->clear();
+	pvNormalHistogram_->resize(nSamples_*nSampleAzimuth,tp_normal_hist_bin(std::vector<unsigned int>(),Eigen::Vector3d(0,0,0)));
+	const double dS = M_PI_2/nSamples_;//sampling step
+	int r,c,rc;
+	const float* pNl = (const float*) cvmNls_.data;
+	for(unsigned int i =0; i< cvmNls_.total(); i++, pNl+=3)	{
+		if( pNl[2]>0 || fabs(pNl[0])+fabs(pNl[1])+fabs(pNl[2])<0.0001 ) {continue;}
+		btl::utility::normalVotes<float>(pNl,dS,&r,&c,eCon_);
+		rc = r*nSampleAzimuth+c;
+		(*pvNormalHistogram_)[rc].first.push_back(i);
+		(*pvNormalHistogram_)[rc].second += Eigen::Vector3d(pNl[0],pNl[1],pNl[2]);
+	}
+	//average the 
+	for(std::vector<tp_normal_hist_bin>::iterator it_vNormalHist = pvNormalHistogram_->begin();
+		it_vNormalHist!=pvNormalHistogram_->end(); it_vNormalHist++) {
+		if(it_vNormalHist->first.size()>0) {
+			it_vNormalHist->second.normalize();
+		}
+	}
+
 	return;
 }
 void CModel::distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& nSamples, 
@@ -168,33 +191,7 @@ void CModel::clusterDistance( const unsigned short uPyrLevel_, const std::vector
 	}//for each normal label
 
 }
-void CModel::detectPlaneFromCurrentFrame(const short uPyrLevel_)
-{
-	//get next frame
-#ifdef TIMER	
-	// timer on
-	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
-#endif
-//load pyramids
-	_cKinect.getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL); //output _vvN
-	_usMinArea = btl::kinect::__aKinectWxH[uPyrLevel_]/60;
-//cluster the top pyramid
-	clusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
-//enforce position continuity
-	clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
-
-#ifdef TIMER
-	// timer off
-	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
-	_cTDAll = _cT1 - _cT0 ;
-	_fFPS = 1000.f/_cTDAll.total_milliseconds();
-	PRINT( _fFPS );
-#endif
-	return;
-}
-
-void CModel::calcMergeFlag( const tp_hist& vDistHist, const double& dMergeDistance, std::vector< tp_flag >* pvMergeFlags_ )
-{
+void CModel::calcMergeFlag( const tp_hist& vDistHist, const double& dMergeDistance, std::vector< tp_flag >* pvMergeFlags_ ){
 	//merge the bins whose distance is similar
 	std::vector< tp_flag >::iterator it_vMergeFlags = pvMergeFlags_->begin()+1; 
 	std::vector< tp_flag >::iterator it_prev;
@@ -219,9 +216,7 @@ void CModel::calcMergeFlag( const tp_hist& vDistHist, const double& dMergeDistan
 			}//if mergable
 	}//for each bin
 }
-
-void CModel::mergeBins( const std::vector< tp_flag >& vMergeFlags_, const tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ )
-{
+void CModel::mergeBins( const std::vector< tp_flag >& vMergeFlags_, const tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ ){
 	std::vector< tp_flag >::const_iterator cit_vMergeFlags = vMergeFlags_.begin();
 	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = vDistHist_.end() - 1;
 	short* pDistanceLabel = (short*) pcvmLabel_->data;
@@ -242,8 +237,6 @@ void CModel::mergeBins( const std::vector< tp_flag >& vMergeFlags_, const tp_his
 			}
 	}//for
 }
-
-
 
 }//extra
 }//btl

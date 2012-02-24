@@ -33,7 +33,7 @@ class CKinectView;
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-btl::kinect::SCamera::tp_ptr _pRGBCamera;
+//btl::kinect::SCamera::tp_ptr _pRGBCamera;
 
 unsigned short _nWidth, _nHeight;
 double _dDepthFilterThreshold = 10;
@@ -131,7 +131,7 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	//_pKinect->_pFrame->render3DPts(_uLevel);
-	_pKinect->_pFrame->renderCamera(_pGL->_bDisplayCamera,_pGL->_uLevel);
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,_pGL->_uLevel);
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 	//set viewport 2
@@ -147,8 +147,8 @@ void display ( void )
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
-	_pRGBCamera->renderCamera( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
+	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -156,7 +156,7 @@ void display ( void )
 }
 void reshape ( int nWidth_, int nHeight_ ){
 	//cout << "reshape() " << endl;
-    _pRGBCamera->setIntrinsics( 1, 0.01, 100 );
+    _pKinect->_pRGBCamera->setIntrinsics( 1, 0.01, 100 );
 
     // setup blending 
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -168,11 +168,6 @@ void reshape ( int nWidth_, int nHeight_ ){
 	glutReshapeWindow( int ( _nWidth ), int ( _nHeight ) );
     return;
 }
-void setPyramid(){
-	_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
-	_pKinect->getNextFrame(_eFrameType);
-	_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
-}
 void init ( ){
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
@@ -182,15 +177,13 @@ void init ( ){
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	setPyramid();
+	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
 	_pGL->init();
-	
 }
 
 int main ( int argc, char** argv ){
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
-		_pRGBCamera=_pKinect->_pRGBCamera.get();
 		_pGL.reset( new btl::gl_util::CGLUtil() );
 		_pKinect->_pFrame->_pGL=_pGL.get();
 

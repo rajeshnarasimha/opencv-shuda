@@ -115,7 +115,7 @@ void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
     //draw principle point
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
-void btl::kinect::SCamera::renderCamera (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
+void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	if(bRenderTexture_){
 		glBindTexture(GL_TEXTURE_2D, _uTexture);
