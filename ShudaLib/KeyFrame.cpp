@@ -53,7 +53,7 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 
 	_eConvention = btl::utility::BTL_CV;
 	_eimR.setIdentity();
-	Eigen::Vector3d eivC (0.,0.,-1.5); //camera location in the world
+	Eigen::Vector3d eivC (0.,0.,-1.8); //camera location in the world
 	_eivT = -_eimR.transpose()*eivC;
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
@@ -88,7 +88,7 @@ void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame&
 	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
 	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
 	//from current to reference
-	_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
+	//_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
 	(*_pSurf)(*sReferenceKF_._acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), sReferenceKF_._cvgmKeyPoints, sReferenceKF_._cvgmDescriptors/*,true*/);//make use of provided keypoints
 	_pSurf->downloadKeypoints(sReferenceKF_._cvgmKeyPoints, sReferenceKF_._vKeyPoints);
 	//from reference to current
@@ -102,7 +102,7 @@ void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame&
 	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
 	std::sort( _vMatches.begin(), _vMatches.end() );
-	if (_vMatches.size()> 200) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
+	if (_vMatches.size()> 400) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
 	return;
 }
 
@@ -112,24 +112,24 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsi
 	//search for pairs of correspondences with depth data available.
 	const float*const  _pCurrentPts = (const float*)              _acvmShrPtrPyrPts[sLevel_]->data;
 	const float*const  _pReferencePts = (const float*)sReferenceKF_._acvmShrPtrPyrPts[sLevel_]->data;
-	std::vector< int > _vDepthIdxCur, _vDepthIdx1st, _vSelectedPairs;
+	std::vector< int > _vDepthIdxCur, _vDepthIdxRef, _vSelectedPairs;
 	for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++ ) {
 		int nKeyPointIdxCur = cit->queryIdx;
-		int nKeyPointIdx1st = cit->trainIdx;
+		int nKeyPointIdxRef = cit->trainIdx;
 
 		int nXCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.x );
 		int nYCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.y );
-		int nX1st = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.x );
-		int nY1st = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdx1st ].pt.y );
+		int nXRef = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdxRef ].pt.x );
+		int nYRef = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdxRef ].pt.y );
 
 		int nDepthIdxCur = nYCur * 640 * 3 + nXCur * 3;
-		int nDepthIdx1st = nY1st * 640 * 3 + nX1st * 3;
+		int nDepthIdxRef = nYRef * 640 * 3 + nXRef * 3;
 
-		if ( fabs ( _pCurrentPts[ nDepthIdxCur + 2 ] ) > 0.0001 && fabs (_pReferencePts[ nDepthIdx1st + 2 ] ) > 0.0001 ) {
+		if ( fabs ( _pCurrentPts[ nDepthIdxCur + 2 ] ) > 0.0001 && fabs (_pReferencePts[ nDepthIdxRef + 2 ] ) > 0.0001 ) {
 			_vDepthIdxCur  .push_back ( nDepthIdxCur );
-			_vDepthIdx1st  .push_back ( nDepthIdx1st );
+			_vDepthIdxRef  .push_back ( nDepthIdxRef );
 			_vSelectedPairs.push_back ( nKeyPointIdxCur );
-			_vSelectedPairs.push_back ( nKeyPointIdx1st );
+			_vSelectedPairs.push_back ( nKeyPointIdxRef );
 		}
 	}
 
@@ -168,21 +168,21 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsi
         }*/
                 
         int nSize = _vDepthIdxCur.size(); PRINT(nSize);
-        Eigen::MatrixXd eimCur ( 3, nSize ), eim1st ( 3, nSize );
+        Eigen::MatrixXd eimCur ( 3, nSize ), eimRef ( 3, nSize );
         std::vector<  int >::const_iterator cit_Cur = _vDepthIdxCur.begin();
-        std::vector<  int >::const_iterator cit_1st = _vDepthIdx1st.begin();
+        std::vector<  int >::const_iterator cit_Ref = _vDepthIdxRef.begin();
 
-        for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_1st++ ){
+        for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_Ref++ ){
             eimCur ( 0, i ) = _pCurrentPts[ *cit_Cur     ];
             eimCur ( 1, i ) = _pCurrentPts[ *cit_Cur + 1 ];
             eimCur ( 2, i ) = _pCurrentPts[ *cit_Cur + 2 ];
-            eim1st ( 0, i ) = _pReferencePts[ *cit_1st     ];
-            eim1st ( 1, i ) = _pReferencePts[ *cit_1st + 1 ];
-            eim1st ( 2, i ) = _pReferencePts[ *cit_1st + 2 ];
+            eimRef ( 0, i ) = _pReferencePts[ *cit_Ref     ];
+            eimRef ( 1, i ) = _pReferencePts[ *cit_Ref + 1 ];
+            eimRef ( 2, i ) = _pReferencePts[ *cit_Ref + 2 ];
             i++;
         }
         double dS2;
-        double dErrorBest = btl::utility::absoluteOrientation < double > ( eim1st, eimCur ,  false, &_eimR, &_eivT, &dS2 );
+        double dErrorBest = btl::utility::absoluteOrientation < double > ( eimRef, eimCur ,  false, &_eimR, &_eivT, &dS2 );
 		PRINT ( dErrorBest );
 		PRINT ( _eimR );
 		PRINT ( _eivT );
@@ -208,7 +208,7 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsi
                 Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
         
                 for ( int n = 0; n < 1000; n++ ) {
-                    select5Rand (  eim1st, eimCur, dice, &eimYTmp, &eimXTmp );
+                    select5Rand (  eimRef, eimCur, dice, &eimYTmp, &eimXTmp );
                     dError = btl::utility::absoluteOrientation < double > (  eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
         
                     if ( dError > dThreshold ) {
@@ -216,7 +216,7 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsi
                     }
         
                     //voting
-                    int nVotes = voting ( eim1st, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
+                    int nVotes = voting ( eimRef, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
                     if ( nVotes > eimCur.cols() *.75 ) {
                         nMax = nVotes;
                         eimRBest = eimR;
@@ -240,7 +240,7 @@ void btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsi
         
                 Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
                 Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
-                selectInlier ( eim1st, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
+                selectInlier ( eimRef, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
                 dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &_eimR, &_eivT, &dS2 );
         
                 PRINT ( nMax );
@@ -272,12 +272,25 @@ void btl::kinect::CKeyFrame::renderCameraInGLWorld( bool bRenderCamera_,const un
 	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_]);
 	_pRGBCamera->renderCameraInGLLocal ( *_acvmShrPtrPyrRGBs[uLevel_], .2, bRenderCamera_);
 	//render dot clouds
-	if(_bRenderPlane) renderPlanesInGLLocal(uLevel_);
-	render3DPtsInGLLocal(uLevel_);
+	//if(_bRenderPlane) renderPlanesInGLLocal(uLevel_);
+	render3DPtsInGLLocal(uLevel_);//rendering detected plane as well
 	glPopMatrix();
 }
 
 void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short _uLevel) const {
+	//////////////////////////////////
+	//for rendering the detected plane
+	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
+	const short* pLabel;
+	if(_bRenderPlane){
+		if(NORMAL_CLUSTRE ==_eClusterType){
+			pLabel = (const short*)_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
+		}
+		else if(DISTANCE_CLUSTER ==_eClusterType){
+			pLabel = (const short*)_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
+		}
+	}
+	//////////////////////////////////
 	float dNx,dNy,dNz;
 	float dX, dY, dZ;
 	const float* pPt = (const float*) _acvmShrPtrPyrPts[_uLevel]->data;
@@ -288,6 +301,13 @@ void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short _uLevel) 
 	if( _pGL && _pGL->_bEnableLighting ){glEnable(GL_LIGHTING);}
 	else                            	{glDisable(GL_LIGHTING);}
 	for( int i = 0; i < _acvmShrPtrPyrPts[_uLevel]->total(); i++,pRGB+=3,pNl+=3,pPt+=3){
+		//////////////////////////////////
+		//for rendering the detected plane
+		if(_bRenderPlane && pLabel[i]>0){
+			pColor = btl::utility::__aColors[pLabel[i]/*+_nColorIdx*/%BTL_NUM_COLOR];
+		}
+		else{pColor = pRGB;}
+
 		if(btl::utility::BTL_GL == _eConvention ){
 			dNx = pNl[0];		dNy = pNl[1];		dNz = pNl[2];
 			dX =  pPt[0];		dY =  pPt[1];		dZ =  pPt[2];
@@ -298,8 +318,8 @@ void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short _uLevel) 
 		}
 		else{ BTL_THROW("render3DPts() shouldnt be here!");	}
 		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) {
-			if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pRGB,_pGL->_fSize,_pGL->_bRenderNormal); }
-			else { glColor3ubv ( pRGB ); glVertex3f ( dX, dY, dZ );}
+			if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); }
+			else { glColor3ubv ( pColor ); glVertex3f ( dX, dY, dZ );}
 		}
 	}
 	glPopMatrix();
@@ -322,23 +342,6 @@ void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short _uLevel)
 		//pLabel = (const short*)_pModel->_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
 		pLabel = (const short*)_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
 	}
-	/*
-		)
-	for( int i = 0; i < btl::kinect::__aKinectWxH[_pGL->_uLevel];i++){
-			int nColor = pLabel[i];
-			if(nColor<0) 
-			{	pNl+=3; pPt+=3; continue; }
-			const unsigned char* pColor = btl::utility::__aColors[nColor+_nColorIdx%BTL_NUM_COLOR];
-			float dNx = *pNl++;
-		float dNy = *pNl++;
-		float dNz = *pNl++;
-		float x = *pPt++;
-		float y = *pPt++;
-		float z = *pPt++;
-			if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) 
-				_pGL->renderDisk<float>(x,y,z,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); 
-		}*/
-	
 	for( int i = 0; i < _acvmShrPtrPyrPts[_uLevel]->total(); i++,pNl+=3,pPt+=3){
 		int nColor = pLabel[i];
 		if(nColor<0) { continue; }
