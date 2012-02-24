@@ -31,26 +31,25 @@ btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[10];
 std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
 std::vector< int > _vRFIdx;
 int _nKFCounter = 1; //key frame counter
-int _nRFCounter = 0; //reference frame counter
+int _nRFIdx = 0; //reference frame counter
 
 bool _bContinuous = true;
 bool _bPrevStatus = true;
 bool _bRenderReference = true;
 bool _bCapture = false;
-
+bool _bRenderPlane = false;
 int _nN = 1;
 int _nView = 0;
-
+void init();
 void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
 }
-void init();
 void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
     case 'r':
         //reset
 		_nKFCounter=1;
-		_nRFCounter=0;
+		_nRFIdx=0;
 		_vShrPtrsKF.clear();
         init();
         glutPostRedisplay();
@@ -70,24 +69,30 @@ void normalKeys ( unsigned char key, int x, int y ){
 	case 'd':
 		//remove last key frame
 		if(_nKFCounter >0 ) {
-			if( _nRFCounter ==  _nKFCounter ) _nRFCounter--;
+			if( _nRFIdx ==  _nKFCounter ) _nRFIdx--;
 			_nKFCounter--;
 			_vShrPtrsKF.pop_back();
 		}
 		glutPostRedisplay();
 		break;
-	/*
 	case 'v':
-			//use current keyframe as a reference
-			if( _nRFCounter <_nKFCounter )
-			{
-				_nRFCounter = _nKFCounter-1;
-				_vRFIdx.push_back( _nRFCounter );
-				SKeyFrame<float>& s1stKF = _aShrPtrKFs[_nRFCounter];
-				s1stKF._bIsReferenceFrame = true;
-				glutPostRedisplay();
-			}
-			break;*/
+		//use current keyframe as a reference
+		if( _nRFIdx <_nKFCounter )
+		{
+			_nRFIdx = _nKFCounter-1;
+			_vRFIdx.push_back( _nRFIdx );
+			_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
+			glutPostRedisplay();
+		}
+		break;
+	case 'p':
+		//use current keyframe as a reference
+		_bRenderPlane =! _bRenderPlane;
+		for(unsigned int i=0; i < _nKFCounter; i++)	{
+			_aShrPtrKFs[i]->_bRenderPlane=_bRenderPlane;
+		}
+		glutPostRedisplay();
+		break;
 	case '0':
 		(*_vShrPtrsKF[ _nView ])->setView(&_pGL->_eimModelViewGL);
 		break;
@@ -131,6 +136,7 @@ void init ( ){
 	_pKinect->_pFrame->copyTo(&*p1stKF);
 	p1stKF->_bIsReferenceFrame = true;
 	p1stKF->setView(&_pGL->_eimModelViewGL);
+	p1stKF->detectPlane(_pGL->_uLevel);
 	_vShrPtrsKF.push_back( &p1stKF );
     return;
 }
@@ -143,11 +149,13 @@ void display ( void ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
-		btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFCounter];
-        // detect corners
-		pCurrentKF->detectConnectionFromCurrentToReference(*p1stKF,0);
-        pCurrentKF->calcRT ( *p1stKF,0 );
- 		pCurrentKF->applyRelativePose( *p1stKF );
+		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
+        // track camera motion
+		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
+        pCurrentKF->calcRT ( *pReferenceKF,0 );
+ 		pCurrentKF->applyRelativePose( *pReferenceKF );
+		//detect planes
+		pCurrentKF->detectPlane(_pGL->_uLevel);
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
@@ -175,7 +183,7 @@ void display ( void ) {
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
-		_pGL->renderVoxelGL(3.f);
+		_pGL->renderVoxelGL(2.f);
 		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
 

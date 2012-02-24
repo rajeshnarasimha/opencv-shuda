@@ -27,8 +27,8 @@ public:
 	void calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ );
 	//accumulate the relative R T to the global RT
 	void applyRelativePose( const CKeyFrame& sReferenceKF_ ) {
-		_eimR = _eimR*sReferenceKF_._eimR;
 		_eivT = _eimR*sReferenceKF_._eivT + _eivT;
+		_eimR = _eimR*sReferenceKF_._eimR;
 	}
 	// set the opengl modelview matrix to align with the current view
 	void setView(Eigen::Matrix4d* pModelViewGL_) const {
