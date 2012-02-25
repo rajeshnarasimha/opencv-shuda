@@ -6,7 +6,7 @@
 * @date 2011-02-23
 */
 #define INFO
-#define TIMER
+//#define TIMER
 
 #include <opencv2/gpu/gpu.hpp>
 #include <boost/shared_ptr.hpp>
@@ -120,7 +120,8 @@ VideoSourceKinect::VideoSourceKinect ()
 	//default centroid follows opencv-convention
 	_dXCentroid = _dYCentroid = 0;
 	_dZCentroid = 1.0;
-
+	//initialize normal histogram
+	CKeyFrame::initHistogram();
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()

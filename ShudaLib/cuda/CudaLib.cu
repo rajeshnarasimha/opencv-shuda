@@ -416,8 +416,36 @@ void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* 
 	kernelFastNormalEstimationGL<<<grid, block>>>(cvgmPts_, *pcvgmNls_ );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__constant__ ushort _aNormalHistorgarmParams[4];
+__global__ void normalHistogramKernel (const cv::gpu::DevMem2D_<float3> cvgmNls_, const float fNormalBinSize_, cv::gpu::DevMem2D_<short> cvgmBinIdx_ ){
 
-
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+	if (x >= cvgmNls_.cols || y >= cvgmNls_.rows)  return;
+	const float3& nl = cvgmNls_.ptr (y)[x];
+	if( fabsf( nl.x ) + fabsf( nl.y ) + fabsf( nl.z ) < 0.01 ) {cvgmBinIdx_.ptr(y)[x]=-1;;}
+	else{
+		ushort usX,usY,usZ;
+		usX = __float2int_rd( nl.x / fNormalBinSize_ )+_aNormalHistorgarmParams[0];//0:usSamplesElevationZ_
+		usY = __float2int_rd( nl.y / fNormalBinSize_ )+_aNormalHistorgarmParams[0];
+		usZ = __float2int_rd(-nl.z / fNormalBinSize_ ); //because of cv-convention
+		cvgmBinIdx_.ptr(y)[x]= usZ*_aNormalHistorgarmParams[2]+ usY*_aNormalHistorgarmParams[1]+ usZ;//2:usLevel 1:usWidth
+	}
+}
+void cudaNormalHistogram(const cv::gpu::GpuMat& cvgmNls_, const unsigned short usSamplesAzimuth_, const unsigned short usSamplesElevationZ_, 
+	const unsigned short usWidth_,const unsigned short usLevel_,  const float fNormalBinSize_, cv::gpu::GpuMat* pcvgmBinIdx_){
+	//constant definition
+	size_t sN = sizeof(ushort) * 2;
+	ushort* const pNormal = (ushort*) malloc( sN );
+	pNormal[0] = usSamplesElevationZ_;
+	pNormal[1] = usWidth_;
+	pNormal[2] = usLevel_;
+	cudaSafeCall( cudaMemcpyToSymbol(_aNormalHistorgarmParams, pNormal, sN) );
+	//define grid and block
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmNls_.cols, block.x), cv::gpu::divUp(cvgmNls_.rows, block.y));
+	normalHistogramKernel<<<grid,block>>>(cvgmNls_,fNormalBinSize_,*pcvgmBinIdx_);
+}
 
 }//cuda_util
 }//btl

@@ -290,6 +290,9 @@ void CGLUtil::init()
 
 	glEnable(GL_RESCALE_NORMAL);
 	glEnable(GL_LIGHT0);
+
+	glEnable(GL_BLEND);
+	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 }
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {

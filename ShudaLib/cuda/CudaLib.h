@@ -23,6 +23,8 @@ void cudaUnprojectRGB ( const cv::gpu::GpuMat& cvgmDepths_,
 	cv::gpu::GpuMat* pcvgmPts_, 
 	btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL );
 void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
+void cudaNormalHistogram(const cv::gpu::GpuMat& cvgmNls_, const unsigned short usSamplesAzimuth_, const unsigned short usSamplesElevationZ_, 
+	const unsigned short usWidth_,const unsigned short usLevel_,  const float fNormalBinSize_, cv::gpu::GpuMat* pcvgmBinIdx_);
 
 }//cuda_util
 }//btl

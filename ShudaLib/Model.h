@@ -21,6 +21,8 @@ public:
 private:
 	//normal histogram type
 	typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
+	typedef tp_normal_hist_bin*										  tp_normal_hist_bin_ptr;
+	typedef tp_normal_hist_bin_ptr*									  tp_normal_hist;
 	//distance histogram type
 	typedef std::pair< double,unsigned int >						  tp_pair_hist_element; 
 	typedef std::pair< std::vector< tp_pair_hist_element >, double >  tp_pair_hist_bin;
@@ -39,7 +41,8 @@ protected:
 	void calcMergeFlag( const tp_hist& vDistHist, const double& dSampleStep, std::vector< tp_flag >* vMergeFlags );
 	void mergeBins( const std::vector< tp_flag >& vMergeFlags_, const tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ );
 	void clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ );
-//data
+	void calcNormalHistogramBins(const unsigned short usSamples_, tp_normal_hist_bin** ppNormalHistogram_, unsigned short* pusSampleAzimuthX_, unsigned short* pusSampleAzimuthZ_ );
+	//data
 public:
 	//clusters
 	boost::shared_ptr<cv::Mat>   _acvmShrPtrNormalClusters[4];

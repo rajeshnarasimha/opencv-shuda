@@ -279,14 +279,48 @@ void tryCppTypeDef()
 	}
 	//tp_int o; compile error
 }
+void tryCppBitwiseShift()
+{
+	PRINTSTR("tryCppBitwiseShift():")
+	int n=10;
+	int m=3;
+	PRINT(n);
+	PRINTSTR("n << m");
+	n = n << m;
+	PRINT(n);
 
+	unsigned short usSamples=3;
+	const unsigned short usSamplesElevationZ = 1<<usSamples; //2^usSamples
+	const unsigned short usSamplesAzimuthX = usSamplesElevationZ<<1;   //usSamplesElevationZ*2
+	const unsigned short usSamplesAzimuthY = usSamplesElevationZ<<1;   //usSamplesElevationZ*2
+	const unsigned short usWidth = usSamplesAzimuthX;				    //
+	const unsigned short usLevel = usSamplesAzimuthX<<(usSamples+1);	//usSamplesAzimuthX*usSamplesAzimuthX
+	const unsigned short usTotal = usLevel<<(usSamples);  //usSamplesAzimuthX*usSamplesAzimuthY*usSamplesElevationZ
+	PRINT(usSamples);
+	PRINT(usSamplesElevationZ);
+	PRINT(usSamplesAzimuthX);
+	PRINT(usSamplesAzimuthY);
+	PRINT(usLevel);
+	PRINT(usSamplesAzimuthX*usSamplesAzimuthY);
+	PRINT(usTotal);
+	PRINT(usSamplesAzimuthX*usSamplesAzimuthY*usSamplesElevationZ);
+	unsigned short usX = 3;
+	unsigned short usY = 7;
+	unsigned short usZ = 7;
+	PRINT(usX);
+	PRINT(usY);
+	PRINT(usZ);
+	PRINT(usZ*usLevel+usY*usWidth+usX);
+
+}
 void tryCpp()
 {
-	tryCppOperator();
-	tryCppLongDouble();
-	tryCppSizeof();
-	tryCppTypeDef();
-	tryStdVector();
+	tryCppBitwiseShift();
+	//tryCppOperator();
+	//tryCppLongDouble();
+	//tryCppSizeof();
+	//tryCppTypeDef();
+	//tryStdVector();
 
 }
 //try CV
@@ -408,12 +442,12 @@ int main()
 		//testCVUtil();
 		//cudaTestTry();
 		//try Cpp
-		//tryCpp();
+		tryCpp();
 		//try CV
 		//tryCV();
 		//try Eigen
 		//tryEigen();
-		testSCamera();
+		//testSCamera();
 	}
 	catch ( std::runtime_error e )
 	{

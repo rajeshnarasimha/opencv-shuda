@@ -41,6 +41,8 @@ CModel::CModel(btl::kinect::VideoSourceKinect& cKinect_)
 CModel::~CModel(void)
 {
 }
+
+
 void CModel::detectPlaneFromCurrentFrame(const short uPyrLevel_)
 {
 	//get next frame

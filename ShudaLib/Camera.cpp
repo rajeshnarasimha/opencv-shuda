@@ -139,14 +139,14 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmRGB_, double
     dR *= dPhysicalFocalLength_;
 
     glPushAttrib ( GL_CURRENT_BIT );
-/*
+
     //draw principle point
     glColor3d ( 0., 0., 1. );
     glPointSize ( 5 );
     glBegin ( GL_POINTS );
     glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
     glEnd();
-
+	
     //draw principle axis
     glColor3d ( 0., 0., 1. );
     glLineWidth ( 1 );
@@ -168,7 +168,7 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmRGB_, double
     glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
     glVertex3d ( 0, dT, -dPhysicalFocalLength_ );
     glEnd();
-*/
+
     glPopAttrib();
 
     //draw frame
@@ -178,7 +178,7 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmRGB_, double
         glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
         glBindTexture ( GL_TEXTURE_2D, _uTexture );
 
-        //glColor3d(1., 1., 1.); glLineWidth(.5);
+        glColor4f(1.f, 1.f, 1.f, 0.5f); glLineWidth(.5);
         glBegin ( GL_QUADS );
         glTexCoord2f ( 0.0, 0.0 );
         glVertex3d ( dL, dT, -dPhysicalFocalLength_ );
