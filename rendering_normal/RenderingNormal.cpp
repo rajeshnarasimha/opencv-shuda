@@ -56,14 +56,18 @@ int _nDensity = 2;
 float _fSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 4;
 int _nColorIdx = 0;
+bool _bRenderPlane = true;
 
-enum tp_diplay {NORMAL_CLUSTRE, DISTANCE_CLUSTER};
-tp_diplay _enumType = NORMAL_CLUSTRE;
+btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
     switch( key )
     {
+	case 'p':
+		//use current keyframe as a reference
+		_bRenderPlane =! _bRenderPlane;
+		glutPostRedisplay();
     case 'c':
         //capture current frame the depth map and color
         _bCaptureCurrentFrame = true;
@@ -137,8 +141,8 @@ void specialKeys(int nKey_,int x, int y)
 		PRINT(_nColorIdx);
 		break;
 	case GLUT_KEY_F5:
-		_enumType = NORMAL_CLUSTRE == _enumType? DISTANCE_CLUSTER : NORMAL_CLUSTRE;
-		if(NORMAL_CLUSTRE == _enumType) {
+		_enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE == _enumType? btl::kinect::CKeyFrame::DISTANCE_CLUSTER : btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
+		if(btl::kinect::CKeyFrame::NORMAL_CLUSTRE == _enumType) {
 			PRINTSTR( "NORMAL_CLUSTRE" );
 		}
 		else{
@@ -156,6 +160,7 @@ void mouseMotion ( int nX_, int nY_ ){
 	_pGL->mouseMotion(nX_,nY_);
 }
 
+/*
 void render3DPts()
 {
 	if( _bEnableLighting )
@@ -165,7 +170,7 @@ void render3DPts()
 	
 	const float* pPt = (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[_pGL->_uLevel]->data;
 	const float* pNl = (const float*)_pKinect->_pFrame->_acvmShrPtrPyrNls[_pGL->_uLevel]->data;
-	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
+	const unsigned char* pColor/ * = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data* /;
 	const short* pLabel;
 	if(NORMAL_CLUSTRE ==_enumType){
 		//pLabel = (const short*)_pModel->_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
@@ -192,16 +197,15 @@ void render3DPts()
 	}
 	
     return;
-}
+}*/
+
 void display ( void )
 {
 	//if(_bCaptureCurrentFrame) 
 	{
-		//_pModel->detectPlaneFromCurrentFrame(_pGL->_uLevel);
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 		_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
 		_bCaptureCurrentFrame = false;
-		std::cout << "capture done.\n" << std::flush;
 	}
 
     glMatrixMode ( GL_MODELVIEW );
@@ -218,11 +222,9 @@ void display ( void )
     _pGL->renderAxisGL();
 	_pGL->renderVoxelGL(2.f);
     //render3DPts();
-
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,_pGL->_uLevel);
-
-    //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 640, 480, GL_RGBA, GL_UNSIGNED_BYTE, _pVS->cvRGB().data);
-    //_pView->renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
+	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
+	_pKinect->_pFrame->_eClusterType = _enumType;
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,.05,_pGL->_uLevel);
 
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -234,8 +236,6 @@ void display ( void )
     glLoadIdentity();
 
     // render objects
-    //renderAxis();
-    //render3DPts();
 	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
     _pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
 
@@ -279,7 +279,7 @@ int main ( int argc, char** argv )
 		_pKinect->_pFrame->_pGL=_pGL.get();
 
         glutInit ( &argc, argv );
-        glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
+        glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
         init();

@@ -3,21 +3,41 @@
 
 namespace btl { namespace kinect {
 
-class CKeyFrame {
-	//type
-public:
-	typedef boost::shared_ptr< CKeyFrame > tp_shared_ptr;
-	typedef CKeyFrame* tp_ptr;
-private:
+struct SNormalHist{
 	//normal histogram type
 	typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
 	//distance histogram type
 	typedef std::pair< double,unsigned int >						  tp_pair_hist_element; 
 	typedef std::pair< std::vector< tp_pair_hist_element >, double >  tp_pair_hist_bin;
 	typedef std::vector< tp_pair_hist_bin >							  tp_hist;
+
+	boost::shared_ptr<tp_normal_hist_bin*> _ppNormalHistogram;
+	float _fBinSize;
+	unsigned short _usSamplesAzimuth;
+	unsigned short _usSamplesElevationZ;
+	unsigned short _usWidth;
+	unsigned short _usLevel;
+	unsigned short _usTotal;
+	cv::gpu::GpuMat _cvgmBinIdx;
+	cv::Mat _cvmBinIdx;
+};
+
+class CKeyFrame {
+	//type
+public:
+	typedef boost::shared_ptr< CKeyFrame > tp_shared_ptr;
+	typedef CKeyFrame* tp_ptr;
+	enum tp_cluster { NORMAL_CLUSTRE, DISTANCE_CLUSTER};
+private:
+
+	//normal histogram type
+	//typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
+	//distance histogram type
+	//typedef std::pair< double,unsigned int >						  tp_pair_hist_element; 
+	//typedef std::pair< std::vector< tp_pair_hist_element >, double >  tp_pair_hist_bin;
+	//typedef std::vector< tp_pair_hist_bin >							  tp_hist;
 	//mergeable flag for distance clustering
 	enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
-	enum tp_cluster { NORMAL_CLUSTRE, DISTANCE_CLUSTER};
 public:
     CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ );
     ~CKeyFrame() {}
@@ -40,7 +60,7 @@ public:
 		}
 	}
 	// render the camera location in the GL world
-	void renderCameraInGLWorld( bool bRenderCamera_, const unsigned short uLevel_=0) const;
+	void renderCameraInGLWorld( bool bRenderCamera_,const double& dSize_,const unsigned short uLevel_ ) const;
 	// render the depth in the GL world 
 	void render3DPtsInGLLocal(const unsigned short _uLevel) const;
 	void renderPlanesInGLLocal(const unsigned short _uLevel) const;
@@ -49,6 +69,7 @@ public:
 	void copyTo( CKeyFrame* pKF_, const short sLevel_ );
 	void copyTo( CKeyFrame* pKF_ );
 
+	static void initHistogram();
 	void detectPlane (const short uPyrLevel_);
 
 private:
@@ -61,11 +82,14 @@ private:
 						Eigen::MatrixXd* eimXTmp_, Eigen::MatrixXd* eimYTmp_, std::vector< int >* pvIdx_ = NULL );
 	//for plane detection
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
-	void normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< tp_normal_hist_bin >* pvNormalHistogram_,btl::utility::tp_coordinate_convention eCon_);
-	void distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& nSamples, const std::vector< unsigned int >& vIdx_, tp_hist* pvDistHist );
-	void calcMergeFlag( const tp_hist& vDistHist, const double& dSampleStep, std::vector< tp_flag >* vMergeFlags );
-	void mergeDistanceBins( const std::vector< tp_flag >& vMergeFlags_, const tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ );
+	void normalHistogram( const cv::Mat& cvmNls_, int nSamples_, std::vector< SNormalHist::tp_normal_hist_bin >* pvNormalHistogram_,btl::utility::tp_coordinate_convention eCon_);
+	void distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& nSamples, const std::vector< unsigned int >& vIdx_, SNormalHist::tp_hist* pvDistHist );
+	void calcMergeFlag( const SNormalHist::tp_hist& vDistHist, const double& dSampleStep, std::vector< tp_flag >* vMergeFlags );
+	void mergeDistanceBins( const std::vector< tp_flag >& vMergeFlags_, const SNormalHist::tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ );
 	void clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ );
+	void gpuNormalHistogram( const cv::gpu::GpuMat& cvgmNls_, const cv::Mat& cvmNls_, const ushort usPryLevel_,btl::kinect::SNormalHist* psNormalHistogram_,btl::utility::tp_coordinate_convention eCon_);
+	static void calcNormalHistogramBins(const unsigned short usSamples_, SNormalHist::tp_normal_hist_bin** ppNormalHistogram_, unsigned short* pusSampleAzimuthX_, unsigned short* pusSampleAzimuthZ_, unsigned short* pusWidth_,unsigned short* pusLevel_, float* pfSize_ );
+	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
@@ -82,7 +106,7 @@ public:
 	//clusters
 	boost::shared_ptr<cv::Mat>   _acvmShrPtrNormalClusters[4];
 	boost::shared_ptr<cv::Mat> _acvmShrPtrDistanceClusters[4];
-
+	//pose
 	Eigen::Matrix3d _eimR; //R & T is the relative pose w.r.t. the coordinate defined by the previous camera system.
 	Eigen::Vector3d _eivT; //R & T is defined using CV convention
 	//render context
@@ -103,8 +127,11 @@ private:
 	std::vector< std::vector< unsigned int > > _vvLabelPointIdx;
 	//the minmum area of a cluster
 	unsigned short _usMinArea;
-
+	
+	static SNormalHist _sNormalHist;
 };//end of class
+
+
 
 }//utility
 }//btl

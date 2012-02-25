@@ -22,12 +22,14 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <VideoSourceKinect.hpp>
 
+#define _nReserved 60
+
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
 unsigned short _nWidth, _nHeight;
 
-btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[10];
+btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
 std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
 std::vector< int > _vRFIdx;
 int _nKFCounter = 1; //key frame counter
@@ -90,6 +92,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_bRenderPlane =! _bRenderPlane;
 		for(unsigned int i=0; i < _nKFCounter; i++)	{
 			_aShrPtrKFs[i]->_bRenderPlane=_bRenderPlane;
+			if(_bRenderPlane) {_aShrPtrKFs[i]->detectPlane(_pGL->_uLevel);}
 		}
 		glutPostRedisplay();
 		break;
@@ -109,7 +112,7 @@ void mouseMotion ( int nX_, int nY_ ){
 }
 
 void init ( ){
-	for(int i=0; i <10; i++){ 
+	for(int i=0; i <_nReserved; i++){ 
 		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));	
 		_aShrPtrKFs[i]->_pGL = _pGL.get();
 	}
@@ -136,16 +139,24 @@ void init ( ){
 	_pKinect->_pFrame->copyTo(&*p1stKF);
 	p1stKF->_bIsReferenceFrame = true;
 	p1stKF->setView(&_pGL->_eimModelViewGL);
-	p1stKF->detectPlane(_pGL->_uLevel);
+	//p1stKF->detectPlane(_pGL->_uLevel);
 	_vShrPtrsKF.push_back( &p1stKF );
     return;
 }
-
+#define TIMER
+//timer
+boost::posix_time::ptime _cT0, _cT1;
+boost::posix_time::time_duration _cTDAll;
+float _fFPS;//frame per second
 void display ( void ) {
 // update frame
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
-    if ( _bCapture && _nKFCounter < 10 ) {
+    if ( _bCapture && _nKFCounter < _nReserved ) {
+#ifdef TIMER	
+		// timer on
+		_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+#endif
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
@@ -155,11 +166,18 @@ void display ( void ) {
         pCurrentKF->calcRT ( *pReferenceKF,0 );
  		pCurrentKF->applyRelativePose( *pReferenceKF );
 		//detect planes
-		pCurrentKF->detectPlane(_pGL->_uLevel);
+		//pCurrentKF->detectPlane(_pGL->_uLevel);
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
 		_bCapture = false;
+#ifdef TIMER
+		// timer off
+		_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+		_cTDAll = _cT1 - _cT0 ;
+		_fFPS = 1000.f/_cTDAll.total_milliseconds();
+		PRINT( _fFPS );
+#endif
     }
 	else if( _nKFCounter > 49 )	{
 		std::cout << "two many key frames to hold" << std::flush;  
@@ -176,14 +194,14 @@ void display ( void ) {
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
     // render objects
 	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
-		(**cit)->renderCameraInGLWorld( _pGL->_bDisplayCamera, _pGL->_uLevel );
+		(**cit)->renderCameraInGLWorld( _pGL->_bDisplayCamera, .05,_pGL->_uLevel );
 	}
 
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
-		_pGL->renderVoxelGL(2.f);
+		//_pGL->renderVoxelGL(2.f);
 		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
 
