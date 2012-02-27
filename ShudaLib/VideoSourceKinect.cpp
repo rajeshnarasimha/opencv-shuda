@@ -20,6 +20,7 @@
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include "GLUtil.h"
+#include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "cuda/CudaLib.h"
@@ -43,15 +44,8 @@ VideoSourceKinect::VideoSourceKinect ()
 
     XnStatus nRetVal = XN_STATUS_OK;
     //initialize OpenNI context
-/*    
-    nRetVal = _cContext.InitFromXmlFile("/space/csxsl/src/btl-shuda/Kinect.xml"); 
-    CHECK_RC ( nRetVal, "Initialize context: " );
-    nRetVal = _cContext.FindExistingNode(XN_NODE_TYPE_IR, _cIRGen); 
-    CHECK_RC ( nRetVal, "Find existing node: " );
-*/    
     nRetVal = _cContext.Init();
     CHECK_RC ( nRetVal, "Initialize context: " );
-
     //create a image generator
     nRetVal =  _cImgGen.Create ( _cContext );
     CHECK_RC ( nRetVal, "Create image generator: " );
@@ -69,7 +63,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	_pRGBCamera.reset(new SCamera(btl::kinect::SCamera::CAMERA_RGB));
 	_pIRCamera .reset(new SCamera(btl::kinect::SCamera::CAMERA_IR));
 	importYML();
-
+	PRINTSTR("data holder constructed...");
 	_pFrame.reset(new CKeyFrame(_pRGBCamera.get()));
 	//allocate
     _cvmRGB			   .create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
@@ -88,24 +82,19 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvgmRGBWorld       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 	_cvgmAlignedRawDepth.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
 	_cvgm32FC1Tmp       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
-	PRINTSTR("data holder constructed...");
-	//disparity
-	for(int i=0; i<4; i++)
-	{
+
+	for(int i=0; i<4; i++)	{
 		int nRows = KINECT_HEIGHT>>i; 
 		int nCols = KINECT_WIDTH>>i;
 		//device
 		_vcvgmPyrDepths    .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
 		_vcvgmPyrDisparity .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
-		//_vcvgmPyrRGBs      .push_back(cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
 		_vcvgmPyr32FC1Tmp  .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
-		//_vcvgmPyrPts	   .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
-		//_vcvgmPyrNls	   .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
 		//host
 		_vcvmPyrDepths.push_back(cv::Mat(nRows,nCols,CV_32FC1));
-		//_vcvmPyrRGBs  .push_back(cv::Mat(nRows,nCols,CV_8UC3 ));
-		//_acvmShrPtrPyrPts[i].reset(new cv::Mat(nRows,nCols,CV_32FC3));
-		//_acvmShrPtrPyrNls[i].reset(new cv::Mat(nRows,nCols,CV_32FC3));
+		//rendering (static)
+		btl::kinect::CKeyFrame::_acvgmShrPtrAA[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
+		btl::kinect::CKeyFrame::_acvmShrPtrAA[i].reset(new cv::Mat(nRows,nCols,CV_32FC3));
 		PRINTSTR("construct pyrmide level:");
 		PRINT(i);
 	}
@@ -113,7 +102,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	//other
 	//definition of parameters
 	_fThresholdDepthInMeter = 0.01f;
-	_fSigmaSpace = 4;
+	_fSigmaSpace = 1;
 	_fSigmaDisparity = 1.f/.6f - 1.f/(.6f+_fThresholdDepthInMeter);
 	_uPyrHeight = 1;
 
@@ -121,7 +110,8 @@ VideoSourceKinect::VideoSourceKinect ()
 	_dXCentroid = _dYCentroid = 0;
 	_dZCentroid = 1.0;
 	//initialize normal histogram
-	CKeyFrame::initHistogram();
+	btl::kinect::CKeyFrame::_sNormalHist.init(2);
+
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()
@@ -292,8 +282,9 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 	_pFrame->_acvgmShrPtrPyrBWs[0]->download(*_pFrame->_acvmShrPtrPyrBWs[0]);
 	for( unsigned int i=1; i<_uPyrHeight; i++ )	{
 		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);
-		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
 		_pFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pFrame->_acvmShrPtrPyrRGBs[i]);
+		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
+		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
 		btl::cuda_util::cudaPyrDown( _vcvgmPyrDisparity[i-1],_fSigmaDisparity,&_vcvgmPyr32FC1Tmp[i]);
 		btl::cuda_util::cudaBilateralFiltering(_vcvgmPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&(_vcvgmPyrDisparity[i]));
 		btl::cuda_util::cudaDisparity2Depth(_vcvgmPyrDisparity[i],&(_vcvgmPyrDepths[i]));
@@ -301,7 +292,6 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
 		btl::cuda_util::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[i],&*_pFrame->_acvgmShrPtrPyrNls[i]);
 		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
-		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
 	}	
 	return;
 }

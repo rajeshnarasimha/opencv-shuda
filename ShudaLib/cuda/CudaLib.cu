@@ -20,6 +20,7 @@
 #include <opencv2/gpu/devmem2d.hpp>
 #include "common.hpp" //copied from opencv
 #include "../OtherUtil.hpp"
+#include <math_constants.h>
 
 namespace btl
 {
@@ -219,7 +220,7 @@ void cudaProjectRGB(const cv::gpu::GpuMat& cvgmRGBWorld_,
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //const float sigma_color = 30;     //in mm
-//const float sigma_space = 4.5;     // in pixels
+//const float sigma_space = 4;     // in pixels
 __constant__ float _aSigma2InvHalf[2]; //sigma_space2_inv_half,sigma_color2_inv_half
 
 __global__ void bilateralKernel (const cv::gpu::DevMem2Df src, cv::gpu::DevMem2Df dst )
@@ -229,7 +230,7 @@ __global__ void bilateralKernel (const cv::gpu::DevMem2Df src, cv::gpu::DevMem2D
 
     if (x >= src.cols || y >= src.rows)  return;
 
-    const int R = 6;       //static_cast<int>(sigma_space * 1.5);
+    const int R = 2;//static_cast<int>(sigma_space * 1.5);
     const int D = R * 2 + 1;
 
     float fValueCentre = src.ptr (y)[x];
@@ -237,16 +238,16 @@ __global__ void bilateralKernel (const cv::gpu::DevMem2Df src, cv::gpu::DevMem2D
     int tx = min (x - D/2 + D, src.cols - 1);
     int ty = min (y - D/2 + D, src.rows - 1);
 
-    double sum1 = 0;
-    double sum2 = 0;
+    float sum1 = 0;
+    float sum2 = 0;
 
     for (int cy = max (y - D/2, 0); cy < ty; ++cy)
     for (int cx = max (x - D/2, 0); cx < tx; ++cx)
     {
         float  fValueNeighbour = src.ptr (cy)[cx];
-        double space2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-        double color2 = (fValueCentre - fValueNeighbour) * (fValueCentre - fValueNeighbour);
-        double weight = __expf (-(space2 * _aSigma2InvHalf[0] + color2 * _aSigma2InvHalf[1]) );
+        float space2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        float color2 = (fValueCentre - fValueNeighbour) * (fValueCentre - fValueNeighbour);
+        float weight = __expf (-(space2 * _aSigma2InvHalf[0] + color2 * _aSigma2InvHalf[1]) );
 
         sum1 += fValueNeighbour * weight;
         sum2 += weight;
@@ -373,23 +374,23 @@ __global__ void kernelFastNormalEstimationGL (const cv::gpu::DevMem2D_<float3> c
 
 	if(fabsf(pt.z)<0.0000001||fabsf(pt1.z)<0.0000001||fabsf(pt2.z)<0.0000001) return;
 
-	double3 v1;
+	float3 v1;
 	v1.x = pt1.x-pt.x;
 	v1.y = pt1.y-pt.y;
 	v1.z = pt1.z-pt.z;
-	double3 v2;
+	float3 v2;
 	v2.x = pt2.x-pt.x;
 	v2.y = pt2.y-pt.y;
 	v2.z = pt2.z-pt.z;
-	//n = v1 x v2
-	double3 n;
+	//n = v1 x v2 cross product
+	float3 n;
 	n.x = v1.y*v2.z - v1.z*v2.y;
 	n.y = v1.z*v2.x - v1.x*v2.z;
 	n.z = v1.x*v2.y - v1.y*v2.x;
 	//normalization
-	double norm = sqrtf(n.x*n.x + n.y*n.y + n.z*n.z);
+	float norm = sqrtf(n.x*n.x + n.y*n.y + n.z*n.z);
 
-	if( norm < 1.0e-50 ) return;
+	if( norm < 1.0e-10 ) return;
 	n.x /= norm;
 	n.y /= norm;
 	n.z /= norm;
@@ -416,26 +417,64 @@ void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* 
 	kernelFastNormalEstimationGL<<<grid, block>>>(cvgmPts_, *pcvgmNls_ );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-__constant__ ushort _aNormalHistorgarmParams[4];
-__global__ void normalHistogramKernel (const cv::gpu::DevMem2D_<float3> cvgmNls_, const float fNormalBinSize_, cv::gpu::DevMem2D_<short> cvgmBinIdx_ ){
+__global__ void kernelNormalCVSetRotationAxisGL (const cv::gpu::DevMem2D_<float3> cvgmNlCVs_, cv::gpu::DevMem2D_<float3> cvgmAAs_ )
+{
+    const int nX = blockDim.x * blockIdx.x + threadIdx.x;
+    const int nY = blockDim.y * blockIdx.y + threadIdx.y;
+    if (nX < cvgmNlCVs_.cols && nY < cvgmNlCVs_.rows ) {
+		const float3& Nl = cvgmNlCVs_.ptr(nY)[nX];
+		if(fabsf(Nl.x) + fabsf(Nl.y) <0.00001) return;
+		//Assuming both vectors v1, v2 are of equal magnitude, 
+		//a unique rotation R about the origin exists satisfying R.z-axis = Nl.
+		//It is most easily expressed in axis-angle representation.
+		//First, normalise the two source vectors, then compute w = z-axis × Nl (z-axis 0,0,1) Nl (x,-y,-z)
+		//Normalise again for the axis: w' = w / |w|
+		//Take the arcsine of the magnitude for the angle: 
+		//q = asin(|w|)
 
-	int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-	if (x >= cvgmNls_.cols || y >= cvgmNls_.rows)  return;
-	const float3& nl = cvgmNls_.ptr (y)[x];
-	if( fabsf( nl.x ) + fabsf( nl.y ) + fabsf( nl.z ) < 0.01 ) {cvgmBinIdx_.ptr(y)[x]=-1;;}
+		//float3 n;
+		//n.x = Nl.y; //because of cv-convention
+		//n.y = Nl.x;
+		//n.z =  0;
+		//normalization
+		float norm = sqrtf(Nl.x*Nl.x + Nl.y*Nl.y );
+		float3& fRA = cvgmAAs_.ptr(nY)[nX];
+		fRA.x = Nl.y/norm;
+		fRA.y = Nl.x/norm;
+		fRA.z = asinf(norm)*180.f/CUDART_PI_F;//convert to degree
+	}
+	return;
+}
+
+void cudaNormalCVSetRotationAxisGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::GpuMat* pcvgmAAs_ )
+{
+	pcvgmAAs_->setTo(0);
+	dim3 block (32, 8);
+	dim3 grid (cv::gpu::divUp (cvgmNlCVs_.cols, block.x), cv::gpu::divUp (cvgmNlCVs_.rows, block.y));
+	kernelNormalCVSetRotationAxisGL<<<grid, block>>>(cvgmNlCVs_, *pcvgmAAs_ );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__constant__ ushort _aNormalHistorgarmParams[3];
+__global__ void normalHistogramKernel (const cv::gpu::DevMem2D_<float3> cvgmNlCVs_, const float fNormalBinSize_, cv::gpu::DevMem2D_<short> cvgmBinIdx_ ){
+
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+	if (nX >= cvgmNlCVs_.cols || nY >= cvgmNlCVs_.rows)  return;
+	const float3& nl = cvgmNlCVs_.ptr (nY)[nX];
+	if( fabsf( nl.x ) + fabsf( nl.y ) + fabsf( nl.z ) < 0.00001 ) 
+		return;
 	else{
 		ushort usX,usY,usZ;
 		usX = __float2int_rd( nl.x / fNormalBinSize_ )+_aNormalHistorgarmParams[0];//0:usSamplesElevationZ_
 		usY = __float2int_rd( nl.y / fNormalBinSize_ )+_aNormalHistorgarmParams[0];
 		usZ = __float2int_rd(-nl.z / fNormalBinSize_ ); //because of cv-convention
-		cvgmBinIdx_.ptr(y)[x]= usZ*_aNormalHistorgarmParams[2]+ usY*_aNormalHistorgarmParams[1]+ usZ;//2:usLevel 1:usWidth
+		cvgmBinIdx_.ptr(nY)[nX]= usZ*_aNormalHistorgarmParams[2]+ usY*_aNormalHistorgarmParams[1]+ usX;//2:usLevel 1:usWidth
 	}
 }
-void cudaNormalHistogram(const cv::gpu::GpuMat& cvgmNls_, const unsigned short usSamplesAzimuth_, const unsigned short usSamplesElevationZ_, 
+void cudaNormalHistogram(const cv::gpu::GpuMat& cvgmNlCVs_, const unsigned short usSamplesAzimuth_, const unsigned short usSamplesElevationZ_, 
 	const unsigned short usWidth_,const unsigned short usLevel_,  const float fNormalBinSize_, cv::gpu::GpuMat* pcvgmBinIdx_){
 	//constant definition
-	size_t sN = sizeof(ushort) * 2;
+	size_t sN = sizeof(ushort) * 3;
 	ushort* const pNormal = (ushort*) malloc( sN );
 	pNormal[0] = usSamplesElevationZ_;
 	pNormal[1] = usWidth_;
@@ -443,8 +482,8 @@ void cudaNormalHistogram(const cv::gpu::GpuMat& cvgmNls_, const unsigned short u
 	cudaSafeCall( cudaMemcpyToSymbol(_aNormalHistorgarmParams, pNormal, sN) );
 	//define grid and block
 	dim3 block(32, 8);
-    dim3 grid(cv::gpu::divUp(cvgmNls_.cols, block.x), cv::gpu::divUp(cvgmNls_.rows, block.y));
-	normalHistogramKernel<<<grid,block>>>(cvgmNls_,fNormalBinSize_,*pcvgmBinIdx_);
+    dim3 grid(cv::gpu::divUp(cvgmNlCVs_.cols, block.x), cv::gpu::divUp(cvgmNlCVs_.rows, block.y));
+	normalHistogramKernel<<<grid,block>>>(cvgmNlCVs_,fNormalBinSize_,*pcvgmBinIdx_);
 }
 
 }//cuda_util

@@ -25,7 +25,8 @@ void cudaUnprojectRGB ( const cv::gpu::GpuMat& cvgmDepths_,
 void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 void cudaNormalHistogram(const cv::gpu::GpuMat& cvgmNls_, const unsigned short usSamplesAzimuth_, const unsigned short usSamplesElevationZ_, 
 	const unsigned short usWidth_,const unsigned short usLevel_,  const float fNormalBinSize_, cv::gpu::GpuMat* pcvgmBinIdx_);
-
+//set the rotation angle and axis for rendering disk GL convention; the input are normals in cv-convention
+void cudaNormalCVSetRotationAxisGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::GpuMat* pcvgmAAs_ );
 }//cuda_util
 }//btl
 #endif

@@ -21,6 +21,7 @@ struct SCamera
 	void renderOnImage( int nX_, int nY_ );
 	void importYML();
 	void generateMapXY4Undistort();
+	void initTexture ();
 
 	//camera parameters
 	float _fFx, _fFy, _u, _v; //_dFxIR, _dFyIR IR camera focal length

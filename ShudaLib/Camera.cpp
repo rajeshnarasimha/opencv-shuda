@@ -12,6 +12,7 @@ btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/ )
 	:_eType(eT_)
 {
 	importYML();
+	initTexture ();
 }
 
 void btl::kinect::SCamera::generateMapXY4Undistort()
@@ -77,22 +78,28 @@ void btl::kinect::SCamera::setIntrinsics ( unsigned int nScaleViewport_, const d
 
     return;
 }
-void btl::kinect::SCamera::LoadTexture ( const cv::Mat& img )
+void btl::kinect::SCamera::initTexture ()
 {
-    glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
+	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
-    glGenTextures ( 1, &_uTexture );
-    glBindTexture ( GL_TEXTURE_2D, _uTexture );
-    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
-    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
-    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST ); // cheap scaling when image bigger than texture
-    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST ); // cheap scaling when image smalled than texture
+	glGenTextures ( 1, &_uTexture );
+	
+
+}
+void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_ )
+{
+	glBindTexture ( GL_TEXTURE_2D, _uTexture );
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST ); // cheap scaling when image bigger than texture
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST ); // cheap scaling when image smalled than texture  
+
     // 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
     // border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
-    if( 3 == img.channels())
-        glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGB, img.cols, img.rows, 0, GL_RGB, GL_UNSIGNED_BYTE, img.data ); //???????????????????
-    else if( 1 == img.channels())
-        glTexImage2D ( GL_TEXTURE_2D, 0, GL_INTENSITY, img.cols, img.rows, 0, GL_INTENSITY, GL_UNSIGNED_BYTE, img.data );
+    if( 3 == cvmImg_.channels())
+        glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGB, cvmImg_.cols, cvmImg_.rows, 0, GL_RGB, GL_UNSIGNED_BYTE, cvmImg_.data ); //???????????????????
+    else if( 1 == cvmImg_.channels())
+        glTexImage2D ( GL_TEXTURE_2D, 0, GL_INTENSITY, cvmImg_.cols, cvmImg_.rows, 0, GL_INTENSITY, GL_UNSIGNED_BYTE, cvmImg_.data );
         //glTexEnvi ( GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_REPEAT );
 
     // 2d texture, 3 colors, width, height, RGB in that order, byte data, and the data.
@@ -115,11 +122,16 @@ void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
     //draw principle point
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
-void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmRGB_, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
+void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmImg_, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	if(bRenderTexture_){
 		glBindTexture(GL_TEXTURE_2D, _uTexture);
-		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmRGB_.cols,cvmRGB_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmRGB_.data);
+		//glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmRGB_.cols,cvmRGB_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmRGB_.data);
+
+		if( 3 == cvmImg_.channels())
+			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmImg_.data);
+		else if( 1 == cvmImg_.channels())
+			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_INTENSITY, GL_UNSIGNED_BYTE, cvmImg_.data);
 	}
 
     const double f = ( _fFx + _fFy ) / 2.;
