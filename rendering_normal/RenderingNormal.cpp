@@ -54,7 +54,7 @@ bool _bRenderNormal = false;
 bool _bEnableLighting = false;
 double _dDepthFilterThreshold = 0.01;
 int _nDensity = 2;
-float _fSize = 0.2; // range from 0.05 to 1 by step 0.05
+float _fSize = 0.2f; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 4;
 int _nColorIdx = 0;
 bool _bRenderPlane = true;
@@ -108,14 +108,14 @@ void normalKeys ( unsigned char key, int x, int y )
         PRINT( _nDensity );
         break;
     case 'k':
-        _fSize += 0.05;// range from 0.05 to 1 by step 0.05
-        _fSize = _fSize < 1 ? _fSize: 1;
+        _fSize += 0.05f;// range from 0.05 to 1 by step 0.05
+        _fSize = _fSize < 1.f ? _fSize: 1.f;
         glutPostRedisplay();
         PRINT( _fSize );
         break;
     case 'j':
-        _fSize -= 0.05;
-        _fSize = _fSize > 0.05? _fSize : 0.05;
+        _fSize -= 0.05f;
+        _fSize = _fSize > 0.05f? _fSize : 0.05f;
         glutPostRedisplay();
         PRINT( _fSize );
         break;
@@ -207,7 +207,7 @@ void display ( void )
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
 	_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,.05,_pGL->_uLevel);
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,.05f,_pGL->_uLevel);
 	PRINTSTR("renderCameraInGLWorld()")
 	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -221,9 +221,9 @@ void display ( void )
 
     // render objects
 	_pGL->timerStart();
-	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
-	_pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
-	PRINTSTR("Camera")
+	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_uLevel],&(_pKinect->_pFrame->_uTexture) );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_uLevel] );
+	PRINTSTR("Camera");
 	_pGL->timerStop();
 
 

@@ -16,7 +16,7 @@ public:
 	// detect the correspondences 
 	void detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ );
 	//calculate the R and T relative to Reference Frame.
-	void calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ );
+	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , unsigned short* pInliers_);
 	//accumulate the relative R T to the global RT
 	void applyRelativePose( const CKeyFrame& sReferenceKF_ ) {
 		_eivT = _eimR*sReferenceKF_._eivT + _eivT;//order matters 
@@ -32,7 +32,7 @@ public:
 		}
 	}
 	// render the camera location in the GL world
-	void renderCameraInGLWorld( bool bRenderCamera_,const double& dSize_,const unsigned short uLevel_ ) const;
+	void renderCameraInGLWorld( bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
 	// render the depth in the GL world 
 	void render3DPtsInGLLocal(const unsigned short _uLevel) const;
 	void renderPlanesInGLLocal(const unsigned short _uLevel) const;
@@ -87,6 +87,8 @@ public:
 	bool _bIsReferenceFrame;
 	bool _bRenderPlane;
 	bool _bGPURender;
+	GLuint _uTexture;
+
 	btl::utility::tp_coordinate_convention _eConvention;
 	tp_cluster _eClusterType;
 	static btl::utility::SNormalHist _sNormalHist;

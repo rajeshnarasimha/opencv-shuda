@@ -41,15 +41,15 @@ CCalibrateKinect::CCalibrateKinect()
     _aRT[1] = vRT ( 1 );
     _aRT[2] = vRT ( 2 );
 
-    _fFxIR = eiMatIRK() ( 0, 0 );
-    _fFyIR = eiMatIRK() ( 1, 1 );
-    _uIR  = eiMatIRK() ( 0, 2 );
-    _vIR  = eiMatIRK() ( 1, 2 );
+    _fFxIR = (float)eiMatIRK() ( 0, 0 );
+    _fFyIR = (float)eiMatIRK() ( 1, 1 );
+    _uIR  = (float)eiMatIRK() ( 0, 2 );
+    _vIR  = (float)eiMatIRK() ( 1, 2 );
 
-    _fFxRGB = eiMatRGBK() ( 0, 0 );
-    _fFyRGB = eiMatRGBK() ( 1, 1 );
-    _uRGB  = eiMatRGBK() ( 0, 2 );
-    _vRGB  = eiMatRGBK() ( 1, 2 );
+    _fFxRGB = (float)eiMatRGBK() ( 0, 0 );
+    _fFyRGB = (float)eiMatRGBK() ( 1, 1 );
+    _uRGB  = (float)eiMatRGBK() ( 0, 2 );
+    _vRGB  = (float)eiMatRGBK() ( 1, 2 );
 
 	_nPatternType = SQUARE;
     //define 3D pattern corners

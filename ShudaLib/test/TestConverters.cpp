@@ -116,8 +116,8 @@ void testConvert2DisparityDomain()
 	cv::Mat_<float> cvResult;
 	cv::Mat cvDisparity;
 
-	for(unsigned int r = 0; r < cvDepth.rows; r++ )
-		for(unsigned int c = 0; c < cvDepth.cols; c++ )
+	for(int r = 0; r < cvDepth.rows; r++ )
+		for(int c = 0; c < cvDepth.cols; c++ )
 		{
 			cvDepth.at<float>( r,c) = r* 43 + c;   
 		}
@@ -407,9 +407,9 @@ template <typename T1, typename T2> struct Select<false, T1, T2> { typedef T2 ty
 void tryCVTypeSelect()
 {
 	PRINTSTR( "template <bool, typename T1, typename T2> struct Select { typedef T1 type; };" );
-	Select<2,float,int>::type f=0.1;
+	Select<2,float,int>::type f=0.1f;
 	PRINT(f);
-	Select<false,float,int>::type i=0.1;
+	Select<false,float,int>::type i=0.1f;
 	PRINT(i);
 }
 void tryCV()

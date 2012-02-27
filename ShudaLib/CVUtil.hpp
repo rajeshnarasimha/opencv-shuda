@@ -345,16 +345,16 @@ void convert2DisparityDomain(const cv::Mat_<T>& cvDepth_, cv::Mat* pcvDisparity_
 
 	if( ptMax_ && ptMax_)
 	{
-		*ptMax_ = -BTL_MAX;
-		*ptMin_ =  BTL_MAX;
+		*ptMax_ = -(float)BTL_DOUBLE_MAX;
+		*ptMin_ =  (float)BTL_DOUBLE_MAX;
 	}
 
 	for(cv::MatIterator_<float> it = cvDisparity_.begin<float>(); it != cvDisparity_.end<float>(); ++it, pInputDepth++ )
 	{
-			double dDepth = *pInputDepth;
-			if( dDepth>0.0001 )
+			float fDepth = *pInputDepth;
+			if( fDepth>0.0001 )
 			{
-				*it = 1./dDepth;
+				*it = 1.f/fDepth;
 				if( ptMax_ && ptMax_)
 				{
 					*ptMax_ = *it> *ptMax_?*it:*ptMax_;

@@ -12,7 +12,6 @@ btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/ )
 	:_eType(eT_)
 {
 	importYML();
-	initTexture ();
 }
 
 void btl::kinect::SCamera::generateMapXY4Undistort()
@@ -78,30 +77,21 @@ void btl::kinect::SCamera::setIntrinsics ( unsigned int nScaleViewport_, const d
 
     return;
 }
-void btl::kinect::SCamera::initTexture ()
-{
-	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
-	glGenTextures ( 1, &_uTexture );
-	
-
-}
-void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_ )
+void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTexture_ )
 {
-	glBindTexture ( GL_TEXTURE_2D, _uTexture );
+	glBindTexture ( GL_TEXTURE_2D, *puTexture_ );
 	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
 	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
 	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST ); // cheap scaling when image bigger than texture
 	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST ); // cheap scaling when image smalled than texture  
-
     // 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
     // border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
     if( 3 == cvmImg_.channels())
         glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGB, cvmImg_.cols, cvmImg_.rows, 0, GL_RGB, GL_UNSIGNED_BYTE, cvmImg_.data ); //???????????????????
     else if( 1 == cvmImg_.channels())
-        glTexImage2D ( GL_TEXTURE_2D, 0, GL_INTENSITY, cvmImg_.cols, cvmImg_.rows, 0, GL_INTENSITY, GL_UNSIGNED_BYTE, cvmImg_.data );
-        //glTexEnvi ( GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_REPEAT );
-
+        glTexImage2D ( GL_TEXTURE_2D, 0, GL_LUMINANCE, cvmImg_.cols, cvmImg_.rows, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, cvmImg_.data );
+    //glTexEnvi ( GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_REPEAT );
     // 2d texture, 3 colors, width, height, RGB in that order, byte data, and the data.
     //gluBuild2DMipmaps ( GL_TEXTURE_2D, GL_RGB, img.cols, img.rows,  GL_RGB, GL_UNSIGNED_BYTE, img.data );
     return;
@@ -122,16 +112,15 @@ void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
     //draw principle point
     glVertex3d ( dX, dY, -dPhysicalFocalLength );
 }
-void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmImg_, double dPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
+void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const cv::Mat& cvmImg_, float fPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	if(bRenderTexture_){
-		glBindTexture(GL_TEXTURE_2D, _uTexture);
-		//glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmRGB_.cols,cvmRGB_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmRGB_.data);
+		glBindTexture(GL_TEXTURE_2D, uTesture_);
 
 		if( 3 == cvmImg_.channels())
 			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmImg_.data);
 		else if( 1 == cvmImg_.channels())
-			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_INTENSITY, GL_UNSIGNED_BYTE, cvmImg_.data);
+			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_LUMINANCE, GL_UNSIGNED_BYTE, cvmImg_.data);
 	}
 
     const double f = ( _fFx + _fFy ) / 2.;
@@ -139,16 +128,16 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmImg_, double
     // Draw principle point
     double dT =  _v;
     dT /= f;
-    dT *= dPhysicalFocalLength_;
+    dT *= fPhysicalFocalLength_;
     double dB =  _v - _sHeight;
     dB /= f;
-    dB *= dPhysicalFocalLength_;
+    dB *= fPhysicalFocalLength_;
     double dL = -_u;
     dL /= f;
-    dL *= dPhysicalFocalLength_;
+    dL *= fPhysicalFocalLength_;
     double dR = -_u + _sWidth;
     dR /= f;
-    dR *= dPhysicalFocalLength_;
+    dR *= fPhysicalFocalLength_;
 
     glPushAttrib ( GL_CURRENT_BIT );
 
@@ -156,7 +145,7 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmImg_, double
     glColor3d ( 0., 0., 1. );
     glPointSize ( 5 );
     glBegin ( GL_POINTS );
-    glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
+    glVertex3d ( 0, 0, -fPhysicalFocalLength_ );
     glEnd();
 	
     //draw principle axis
@@ -164,21 +153,21 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmImg_, double
     glLineWidth ( 1 );
     glBegin ( GL_LINES );
     glVertex3d ( 0, 0, 0 );
-    glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
+    glVertex3d ( 0, 0, -fPhysicalFocalLength_ );
     glEnd();
 
     //draw x axis in camera view
     glColor3d ( 1., 0., 0. ); //x
     glBegin ( GL_LINES );
-    glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
-    glVertex3d ( dR, 0, -dPhysicalFocalLength_ );
+    glVertex3d ( 0, 0, -fPhysicalFocalLength_ );
+    glVertex3d ( dR, 0,-fPhysicalFocalLength_ );
     glEnd();
 
     //draw y axis in camera view
     glColor3d ( 0., 1., 0. ); //y
     glBegin ( GL_LINES );
-    glVertex3d ( 0, 0, -dPhysicalFocalLength_ );
-    glVertex3d ( 0, dT, -dPhysicalFocalLength_ );
+    glVertex3d ( 0, 0, -fPhysicalFocalLength_ );
+    glVertex3d ( 0, dT,-fPhysicalFocalLength_ );
     glEnd();
 
     glPopAttrib();
@@ -188,18 +177,18 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const cv::Mat& cvmImg_, double
     {
         glEnable ( GL_TEXTURE_2D );
         glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-        glBindTexture ( GL_TEXTURE_2D, _uTexture );
+        glBindTexture ( GL_TEXTURE_2D, uTesture_ );
 
         glColor4f(1.f, 1.f, 1.f, 0.5f); glLineWidth(.5);
         glBegin ( GL_QUADS );
         glTexCoord2f ( 0.0, 0.0 );
-        glVertex3d ( dL, dT, -dPhysicalFocalLength_ );
+        glVertex3d ( dL, dT, -fPhysicalFocalLength_ );
         glTexCoord2f ( 0.0, 1.0 );
-        glVertex3d ( dL, dB, -dPhysicalFocalLength_ );
+        glVertex3d ( dL, dB, -fPhysicalFocalLength_ );
         glTexCoord2f ( 1.0, 1.0 );
-        glVertex3d ( dR, dB, -dPhysicalFocalLength_ );
+        glVertex3d ( dR, dB, -fPhysicalFocalLength_ );
         glTexCoord2f ( 1.0, 0.0 );
-        glVertex3d ( dR, dT, -dPhysicalFocalLength_ );
+        glVertex3d ( dR, dT, -fPhysicalFocalLength_ );
         glEnd();
         glDisable ( GL_TEXTURE_2D );
     }

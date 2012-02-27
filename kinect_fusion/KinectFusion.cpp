@@ -4,7 +4,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#define _USE_MATH_DEFINES
+#include <math.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include <Converters.hpp>
 #include <opencv2/gpu/gpumat.hpp>
 #include <utility>
@@ -14,12 +21,9 @@
 #include "GLUtil.h"
 #include "EigenUtil.hpp"
 #include "Camera.h"
-#include <boost/random.hpp>
-#include <boost/generator_iterator.hpp>
 #include "GLUtil.h"
+#include "Histogram.h"
 #include "KeyFrame.h"
-#include <boost/scoped_ptr.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <VideoSourceKinect.hpp>
 
 #define _nReserved 60
@@ -67,6 +71,7 @@ void normalKeys ( unsigned char key, int x, int y ){
     case 'c': 
 		//capture current view as a key frame
         _bCapture = true;
+		
         break;
 	case 'd':
 		//remove last key frame
@@ -152,37 +157,62 @@ void display ( void ) {
 // update frame
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 // ( second frame )
-    if ( _bCapture && _nKFCounter < _nReserved ) {
-#ifdef TIMER	
-		// timer on
-		_cT0 =  boost::posix_time::microsec_clock::local_time(); 
-#endif
+	//_pGL->timerStart();
+	unsigned short uInliers;
+    if ( false && _nKFCounter < _nReserved ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
         // track camera motion
 		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
-        pCurrentKF->calcRT ( *pReferenceKF,0 );
+        pCurrentKF->calcRT ( *pReferenceKF,0,&uInliers );
  		pCurrentKF->applyRelativePose( *pReferenceKF );
 		//detect planes
 		//pCurrentKF->detectPlane(_pGL->_uLevel);
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
+
+		//use current keyframe as a reference
+		if( _nRFIdx <_nKFCounter && _nKFCounter < _nReserved )
+		{
+			_nRFIdx = _nKFCounter-1;
+			_vRFIdx.push_back( _nRFIdx );
+			_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
+		}
 		_bCapture = false;
-#ifdef TIMER
-		// timer off
-		_cT1 =  boost::posix_time::microsec_clock::local_time(); 
-		_cTDAll = _cT1 - _cT0 ;
-		_fFPS = 1000.f/_cTDAll.total_milliseconds();
-		PRINT( _fFPS );
-#endif
     }
 	else if( _nKFCounter > 49 )	{
 		std::cout << "two many key frames to hold" << std::flush;  
 	}
-
+	else if (_bCapture && _nKFCounter < _nReserved){
+		// assign the rgb and depth to the current frame.
+		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
+		// track camera motion
+		_pKinect->_pFrame->detectConnectionFromCurrentToReference(*pReferenceKF,0);
+		double dE = _pKinect->_pFrame->calcRT ( *pReferenceKF,0, &uInliers);
+		Eigen::AngleAxis<double> eiAA(_pKinect->_pFrame->_eimR);
+		double dAngle = eiAA.angle();
+		double dNorm = _pKinect->_pFrame->_eivT.norm(); 
+		_pKinect->_pFrame->applyRelativePose( *pReferenceKF );
+		if( dE < 0.05 && uInliers> 40 && ( dNorm > 0.05 || dAngle > M_PI_4/4.) ){
+			PRINT(dAngle);
+			PRINT(dNorm)
+			btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
+			_pKinect->_pFrame->copyTo(&*pCurrentKF);
+			_vShrPtrsKF.push_back( &pCurrentKF );
+			_nKFCounter++;
+			//use current keyframe as a reference
+			if( _nRFIdx <_nKFCounter ){
+				_nRFIdx = _nKFCounter-1;
+				_vRFIdx.push_back( _nRFIdx );
+				_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
+			}
+			std::cout << "new key frame added" << std::flush;
+		}
+	}
+	//_pGL->timerStop();
 // render first viewport
     glMatrixMode ( GL_MODELVIEW );
     glViewport ( 0, 0, _nWidth / 2, _nHeight );
@@ -192,10 +222,12 @@ void display ( void ) {
 	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-    // render objects
+
+	    // render objects
 	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
-		(**cit)->renderCameraInGLWorld( _pGL->_bDisplayCamera, .05,_pGL->_uLevel );
+		(**cit)->renderCameraInGLWorld( _pGL->_bDisplayCamera,true,true, .05f,_pGL->_uLevel );
 	}
+	_pKinect->_pFrame->renderCameraInGLWorld( false, true, false, .1f,_pGL->_uLevel );
 
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
@@ -210,8 +242,8 @@ void display ( void ) {
     glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel]);
-    _pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel], .2 );
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel],&_pKinect->_pFrame->_uTexture);
+    _pKinect->_pRGBCamera->renderCameraInGLLocal(_pKinect->_pFrame->_uTexture, *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel], .2f );
 
     glutSwapBuffers();
 
@@ -239,6 +271,8 @@ int main ( int argc, char** argv ) {
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
+		_pKinect->_pFrame->_pGL = _pGL.get();
+		_pKinect->_pFrame->_bGPURender = true;
 		//_pRGBCamera=_pKinect->_pRGBCamera.get();
 		
         glutInit ( &argc, argv );

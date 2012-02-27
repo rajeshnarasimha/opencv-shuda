@@ -138,19 +138,19 @@ void VideoSourceKinect::importYML()
 	cv::Mat  mRTrans = cvmRelativeRotation.t();
 	cv::Mat vRT = mRTrans * cvmRelativeTranslation;
 
-	_aR[0] = mRTrans.at<double> ( 0, 0 );
-	_aR[1] = mRTrans.at<double> ( 0, 1 );
-	_aR[2] = mRTrans.at<double> ( 0, 2 );
-	_aR[3] = mRTrans.at<double> ( 1, 0 );
-	_aR[4] = mRTrans.at<double> ( 1, 1 );
-	_aR[5] = mRTrans.at<double> ( 1, 2 );
-	_aR[6] = mRTrans.at<double> ( 2, 0 );
-	_aR[7] = mRTrans.at<double> ( 2, 1 );
-	_aR[8] = mRTrans.at<double> ( 2, 2 );
+	_aR[0] = (float)mRTrans.at<double> ( 0, 0 );
+	_aR[1] = (float)mRTrans.at<double> ( 0, 1 );
+	_aR[2] = (float)mRTrans.at<double> ( 0, 2 );
+	_aR[3] = (float)mRTrans.at<double> ( 1, 0 );
+	_aR[4] = (float)mRTrans.at<double> ( 1, 1 );
+	_aR[5] = (float)mRTrans.at<double> ( 1, 2 );
+	_aR[6] = (float)mRTrans.at<double> ( 2, 0 );
+	_aR[7] = (float)mRTrans.at<double> ( 2, 1 );
+	_aR[8] = (float)mRTrans.at<double> ( 2, 2 );
 
-	_aRT[0] = vRT.at<double> ( 0 );
-	_aRT[1] = vRT.at<double> ( 1 );
-	_aRT[2] = vRT.at<double> ( 2 );
+	_aRT[0] = (float)vRT.at<double> ( 0 );
+	_aRT[1] = (float)vRT.at<double> ( 1 );
+	_aRT[2] = (float)vRT.at<double> ( 2 );
 }
 
 void VideoSourceKinect::findRange(const cv::gpu::GpuMat& cvgmMat_)
@@ -325,7 +325,6 @@ void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv
 void VideoSourceKinect::unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* pcvmIRWorld_)
 {
 	float* pWorld_ = (float*) pcvmIRWorld_->data;
-	float fZ;
 	const float* pCamera_=  (const float*) cvmDepth_.data;
 	for(int r = 0; r<cvmDepth_.rows; r++)
 	for(int c = 0; c<cvmDepth_.cols; c++)
@@ -440,7 +439,7 @@ void VideoSourceKinect::unprojectRGB ( const cv::Mat& cvmDepth_, int nLevel, cv:
 void VideoSourceKinect::fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_)
 {
 	pcvmNls_->setTo(0);
-	Eigen::Vector3d n1, n2, n3;
+	Eigen::Vector3f n1, n2, n3;
 
 	const float* pPt_ = (const float*) cvmPts_.data;
 	float* pNl_ = (float*) pcvmNls_->data;
@@ -457,17 +456,17 @@ void VideoSourceKinect::fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pc
 			int x = 0;
 		}
 		// skip the right and bottom boarder line
-		Eigen::Vector3d pti  ( pPt_[0],pPt_[1],pPt_[2] );
-		Eigen::Vector3d pti1 ( pPt_[3],pPt_[4],pPt_[5] ); //left
-		Eigen::Vector3d ptj1 ( pPt_[cvmPts_.cols*3],pPt_[cvmPts_.cols*3+1],pPt_[cvmPts_.cols*3+2] ); //down
+		Eigen::Vector3f pti  ( pPt_[0],pPt_[1],pPt_[2] );
+		Eigen::Vector3f pti1 ( pPt_[3],pPt_[4],pPt_[5] ); //left
+		Eigen::Vector3f ptj1 ( pPt_[cvmPts_.cols*3],pPt_[cvmPts_.cols*3+1],pPt_[cvmPts_.cols*3+2] ); //down
 
 		if( fabs( pti(2) ) > 0.0000001 && fabs( pti1(2) ) > 0.0000001 && fabs( ptj1(2) ) > 0.0000001 ) {
 			n1 = pti1 - pti;
 			n2 = ptj1 - pti;
 			n3 = n1.cross(n2);
-			double dNorm = n3.norm() ;
-			if ( dNorm > SMALL ) {
-				n3/=dNorm;
+			float fNorm = n3.norm() ;
+			if ( fNorm > SMALL ) {
+				n3/=fNorm;
 				if ( -n3(0)*pti[0] - n3(1)*pPt_[1] - n3(2)*pPt_[2] <0 ) {
 					pNl_[0] = -n3(0);
 					pNl_[1] = -n3(1);
