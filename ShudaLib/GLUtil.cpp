@@ -1,13 +1,14 @@
 //#define INFO
 //#define TIMER
 
-//#define INFO
+#define INFO
 #include <gl/glew.h>
 #include <boost/shared_ptr.hpp>
 #include <vector>
 #include <Eigen/Core>
 #include <GL/freeglut.h>
 #include "OtherUtil.hpp"
+#include "boost/date_time/posix_time/posix_time.hpp"
 #include "GLUtil.h"
 
 namespace btl{	namespace gl_util
@@ -256,7 +257,7 @@ void CGLUtil::init()
 	gluQuadricDrawStyle(_pQObj, GLU_FILL); //LINE); /* wireframe */
 	gluQuadricNormals(_pQObj, GLU_SMOOTH);// FLAT);//
 	glNewList(_uDisk, GL_COMPILE);
-	gluDisk(_pQObj, 0.0, 0.01, 4, 1);
+	gluDisk(_pQObj, 0.0, 0.01, 4, 1);//render a disk on z=0 plane
 	glEndList();
 	//normal list
 	_uNormal = glGenLists(2);
@@ -356,6 +357,17 @@ void CGLUtil::renderVoxelGL( const float fSize_) const
 	glEnd();
 }
 
+void CGLUtil::timerStart(){
+	// timer on
+	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+}
+void CGLUtil::timerStop(){
+	// timer off
+	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+	_cTDAll = _cT1 - _cT0 ;
+	_fFPS = 1000.f/_cTDAll.total_milliseconds();
+	PRINT( _fFPS );
+}
 
 }//gl_util
 }//btl

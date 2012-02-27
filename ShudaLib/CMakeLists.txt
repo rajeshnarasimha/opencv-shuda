@@ -22,7 +22,7 @@ elseif( WIN32 )
     include_directories ( "C:/csxsl/install/boost_1_48_0/include" ) 
     include_directories ( "C:/csxsl/install/freeglut_x64/include" )
     include_directories ( "C:/csxsl/install/yaml-cpp/include" )
-	include_directories ( "C:\csxsl\install\glew_170_win64\include" )
+	include_directories ( "C:/csxsl/install/glew_170_win64/include" )
 
 	link_directories ( "C:/csxsl/install/freeglut_x64/lib/x64" )
 endif()

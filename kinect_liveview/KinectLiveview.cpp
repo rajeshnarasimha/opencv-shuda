@@ -1,25 +1,30 @@
 //display kinect depth in real-time
-//#define INFO
+#define INFO
 
 #include <GL/glew.h>
 #include <iostream>
 #include <string>
 #include <vector>
+
 #include <boost/lexical_cast.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+
 #include "Converters.hpp"
 #include <opencv2/gpu/gpu.hpp>
 #include <XnCppWrapper.h>
-#include <boost/shared_ptr.hpp>
-#include <boost/scoped_ptr.hpp>
+
 #include "Kinect.h"
 #include <gl/freeglut.h>
 #include "Camera.h"
-#include <boost/random.hpp>
-#include <boost/generator_iterator.hpp>
+
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
+#include "Histogram.h"
 #include "KeyFrame.h"
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 #include "GLUtil.h"
@@ -39,6 +44,9 @@ unsigned short _nWidth, _nHeight;
 double _dDepthFilterThreshold = 10;
 int _nDensity = 2;
 btl::kinect::VideoSourceKinect::tp_frame _eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
+bool _bGPURender = true;
+
+
 void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
 }
@@ -80,6 +88,10 @@ void normalKeys ( unsigned char key, int x, int y )
 	case '2':
 		_eFrameType = btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL;
 		PRINTSTR(  "VideoSourceKinect::CPU_PYRAMID" );
+		break;
+	case '7':
+		_bGPURender = !_bGPURender;
+		glutPostRedisplay();
 		break;
 	case ']':
 		_pKinect->_fSigmaSpace += 1;
@@ -131,7 +143,11 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	//_pKinect->_pFrame->render3DPts(_uLevel);
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,_pGL->_uLevel);
+	_pKinect->_pFrame->_bGPURender = _bGPURender;
+	_pGL->timerStart();
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_uLevel);
+	PRINTSTR("renderCameraInGLWorld");
+	_pGL->timerStop();
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 	//set viewport 2

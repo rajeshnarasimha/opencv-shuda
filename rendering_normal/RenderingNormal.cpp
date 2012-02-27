@@ -26,10 +26,11 @@
 #include "Camera.h"
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
+#include <boost/scoped_ptr.hpp>
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
+#include "Histogram.h"
 #include "KeyFrame.h"
-#include <boost/scoped_ptr.hpp>
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
 #include "GLUtil.h"
@@ -57,6 +58,8 @@ float _fSize = 0.2; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 4;
 int _nColorIdx = 0;
 bool _bRenderPlane = true;
+bool _bGpuPlane = true;
+bool _bGPURender = true;
 
 btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
 
@@ -119,6 +122,13 @@ void normalKeys ( unsigned char key, int x, int y )
 	case '0':
 		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
 		break;
+	case '7':
+		_bGPURender = !_bGPURender;
+		glutPostRedisplay();
+		break;
+	case '8':
+		_bGpuPlane = !_bGpuPlane;
+		glutPostRedisplay();
 	case ']':
 		_pKinect->_fSigmaSpace += 1;
 		PRINT( _pKinect->_fSigmaSpace );
@@ -160,51 +170,23 @@ void mouseMotion ( int nX_, int nY_ ){
 	_pGL->mouseMotion(nX_,nY_);
 }
 
-/*
-void render3DPts()
-{
-	if( _bEnableLighting )
-		glEnable(GL_LIGHTING);
-	else
-		glDisable(GL_LIGHTING);
-	
-	const float* pPt = (const float*)_pKinect->_pFrame->_acvmShrPtrPyrPts[_pGL->_uLevel]->data;
-	const float* pNl = (const float*)_pKinect->_pFrame->_acvmShrPtrPyrNls[_pGL->_uLevel]->data;
-	const unsigned char* pColor/ * = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data* /;
-	const short* pLabel;
-	if(NORMAL_CLUSTRE ==_enumType){
-		//pLabel = (const short*)_pModel->_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
-		pLabel = (const short*)_pKinect->_pFrame->_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
-	}
-	else if(DISTANCE_CLUSTER ==_enumType){
-		//pLabel = (const short*)_pModel->_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
-		pLabel = (const short*)_pKinect->_pFrame->_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
-	}
-
-	for( int i = 0; i < btl::kinect::__aKinectWxH[_pGL->_uLevel];i++){
-		int nColor = pLabel[i];
-		if(nColor<0) 
-		{	pNl+=3; pPt+=3; continue; }
-		const unsigned char* pColor = btl::utility::__aColors[nColor+_nColorIdx%BTL_NUM_COLOR];
-		float dNx = *pNl++;
-		float dNy = *pNl++;
-		float dNz = *pNl++;
-		float x = *pPt++;
-		float y = *pPt++;
-		float z = *pPt++;
-		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) 
-			_pGL->renderDisk<float>(x,y,z,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); 
-	}
-	
-    return;
-}*/
-
 void display ( void )
 {
 	//if(_bCaptureCurrentFrame) 
 	{
+		_pGL->timerStart();
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-		_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
+		PRINTSTR("Pyramid")
+		_pGL->timerStop();
+		_pGL->timerStart();
+		_pKinect->_pFrame->_bGPURender = _bGPURender;
+		_pKinect->_pFrame->_bRenderPlane = false;
+		if(_bGpuPlane)
+			_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
+		else
+			_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
+		PRINTSTR("Plane")
+		_pGL->timerStop();
 		_bCaptureCurrentFrame = false;
 	}
 
@@ -224,8 +206,10 @@ void display ( void )
     //render3DPts();
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
+	_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,.05,_pGL->_uLevel);
-
+	PRINTSTR("renderCameraInGLWorld()")
+	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
     //gluLookAt ( _eivCamera(0), _eivCamera(1), _eivCamera(2),  _eivCentroid(0), _eivCentroid(1), _eivCentroid(2), _eivUp(0), _eivUp(1), _eivUp(2) );
@@ -236,8 +220,12 @@ void display ( void )
     glLoadIdentity();
 
     // render objects
+	_pGL->timerStart();
 	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
-    _pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
+	PRINTSTR("Camera")
+	_pGL->timerStop();
+
 
     glutSwapBuffers();
     glutPostRedisplay();
@@ -264,9 +252,10 @@ void init ( ){
     glEnable     ( GL_CULL_FACE );
     glShadeModel ( GL_FLAT );
     glPixelStorei( GL_UNPACK_ALIGNMENT, 1);
-
+	_pGL->_uLevel=0;
 	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
+	//_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
+	_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
 
 	_pGL->init();
 }

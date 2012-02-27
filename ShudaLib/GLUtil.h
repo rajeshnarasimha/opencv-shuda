@@ -35,11 +35,17 @@ namespace btl{	namespace gl_util
 		template< typename T >
 		void renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, 
 			const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ );
+		template< typename T > 
+		void renderDiskFastGL(const T& x, const T& y, const T& z, const T& tAngle_, const T& dNx, const T& dNy,  
+			const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ );
+
 		template< typename T >
 		void renderOctTree(const T& x, const T& y, const T& z, const T& dSize_, const unsigned short sLevel_ ) const;
 		template< typename T >
 		void renderVoxel( const T& x, const T& y, const T& z, const T& dSize_ ) const;
-	public:
+		void timerStart();
+		void timerStop();
+			public:
 		Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.
 		float _fSize; //disk size
 		bool _bRenderNormal;
@@ -78,6 +84,11 @@ namespace btl{	namespace gl_util
 		GLfloat _aLight[4];
 
 		btl::utility::tp_coordinate_convention _eConvention;
+
+		//timer
+		boost::posix_time::ptime _cT0, _cT1;
+		boost::posix_time::time_duration _cTDAll;
+		float _fFPS;//frame per second
 	};
 
 	template< typename T >
@@ -94,30 +105,57 @@ namespace btl{	namespace gl_util
 	template< typename T >
 	void CGLUtil::renderDisk(const T& x, const T& y, const T& z, const T& dNx, const T& dNy, const T& dNz, const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ )
 	{
-		glColor3ubv( pColor_ );
+		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.00001 ) // normal is not computed
+        {
+			glColor3ubv( pColor_ );
 
+			glPushMatrix();
+			glTranslatef( x, y, z );
+
+			float fAx,fAy,fA;
+			fAx =-dNy; //because of cv-convention
+			fAy = dNx;
+			//normalization
+			float norm = sqrtf(fAx*fAx + fAy*fAy );
+			if( norm < 1.0e-10 ) return;
+			fAx /= norm;
+			fAy /= norm;
+			fA = asin(norm)*180.f/M_PI;
+			glRotatef( fA,fAx,fAy,0 );
+
+			//T dA = atan2(dNx,dNz);
+			//T dxz= sqrt( dNx*dNx + dNz*dNz );
+			//T dB = atan2(dNy,dxz);
+
+			//glRotatef(-dB*180 / M_PI,1,0,0 );
+			//glRotatef( dA*180 / M_PI,0,1,0 );
+	
+			T dR = -z*2; //the further the disk the larger the size
+			glScalef( dR*dSize_, dR*dSize_, dR*dSize_ );
+			glCallList(_uDisk);
+			if( bRenderNormal_ )
+			{
+				glCallList(_uNormal);
+			}
+			glPopMatrix();
+		}
+	};
+
+	template< typename T >
+	void CGLUtil::renderDiskFastGL(const T& x, const T& y, const T& z, const T& tAngle_, const T& dNx, const T& dNy, const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ )
+	{
+		if( fabs(dNx) + fabs(dNy) < 0.00001 ) { return; }// normal is not computed
+
+		glColor3ubv( pColor_ );
 		glPushMatrix();
 		glTranslatef( x, y, z );
-
-		if( fabs(dNx) + fabs(dNy) + fabs(dNz) < 0.00001 ) // normal is not computed
-		{
-			//PRINT( dNz );
-			return;
-		}
-
-		T dA = atan2(dNx,dNz);
-		T dxz= sqrt( dNx*dNx + dNz*dNz );
-		T dB = atan2(dNy,dxz);
-
-		glRotatef(-dB*180 / M_PI,1,0,0 );
-		glRotatef( dA*180 / M_PI,0,1,0 );
-		T dR = -z/0.5;
+		//cross product
+		glRotatef( tAngle_,dNx,dNy,0.f );
+		T dR = -z*2; //the further the disk the larger the size
 		glScalef( dR*dSize_, dR*dSize_, dR*dSize_ );
 		glCallList(_uDisk);
 		if( bRenderNormal_ )
-		{
-			glCallList(_uNormal);
-		}
+		{glCallList(_uNormal);}
 		glPopMatrix();
 	};
 
