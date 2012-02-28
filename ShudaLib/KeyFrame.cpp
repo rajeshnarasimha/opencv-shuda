@@ -33,6 +33,7 @@
 #include "cuda/CudaLib.h"
 
 btl::utility::SNormalHist btl::kinect::CKeyFrame::_sNormalHist;
+btl::utility::SDistanceHist btl::kinect::CKeyFrame::_sDistanceHist;
 boost::shared_ptr<cv::Mat> btl::kinect::CKeyFrame::_acvmShrPtrAA[4];
 boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrAA[4];//for rendering
 
@@ -337,13 +338,26 @@ void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short uLevel_) 
 			dX =  pPt[0];		dY = -pPt[1];		dZ = -pPt[2];
 		}
 		else{ BTL_THROW("render3DPts() shouldnt be here!");	}
-		if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); }
+		if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pColor,_pGL->_fSize*(uLevel_+1.f)*.5f,_pGL->_bRenderNormal); }
 		else { glColor3ubv ( pColor ); glVertex3f ( dX, dY, dZ );}
 	}
 	return;
 } 
 
 void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLevel_) const {
+	//////////////////////////////////
+	//for rendering the detected plane
+	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
+	const short* pLabel;
+	if(_bRenderPlane){
+		if(NORMAL_CLUSTRE ==_eClusterType){
+			pLabel = (const short*)_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
+		}
+		else if(DISTANCE_CLUSTER ==_eClusterType){
+			pLabel = (const short*)_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
+		}
+	}
+	//////////////////////////////////
 	//error
 	_acvgmShrPtrAA[uLevel_]->setTo(0);
 	btl::cuda_util::cudaNormalCVSetRotationAxisGL(*_acvgmShrPtrPyrNls[uLevel_],&*_acvgmShrPtrAA[uLevel_]);
@@ -356,12 +370,18 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLev
 	if( _pGL && _pGL->_bEnableLighting ){glEnable(GL_LIGHTING);}
 	else                            	{glDisable(GL_LIGHTING);}
 	for( unsigned int i = 0; i < btl::kinect::__aKinectWxH[uLevel_]; i++,pRGB+=3,pAA+=3,pPt+=3){
-		if(_pGL) _pGL->renderDiskFastGL<float>(pPt[0],-pPt[1],-pPt[2],pAA[2],pAA[0],pAA[1],pRGB,_pGL->_fSize,_pGL->_bRenderNormal);
+		//////////////////////////////////
+		//for rendering the detected plane
+		if(_bRenderPlane && pLabel[i]>0){
+			pColor = btl::utility::__aColors[pLabel[i]/*+_nColorIdx*/%BTL_NUM_COLOR];
+		}
+		else{pColor = pRGB;}
+		if(_pGL) _pGL->renderDiskFastGL<float>(pPt[0],-pPt[1],-pPt[2],pAA[2],pAA[0],pAA[1],pColor,_pGL->_fSize*(uLevel_+1.f)*.5f,_pGL->_bRenderNormal);
 	}
 	return;
 } 
 
-void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short _uLevel) const
+void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short uLevel_) const
 {
 	float dNx,dNy,dNz;
 	float dX, dY, dZ;
@@ -377,7 +397,7 @@ void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short _uLevel)
 		//pLabel = (const short*)_pModel->_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
 		pLabel = (const short*)_acvmShrPtrDistanceClusters[_pGL->_uLevel]->data;
 	}
-	for( unsigned int i = 0; i < btl::kinect::__aKinectWxH[_uLevel]; i++,pNl+=3,pPt+=3){
+	for( unsigned int i = 0; i < btl::kinect::__aKinectWxH[uLevel_]; i++,pNl+=3,pPt+=3){
 		int nColor = pLabel[i];
 		if(nColor<0) { continue; }
 		const unsigned char* pColor = btl::utility::__aColors[nColor/*+_nColorIdx*/%BTL_NUM_COLOR];
@@ -391,7 +411,7 @@ void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short _uLevel)
 		}
 		else{ BTL_THROW("render3DPts() shouldnt be here!");	}
 		if( fabs(dNx) + fabs(dNy) + fabs(dNz) > 0.000001 ) {
-			if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pColor,_pGL->_fSize,_pGL->_bRenderNormal); }
+			if ( _pGL )	{_pGL->renderDisk<float>(dX,dY,dZ,dNx,dNy,dNz,pColor,_pGL->_fSize*(uLevel_+1.f)*.5f,_pGL->_bRenderNormal); }
 			else { glColor3ubv ( pColor ); glVertex3f ( dX, dY, dZ );}
 		}
 	}
@@ -521,26 +541,15 @@ void btl::kinect::CKeyFrame::detectPlane (const short uPyrLevel_){
 
 void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 	//get next frame
-#ifdef TIMER	
-	// timer on
-	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
-#endif
 	BTL_ASSERT(btl::utility::BTL_CV == _eConvention, "CKeyFrame data convention must be opencv convention");
 	//load pyramids
 	_usMinArea = btl::kinect::__aKinectWxH[uPyrLevel_]/60;
 	//cluster the top pyramid
 	gpuClusterNormal(uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vvLabelPointIdx);
 	//enforce position continuity
-	//clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
+	clusterDistance(uPyrLevel_,_vvLabelPointIdx,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
 	//_bRenderPlane = true;
 	_eClusterType = NORMAL_CLUSTRE;
-#ifdef TIMER
-	// timer off
-	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
-	_cTDAll = _cT1 - _cT0 ;
-	_fFPS = 1000.f/_cTDAll.total_milliseconds();
-	PRINT( _fFPS );
-#endif
 	return;
 }
 
@@ -592,7 +601,7 @@ void btl::kinect::CKeyFrame::gpuClusterNormal(const unsigned short uPyrLevel_,cv
 	pcvmLabel_->setTo(-1);
 	short nLabel =0;
 	for(std::vector<ushort>::const_iterator cit_vBins=_sNormalHist._vBins.begin();cit_vBins!=_sNormalHist._vBins.end();cit_vBins++){
-		if( !_sNormalHist._ppNormalHistogram[*cit_vBins] || _sNormalHist._ppNormalHistogram[*cit_vBins]->first.size() < 1 ) continue;
+		if( !_sNormalHist._ppNormalHistogram[*cit_vBins] || _sNormalHist._ppNormalHistogram[*cit_vBins]->first.size() < _usMinArea ) continue;
 		//get neighborhood of a sampling bin
 		std::vector<unsigned short> vNeighourhood; 
 		_sNormalHist.getNeighbourIdxCylinder(*cit_vBins,&vNeighourhood);
@@ -607,116 +616,23 @@ void btl::kinect::CKeyFrame::gpuClusterNormal(const unsigned short uPyrLevel_,cv
 	}
 	return;
 }
-
-
-void btl::kinect::CKeyFrame::distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& uSamples_, 
-	const std::vector< unsigned int >& vIdx_, btl::utility::SNormalHist::tp_hist* pvDistHist )
-{
-	const double dLow  = -3;
-	const double dHigh =  3;
-	const double dSampleStep = ( dHigh - dLow )/uSamples_; 
-
-	pvDistHist->clear();
-	pvDistHist->resize(uSamples_,btl::utility::SNormalHist::tp_pair_hist_bin(std::vector<btl::utility::SNormalHist::tp_pair_hist_element>(), 0.) );
-	const float*const pPt = (float*) cvmPts_.data;
-	const float*const pNl = (float*) cvmNls_.data;
-	//collect the distance histogram
-	for(std::vector< unsigned int >::const_iterator cit_vPointIdx = vIdx_.begin();
-		cit_vPointIdx!=vIdx_.end(); cit_vPointIdx++)
-	{
-		unsigned int uOffset = (*cit_vPointIdx)*3;
-		double dDist = pPt[uOffset]*pNl[uOffset] + pPt[uOffset+1]*pNl[uOffset+1] + pPt[uOffset+2]*pNl[uOffset+2];
-
-		int nBin = (int)floor( (dDist -dLow)/ dSampleStep );
-		if( nBin >= 0 && nBin < (int)uSamples_)
-		{
-			(*pvDistHist)[nBin].first.push_back(btl::utility::SNormalHist::tp_pair_hist_element(dDist,*cit_vPointIdx));
-			(*pvDistHist)[nBin].second += dDist;
-		}
-	}
-
-	//calc the avg distance for each bin 
-	//construct a list for sorting
-	for(std::vector< btl::utility::SNormalHist::tp_pair_hist_bin >::iterator cit_vDistHist = pvDistHist->begin();
-		cit_vDistHist != pvDistHist->end(); cit_vDistHist++ )
-	{
-		unsigned int uBinSize = cit_vDistHist->first.size();
-		if( uBinSize==0 ) continue;
-
-		//calculate avg distance
-		cit_vDistHist->second /= uBinSize;
-	}
-	return;
-}
 void btl::kinect::CKeyFrame::clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ )
 {
 	cvmDistanceClusters_->setTo(-1);
 	//construct the label mat
 	const cv::Mat& cvmPts = *_acvmShrPtrPyrPts[uPyrLevel_];
 	const cv::Mat& cvmNls = *_acvmShrPtrPyrNls[uPyrLevel_];
-	const double dLow  = -3;
-	const double dHigh =  3;
-	const int nSamples = 400;
-	const double dSampleStep = ( dHigh - dLow )/nSamples; 
-	const double dMergeStep = dSampleStep;
-
-	btl::utility::SNormalHist::tp_hist	vDistHist; //histogram of distancte vector< vDist, cit_vIdx > 
 	short sLabel = 0;
 	for(std::vector< std::vector< unsigned int > >::const_iterator cit_vvLabelPointIdx = vvNormalClusterPtIdx_.begin();
 		cit_vvLabelPointIdx!=vvNormalClusterPtIdx_.end(); cit_vvLabelPointIdx++){
 			//collect 
-			distanceHistogram( cvmNls, cvmPts, nSamples, *cit_vvLabelPointIdx, &vDistHist );
-			std::vector< tp_flag > vMergeFlags(nSamples, btl::kinect::CKeyFrame::EMPTY); //==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
-			calcMergeFlag( vDistHist, dMergeStep, &vMergeFlags ); // EMPTY/NO_MERGE/MERGE_WITH_LEFT/MERGE_WITH_BOTH/MERGE_WITH_RIGHT 
+			_sDistanceHist.distanceHistogram( cvmNls, cvmPts, *cit_vvLabelPointIdx );
+			_sDistanceHist.calcMergeFlag(); // EMPTY/NO_MERGE/MERGE_WITH_LEFT/MERGE_WITH_BOTH/MERGE_WITH_RIGHT 
 			//cluster
-			mergeDistanceBins( vMergeFlags, vDistHist, *cit_vvLabelPointIdx, &sLabel, &*_acvmShrPtrDistanceClusters[uPyrLevel_] );
+			_sDistanceHist.mergeDistanceBins( *cit_vvLabelPointIdx, &sLabel, &*_acvmShrPtrDistanceClusters[uPyrLevel_] );
 			sLabel++;
 	}//for each normal label
 }
-void btl::kinect::CKeyFrame::calcMergeFlag( const btl::utility::SNormalHist::tp_hist& vDistHist, const double& dMergeDistance, std::vector< tp_flag >* pvMergeFlags_ ){
-	//merge the bins whose distance is similar
-	std::vector< tp_flag >::iterator it_vMergeFlags = pvMergeFlags_->begin()+1; 
-	std::vector< tp_flag >::iterator it_prev;
-	std::vector< btl::utility::SNormalHist::tp_pair_hist_bin >::const_iterator cit_prev;
-	std::vector< btl::utility::SNormalHist::tp_pair_hist_bin >::const_iterator cit_endm1 = vDistHist.end() - 1;
 
-	for(std::vector< btl::utility::SNormalHist::tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist.begin() + 1;
-		cit_vDistHist != cit_endm1; cit_vDistHist++,it_vMergeFlags++ ) {
-			unsigned int uBinSize = cit_vDistHist->first.size();
-			if(0==uBinSize) continue;
-			*it_vMergeFlags = btl::kinect::CKeyFrame::NO_MERGE;
-			cit_prev = cit_vDistHist -1;
-			it_prev  = it_vMergeFlags-1;
-			if( btl::kinect::CKeyFrame::EMPTY == *it_prev ) continue;
 
-			if( fabs(cit_prev->second - cit_vDistHist->second) < dMergeDistance ){ //avg distance smaller than the sample step.
-				//previou bin
-				if     (btl::kinect::CKeyFrame::NO_MERGE       ==*it_prev){	*it_prev = btl::kinect::CKeyFrame::MERGE_WITH_RIGHT;}
-				else if(btl::kinect::CKeyFrame::MERGE_WITH_LEFT==*it_prev){ *it_prev = btl::kinect::CKeyFrame::MERGE_WITH_BOTH; }
-				//current bin
-				*it_vMergeFlags = btl::kinect::CKeyFrame::MERGE_WITH_LEFT;
-			}//if mergable
-	}//for each bin
-}
-void btl::kinect::CKeyFrame::mergeDistanceBins( const std::vector< tp_flag >& vMergeFlags_, const btl::utility::SNormalHist::tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ ){
-	std::vector< tp_flag >::const_iterator cit_vMergeFlags = vMergeFlags_.begin();
-	std::vector< btl::utility::SNormalHist::tp_pair_hist_bin >::const_iterator cit_endm1 = vDistHist_.end() - 1;
-	short* pDistanceLabel = (short*) pcvmLabel_->data;
-	for(std::vector< btl::utility::SNormalHist::tp_pair_hist_bin >::const_iterator cit_vDistHist = vDistHist_.begin() + 1;
-		cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ )	{
-			if(btl::kinect::CKeyFrame::EMPTY==*cit_vMergeFlags) continue;
-			if(btl::kinect::CKeyFrame::NO_MERGE==*cit_vMergeFlags||btl::kinect::CKeyFrame::MERGE_WITH_RIGHT==*cit_vMergeFlags||
-				btl::kinect::CKeyFrame::MERGE_WITH_BOTH==*cit_vMergeFlags||btl::kinect::CKeyFrame::MERGE_WITH_LEFT==*cit_vMergeFlags){
-					if(cit_vDistHist->first.size()>_usMinArea){
-						for( std::vector<btl::utility::SNormalHist::tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
-							cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
-								pDistanceLabel[cit_vPair->second] = *pLabel_;
-						}//for 
-					}//if
-			}
-			if(btl::kinect::CKeyFrame::NO_MERGE==*cit_vMergeFlags||btl::kinect::CKeyFrame::MERGE_WITH_LEFT==*cit_vMergeFlags){
-				(*pLabel_)++;
-			}
-	}//for
-}
 

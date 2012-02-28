@@ -207,7 +207,7 @@ void display ( void )
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
 	_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,.05f,_pGL->_uLevel);
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
 	PRINTSTR("renderCameraInGLWorld()")
 	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
