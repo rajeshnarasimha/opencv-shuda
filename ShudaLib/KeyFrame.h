@@ -8,8 +8,7 @@ public:
 	typedef boost::shared_ptr< CKeyFrame > tp_shared_ptr;
 	typedef CKeyFrame* tp_ptr;
 	enum tp_cluster { NORMAL_CLUSTRE, DISTANCE_CLUSTER};
-private:
-	enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
+
 public:
     CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ );
     ~CKeyFrame() {}
@@ -54,12 +53,11 @@ private:
     void select5Rand ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, boost::variate_generator< boost::mt19937&, boost::uniform_real<> >& dice_, 
 						Eigen::MatrixXd* eimXTmp_, Eigen::MatrixXd* eimYTmp_, std::vector< int >* pvIdx_ = NULL );
 	//for plane detection
+	//for normal cluster
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
-	void distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const unsigned int& nSamples, const std::vector< unsigned int >& vIdx_, btl::utility::SNormalHist::tp_hist* pvDistHist );
-	void calcMergeFlag( const btl::utility::SNormalHist::tp_hist& vDistHist, const double& dSampleStep, std::vector< tp_flag >* vMergeFlags );
-	void mergeDistanceBins( const std::vector< tp_flag >& vMergeFlags_, const btl::utility::SNormalHist::tp_hist& vDistHist_, const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ );
-	void clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ );
 	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
+	//for distance cluster
+	void clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ );
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
@@ -92,6 +90,7 @@ public:
 	btl::utility::tp_coordinate_convention _eConvention;
 	tp_cluster _eClusterType;
 	static btl::utility::SNormalHist _sNormalHist;
+	static btl::utility::SDistanceHist _sDistanceHist;
 private:
 	//for surf matching
 	//host

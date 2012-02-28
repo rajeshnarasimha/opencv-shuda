@@ -144,3 +144,92 @@ void btl::utility::SNormalHist::normalHistogram( const cv::Mat& cvmNls_, int nSa
 
 	return;
 }
+
+void btl::utility::SDistanceHist::distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_,  
+	const std::vector< unsigned int >& vIdx_ )
+{
+	_pvDistHist->clear();
+	_pvDistHist->resize(_uSamples,tp_pair_hist_bin(std::vector<tp_pair_hist_element>(), 0.) );
+	const float*const pPt = (float*) cvmPts_.data;
+	const float*const pNl = (float*) cvmNls_.data;
+	//collect the distance histogram
+	for(std::vector< unsigned int >::const_iterator cit_vPointIdx = vIdx_.begin(); cit_vPointIdx!=vIdx_.end(); cit_vPointIdx++){
+		unsigned int uOffset = (*cit_vPointIdx)*3;
+		double dDist = pPt[uOffset]*pNl[uOffset] + pPt[uOffset+1]*pNl[uOffset+1] + pPt[uOffset+2]*pNl[uOffset+2];
+		ushort nBin = (ushort)floor( fabs(dDist -_dLow)/ _dSampleStep );
+		if( nBin >= 0 && nBin < _uSamples){
+			(*_pvDistHist)[nBin].first.push_back(tp_pair_hist_element(dDist,*cit_vPointIdx));
+			(*_pvDistHist)[nBin].second += dDist;
+		}
+	}
+
+	//calc the avg distance for each bin 
+	//construct a list for sorting
+	for(std::vector< tp_pair_hist_bin >::iterator cit_vDistHist = _pvDistHist->begin();
+		cit_vDistHist != _pvDistHist->end(); cit_vDistHist++ )	{
+		unsigned int uBinSize = cit_vDistHist->first.size();
+		if( uBinSize==0 ) continue;
+		//calculate avg distance
+		cit_vDistHist->second /= uBinSize;
+	}
+	return;
+}
+
+void btl::utility::SDistanceHist::calcMergeFlag(){
+	_vMergeFlags.resize(_uSamples, SDistanceHist::EMPTY);
+	//merge the bins whose distance is similar
+	std::vector< tp_flag >::iterator it_vMergeFlags = _vMergeFlags.begin()+1; 
+	std::vector< tp_flag >::iterator it_prev;
+	std::vector< tp_pair_hist_bin >::const_iterator cit_prev;
+	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = _pvDistHist->end() - 1;
+
+	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = _pvDistHist->begin() + 1;
+		cit_vDistHist != cit_endm1; cit_vDistHist++,it_vMergeFlags++ ) {
+			unsigned int uBinSize = cit_vDistHist->first.size();
+			if(0==uBinSize) continue;
+			*it_vMergeFlags = NO_MERGE;
+			cit_prev = cit_vDistHist -1;
+			it_prev  = it_vMergeFlags-1;
+			if( EMPTY == *it_prev ) continue;
+
+			if( fabs(cit_prev->second - cit_vDistHist->second) < _dMergeDistance ){ //avg distance smaller than the sample step.
+				//previou bin
+				if     (NO_MERGE       ==*it_prev){	*it_prev = MERGE_WITH_RIGHT;}
+				else if(MERGE_WITH_LEFT==*it_prev){ *it_prev = MERGE_WITH_BOTH; }
+				//current bin
+				*it_vMergeFlags = MERGE_WITH_LEFT;
+			}//if mergable
+	}//for each bin
+}
+
+void btl::utility::SDistanceHist::mergeDistanceBins( const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ ){
+	std::vector< tp_flag >::const_iterator cit_vMergeFlags = _vMergeFlags.begin();
+	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = _pvDistHist->end() - 1;
+	short* pDistanceLabel = (short*) pcvmLabel_->data;
+	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = _pvDistHist->begin() + 1;
+		cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ )	{
+			if(EMPTY==*cit_vMergeFlags) continue;
+			if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_RIGHT==*cit_vMergeFlags||MERGE_WITH_BOTH==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
+					if(cit_vDistHist->first.size()>_usMinArea){
+						for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
+							cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
+								pDistanceLabel[cit_vPair->second] = *pLabel_;
+						}//for 
+					}//if
+			}
+			if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
+				(*pLabel_)++;
+			}
+	}//for
+}
+
+void btl::utility::SDistanceHist::init( const unsigned short usSamples_ ){
+	_uSamples=usSamples_;
+	_dLow  =  0; //negative doesnot make sense
+	_dHigh =  3;
+	_dSampleStep = ( _dHigh - _dLow )/_uSamples; 
+	_pvDistHist.reset(new tp_dist_hist);
+	_vMergeFlags.resize(_uSamples, SDistanceHist::EMPTY); 
+	//==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
+	_usMinArea = 10;
+}
