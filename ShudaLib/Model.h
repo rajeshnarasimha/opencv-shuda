@@ -16,7 +16,8 @@ private:
 public:
 	CModel();
 	~CModel();
-	void gpuIntegrate(btl::kinect::CKeyFrame& cFrame_);
+	void gpuIntegrate( btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ );
+	void gpuRenderVoxel();
 public:
 	//data
 	Eigen::Vector3d _eivAvgNormal;
@@ -28,9 +29,10 @@ public:
 	//physical size of the volume
 	float _dScale;
 	//host
-	cv::Mat _cvmXYxZVolContent; //x*y,z,CV_32FC1,x-first
+	cv::Mat _cvmYZxXVolContent; //x*y,z,CV_32FC1,x-first
 	//device
-	cv::gpu::GpuMat _cvgmXYxZVolContent;
+	cv::gpu::GpuMat _cvgmYZxXVolContent;
+	cv::gpu::GpuMat _cvgmYZxZVolCenters;
 };
 
 
