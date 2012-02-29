@@ -9,6 +9,7 @@ using namespace btl::utility;
 #include <opencv2/gpu/gpu.hpp>
 #include <gl/freeglut.h>
 #include "../Camera.h"
+#include <limits>
 void testSCamera()
 {
 	btl::kinect::SCamera sRGB;
@@ -313,9 +314,25 @@ void tryCppBitwiseShift()
 	PRINT(usZ*usLevel+usY*usWidth+usX);
 
 }
+void tryStdLimits(){
+	PRINTSTR("try std::limits");
+	float fQNaN = std::numeric_limits<float>::quiet_NaN();
+	PRINT(fQNaN);
+	float fSNaN = std::numeric_limits<float>::signaling_NaN();
+	PRINT(fSNaN);
+	float fInf  = std::numeric_limits<float>::infinity();
+	PRINT(fInf);
+	PRINT(fSNaN<10.f);
+	PRINT(fSNaN>10.f);
+	PRINT(fInf>10.f);
+	PRINT(fInf<10.f);
+	PRINT(-fInf<10.f);
+	PRINT(fQNaN - 1);
+}
 void tryCpp()
 {
-	tryCppBitwiseShift();
+	tryStdLimits();
+	//tryCppBitwiseShift();
 	//tryCppOperator();
 	//tryCppLongDouble();
 	//tryCppSizeof();
@@ -474,10 +491,10 @@ int main()
 		//testCVUtil();
 		//cudaTestTry();
 		//try Cpp
-		//tryCpp();
+		tryCpp();
 		//try CV
 		//tryCV();
-		tryEigen();
+		//tryEigen();
 		//testSCamera();
 	}
 	catch ( std::runtime_error e )

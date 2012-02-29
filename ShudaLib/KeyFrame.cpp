@@ -34,8 +34,8 @@
 
 btl::utility::SNormalHist btl::kinect::CKeyFrame::_sNormalHist;
 btl::utility::SDistanceHist btl::kinect::CKeyFrame::_sDistanceHist;
-btl::utility::tp_plane_obj_list btl::kinect::CKeyFrame::_vPlaneObjsDistanceNormal;
-btl::utility::tp_plane_obj_list btl::kinect::CKeyFrame::_vPlaneObjsNormal;
+//btl::utility::tp_plane_obj_list btl::kinect::CKeyFrame::_vPlaneObjsDistanceNormal;
+//btl::utility::tp_plane_obj_list btl::kinect::CKeyFrame::_vPlaneObjsNormal;
 boost::shared_ptr<cv::Mat> btl::kinect::CKeyFrame::_acvmShrPtrAA[4];
 boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrAA[4];//for rendering
 
@@ -367,7 +367,7 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLev
 	//////////////////////////////////
 	//error
 	_acvgmShrPtrAA[uLevel_]->setTo(0);
-	btl::cuda_util::cudaNormalCVSetRotationAxisGL(*_acvgmShrPtrPyrNls[uLevel_],&*_acvgmShrPtrAA[uLevel_]);
+	btl::cuda_util::cudaNormalSetRotationAxisCVGL(*_acvgmShrPtrPyrNls[uLevel_],&*_acvgmShrPtrAA[uLevel_]);
 	_acvgmShrPtrAA[uLevel_]->download(*_acvmShrPtrAA[uLevel_]);
 	//////////////////////////////////
 	const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;

@@ -38,10 +38,16 @@
 #ifndef PCL_GPU_KINFU_DEVICE_HPP_
 #define PCL_GPU_KINFU_DEVICE_HPP_
 
-#include "pcl/gpu/utils/device/limits.hpp"
-#include "pcl/gpu/utils/device/vector_math.hpp"
+#include "limits.hpp"
+#include "vector_math.hpp"
 
 #include "internal.h"
+
+namespace btl{ namespace cuda_util{
+	template<typename T>
+	__device__ __forceinline__ bool isnan(T t){	return t!=t;}
+}
+}
 
 namespace pcl
 {
@@ -107,6 +113,8 @@ namespace pcl
     {
       return make_float3 (dot (m.data[0], vec), dot (m.data[1], vec), dot (m.data[2], vec));
     }
+
+
 
 
     ////////////////////////////////////////////////////////////////////////////////////////

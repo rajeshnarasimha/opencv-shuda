@@ -37,7 +37,7 @@ file(GLOB TESTERS "test/[a-zA-Z]*.cpp")
 message(STATUS "tester names: ${TESTERS}")
 file(GLOB CUDASOURCES "cuda/[a-zA-Z]*.cu")
 message(STATUS "cuda sources names: ${CUDASOURCES}")
-file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h")
+file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h"  "cuda/cv/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.h")
 message(STATUS "cuda sources names: ${CUDAHEADERS}")
 
 cuda_add_library( CudaLib ${CUDASOURCES} ${CUDAHEADERS} )

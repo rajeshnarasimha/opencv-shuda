@@ -144,7 +144,7 @@ namespace btl{	namespace gl_util
 	template< typename T >
 	void CGLUtil::renderDiskFastGL(const T& x, const T& y, const T& z, const T& tAngle_, const T& dNx, const T& dNy, const unsigned char* pColor_, const T& dSize_, bool bRenderNormal_ )
 	{
-		if( fabs(dNx) + fabs(dNy) < 0.00001 ) { return; }// normal is not computed
+		//if( fabs(dNx) + fabs(dNy) < 0.00001 ) { return; }// normal is not computed
 
 		glColor3ubv( pColor_ );
 		glPushMatrix();
