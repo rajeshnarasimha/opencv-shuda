@@ -70,4 +70,4 @@ install( FILES ${HEADERS} ${CUDAHEADERS} DESTINATION "${PROJECT_SOURCE_DIR}/incl
 
 
 add_executable( TestShudaLib ${TESTERS} )
-target_link_libraries( TestShudaLib ${OpenCV_LIBS} ShudaLib CudaLib freeglut)
+target_link_libraries( TestShudaLib ${OpenCV_LIBS} freeglut ShudaLib CudaLib)#

@@ -70,7 +70,7 @@ void normalKeys ( unsigned char key, int x, int y ){
         break;
     case 'c': 
 		//capture current view as a key frame
-        _bCapture = true;
+        _bCapture = !_bCapture;
 		
         break;
 	case 'd':
@@ -96,8 +96,8 @@ void normalKeys ( unsigned char key, int x, int y ){
 		//use current keyframe as a reference
 		_bRenderPlane =! _bRenderPlane;
 		for(unsigned int i=0; i < _nKFCounter; i++)	{
-			_aShrPtrKFs[i]->_bRenderPlane=_bRenderPlane;
-			if(_bRenderPlane) {_aShrPtrKFs[i]->detectPlane(_pGL->_uLevel);}
+			_aShrPtrKFs[i]->_bRenderPlaneSeparately=_bRenderPlane;
+			//if(_bRenderPlane) {_aShrPtrKFs[i]->gpuDetectPlane(3);}
 		}
 		glutPostRedisplay();
 		break;
@@ -144,7 +144,7 @@ void init ( ){
 	_pKinect->_pFrame->copyTo(&*p1stKF);
 	p1stKF->_bIsReferenceFrame = true;
 	p1stKF->setView(&_pGL->_eimModelViewGL);
-	//p1stKF->detectPlane(_pGL->_uLevel);
+	p1stKF->gpuDetectPlane(2);
 	_vShrPtrsKF.push_back( &p1stKF );
     return;
 }
@@ -209,6 +209,7 @@ void display ( void ) {
 				_vRFIdx.push_back( _nRFIdx );
 				_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
 			}
+			pCurrentKF->gpuDetectPlane(2);
 			std::cout << "new key frame added" << std::flush;
 		}
 	}

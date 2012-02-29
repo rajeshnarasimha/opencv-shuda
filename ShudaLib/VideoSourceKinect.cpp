@@ -111,7 +111,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	_dZCentroid = 1.0;
 	//initialize normal histogram
 	btl::kinect::CKeyFrame::_sNormalHist.init(2);
-	btl::kinect::CKeyFrame::_sDistanceHist.init(90);
+	btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 
 	std::cout << " Done. " << std::endl;
 }
