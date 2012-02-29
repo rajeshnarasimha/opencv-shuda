@@ -1,31 +1,42 @@
 #ifndef BTL_EXTRA_MODEL
 #define BTL_EXTRA_MODEL
 
-namespace btl
+namespace btl{ namespace geometry
 {
-namespace extra
-{
-
+#define VOLUME_RESOL 128  
+#define VOLUME_LEVEL 16384 //VOLUME_RESOL * VOLUME_RESOL
+#define VOXEL_TOTAL 2097152//VOLUME_LEVEL * VOLUME_RESOL
 class CModel
 {
 //type
 public:
-
+	typedef boost::shared_ptr<CModel> tp_shared_ptr;
 private:
 	//methods
 public:
-	CModel( );
-	~CModel( );
-	//data
+	CModel();
+	~CModel();
+	void gpuIntegrate(btl::kinect::CKeyFrame& cFrame_);
 public:
-private:
-
+	//data
+	Eigen::Vector3d _eivAvgNormal;
+	double _dAvgPosition;
+	std::vector<unsigned int> _vVolumIdx;
+//volume data
+	//the center of the volume defines the origin of the world coordinate
+	//and follows the right-hand cv-convention
+	//physical size of the volume
+	float _dScale;
+	//host
+	cv::Mat _cvmXYxZVolContent; //x*y,z,CV_32FC1,x-first
+	//device
+	cv::gpu::GpuMat _cvgmXYxZVolContent;
 };
 
 
 
 
-}//extra
+}//geometry
 }//btl
 #endif
 

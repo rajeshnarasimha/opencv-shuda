@@ -3,6 +3,24 @@
 
 namespace btl { namespace utility {
 
+typedef struct SPlaneObj{
+	SPlaneObj():_eivAvgNormal(0,0,0),_dAvgPosition(0){
+		_vIdx.reserve(100);
+	}
+	void reset(){
+		_eivAvgNormal.setZero();
+		_dAvgPosition=0;
+		_vIdx.clear();
+		_vIdx.reserve(100);
+	}
+	//data
+	Eigen::Vector3d _eivAvgNormal;
+	double _dAvgPosition;
+	std::vector<unsigned int> _vIdx;
+} tp_plane_obj;
+
+typedef std::vector<tp_plane_obj> tp_plane_obj_list;
+
 struct SNormalHist{
 	//normal histogram type
 	typedef std::pair< std::vector< unsigned int >, Eigen::Vector3d > tp_normal_hist_bin;
@@ -18,14 +36,20 @@ struct SNormalHist{
 	boost::scoped_ptr<cv::gpu::GpuMat> _acvgmScpPtrBinIdx[4];
 	boost::scoped_ptr<cv::Mat> _acvmScpPtrBinIdx[4];
 
+	unsigned short _usMinArea;
+
 	//cpu histogram
 	std::vector< btl::utility::SNormalHist::tp_normal_hist_bin > _vNormalHistogram;
 
 	~SNormalHist(){delete _ppNormalHistogram;}
 	void init(const unsigned short usSamples_);
+	void gpuClusterNormal(const cv::gpu::GpuMat& cvgmNls,const cv::Mat& cvmNls,const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::utility::tp_plane_obj_list* pvPlaneObjs_);
+private:
 	void getNeighbourIdxCylinder(const ushort& usIdx_, std::vector< ushort >* pNeighbours_ );
 	void gpuNormalHistogram( const cv::gpu::GpuMat& cvgmNls_, const cv::Mat& cvmNls_, const ushort usPryLevel_,btl::utility::tp_coordinate_convention eCon_);
-	void normalHistogram( const cv::Mat& cvmNls_, int nSamples_, btl::utility::tp_coordinate_convention eCon_);
+	void clusterNormalHist(const cv::Mat& cvmNls_, const double dCosThreshold_, cv::Mat* pcvmLabel_, btl::utility::tp_plane_obj_list* pvPlaneObjs_);
+	void createNormalCluster( const cv::Mat& cvmNls_,const std::vector< unsigned int >& vNlIdx_, const Eigen::Vector3d& eivClusterCenter_, const double& dCosThreshold_, const short& sLabel_, cv::Mat* pcvmLabel_, std::vector< unsigned int >* pvNlIdx_, Eigen::Vector3d* pAvgNl_ );
+
 private:
 	void clear( const unsigned short usPyrLevel_ );
 
@@ -40,9 +64,11 @@ private:
 	enum tp_flag { EMPTY, NO_MERGE, MERGE_WITH_LEFT, MERGE_WITH_RIGHT, MERGE_WITH_BOTH };
 public:
 	void init(const unsigned short usSamples_);
-	void distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_, const std::vector< unsigned int >& vIdx_ );
+	void clusterDistanceHist( const cv::Mat& cvmPts_, const cv::Mat& cvmNls_, const unsigned short usPyrLevel_, const tp_plane_obj_list& vInPlaneObjs_, cv::Mat* pcvmDistanceClusters_, tp_plane_obj_list* pOutPlaneObjs_ );
+private:
+	void distanceHistogram(const cv::Mat& cvmPts_, const std::vector<unsigned int>& vPts_, const Eigen::Vector3d& eivAvgNl_ );
 	void calcMergeFlag();
-	void mergeDistanceBins( const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ );
+	void mergeDistanceBins( const cv::Mat& cvmNls_, short* pLabel_, cv::Mat* pcvmLabel_, tp_plane_obj_list* pPlaneObjs );
 
 	boost::scoped_ptr<tp_dist_hist> _pvDistHist;
 	std::vector< tp_flag > _vMergeFlags;

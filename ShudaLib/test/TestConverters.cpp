@@ -422,10 +422,37 @@ void tryCV()
 	tryCVTypeSelect();
 	tryCVGPU();
 }
-
-void tryEigen()
-{
-	PRINTSTR("try: Eigen::Vector3d::data()")
+void tryDataOrderEigenMaxtrix(){
+	PRINTSTR("try: Eigen::Matrix3d::data() order");
+	{
+		Eigen::Matrix<float, 3, 3, Eigen::RowMajor> eimRowMajor; 
+		eimRowMajor << 1,2,3,
+			4,5,6,
+			7,8,9;
+		PRINT(eimRowMajor);
+		float* pData = eimRowMajor.data();
+		for(int i=0; i<9; i++){
+			PRINT(*pData++);
+		}
+		Eigen::Vector3f eivT(1,2,3);
+		PRINT(eimRowMajor*eivT);
+	}
+	{
+		Eigen::Matrix<float, 3, 3> eimDefault; 
+		eimDefault << 1,2,3,
+			4,5,6,
+			7,8,9;
+		PRINT(eimDefault);
+		float* pData = eimDefault.data();
+		for(int i=0; i<9; i++){
+			PRINT(*pData++);
+		}
+		Eigen::Vector3f eivT(1,2,3);
+		PRINT(eimDefault*eivT);
+	}
+}
+void tryEigenData(){
+	PRINTSTR("try: Eigen::Vector3d::data() writable")
 	Eigen::Vector3d eivVec;
 	double* pData = eivVec.data();
 	*pData++ = 1;
@@ -433,6 +460,11 @@ void tryEigen()
 	*pData = 3;
 	PRINT(eivVec);
 
+}
+void tryEigen()
+{
+	tryDataOrderEigenMaxtrix();
+	//tryEigenData();
 }
 int main()
 {
@@ -442,11 +474,10 @@ int main()
 		//testCVUtil();
 		//cudaTestTry();
 		//try Cpp
-		tryCpp();
+		//tryCpp();
 		//try CV
 		//tryCV();
-		//try Eigen
-		//tryEigen();
+		tryEigen();
 		//testSCamera();
 	}
 	catch ( std::runtime_error e )

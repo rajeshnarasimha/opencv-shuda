@@ -181,10 +181,7 @@ void display ( void )
 		_pGL->timerStart();
 		_pKinect->_pFrame->_bGPURender = _bGPURender;
 		_pKinect->_pFrame->_bRenderPlane = false;
-		if(_bGpuPlane)
-			_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
-		else
-			_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
+		_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
 		PRINTSTR("Plane")
 		_pGL->timerStop();
 		_bCaptureCurrentFrame = false;
@@ -254,8 +251,7 @@ void init ( ){
     glPixelStorei( GL_UNPACK_ALIGNMENT, 1);
 	_pGL->_uLevel=0;
 	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	//_pKinect->_pFrame->detectPlane(_pGL->_uLevel);
-	_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
+ 	_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
 
 	_pGL->init();
 }

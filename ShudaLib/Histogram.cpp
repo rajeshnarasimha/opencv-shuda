@@ -77,6 +77,7 @@ void btl::utility::SNormalHist::getNeighbourIdxCylinder(const ushort& usIdx_, st
 }
 void btl::utility::SNormalHist::gpuNormalHistogram( const cv::gpu::GpuMat& cvgmNls_, const cv::Mat& cvmNls_, const ushort usPryLevel_,btl::utility::tp_coordinate_convention eCon_) {
 	clear(usPryLevel_);
+	_usMinArea = 30;
 	//gpu calc hist idx
 	btl::cuda_util::cudaNormalHistogram(cvgmNls_,
 		_usSamplesAzimuth,
@@ -118,60 +119,78 @@ void btl::utility::SNormalHist::clear( const unsigned short usPyrLevel_ )
 		}
 	}
 }
-void btl::utility::SNormalHist::normalHistogram( const cv::Mat& cvmNls_, int nSamples_, btl::utility::tp_coordinate_convention eCon_) {
-	//clear and re-initialize pvvIdx_
-	int nSampleAzimuth = nSamples_<<2; //nSamples*4
-	_vNormalHistogram.clear();
-	_vNormalHistogram.resize(nSamples_*nSampleAzimuth,btl::utility::SNormalHist::tp_normal_hist_bin(std::vector<unsigned int>(),Eigen::Vector3d(0,0,0)));
-	const double dS = M_PI_2/nSamples_;//sampling step
-	int r,c,rc;
-	const float* pNl = (const float*) cvmNls_.data;
-	for(unsigned int i =0; i< cvmNls_.total(); i++, pNl+=3)	{
-		if( pNl[2]>0 || fabs(pNl[0])+fabs(pNl[1])+fabs(pNl[2])<0.0001 ) {continue;}
-		btl::utility::normalVotes<float>(pNl,dS,&r,&c,eCon_);
-		rc = r*nSampleAzimuth+c;
-		if(rc<0||rc>_vNormalHistogram.size()){continue;}
-		_vNormalHistogram[rc].first.push_back(i);
-		_vNormalHistogram[rc].second += Eigen::Vector3d(pNl[0],pNl[1],pNl[2]);
+void btl::utility::SNormalHist::clusterNormalHist(const cv::Mat& cvmNls_, const double dCosThreshold_, cv::Mat* pcvmLabel_, btl::utility::tp_plane_obj_list* pvPlaneObjs_){
+	//re-cluster the normals
+	pvPlaneObjs_->clear();
+	pcvmLabel_->setTo(-1);
+	short nLabel =0;
+	for(std::vector<ushort>::const_iterator cit_vBins=_vBins.begin();cit_vBins!=_vBins.end();cit_vBins++){
+		if( !_ppNormalHistogram[*cit_vBins] || _ppNormalHistogram[*cit_vBins]->first.size() < _usMinArea ) continue;
+		//get neighborhood of a sampling bin
+		std::vector<unsigned short> vNeighourhood; 
+		getNeighbourIdxCylinder(*cit_vBins,&vNeighourhood);
+		//traverse the neighborhood and cluster the 
+		tp_plane_obj sPlane;
+		std::vector<unsigned int> vLabelNormalIdx; Eigen::Vector3d eivAvgNl;
+		for( std::vector<unsigned short>::const_iterator cit_vNeighbourhood=vNeighourhood.begin();cit_vNeighbourhood!=vNeighourhood.end();cit_vNeighbourhood++) {
+			createNormalCluster(cvmNls_,_ppNormalHistogram[*cit_vNeighbourhood]->first,_ppNormalHistogram[*cit_vNeighbourhood]->second,dCosThreshold_,nLabel,
+				/*out*/ pcvmLabel_,&sPlane._vIdx,&sPlane._eivAvgNormal);
+		}
+		nLabel++;
+		pvPlaneObjs_->push_back(sPlane);
 	}
-	//average the 
-	for(std::vector<btl::utility::SNormalHist::tp_normal_hist_bin>::iterator it_vNormalHist = _vNormalHistogram.begin();
-		it_vNormalHist!=_vNormalHistogram.end(); it_vNormalHist++) {
-			if(it_vNormalHist->first.size()>0) {
-				it_vNormalHist->second.normalize();
-			}
-	}
+}
 
+void btl::utility::SNormalHist::createNormalCluster( const cv::Mat& cvmNls_,const std::vector< unsigned int >& vNlIdx_, 
+	const Eigen::Vector3d& eivClusterCenter_, const double& dCosThreshold_, const short& sLabel_, cv::Mat* pcvmLabel_, std::vector< unsigned int >* pvNlIdx_, Eigen::Vector3d* pAvgNl_ ){
+	//the pvLabel_ must be same length as vNormal_ 
+	//with each element assigned with a NEGATIVE value
+	const float* pNl = (const float*)cvmNls_.data; 
+	short* pLabel = (short*) pcvmLabel_->data;
+	pAvgNl_->setZero();
+	for( std::vector< unsigned int >::const_iterator cit_vNlIdx_ = vNlIdx_.begin();	cit_vNlIdx_!= vNlIdx_.end(); cit_vNlIdx_++ ){
+		int nOffset = (*cit_vNlIdx_)*3;
+		if( pLabel[*cit_vNlIdx_]<0 && btl::utility::isNormalSimilar< float >(pNl+nOffset,eivClusterCenter_,dCosThreshold_) ) {
+			pLabel[*cit_vNlIdx_] = sLabel_;
+			pvNlIdx_->push_back(*cit_vNlIdx_);
+			*pAvgNl_+=Eigen::Vector3d((pNl+nOffset)[0],(pNl+nOffset)[1],(pNl+nOffset)[2]);
+		}//if
+	}
+	pAvgNl_->normalize();
+	return;
+}
+void btl::utility::SNormalHist::gpuClusterNormal(const cv::gpu::GpuMat& cvgmNls,const cv::Mat& cvmNls,const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::utility::tp_plane_obj_list* pvPlaneObjs_){
+	//define constants
+	const double dCosThreshold = std::cos(M_PI_4/4);
+	_usMinArea = 30;
+	//make a histogram on the top pyramid
+	gpuNormalHistogram(cvgmNls,cvmNls,uPyrLevel_,btl::utility::BTL_CV);
+	clusterNormalHist(cvmNls,dCosThreshold,pcvmLabel_,pvPlaneObjs_);
 	return;
 }
 
-void btl::utility::SDistanceHist::distanceHistogram( const cv::Mat& cvmNls_, const cv::Mat& cvmPts_,  
-	const std::vector< unsigned int >& vIdx_ )
-{
+void btl::utility::SDistanceHist::distanceHistogram(const cv::Mat& cvmPts_, const std::vector<unsigned int>& vPts_, const Eigen::Vector3d& eivAvgNl_ ){
+	//collecting distance histogram for the current normal cluster
 	_pvDistHist->clear();
 	_pvDistHist->resize(_uSamples,tp_pair_hist_bin(std::vector<tp_pair_hist_element>(), 0.) );
 	const float*const pPt = (float*) cvmPts_.data;
-	const float*const pNl = (float*) cvmNls_.data;
 	//collect the distance histogram
-	for(std::vector< unsigned int >::const_iterator cit_vPointIdx = vIdx_.begin(); cit_vPointIdx!=vIdx_.end(); cit_vPointIdx++){
+	for(std::vector< unsigned int >::const_iterator cit_vPointIdx = vPts_.begin(); cit_vPointIdx!=vPts_.end(); cit_vPointIdx++){
 		unsigned int uOffset = (*cit_vPointIdx)*3;
-		double dDist = pPt[uOffset]*pNl[uOffset] + pPt[uOffset+1]*pNl[uOffset+1] + pPt[uOffset+2]*pNl[uOffset+2];
+		double dDist = pPt[uOffset]*eivAvgNl_(0) + pPt[uOffset+1]*eivAvgNl_(1)+ pPt[uOffset+2]*eivAvgNl_(2);
 		ushort nBin = (ushort)floor( fabs(dDist -_dLow)/ _dSampleStep );
-		if( nBin >= 0 && nBin < _uSamples){
+		if( nBin < _uSamples ){
 			(*_pvDistHist)[nBin].first.push_back(tp_pair_hist_element(dDist,*cit_vPointIdx));
 			(*_pvDistHist)[nBin].second += dDist;
 		}
 	}
-
-	//calc the avg distance for each bin 
-	//construct a list for sorting
-	for(std::vector< tp_pair_hist_bin >::iterator cit_vDistHist = _pvDistHist->begin();
-		cit_vDistHist != _pvDistHist->end(); cit_vDistHist++ )	{
+	//calc avg distance 
+	for(std::vector< tp_pair_hist_bin >::iterator cit_vDistHist = _pvDistHist->begin();	cit_vDistHist != _pvDistHist->end(); cit_vDistHist++ )	{
 		unsigned int uBinSize = cit_vDistHist->first.size();
 		if( uBinSize==0 ) continue;
 		//calculate avg distance
 		cit_vDistHist->second /= uBinSize;
-	}
+	}//for each distance bin
 	return;
 }
 
@@ -202,27 +221,6 @@ void btl::utility::SDistanceHist::calcMergeFlag(){
 	}//for each bin
 }
 
-void btl::utility::SDistanceHist::mergeDistanceBins( const std::vector< unsigned int >& vLabelPointIdx_, short* pLabel_, cv::Mat* pcvmLabel_ ){
-	std::vector< tp_flag >::const_iterator cit_vMergeFlags = _vMergeFlags.begin();
-	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = _pvDistHist->end() - 1;
-	short* pDistanceLabel = (short*) pcvmLabel_->data;
-	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = _pvDistHist->begin() + 1;
-		cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ )	{
-			if(EMPTY==*cit_vMergeFlags) continue;
-			if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_RIGHT==*cit_vMergeFlags||MERGE_WITH_BOTH==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
-					if(cit_vDistHist->first.size()>_usMinArea){
-						for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();
-							cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
-								pDistanceLabel[cit_vPair->second] = *pLabel_;
-						}//for 
-					}//if
-			}
-			if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
-				(*pLabel_)++;
-			}
-	}//for
-}
-
 void btl::utility::SDistanceHist::init( const unsigned short usSamples_ ){
 	_uSamples=usSamples_;
 	_dLow  =  0; //negative doesnot make sense
@@ -232,4 +230,55 @@ void btl::utility::SDistanceHist::init( const unsigned short usSamples_ ){
 	_vMergeFlags.resize(_uSamples, SDistanceHist::EMPTY); 
 	//==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
 	_usMinArea = 10;
+}
+
+void btl::utility::SDistanceHist::clusterDistanceHist( const cv::Mat& cvmPts_, const cv::Mat& cvmNls_, const unsigned short usPyrLevel_, const tp_plane_obj_list& vInPlaneObjs_, cv::Mat* pcvmDistanceClusters_, tp_plane_obj_list* pOutPlaneObjs_ )
+{
+	_usMinArea = 30;
+	pOutPlaneObjs_->clear();
+	pcvmDistanceClusters_->setTo(-1);
+	//construct the label mat
+	short sLabel = 0;
+	for(std::vector< btl::utility::tp_plane_obj >::const_iterator cit_vPlaneObj = vInPlaneObjs_.begin(); cit_vPlaneObj!=vInPlaneObjs_.end(); cit_vPlaneObj++){
+		//collect 
+		distanceHistogram( cvmPts_, cit_vPlaneObj->_vIdx, cit_vPlaneObj->_eivAvgNormal );
+		calcMergeFlag(); // EMPTY/NO_MERGE/MERGE_WITH_LEFT/MERGE_WITH_BOTH/MERGE_WITH_RIGHT 
+		//cluster
+		mergeDistanceBins( cvmNls_, &sLabel, pcvmDistanceClusters_, pOutPlaneObjs_ );
+		sLabel++;
+	}//for each plane object clustered by normals
+}
+
+void btl::utility::SDistanceHist::mergeDistanceBins( const cv::Mat& cvmNls_, short* pLabel_, cv::Mat* pcvmLabel_, tp_plane_obj_list* pPlaneObjs ){
+	//
+	std::vector< tp_flag >::const_iterator cit_vMergeFlags = _vMergeFlags.begin();
+	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = _pvDistHist->end() - 1;
+	short* pDistanceLabel = (short*) pcvmLabel_->data;
+	const float* pNls= (const float*)cvmNls_.data;
+	tp_plane_obj sPlane;sPlane._eivAvgNormal.setZero();sPlane._dAvgPosition=0;
+	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = _pvDistHist->begin() + 1; cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ ){
+		if(EMPTY==*cit_vMergeFlags) continue;
+		if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_RIGHT==*cit_vMergeFlags||MERGE_WITH_BOTH==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
+			if(cit_vDistHist->first.size()>_usMinArea){
+				for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
+					pDistanceLabel[cit_vPair->second] = *pLabel_;//labeling
+					sPlane._vIdx.push_back(cit_vPair->second);//store pts
+					sPlane._dAvgPosition += cit_vPair->first;//accumulate distance
+					unsigned int nOffset = cit_vPair->second*3;
+					sPlane._eivAvgNormal += Eigen::Vector3d(pNls[nOffset],pNls[nOffset+1],pNls[nOffset+2]);//accumulate normals
+				}//for each distance bin 
+			}//if large enough
+		}//if mergable
+		if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
+			//store plane objects
+			pPlaneObjs->push_back(sPlane);
+			//reset plane objects
+			sPlane._dAvgPosition = 0;
+			sPlane._eivAvgNormal.setZero();
+			sPlane._vIdx.clear();
+			//increase the labeling
+			(*pLabel_)++;
+		}//if merging ends
+	}//for
+	return;
 }

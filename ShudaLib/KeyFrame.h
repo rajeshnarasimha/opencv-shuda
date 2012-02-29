@@ -33,9 +33,9 @@ public:
 	// render the camera location in the GL world
 	void renderCameraInGLWorld( bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
 	// render the depth in the GL world 
-	void render3DPtsInGLLocal(const unsigned short _uLevel) const;
+	void render3DPtsInGLLocal(const unsigned short uLevel_,const bool bRenderPlane_) const;
 	void renderPlanesInGLLocal(const unsigned short _uLevel) const;
-	void gpuRender3DPtsCVInLocalGL(const unsigned short _uLevel) const;
+	void gpuRender3DPtsCVInLocalGL(const unsigned short uLevel_, const bool bRenderPlane_) const;
 
 	// copy the content to another keyframe at 
 	void copyTo( CKeyFrame* pKF_, const short sLevel_ );
@@ -55,9 +55,7 @@ private:
 	//for plane detection
 	//for normal cluster
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
-	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
-	//for distance cluster
-	void clusterDistance( const unsigned short uPyrLevel_, const std::vector< std::vector<unsigned int> >& vvNormalClusterPtIdx_, cv::Mat* cvmDistanceClusters_ );
+	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::utility::tp_plane_obj_list* pvPlaneObjs_);
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
@@ -84,6 +82,7 @@ public:
 	btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;
 	bool _bRenderPlane;
+	bool _bRenderPlaneSeparately;
 	bool _bGPURender;
 	GLuint _uTexture;
 
@@ -91,6 +90,8 @@ public:
 	tp_cluster _eClusterType;
 	static btl::utility::SNormalHist _sNormalHist;
 	static btl::utility::SDistanceHist _sDistanceHist;
+	btl::utility::tp_plane_obj_list _vPlaneObjsNormal;
+	btl::utility::tp_plane_obj_list _vPlaneObjsDistanceNormal;
 private:
 	//for surf matching
 	//host
@@ -99,11 +100,6 @@ private:
 	//device
 	cv::gpu::GpuMat _cvgmKeyPoints;
 	cv::gpu::GpuMat _cvgmDescriptors;
-	//for plane detection
-	std::vector< std::vector< unsigned int > > _vvLabelPointIdx;
-	//the minmum area of a cluster
-	unsigned short _usMinArea;
-	
 };//end of class
 
 
