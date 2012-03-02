@@ -529,13 +529,13 @@ __constant__ float _aParam[2];//0:_fThreshold;1:_fSize
 __global__ void kernelThresholdVolumeCVGL(const cv::gpu::DevMem2D_<short2> cvgmYZxZVolume_,cv::gpu::DevMem2D_<float3> cvgmYZxZVolCenter_){
 	int nX = threadIdx.x + blockIdx.x * blockDim.x;
     int nY = threadIdx.y + blockIdx.y * blockDim.y;
-	if (nX >= cvgmYZxZVolume_.cols && nY >= cvgmYZxZVolume_.rows) return;
+	if (nX >= cvgmYZxZVolume_.cols && nY >= cvgmYZxZVolume_.cols) return; //both nX and nY and bounded by cols as the structure is a cubic
     const short2* pZ = cvgmYZxZVolume_.ptr(nY)+nX;
 	float3 *pCenter = cvgmYZxZVolCenter_.ptr(nY)+nX;
 	int nHalfCols = cvgmYZxZVolume_.cols/2;
 	float fHalfStep = _aParam[1]/2.f;
-    int nElemStep = cvgmYZxZVolume_.step * cvgmYZxZVolume_.cols / sizeof(*pZ);
-	int nElemStepC = cvgmYZxZVolCenter_.step * cvgmYZxZVolCenter_.cols / sizeof(*pCenter);
+    int nElemStep = /*cvgmYZxZVolume_.step **/ cvgmYZxZVolume_.cols * sizeof(*pZ);
+	int nElemStepC = /*cvgmYZxZVolCenter_.step **/ cvgmYZxZVolCenter_.cols * sizeof(*pCenter);
 	for (int nZ = 0; nZ < cvgmYZxZVolume_.cols; ++nZ, pZ += nElemStep, pCenter += nElemStepC) {
 		float fTSDF = pcl::device::unpack_tsdf(*pZ);
 		if(fabsf(fTSDF)<_aParam[0]){
