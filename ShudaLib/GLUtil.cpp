@@ -3,6 +3,11 @@
 
 #define INFO
 #include <gl/glew.h>
+
+#include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <cuda_runtime_api.h>
+
 #include <boost/shared_ptr.hpp>
 #include <vector>
 #include <Eigen/Core>
@@ -10,9 +15,17 @@
 #include "OtherUtil.hpp"
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "GLUtil.h"
+#include "cuda/cv/common.hpp"
+#include <opencv2/core/core.hpp>
 
 namespace btl{	namespace gl_util
 {
+
+PFNGLBINDBUFFERARBPROC    CGLUtil::glBindBuffer = NULL;
+PFNGLDELETEBUFFERSARBPROC CGLUtil::glDeleteBuffers = NULL;
+PFNGLGENBUFFERSARBPROC    CGLUtil::glGenBuffers = NULL;
+PFNGLBUFFERDATAARBPROC    CGLUtil::glBufferData = NULL;
+
 CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/)
 :_eConvention(eConvention_){
 	_dZoom = 1.;
@@ -32,22 +45,22 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 	_nYMotion = 0;
 
 	if( btl::utility::BTL_GL == _eConvention )	{
-		_eivCentroid << 0, 0, -1;
+		_aCentroid[0] = 0.f; _aCentroid[1] = 0.f; _aCentroid[2] = -1.f; 
 		_aLight[0] = 3.0;
 		_aLight[1] = 1.0;
 		_aLight[2] = 1.0;
 		_aLight[3] = 1.0;
 	}
 	else if( btl::utility::BTL_CV == _eConvention ){
-		_eivCentroid << 0, 0,  1;
+		_aCentroid[0] = 0.f; _aCentroid[1] = 0.f; _aCentroid[2] = 1.f; 
 		_aLight[0] = 3.0;
-		_aLight[1] = -1.0;
-		_aLight[2] = -1.0;
+		_aLight[1] =-1.0;
+		_aLight[2] =-1.0;
 		_aLight[3] = 1.0;
 	}
 	_bRenderNormal = false;
 	_bEnableLighting = false;
-	_fSize = 0.2;
+	_fSize = 0.2f;
 	_uLevel=0;
 }
 void CGLUtil::mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
@@ -166,7 +179,7 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 		break;
 	case 'j':
 		_fSize -= 0.05f;
-		_fSize = _fSize > 0.05? _fSize : 0.05;
+		_fSize = _fSize > 0.05f? _fSize : 0.05f;
 		glutPostRedisplay();
 		PRINT( _fSize );
 		break;
@@ -194,8 +207,9 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 void CGLUtil::viewerGL()
 {
 	// load the matrix to set camera pose
-	glLoadMatrixd( _eimModelViewGL.data() );
-	glTranslated( _eivCentroid(0), _eivCentroid(1), _eivCentroid(2) ); // 5. translate back to the original camera pose
+	//glLoadMatrixd( _adModelViewGL );
+	glLoadMatrixd(_eimModelViewGL.data());
+	glTranslated( _aCentroid[0], _aCentroid[1], _aCentroid[2] ); // 5. translate back to the original camera pose
 	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
 	_dZoom = _dZoom > 10? 10: _dZoom;
 	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
@@ -204,7 +218,7 @@ void CGLUtil::viewerGL()
 	else if( btl::utility::BTL_CV == _eConvention )						//mouse x-movement is the rotation around y-axis
 		glRotated ( _dXAngle, 0,-1 ,0 );                        
 	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
-	glTranslated( -_eivCentroid(0),-_eivCentroid(1),-_eivCentroid(2)); // 1. translate the world origin to align with object centroid
+	glTranslated(-_aCentroid[0],-_aCentroid[1],-_aCentroid[2] ); // 1. translate the world origin to align with object centroid
 
 	// light position in 3d
 	glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
@@ -250,6 +264,8 @@ void CGLUtil::clearColorDepth()
 }
 void CGLUtil::init()
 {
+	cv::Mat cvmTemp(4,4,CV_64FC1,(void*)_adModelViewGL);
+	cv::setIdentity(cvmTemp);
 	_eimModelViewGL.setIdentity();
 	//disk list
 	_uDisk = glGenLists(1);
@@ -294,7 +310,38 @@ void CGLUtil::init()
 
 	glEnable(GL_BLEND);
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-}
+}//init();
+void CGLUtil::initVBO(){
+	cudaDeviceProp  sProp;
+	memset( &sProp, 0, sizeof( cudaDeviceProp ) );
+	sProp.major = 1;
+	sProp.minor = 0;
+	int nDev;
+	cudaSafeCall( cudaChooseDevice( &nDev, &sProp ) );
+	// tell CUDA which nDev we will be using for graphic interop
+	// from the programming guide:  Interoperability with OpenGL
+	//     requires that the CUDA device be specified by
+	//     cudaGLSetGLDevice() before any other runtime calls.
+	cudaSafeCall( cudaGLSetGLDevice( nDev ) );
+
+	return;
+}//initVBO()
+void CGLUtil::createVBO(const unsigned int uRows, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_,
+	GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ ){
+	// the first four are standard OpenGL, the 5th is the CUDA reg 
+	// of the VBO these calls exist starting in OpenGL 1.5
+	CGLUtil::glGenBuffers(1, puVBO_);
+	CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, *puVBO_);
+	CGLUtil::glBufferData(GL_ARRAY_BUFFER, uRows*uCols_*usChannel_*usBytes_, 0, GL_DYNAMIC_DRAW);
+	CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, 0);
+	cudaSafeCall( cudaGraphicsGLRegisterBuffer( ppResourceVBO_, *puVBO_, cudaGraphicsMapFlagsWriteDiscard) );
+}//createVBO()
+void CGLUtil::releaseVBO( GLuint uVBO_, cudaGraphicsResource *pResourceVBO_ ){
+	// clean up OpenGL and CUDA
+	cudaSafeCall( cudaGraphicsUnregisterResource( pResourceVBO_ ) );
+	CGLUtil::glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glDeleteBuffers( 1, &uVBO_ );
+}//releaseVBO()
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
 	const float usStartZ = -usRows_/2*fSize_;

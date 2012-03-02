@@ -429,15 +429,29 @@ void tryCVTypeSelect()
 	Select<false,float,int>::type i=0.1f;
 	PRINT(i);
 }
+void tryCVMatPtr2UserAllocatedData(){
+	PRINTSTR("try constructor for matrix headers pointing to user-allocated data.");
+	double _adModelViewGL[16];
+	{
+		cv::Mat cvmTemp(4,4,CV_64FC1,(void*)_adModelViewGL);
+		cv::setIdentity(cvmTemp);
+		PRINT(cvmTemp);
+		_adModelViewGL[3]=10;
+	}
+	for (int i=0;i<16;i++){
+		PRINT(_adModelViewGL[i]);
+	}
+}
 void tryCV()
 {
 	PRINTSTR("try opencv.")
+	tryCVMatPtr2UserAllocatedData();
 	//tryCVPryDown();
 	//tryCVMat();
 	//tryCVOperator();
 	//tryCVMatSetTo();
-	tryCVTypeSelect();
-	tryCVGPU();
+	//tryCVTypeSelect();
+	//tryCVGPU();
 }
 void tryDataOrderEigenMaxtrix(){
 	PRINTSTR("try: Eigen::Matrix3d::data() order");
@@ -491,9 +505,8 @@ int main()
 		//testCVUtil();
 		//cudaTestTry();
 		//try Cpp
-		tryCpp();
-		//try CV
-		//tryCV();
+		//tryCpp();
+		tryCV();
 		//tryEigen();
 		//testSCamera();
 	}

@@ -1,14 +1,22 @@
 #define INFO
+//gl
+#include <gl/glew.h>
+#include <gl/freeglut.h>
+#include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <cuda_runtime_api.h>
+//boost
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+//stl
 #include <vector>
-
 #include <fstream>
 #include <list>
-
+#include <math.h>
+//openncv
 #include <opencv2/objdetect/objdetect.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -20,14 +28,11 @@
 #include "OtherUtil.hpp"
 #include "Converters.hpp"
 #include "EigenUtil.hpp"
-#include <gl/freeglut.h>
 #include "Camera.h"
 #include "Kinect.h"
 #include "GLUtil.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
-
-#include <math.h>
 #include "CVUtil.hpp"
 #include "Utility.hpp"
 #include "cuda/CudaLib.h"

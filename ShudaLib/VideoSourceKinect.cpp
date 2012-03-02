@@ -7,18 +7,27 @@
 */
 #define INFO
 //#define TIMER
-
-#include <opencv2/gpu/gpu.hpp>
-#include <boost/shared_ptr.hpp>
+//gl
+#include <gl/glew.h>
 #include <gl/freeglut.h>
-#include <Eigen/Core>
-#include "Camera.h"
-#include <XnCppWrapper.h>
-#include "Utility.hpp"
-#include "Kinect.h"
+#include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <cuda_runtime_api.h>
+//opencv
+#include <opencv2/gpu/gpu.hpp>
+//boost
 #include <boost/scoped_ptr.hpp>
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
+#include <boost/shared_ptr.hpp>
+//eigen
+#include <Eigen/Core>
+//openni
+#include <XnCppWrapper.h>
+//self
+#include "Camera.h"
+#include "Utility.hpp"
+#include "Kinect.h"
 #include "GLUtil.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
@@ -76,6 +85,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvmIRWorld .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 	_cvmRGBWorld.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 
+
 	// allocate memory for later use ( registrate the depth with rgb image
 	// refreshed for every frame
 	// pre-allocate cvgm to increase the speed
@@ -83,6 +93,8 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvgmRGBWorld       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 	_cvgmAlignedRawDepth.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
 	_cvgm32FC1Tmp       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
+
+	_cvgmUndistDepth    .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
 
 	for(int i=0; i<4; i++)	{
 		int nRows = KINECT_HEIGHT>>i; 

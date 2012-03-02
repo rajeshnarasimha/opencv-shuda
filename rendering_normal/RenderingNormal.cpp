@@ -2,6 +2,11 @@
 #define INFO
 #define TIMER
 #include <GL/glew.h>
+#include <gl/freeglut.h>
+#include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <cuda_runtime_api.h>
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -120,6 +125,7 @@ void normalKeys ( unsigned char key, int x, int y )
         PRINT( _fSize );
         break;
 	case '0':
+		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
 		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
 		break;
 	case '7':
@@ -226,8 +232,7 @@ void display ( void )
 
     glutSwapBuffers();
     glutPostRedisplay();
-
-}
+}//display()
 
 void reshape ( int nWidth_, int nHeight_ ){
     _pKinect->_pRGBCamera->setIntrinsics( 1, 0.01, 100 );
@@ -256,8 +261,7 @@ void init ( ){
 	_pGL->init();
 }
 
-int main ( int argc, char** argv )
-{
+int main ( int argc, char** argv ){
     try{
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
 		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
@@ -276,22 +280,20 @@ int main ( int argc, char** argv )
 
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
+
+
         glutMainLoop();
     }
 	/*
-    catch ( CError& e )
-    {
-        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) )
-        {
+    catch ( CError& e ) {
+        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) ){
             std::cerr << "Error Info: " << *mi << std::endl;
         }
     }*/
 	catch ( std::runtime_error& e )	{
 		PRINTSTR( e.what() );
 	}
-
-
     return 0;
-}
+}//main()
 
 
