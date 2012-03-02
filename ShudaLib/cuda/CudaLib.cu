@@ -46,6 +46,7 @@ void cudaTestFloat3( const cv::gpu::GpuMat& cvgmIn_, cv::gpu::GpuMat* pcvgmOut_ 
     dim3 grid(cv::gpu::divUp(cvgmIn_.cols, block.x), cv::gpu::divUp(cvgmIn_.rows, block.y));
 	//run kernel
 	kernelTestFloat3<<<grid,block>>>( cvgmIn_,*pcvgmOut_ );
+	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //depth to disparity
@@ -67,6 +68,7 @@ void cudaDepth2Disparity( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pc
     dim3 grid(cv::gpu::divUp(cvgmDepth_.cols, block.x), cv::gpu::divUp(cvgmDepth_.rows, block.y));
 	//run kernel
 	kernelInverse<<<grid,block>>>( cvgmDepth_,*pcvgmDisparity_ );
+	cudaSafeCall ( cudaGetLastError () );
 }//cudaDepth2Disparity
 
 void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat* pcvgmDepth_ ){
@@ -76,6 +78,7 @@ void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat
     dim3 grid(cv::gpu::divUp(cvgmDisparity_.cols, block.x), cv::gpu::divUp(cvgmDisparity_.rows, block.y));
 	//run kernel
 	kernelInverse<<<grid,block>>>( cvgmDisparity_,*pcvgmDepth_ );
+	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //global constant used by kernelUnprojectIR() and cudaUnProjectIR()
@@ -120,6 +123,7 @@ cv::gpu::GpuMat* pcvgmIRWorld_ )
     dim3 grid(cv::gpu::divUp(cvgmDepth_.cols, block.x), cv::gpu::divUp(cvgmDepth_.rows, block.y));
 	//run kernel
     kernelUnprojectIRCVCV<<<grid,block>>>( cvgmDepth_,*pcvgmIRWorld_ );
+	cudaSafeCall ( cudaGetLastError () );
 	//release temporary pointers
 	free(pIRCameraParameters);
 	return;
@@ -163,6 +167,7 @@ void cudaTransformIR2RGBCVCV(const cv::gpu::GpuMat& cvgmIRWorld_, const float* a
     dim3 grid(cv::gpu::divUp(pcvgmRGBWorld_->cols, block.x), cv::gpu::divUp(pcvgmRGBWorld_->rows, block.y));
 	//run kernel
     kernelTransformIR2RGBCVCV<<<grid,block>>>( cvgmIRWorld_,*pcvgmRGBWorld_ );
+	cudaSafeCall ( cudaGetLastError () );
 	return;
 }//cudaTransformIR2RGB
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -208,6 +213,7 @@ cv::gpu::GpuMat* pcvgmAligned_ ){
     dim3 grid(cv::gpu::divUp(cvgmRGBWorld_.cols, block.x), cv::gpu::divUp(cvgmRGBWorld_.rows, block.y));
 	//run kernel
     kernelProjectRGBCVCV<<<grid,block>>>( cvgmRGBWorld_,*pcvgmAligned_ );
+	cudaSafeCall ( cudaGetLastError () );
 	//release temporary pointers
 	free(pRGBCameraParameters);
 	return;
@@ -267,6 +273,7 @@ void cudaBilateralFiltering(const cv::gpu::GpuMat& cvgmSrc_, const float& fSigma
     dim3 grid(cv::gpu::divUp(cvgmSrc_.cols, block.x), cv::gpu::divUp(cvgmSrc_.rows, block.y));
 	//run kernel
     kernelBilateral<<<grid,block>>>( cvgmSrc_,*pcvgmDst_ );
+	cudaSafeCall ( cudaGetLastError () );
 	//release temporary pointers
 	free(pSigma);
 	return;
@@ -370,7 +377,6 @@ __global__ void kernelFastNormalEstimation (const cv::gpu::DevMem2D_<float3> cvg
 
 	float3& fN = cvgmNls_.ptr(nY)[nX];
 
-	//if(fabsf(pt.z)<0.0000001||fabsf(pt1.z)<0.0000001||fabsf(pt2.z)<0.0000001) return;
 	if(pt.z!=pt.z||pt1.z!=pt1.z||pt2.z!=pt2.z){
 		fN.x = pcl::device::numeric_limits<float>::quiet_NaN();
 		fN.y = pcl::device::numeric_limits<float>::quiet_NaN();
@@ -422,6 +428,7 @@ void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* 
 	dim3 block (32, 8);
 	dim3 grid (cv::gpu::divUp (cvgmPts_.cols, block.x), cv::gpu::divUp (cvgmPts_.rows, block.y));
 	kernelFastNormalEstimation<<<grid, block>>>(cvgmPts_, *pcvgmNls_ );
+	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 __global__ void kernelNormalSetRotationAxisCVGL (const cv::gpu::DevMem2D_<float3> cvgmNlsCV_, cv::gpu::DevMem2D_<float3> cvgmAAs_ )
@@ -431,7 +438,6 @@ __global__ void kernelNormalSetRotationAxisCVGL (const cv::gpu::DevMem2D_<float3
     if (nX >= cvgmNlsCV_.cols || nY >= cvgmNlsCV_.rows ) return;
 	const float3& Nl = cvgmNlsCV_.ptr(nY)[nX];
 	float3& fRA = cvgmAAs_.ptr(nY)[nX];
-	//if(fabsf(Nl.x) + fabsf(Nl.y) <0.00001) return;
 	if(isnan<float>(Nl.x)||isnan<float>(Nl.y)) {
 		fRA.x=fRA.y=fRA.z=pcl::device::numeric_limits<float>::quiet_NaN();
 		return;
@@ -467,6 +473,7 @@ void cudaNormalSetRotationAxisCVGL(const cv::gpu::GpuMat& cvgmNlsCV_, cv::gpu::G
 	dim3 block (32, 8);
 	dim3 grid (cv::gpu::divUp (cvgmNlsCV_.cols, block.x), cv::gpu::divUp (cvgmNlsCV_.rows, block.y));
 	kernelNormalSetRotationAxisCVGL<<<grid, block>>>(cvgmNlsCV_, *pcvgmAAs_ );
+	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 __constant__ ushort _aNormalHistorgarmParams[3];
@@ -497,6 +504,7 @@ void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNlsCV_, const unsigned sho
 	dim3 block(32, 8);
     dim3 grid(cv::gpu::divUp(cvgmNlsCV_.cols, block.x), cv::gpu::divUp(cvgmNlsCV_.rows, block.y));
 	kernelNormalHistogramKernelCV<<<grid,block>>>(cvgmNlsCV_,fNormalBinSize_,*pcvgmBinIdx_);
+	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //__constant__ double _aRW[9]; //camera externals Rotation defined in world
@@ -517,12 +525,41 @@ void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNlsCV_, const unsigned sho
 //	kernelIntegrate<<<grid,block>>>(cvgmPtsCV_,*cvgmXYxZVolContent_);
 //}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void thresholdVolume(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_,const cv::gpu::GpuMat& cvgmYZxZVolCenter_){
+__constant__ float _aParam[2];//0:_fThreshold;1:_fSize
+__global__ void kernelThresholdVolumeCVGL(const cv::gpu::DevMem2D_<short2> cvgmYZxZVolume_,cv::gpu::DevMem2D_<float3> cvgmYZxZVolCenter_){
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+	if (nX >= cvgmYZxZVolume_.cols && nY >= cvgmYZxZVolume_.rows) return;
+    const short2* pZ = cvgmYZxZVolume_.ptr(nY)+nX;
+	float3 *pCenter = cvgmYZxZVolCenter_.ptr(nY)+nX;
+	int nHalfCols = cvgmYZxZVolume_.cols/2;
+	float fHalfStep = _aParam[1]/2.f;
+    int nElemStep = cvgmYZxZVolume_.step * cvgmYZxZVolume_.cols / sizeof(*pZ);
+	int nElemStepC = cvgmYZxZVolCenter_.step * cvgmYZxZVolCenter_.cols / sizeof(*pCenter);
+	for (int nZ = 0; nZ < cvgmYZxZVolume_.cols; ++nZ, pZ += nElemStep, pCenter += nElemStepC) {
+		float fTSDF = pcl::device::unpack_tsdf(*pZ);
+		if(fabsf(fTSDF)<_aParam[0]){
+			pCenter->x = (nX - nHalfCols)*_aParam[1] - fHalfStep;
+			pCenter->y =-(nY - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
+			pCenter->z =-(nZ - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
+		}//within threshold
+		else{
+			pCenter->x = pCenter->y = pCenter->z = pcl::device::numeric_limits<float>::quiet_NaN();
+		}
+	}//for each Z
+	return;
+}//kernelThresholdVolume()
+void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxZVolCenter_){
+	size_t sN = sizeof(float)*2;
+	float* const pParam = (float*) malloc( sN );
+	pParam[0] = fThreshold_;
+	pParam[1] = fVoxelSize_;
+	cudaSafeCall( cudaMemcpyToSymbol(_aParam, pParam, sN) );
 	dim3 block(32, 8);
     dim3 grid(cv::gpu::divUp(cvgmYZxZVolume_.cols, block.x), cv::gpu::divUp(cvgmYZxZVolume_.rows, block.y));
-	//kernelThresholdVolume<<<grid,block>>>(cvgmYZxZVolume_,*cvgmXYxZVolContent_);
-}
+	kernelThresholdVolumeCVGL<<<grid,block>>>(cvgmYZxZVolume_,*pcvgmYZxZVolCenter_);
+	cudaSafeCall ( cudaGetLastError () );
+}//thresholdVolume()
 
 }//cuda_util
 }//btl

@@ -27,6 +27,9 @@ void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNls_, const unsigned short
 	const unsigned short usWidth_,const unsigned short usLevel_,  const float fNormalBinSize_, cv::gpu::GpuMat* pcvgmBinIdx_);
 //set the rotation angle and axis for rendering disk GL convention; the input are normals in cv-convention
 void cudaNormalSetRotationAxisCVGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::GpuMat* pcvgmAAs_ );
+//get the threshold voxel centers
+void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxZVolCenter_);
+
 }//cuda_util
 }//btl
 #endif

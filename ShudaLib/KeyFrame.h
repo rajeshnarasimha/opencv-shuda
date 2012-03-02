@@ -30,6 +30,18 @@ public:
 			pModelViewGL_->setIdentity();
 		}
 	}
+	void setView2(double* aModelViewGL_) const {
+		if (_eConvention == btl::utility::BTL_CV) {
+			Eigen::Matrix4d eimTmp;
+			eimTmp = btl::utility::setModelViewGLfromRTCV ( _eimR, _eivT );
+			eimTmp.transposeInPlace();
+			memcpy(aModelViewGL_,eimTmp.data(),sizeof(double)*16);
+			return;
+		}else if(btl::utility::BTL_GL == _eConvention ){
+			cv::Mat cvmTmp(4,4,CV_64FC1,aModelViewGL_);
+			cv::setIdentity(cvmTmp);
+		}
+	}
 	// render the camera location in the GL world
 	void renderCameraInGLWorld( bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
 	// render the depth in the GL world 
