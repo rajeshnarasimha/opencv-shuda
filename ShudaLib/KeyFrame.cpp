@@ -55,21 +55,23 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 		_acvmShrPtrPyrPts[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
 		_acvmShrPtrPyrNls[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
 		_acvmShrPtrPyrRGBs[i].reset(new cv::Mat(nRows,nCols,CV_8UC3));
-		_acvmShrPtrPyrBWs[i]  .reset(new cv::Mat(nRows,nCols,CV_8UC1));
+		_acvmShrPtrPyrBWs[i] .reset(new cv::Mat(nRows,nCols,CV_8UC1));
+		_acvmPyrDepths[i]	 .reset(new cv::Mat(nRows,nCols,CV_32FC1));
 		//device
 		_acvgmShrPtrPyrPts[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
 		_acvgmShrPtrPyrNls[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
 		_acvgmShrPtrPyrRGBs[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
 		_acvgmShrPtrPyrBWs[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC1));
+		_acvgmPyrDepths[i]	  .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
 		//plane detection
 		_acvmShrPtrNormalClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
 		_acvmShrPtrDistanceClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
 	}
 
 	_eConvention = btl::utility::BTL_CV;
-	_eimR.setIdentity();
+	_eimRw.setIdentity();
 	Eigen::Vector3d eivC (0.,0.,-1.8); //camera location in the world cv-convention
-	_eivT = -_eimR.transpose()*eivC;
+	_eivTw = -_eimRw.transpose()*eivC;
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
 	_bRenderPlaneSeparately = false;
@@ -102,8 +104,8 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 		copyTo(pKF_,i);
 	}
 	pKF_->_bIsReferenceFrame = _bIsReferenceFrame;
-	pKF_->_eimR = _eimR;
-	pKF_->_eivT = _eivT;
+	pKF_->_eimRw = _eimRw;
+	pKF_->_eivTw = _eivTw;
 }
 
 void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ )  {
@@ -206,7 +208,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
             i++;
         }
         double dS2;
-        double dErrorBest = btl::utility::absoluteOrientation < double > ( eimRef, eimCur ,  false, &_eimR, &_eivT, &dS2 );
+        double dErrorBest = btl::utility::absoluteOrientation < double > ( eimRef, eimCur ,  false, &_eimRw, &_eivTw, &dS2 );
 		//PRINT ( dErrorBest );
 		//PRINT ( _eimR );
 		//PRINT ( _eivT );
@@ -265,7 +267,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
                 Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
                 Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
                 selectInlier ( eimRef, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
-                dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &_eimR, &_eivT, &dS2 );
+                dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &_eimRw, &_eivTw, &dS2 );
         
                 PRINT ( nMax );
                 PRINT ( dErrorBest );

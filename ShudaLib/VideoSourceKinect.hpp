@@ -99,9 +99,7 @@ private:
 	cv::gpu::GpuMat _cvgmUndistDepth;
 	//rgb pyramid
 	//depth pyramid (need to be initially allocated in constructor)
-	std::vector< cv::Mat > _vcvmPyrDepths;
 	//gpu
-	std::vector< cv::gpu::GpuMat > _vcvgmPyrDepths;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyrDisparity;
 	std::vector< cv::gpu::GpuMat > _vcvgmPyr32FC1Tmp;
 

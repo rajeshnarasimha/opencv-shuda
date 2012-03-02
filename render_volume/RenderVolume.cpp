@@ -204,14 +204,16 @@ void display ( void )
 
     // render objects
     _pGL->renderAxisGL();
-	_pGL->renderVoxelGL(2.f);
+	_pGL->renderVoxelGL(4.f);
+	_pGL->renderPatternGL(.1f,20.f,20.f);
+	_pGL->renderPatternGL(1.f,10.f,10.f);
 	_pGL->timerStart();
-	_pModel->gpuRenderVoxelInWorldCVGL();
+	if(_pGL->_bRenderReference) _pModel->gpuRenderVoxelInWorldCVGL();
     //render3DPts();
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
 	//_pGL->timerStart();
-	//_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
 	PRINTSTR("renderCameraInGLWorld()")
 	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -225,12 +227,12 @@ void display ( void )
 
     // render objects
 	_pGL->timerStart();
-	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_uLevel],&(_pKinect->_pFrame->_uTexture) );
-	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_uLevel] );
+	unsigned short usLevel = _pGL->_uLevel == 0? 1 : _pGL->_uLevel;
+	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrBWs[usLevel ],&(_pKinect->_pFrame->_uTexture) );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrBWs[usLevel ] );
 	PRINTSTR("Camera");
 	_pGL->timerStop();
-
-
+	
     glutSwapBuffers();
     glutPostRedisplay();
 }//display()

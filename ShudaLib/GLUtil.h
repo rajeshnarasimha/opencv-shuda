@@ -51,7 +51,7 @@ public:
 	void releaseVBO( GLuint uVBO_, cudaGraphicsResource* pResourceVBO_ );
 public:
 	Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.
-	double _adModelViewGL[16];
+	//double _adModelViewGL[16];
 	float _fSize; //disk size
 	bool _bRenderNormal;
 	bool _bEnableLighting;

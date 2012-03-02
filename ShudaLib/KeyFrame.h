@@ -18,13 +18,13 @@ public:
 	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , unsigned short* pInliers_);
 	//accumulate the relative R T to the global RT
 	void applyRelativePose( const CKeyFrame& sReferenceKF_ ) {
-		_eivT = _eimR*sReferenceKF_._eivT + _eivT;//order matters 
-		_eimR = _eimR*sReferenceKF_._eimR;
+		_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//order matters 
+		_eimRw = _eimRw*sReferenceKF_._eimRw;
 	}
 	// set the opengl modelview matrix to align with the current view
 	void setView(Eigen::Matrix4d* pModelViewGL_) const {
 		if (_eConvention == btl::utility::BTL_CV) {
-			*pModelViewGL_ = btl::utility::setModelViewGLfromRTCV ( _eimR, _eivT );
+			*pModelViewGL_ = btl::utility::setModelViewGLfromRTCV ( _eimRw, _eivTw );
 			return;
 		}else if(btl::utility::BTL_GL == _eConvention ){
 			pModelViewGL_->setIdentity();
@@ -33,7 +33,7 @@ public:
 	void setView2(double* aModelViewGL_) const {
 		if (_eConvention == btl::utility::BTL_CV) {
 			Eigen::Matrix4d eimTmp;
-			eimTmp = btl::utility::setModelViewGLfromRTCV ( _eimR, _eivT );
+			eimTmp = btl::utility::setModelViewGLfromRTCV ( _eimRw, _eivTw );
 			eimTmp.transposeInPlace();
 			memcpy(aModelViewGL_,eimTmp.data(),sizeof(double)*16);
 			return;
@@ -72,11 +72,13 @@ private:
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
 	//host
+	boost::shared_ptr<cv::Mat> _acvmPyrDepths[4];
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrNls[4]; //CV_32FC3 type
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrRGBs[4];
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrBWs[4];
 	//device
+	boost::shared_ptr<cv::gpu::GpuMat> _acvgmPyrDepths[4];
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrNls[4]; //CV_32FC3 type
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrRGBs[4];
@@ -88,8 +90,15 @@ public:
 	static boost::shared_ptr<cv::Mat> _acvmShrPtrAA[4];//for rendering
 		
 	//pose
-	Eigen::Matrix3d _eimR; //R & T is the relative pose w.r.t. the coordinate defined by the previous camera system.
-	Eigen::Vector3d _eivT; //R & T is defined using CV convention
+	//R & T is the relative pose w.r.t. the coordinate defined in previous camera system.
+	//R & T is defined using CV convention
+	//R & T X_curr = R* X_prev + T;
+	//after applying void applyRelativePose() R, T -> R_w, T_w
+	//X_c = R_w * X_w + T_w 
+	//where _w defined in world reference system
+	//      _c defined in camera reference system (local reference system) 
+	Eigen::Matrix3d _eimRw; 
+	Eigen::Vector3d _eivTw; 
 	//render context
 	btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;

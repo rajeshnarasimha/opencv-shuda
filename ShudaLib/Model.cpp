@@ -41,7 +41,7 @@ namespace btl{ namespace geometry
 
 CModel::CModel()
 {
-	_fVolumeSize = 3.f; //3m
+	_fVolumeSize = 4.f; //3m
 	_fVoxelSize = _fVolumeSize/VOLUME_RESOL;
 	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
 	_cvgmYZxXVolContentCV.setTo(0);
@@ -51,10 +51,10 @@ CModel::~CModel(void)
 {
 	if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
-
-void CModel::gpuIntegrate( btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ ){
-	//BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
-	//btl::cuda_util::cudaIntegrate(*cFrame_._acvgmShrPtrPyrPts[usPyrLevel_],cFrame_._eimR.data(),cFrame_._eivT.data(),&_cvgmYZxXVolContentCV);
+void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ ){
+	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
+	btl::cuda_util::integrateFrame2VolumeCVCV(*cFrame_._acvgmShrPtrPyrPts[usPyrLevel_],_fVoxelSize, usPyrLevel_,cFrame_._eimRw.data(),cFrame_._eivTw.data(),
+		cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,&_cvgmYZxXVolContentCV);
 	//_cvgmYZxXVolContentCV.download(_cvmYZxXVolContent);
 }
 void CModel::gpuCreateVBO(){

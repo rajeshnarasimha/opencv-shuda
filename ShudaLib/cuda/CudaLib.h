@@ -29,7 +29,10 @@ void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNls_, const unsigned short
 void cudaNormalSetRotationAxisCVGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::GpuMat* pcvgmAAs_ );
 //get the threshold voxel centers
 void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxZVolCenter_);
-
+//get scale depth
+void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmDepth_);
+void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const float fVoxelSize_, const unsigned short usPyrLevel_, const double* pR_, const double* pT_, 
+	const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmYZxXVolume_);
 }//cuda_util
 }//btl
 #endif

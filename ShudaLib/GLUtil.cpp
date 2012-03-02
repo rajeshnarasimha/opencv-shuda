@@ -264,8 +264,8 @@ void CGLUtil::clearColorDepth()
 }
 void CGLUtil::init()
 {
-	cv::Mat cvmTemp(4,4,CV_64FC1,(void*)_adModelViewGL);
-	cv::setIdentity(cvmTemp);
+	//cv::Mat cvmTemp(4,4,CV_64FC1,(void*)_adModelViewGL);
+	//cv::setIdentity(cvmTemp);
 	_eimModelViewGL.setIdentity();
 	//disk list
 	_uDisk = glGenLists(1);
