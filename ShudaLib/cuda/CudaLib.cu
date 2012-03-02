@@ -526,38 +526,69 @@ void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNlsCV_, const unsigned sho
 //}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 __constant__ float _aParam[2];//0:_fThreshold;1:_fSize
-__global__ void kernelThresholdVolumeCVGL(const cv::gpu::DevMem2D_<short2> cvgmYZxZVolume_,cv::gpu::DevMem2D_<float3> cvgmYZxZVolCenter_){
-	int nX = threadIdx.x + blockIdx.x * blockDim.x;
-    int nY = threadIdx.y + blockIdx.y * blockDim.y;
-	if (nX >= cvgmYZxZVolume_.cols && nY >= cvgmYZxZVolume_.cols) return; //both nX and nY and bounded by cols as the structure is a cubic
-    const short2* pZ = cvgmYZxZVolume_.ptr(nY)+nX;
-	float3 *pCenter = cvgmYZxZVolCenter_.ptr(nY)+nX;
-	int nHalfCols = cvgmYZxZVolume_.cols/2;
+__global__ void kernelThresholdVolumeCVGL(const cv::gpu::DevMem2D_<short2> cvgmYZxXVolume_,cv::gpu::DevMem2D_<float3> cvgmYZxXVolCenter_){
+	int nY = threadIdx.x + blockIdx.x * blockDim.x; //as the volume is y*z cols and x rows
+    int nX = threadIdx.y + blockIdx.y * blockDim.y; 
+	if (nX >= cvgmYZxXVolume_.rows && nY >= cvgmYZxXVolume_.rows) return; //both nX and nX and bounded by cols as the structure is a cubic
+	int nElemStep = sizeof(short2);
+	int nElemStepC = sizeof(float3);
+    const short2* pZ = cvgmYZxXVolume_.ptr(nX)+nY*cvgmYZxXVolume_.rows*nElemStep;
+	float3 *pZCenter = cvgmYZxXVolCenter_.ptr(nX)+nY*cvgmYZxXVolCenter_.rows*nElemStepC;
+	int nHalfCols = cvgmYZxXVolume_.rows/2;
 	float fHalfStep = _aParam[1]/2.f;
-    int nElemStep = /*cvgmYZxZVolume_.step **/ cvgmYZxZVolume_.cols * sizeof(*pZ);
-	int nElemStepC = /*cvgmYZxZVolCenter_.step **/ cvgmYZxZVolCenter_.cols * sizeof(*pCenter);
-	for (int nZ = 0; nZ < cvgmYZxZVolume_.cols; ++nZ, pZ += nElemStep, pCenter += nElemStepC) {
+	for (int nZ = 0; nZ < cvgmYZxXVolume_.rows; ++nZ, pZ += nElemStep, pZCenter += nElemStepC) {
 		float fTSDF = pcl::device::unpack_tsdf(*pZ);
 		if(fabsf(fTSDF)<_aParam[0]){
-			pCenter->x = (nX - nHalfCols)*_aParam[1] - fHalfStep;
-			pCenter->y =-(nY - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
-			pCenter->z =-(nZ - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
+			pZCenter->x = (nX - nHalfCols)*_aParam[1] - fHalfStep;
+			pZCenter->y =-(nY - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
+			pZCenter->z =-(nZ - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
 		}//within threshold
 		else{
-			pCenter->x = pCenter->y = pCenter->z = pcl::device::numeric_limits<float>::quiet_NaN();
+			pZCenter->x = pZCenter->y = pZCenter->z = pcl::device::numeric_limits<float>::quiet_NaN();
 		}
+
 	}//for each Z
 	return;
 }//kernelThresholdVolume()
-void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxZVolCenter_){
+__global__ void kernelThresholdVolume2by2CVGL(const cv::gpu::DevMem2D_<short2> cvgmYZxXVolume_,cv::gpu::DevMem2D_<float3> cvgmYZxXVolCenter_){
+	int nX = threadIdx.x + blockIdx.x * blockDim.x; // for each y*z z0,z1,...
+    int nY = threadIdx.y + blockIdx.y * blockDim.y; 
+	if (nX >= cvgmYZxXVolume_.cols && nY >= cvgmYZxXVolume_.rows) return; //both nX and nX and bounded by cols as the structure is a cubic
+
+	int nElemStep = sizeof(short2);
+	int nElemStepC = sizeof(float3);
+
+    const short2& sValue = cvgmYZxXVolume_.ptr(nY)[nX];
+	float3& fCenter = cvgmYZxXVolCenter_.ptr(nY)[nX];
+	
+	int nHalfCols = cvgmYZxXVolume_.rows/2;
+	float fHalfStep = _aParam[1]/2.f;
+
+	int nGridX = nY;
+	int nGridY = nX/cvgmYZxXVolume_.rows;
+	int nGridZ = nX%cvgmYZxXVolume_.rows;
+	float fTSDF = pcl::device::unpack_tsdf(sValue);
+	if(fabsf(fTSDF)<_aParam[0]){
+		fCenter.x = (nGridX - nHalfCols)*_aParam[1] - fHalfStep;
+		fCenter.y =-(nGridY - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
+		fCenter.z =-(nGridZ - nHalfCols)*_aParam[1] - fHalfStep;// - convert from cv to GL
+	}//within threshold
+	else{
+		fCenter.x = fCenter.y = fCenter.z = pcl::device::numeric_limits<float>::quiet_NaN();
+	}
+
+	return;
+}//kernelThresholdVolume()
+void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxXVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxXVolCenter_){
 	size_t sN = sizeof(float)*2;
 	float* const pParam = (float*) malloc( sN );
 	pParam[0] = fThreshold_;
 	pParam[1] = fVoxelSize_;
 	cudaSafeCall( cudaMemcpyToSymbol(_aParam, pParam, sN) );
 	dim3 block(32, 8);
-    dim3 grid(cv::gpu::divUp(cvgmYZxZVolume_.cols, block.x), cv::gpu::divUp(cvgmYZxZVolume_.rows, block.y));
-	kernelThresholdVolumeCVGL<<<grid,block>>>(cvgmYZxZVolume_,*pcvgmYZxZVolCenter_);
+    dim3 grid(cv::gpu::divUp(cvgmYZxXVolume_.cols, block.x), cv::gpu::divUp(cvgmYZxXVolume_.rows, block.y));
+	//kernelThresholdVolumeCVGL<<<grid,block>>>(cvgmYZxXVolume_,*pcvgmYZxXVolCenter_);
+	kernelThresholdVolume2by2CVGL<<<grid,block>>>(cvgmYZxXVolume_,*pcvgmYZxXVolCenter_);
 	cudaSafeCall ( cudaGetLastError () );
 }//thresholdVolume()
 

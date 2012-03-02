@@ -326,13 +326,13 @@ void CGLUtil::initVBO(){
 
 	return;
 }//initVBO()
-void CGLUtil::createVBO(const unsigned int uRows, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_,
+void CGLUtil::createVBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_,
 	GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ ){
 	// the first four are standard OpenGL, the 5th is the CUDA reg 
 	// of the VBO these calls exist starting in OpenGL 1.5
 	CGLUtil::glGenBuffers(1, puVBO_);
 	CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, *puVBO_);
-	CGLUtil::glBufferData(GL_ARRAY_BUFFER, uRows*uCols_*usChannel_*usBytes_, 0, GL_DYNAMIC_DRAW);
+	CGLUtil::glBufferData(GL_ARRAY_BUFFER, uRows_*uCols_*usChannel_*usBytes_, 0, GL_DYNAMIC_DRAW);
 	CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, 0);
 	cudaSafeCall( cudaGraphicsGLRegisterBuffer( ppResourceVBO_, *puVBO_, cudaGraphicsMapFlagsWriteDiscard) );
 }//createVBO()

@@ -43,7 +43,7 @@ CModel::CModel()
 {
 	_fVolumeSize = 3.f; //3m
 	_fVoxelSize = _fVolumeSize/VOLUME_RESOL;
-	_cvgmYZxXVolContentCV.create(VOLUME_LEVEL,VOLUME_RESOL,CV_16SC2);//y*z,x
+	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
 	_cvgmYZxXVolContentCV.setTo(0);
 	_cvgmYZxXVolContentCV.download(_cvmYZxXVolContent);
 }

@@ -205,12 +205,13 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	_pGL->renderVoxelGL(2.f);
+	_pGL->timerStart();
 	_pModel->gpuRenderVoxelInWorldCVGL();
     //render3DPts();
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
-	_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
+	//_pGL->timerStart();
+	//_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
 	PRINTSTR("renderCameraInGLWorld()")
 	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
