@@ -79,7 +79,7 @@ void btl::utility::SNormalHist::gpuNormalHistogram( const cv::gpu::GpuMat& cvgmN
 	clear(usPryLevel_);
 	_usMinArea = 30;
 	//gpu calc hist idx
-	btl::cuda_util::cudaNormalHistogramCV(cvgmNls_,
+	btl::device::cudaNormalHistogramCV(cvgmNls_,
 		_usSamplesAzimuth,
 		_usSamplesElevationZ,
 		_usWidth,

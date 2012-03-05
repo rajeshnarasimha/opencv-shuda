@@ -2,7 +2,7 @@
 #define BTL_CUDA_HEADER
 #include "../OtherUtil.hpp"
 
-namespace btl { namespace cuda_util
+namespace btl { namespace device
 {
 
 void cudaTestFloat3( const cv::gpu::GpuMat& cvgmIn_, cv::gpu::GpuMat* pcvgmOut_ );
@@ -31,8 +31,10 @@ void cudaNormalSetRotationAxisCVGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::G
 void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxZVolCenter_);
 //get scale depth
 void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmDepth_);
-void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const float fVoxelSize_, const unsigned short usPyrLevel_, const double* pR_, const double* pT_, 
+void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const unsigned short usPyrLevel_, 
+	const float fVoxelSize_, const float fTruncDistanceM_, 
+	const double* pR_, const double* pT_,  const double* pC_, 
 	const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmYZxXVolume_);
-}//cuda_util
+}//device
 }//btl
 #endif

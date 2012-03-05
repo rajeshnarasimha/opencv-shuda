@@ -77,7 +77,7 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 	_bRenderPlaneSeparately = false;
 	_bGPURender = false;
 	_pGL = NULL;
-	_eClusterType = NORMAL_CLUSTRE;//DISTANCE_CLUSTER;
+	_eClusterType = NORMAL_CLUSTER;//DISTANCE_CLUSTER;
 
 	//rendering
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
@@ -319,7 +319,7 @@ void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short uLevel_,c
 	const unsigned char* pColor;
 	const short* pLabel;
 	if(bRenderPlane_){
-		if(NORMAL_CLUSTRE ==_eClusterType){
+		if(NORMAL_CLUSTER ==_eClusterType){
 			pLabel = (const short*)_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
 		}
 		else if(DISTANCE_CLUSTER ==_eClusterType){
@@ -364,7 +364,7 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLev
 	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
 	const short* pLabel;
 	if(bRenderPlane_){
-		if(NORMAL_CLUSTRE ==_eClusterType){
+		if(NORMAL_CLUSTER ==_eClusterType){
 			pLabel = (const short*)_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
 		}
 		else if(DISTANCE_CLUSTER ==_eClusterType){
@@ -374,7 +374,7 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLev
 	//////////////////////////////////
 	//error
 	_acvgmShrPtrAA[uLevel_]->setTo(0);
-	btl::cuda_util::cudaNormalSetRotationAxisCVGL(*_acvgmShrPtrPyrNls[uLevel_],&*_acvgmShrPtrAA[uLevel_]);
+	btl::device::cudaNormalSetRotationAxisCVGL(*_acvgmShrPtrPyrNls[uLevel_],&*_acvgmShrPtrAA[uLevel_]);
 	_acvgmShrPtrAA[uLevel_]->download(*_acvmShrPtrAA[uLevel_]);
 	//////////////////////////////////
 	const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;
@@ -403,7 +403,7 @@ void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short uLevel_)
 	const float* pNl = (const float*)_acvmShrPtrPyrNls[uLevel_]->data;
 	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
 	const short* pLabel;
-	if(NORMAL_CLUSTRE ==_eClusterType){
+	if(NORMAL_CLUSTER ==_eClusterType){
 		//pLabel = (const short*)_pModel->_acvmShrPtrNormalClusters[_pGL->_uLevel]->data;
 		pLabel = (const short*)_acvmShrPtrNormalClusters[uLevel_]->data;
 	}

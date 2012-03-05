@@ -3,6 +3,7 @@
 #define TIMER
 #include <GL/glew.h>
 #include <gl/freeglut.h>
+#include <gl/glew.h>
 #include <cuda.h>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime_api.h>
@@ -10,27 +11,21 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <boost/lexical_cast.hpp>
-#include "Utility.hpp"
 
-//camera calibration from a sequence of images
-#include <pcl/ModelCoefficients.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <pcl/kdtree/kdtree.h>
-#include <opencv2/gpu/gpu.hpp>
-#include <XnCppWrapper.h>
-#include "Kinect.h"
-#include "Camera.h"
+#include <boost/lexical_cast.hpp>
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+#include "Utility.hpp"
+
+//camera calibration from a sequence of images
+#include <opencv2/gpu/gpu.hpp>
+#include <XnCppWrapper.h>
+#include <gl/freeglut.h>
+#include "Kinect.h"
+#include "Camera.h"
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
 #include "Histogram.h"
@@ -66,7 +61,7 @@ bool _bRenderPlane = true;
 bool _bGpuPlane = true;
 bool _bGPURender = true;
 
-btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
+btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
@@ -146,19 +141,17 @@ void normalKeys ( unsigned char key, int x, int y )
 	_pGL->normalKeys( key, x, y );
     return;
 }
-void specialKeys(int nKey_,int x, int y)
-{
+void specialKeys(int nKey_,int x, int y){
 	_pGL->specialKeys(nKey_,x,y);
-	switch( nKey_ )
-	{
+	switch( nKey_ ){
 	case GLUT_KEY_F4: //display camera
 		_nColorIdx++;
 		PRINT(_nColorIdx);
 		break;
 	case GLUT_KEY_F5:
-		_enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE == _enumType? btl::kinect::CKeyFrame::DISTANCE_CLUSTER : btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
-		if(btl::kinect::CKeyFrame::NORMAL_CLUSTRE == _enumType) {
-			PRINTSTR( "NORMAL_CLUSTRE" );
+		_enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER == _enumType? btl::kinect::CKeyFrame::DISTANCE_CLUSTER : btl::kinect::CKeyFrame::NORMAL_CLUSTER;
+		if(btl::kinect::CKeyFrame::NORMAL_CLUSTER == _enumType) {
+			PRINTSTR( "NORMAL_CLUSTER" );
 		}
 		else{
 			PRINTSTR( "DISTANCE_CLUSTER" );
@@ -208,13 +201,14 @@ void display ( void )
 	_pGL->renderPatternGL(.1f,20.f,20.f);
 	_pGL->renderPatternGL(1.f,10.f,10.f);
 	_pGL->timerStart();
-	if(_pGL->_bRenderReference) _pModel->gpuRenderVoxelInWorldCVGL();
+	_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_uLevel);
+	/*if(_pGL->_bRenderReference) */_pModel->gpuRenderVoxelInWorldCVGL();
     //render3DPts();
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
-	PRINTSTR("renderCameraInGLWorld()")
+	PRINTSTR("renderCameraInGLWorld()");
 	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -265,13 +259,16 @@ void init ( ){
 }
 
 int main ( int argc, char** argv ){
-    try{
-
+	try{
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
-
+		GLenum eError = glewInit();
+		if (GLEW_OK != eError){
+			PRINTSTR("glewInit() error.");
+			PRINT( glewGetErrorString(eError) );
+		}
         glutKeyboardFunc( normalKeys );
 		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
@@ -280,14 +277,8 @@ int main ( int argc, char** argv ){
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
 
-
 		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
 		_pGL->initVBO();
-		// get handlers
-		btl::gl_util::CGLUtil::glBindBuffer    = (PFNGLBINDBUFFERARBPROC)   wglGetProcAddress("glBindBuffer");
-		btl::gl_util::CGLUtil::glDeleteBuffers = (PFNGLDELETEBUFFERSARBPROC)wglGetProcAddress("glDeleteBuffers");
-		btl::gl_util::CGLUtil::glGenBuffers    = (PFNGLGENBUFFERSARBPROC)   wglGetProcAddress("glGenBuffers");
-		btl::gl_util::CGLUtil::glBufferData    = (PFNGLBUFFERDATAARBPROC)   wglGetProcAddress("glBufferData");
 
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
 		_pModel.reset( new btl::geometry::CModel() );
@@ -299,13 +290,7 @@ int main ( int argc, char** argv ){
 
 		_pModel->gpuCreateVBO();
         glutMainLoop();
-    }
-	/*
-    catch ( CError& e ) {
-        if ( std::string const* mi = boost::get_error_info< CErrorInfo > ( e ) ){
-            std::cerr << "Error Info: " << *mi << std::endl;
-        }
-    }*/
+    }//try
 	catch ( std::runtime_error& e )	{
 		PRINTSTR( e.what() );
 	}

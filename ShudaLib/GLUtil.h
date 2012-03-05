@@ -94,12 +94,6 @@ private:
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
 	float _fFPS;//frame per second
-public:
-	static PFNGLBINDBUFFERARBPROC    glBindBuffer;
-	static PFNGLDELETEBUFFERSARBPROC glDeleteBuffers;
-	static PFNGLGENBUFFERSARBPROC    glGenBuffers;
-	static PFNGLBUFFERDATAARBPROC    glBufferData;
-
 };//CGLUtil
 
 template< typename T >

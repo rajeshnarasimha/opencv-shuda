@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (RenderingNormal)
+project (RenderNormal)
 
 find_package(OpenCV REQUIRED)
 find_package( CUDA )
@@ -39,7 +39,7 @@ elseif( WIN32 )
 	set(CUDALIB  optimized CudaLib  debug CudaLibd)
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
 	set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
-        boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
+        boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)#
     endif()
 
 endif()
@@ -49,6 +49,6 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable(RenderingNormal RenderingNormal.cpp)
+add_executable(RenderNormal RenderNormal.cpp)
 # link with the 3d party libraries
-target_link_libraries( RenderingNormal ${PCL_LIBRARIES} ${EXTRA_LIBS} )
+target_link_libraries( RenderNormal ${PCL_LIBRARIES} ${EXTRA_LIBS} )

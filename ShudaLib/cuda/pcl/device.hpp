@@ -43,7 +43,7 @@
 
 #include "internal.h"
 
-namespace btl{ namespace cuda_util{
+namespace btl{ namespace device{
 	template<typename T>
 	__device__ __forceinline__ bool isnan(T t){	return t!=t;}
 }
