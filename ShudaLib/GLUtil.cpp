@@ -3,6 +3,7 @@
 
 #define INFO
 #include <gl/glew.h>
+#include <GL/freeglut.h>
 
 #include <cuda.h>
 #include <cuda_gl_interop.h>
@@ -11,7 +12,6 @@
 #include <boost/shared_ptr.hpp>
 #include <vector>
 #include <Eigen/Core>
-#include <GL/freeglut.h>
 #include "OtherUtil.hpp"
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "GLUtil.h"
@@ -20,12 +20,7 @@
 
 namespace btl{	namespace gl_util
 {
-
-PFNGLBINDBUFFERARBPROC    CGLUtil::glBindBuffer = NULL;
-PFNGLDELETEBUFFERSARBPROC CGLUtil::glDeleteBuffers = NULL;
-PFNGLGENBUFFERSARBPROC    CGLUtil::glGenBuffers = NULL;
-PFNGLBUFFERDATAARBPROC    CGLUtil::glBufferData = NULL;
-
+	
 CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/)
 :_eConvention(eConvention_){
 	_dZoom = 1.;
@@ -330,16 +325,16 @@ void CGLUtil::createVBO(const unsigned int uRows_, const unsigned int uCols_, co
 	GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ ){
 	// the first four are standard OpenGL, the 5th is the CUDA reg 
 	// of the VBO these calls exist starting in OpenGL 1.5
-	CGLUtil::glGenBuffers(1, puVBO_);
-	CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, *puVBO_);
-	CGLUtil::glBufferData(GL_ARRAY_BUFFER, uRows_*uCols_*usChannel_*usBytes_, 0, GL_DYNAMIC_DRAW);
-	CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glGenBuffers(1, puVBO_);
+	glBindBuffer(GL_ARRAY_BUFFER, *puVBO_);
+	glBufferData(GL_ARRAY_BUFFER, uRows_*uCols_*usChannel_*usBytes_, 0, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	cudaSafeCall( cudaGraphicsGLRegisterBuffer( ppResourceVBO_, *puVBO_, cudaGraphicsMapFlagsWriteDiscard) );
 }//createVBO()
 void CGLUtil::releaseVBO( GLuint uVBO_, cudaGraphicsResource *pResourceVBO_ ){
 	// clean up OpenGL and CUDA
 	cudaSafeCall( cudaGraphicsUnregisterResource( pResourceVBO_ ) );
-	CGLUtil::glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glDeleteBuffers( 1, &uVBO_ );
 }//releaseVBO()
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const

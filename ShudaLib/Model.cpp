@@ -41,21 +41,46 @@ namespace btl{ namespace geometry
 
 CModel::CModel()
 {
-	_fVolumeSize = 4.f; //3m
-	_fVoxelSize = _fVolumeSize/VOLUME_RESOL;
+	_fVolumeSizeM = 4.f; //3m
+	_fVoxelSizeM = _fVolumeSizeM/VOLUME_RESOL;
+	_fTruncateDistanceM = _fVoxelSizeM*3;
 	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
-	_cvgmYZxXVolContentCV.setTo(0);
+	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
+	//_cvgmYZxXVolContentCV.setTo(0);
 	_cvgmYZxXVolContentCV.download(_cvmYZxXVolContent);
 }
 CModel::~CModel(void)
 {
 	if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
+void CModel::unpack_tsdf (short2 value, float& tsdf, int& weight)
+{
+    weight = value.y;
+    tsdf =  (value.x) / 32767;   //*/ * INV_DIV;
+}
 void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ ){
+	Eigen::Vector3d eivCw = - cFrame_._eimRw*cFrame_._eivTw ; //get camera center in world coordinate
 	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
-	btl::cuda_util::integrateFrame2VolumeCVCV(*cFrame_._acvgmShrPtrPyrPts[usPyrLevel_],_fVoxelSize, usPyrLevel_,cFrame_._eimRw.data(),cFrame_._eivTw.data(),
-		cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,&_cvgmYZxXVolContentCV);
-	//_cvgmYZxXVolContentCV.download(_cvmYZxXVolContent);
+	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
+	btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmPyrDepths[usPyrLevel_],usPyrLevel_,
+		_fVoxelSizeM,_fTruncateDistanceM, 
+		cFrame_._eimRw.data(),cFrame_._eivTw.data(), eivCw.data(),//camera parameters
+		cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,//
+		&_cvgmYZxXVolContentCV);
+	/*{
+		//test2
+		cv::Mat cvmTest;
+		_cvgmYZxXVolContentCV.download(cvmTest);
+		short2* pData = (short2*) cvmTest.data;
+		for (int r=0; r<cvmTest.rows; r++)
+			for (int c=0; c<cvmTest.cols; c++){
+				float fTSDF; int nWeight;
+				unpack_tsdf(*pData++,fTSDF,nWeight);
+				if(fabs(fTSDF)<0.8&&nWeight>0)
+					PRINT(fTSDF);
+			}
+	}*/
+	//_cvgmYZxXVolContentCV.download(cvmTest);
 }
 void CModel::gpuCreateVBO(){
 	if(_pGL) _pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
@@ -71,12 +96,12 @@ void CModel::gpuRenderVoxelInWorldCVGL(){
 	
 	// execute the kernel
 	//download the voxel centers lies between the -threshold and +threshold
-	btl::cuda_util::thresholdVolumeCVGL(_cvgmYZxXVolContentCV,0.01f,_fVoxelSize,&cvgmYZxZVolCentersGL);
+	btl::device::thresholdVolumeCVGL(_cvgmYZxXVolContentCV,0.5f,_fVoxelSizeM,&cvgmYZxZVolCentersGL);
 
 	cudaGraphicsUnmapResources(1, &_pResourceVBO, 0);
 
 	// render from the vbo
-	btl::gl_util::CGLUtil::glBindBuffer(GL_ARRAY_BUFFER, _uVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, _uVBO);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 
 	glEnableClientState(GL_VERTEX_ARRAY);

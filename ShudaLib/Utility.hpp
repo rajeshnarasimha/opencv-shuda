@@ -7,9 +7,9 @@
 #include "CVUtil.hpp"
 #include "Converters.hpp"
 
-#include <pcl/kdtree/kdtree.h>
-#include <pcl/point_types.h>
-#include <pcl/features/normal_3d.h>
+//#include <pcl/kdtree/kdtree.h>
+//#include <pcl/point_types.h>
+//#include <pcl/features/normal_3d.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
 #undef _USE_MATH_DEFINES
@@ -19,6 +19,7 @@ namespace btl
 namespace utility
 {
 
+/*
 template< class T >
 void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_, 
 	std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_, 
@@ -88,7 +89,7 @@ void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_,
 		pColor_+=3;
 	}
 	return;
-}
+}*/
 
 template< class T >
 void normalEstimationGLPCL( const T* pDepth_, const cv::Mat& cvmRGB_, int nKNearest_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_ )

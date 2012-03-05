@@ -3,35 +3,28 @@
 #define TIMER
 #include <GL/glew.h>
 #include <gl/freeglut.h>
-#include <cuda.h>
+//#include <cuda.h>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime_api.h>
 
 #include <iostream>
 #include <string>
 #include <vector>
+
 #include <boost/lexical_cast.hpp>
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include "Utility.hpp"
 
 //camera calibration from a sequence of images
-#include <pcl/ModelCoefficients.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <pcl/kdtree/kdtree.h>
 #include <opencv2/gpu/gpu.hpp>
 #include <XnCppWrapper.h>
 #include <gl/freeglut.h>
 #include "Kinect.h"
 #include "Camera.h"
-#include <boost/random.hpp>
-#include <boost/generator_iterator.hpp>
-#include <boost/scoped_ptr.hpp>
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
 #include "Histogram.h"
@@ -40,13 +33,13 @@
 #include "Model.h"
 #include "GLUtil.h"
 
-
 using namespace Eigen;
 
 class CKinectView;
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
+btl::geometry::CModel::tp_shared_ptr _pModel;
 
 Matrix4d _mGLMatrix;
 double _dNear = 0.01;
@@ -206,6 +199,7 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	_pGL->renderVoxelGL(2.f);
+	_pModel->gpuRenderVoxelInWorldCVGL();
     //render3DPts();
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
@@ -263,15 +257,17 @@ void init ( ){
 
 int main ( int argc, char** argv ){
     try{
-		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
-		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
-		_pKinect->_pFrame->_pGL=_pGL.get();
+
 
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH );
         glutInitWindowSize ( 1280, 480 );
-        glutCreateWindow ( "CameraPose" );
-        init();
+		glutCreateWindow ( "CameraPose" );
+		GLenum eError = glewInit();
+		if (GLEW_OK != eError){
+			PRINTSTR("glewInit() error.");
+			PRINT( glewGetErrorString(eError) );
+		}
 
         glutKeyboardFunc( normalKeys );
 		glutSpecialFunc ( specialKeys );
@@ -280,9 +276,21 @@ int main ( int argc, char** argv ){
 
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
+		
+		//btl::gl_util::CGLUtil::glBindBuffer    = (PFNGLBINDBUFFERARBPROC)   wglGetProcAddress("glBindBuffer");
+		//btl::gl_util::CGLUtil::glDeleteBuffers = (PFNGLDELETEBUFFERSARBPROC)wglGetProcAddress("glDeleteBuffers");
+		//btl::gl_util::CGLUtil::glGenBuffers    = (PFNGLGENBUFFERSARBPROC)   wglGetProcAddress("glGenBuffers");
+		//btl::gl_util::CGLUtil::glBufferData    = (PFNGLBUFFERDATAARBPROC)   wglGetProcAddress("glBufferData");
 
-
-        glutMainLoop();
+		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
+		_pGL->initVBO();
+		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
+		_pKinect->_pFrame->_pGL=_pGL.get();
+		_pModel.reset( new btl::geometry::CModel() );
+		_pModel->_pGL=_pGL.get();
+		init();
+        _pModel->gpuCreateVBO();
+		glutMainLoop();
     }
 	/*
     catch ( CError& e ) {

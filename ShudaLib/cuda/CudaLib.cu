@@ -23,10 +23,11 @@
 #include <math_constants.h>
 #include "pcl/limits.hpp"
 #include "pcl/device.hpp"
+#include <vector>
 
 namespace btl
 {
-namespace cuda_util
+namespace device
 {
 
 __global__ void kernelTestFloat3(const cv::gpu::DevMem2D_<float3> cvgmIn_, cv::gpu::DevMem2D_<float3> cvgmOut_)
@@ -539,9 +540,6 @@ __global__ void kernelThresholdVolume2by2CVGL(const cv::gpu::DevMem2D_<short2> c
     int nY = threadIdx.y + blockIdx.y * blockDim.y; 
 	if (nX >= cvgmYZxXVolume_.cols && nY >= cvgmYZxXVolume_.rows) return; //both nX and nX and bounded by cols as the structure is a cubic
 
-	int nElemStep = sizeof(short2);
-	int nElemStepC = sizeof(float3);
-
     const short2& sValue = cvgmYZxXVolume_.ptr(nY)[nX];
 	float3& fCenter = cvgmYZxXVolCenter_.ptr(nY)[nX];
 	
@@ -588,7 +586,6 @@ __global__ void kernelScaleDepthCVmCVm (cv::gpu::DevMem2Df cvgmDepth_, const pcl
     float fSec = sqrtf (fTanX*fTanX + fTanY*fTanY + 1);
     fDepth *= fSec; //meters
 }//kernelScaleDepthCVmCVm()
-
 void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmDepth_){
 	pcl::device::Intr sCameraIntrinsics(fFx_,fFy_,u_,v_);
 	dim3 block(32, 8);
@@ -597,19 +594,20 @@ void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float 
 	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct STSDF{
+	enum{
+        MAX_WEIGHT = 1 << 7
+    };
+};
 __constant__ double _aRW[9]; //camera externals Rotation defined in world
 __constant__ double _aTW[3]; //camera externals Translation defined in world
-__global__ void kernelIntegrateFrame2VolumeCVmCVm(const cv::gpu::DevMem2D_<float3> cvgmPtsCV_, pcl::device::Intr sCameraIntrinsics_, const float fVoxelSize_, cv::gpu::DevMem2D_<short2> cvgmYZxXVolume_ ){
+__constant__ double _aCW[3]; //camera center
+__global__ void kernelIntegrateFrame2VolumeCVmCVm(const cv::gpu::DevMem2D_<float> cvgmDepthScaled_, pcl::device::Intr sCameraIntrinsics_, 
+const float fVoxelSize_, const float fTruncDistanceM_, 
+cv::gpu::DevMem2D_<short2> cvgmYZxXVolume_ ){
 	int nX = threadIdx.x + blockIdx.x * blockDim.x; // for each y*z z0,z1,...
     int nY = threadIdx.y + blockIdx.y * blockDim.y; 
 	if (nX >= cvgmYZxXVolume_.cols && nY >= cvgmYZxXVolume_.rows) return;
-	
-	int nElemStep = sizeof(short2);
-	int nElemStepC = sizeof(float3);
-
-    const short2& sValue = cvgmYZxXVolume_.ptr(nY)[nX];
-	float fTSDF = pcl::device::unpack_tsdf(sValue);
-
 	int nHalfCols = cvgmYZxXVolume_.rows/2;
 	float fHalfVoxelSize = fVoxelSize_/2.f;
 
@@ -623,25 +621,60 @@ __global__ void kernelIntegrateFrame2VolumeCVmCVm(const cv::gpu::DevMem2D_<float
 	fVoxelCenter.y =-(nGridY - nHalfCols)*fVoxelSize_ - fHalfVoxelSize;// - convert from cv to GL
 	fVoxelCenter.z =-(nGridZ - nHalfCols)*fVoxelSize_ - fHalfVoxelSize;// - convert from cv to GL
 	//convert voxel to camera coordinate (local coordinate)
-
+	//R*fVoxelCenter +T
+	float3 fVoxelCenterLocal;
+	fVoxelCenterLocal.x = _aRW[0]*fVoxelCenter.x+_aRW[3]*fVoxelCenter.y+_aRW[6]*fVoxelCenter.z+_aTW[0];
+	fVoxelCenterLocal.y = _aRW[1]*fVoxelCenter.x+_aRW[4]*fVoxelCenter.y+_aRW[7]*fVoxelCenter.z+_aTW[1];
+	fVoxelCenterLocal.z = _aRW[2]*fVoxelCenter.x+_aRW[5]*fVoxelCenter.y+_aRW[8]*fVoxelCenter.z+_aTW[2];
 	//project voxel local to image to pick up corresponding depth
+	int c = __float2int_rn((sCameraIntrinsics_.fx * fVoxelCenterLocal.x + sCameraIntrinsics_.cx * fVoxelCenterLocal.z)/fVoxelCenterLocal.z);
+	int r = __float2int_rn((sCameraIntrinsics_.fy * fVoxelCenterLocal.y + sCameraIntrinsics_.cy * fVoxelCenterLocal.z)/fVoxelCenterLocal.z);
+    if (c < 0 || r < 0 || c >= cvgmDepthScaled_.cols || r >= cvgmDepthScaled_.rows) return;
 
-	//calc the tsdf value and store into the volumes
-
+	//get the depthScaled
+	const float& fDepth = cvgmDepthScaled_.ptr(r)[c];
+	if(fDepth != fDepth) return;
+	float3 Tmp; 
+	Tmp.x = fVoxelCenter.x - _aCW[0];
+	Tmp.y = fVoxelCenter.y - _aCW[1];
+	Tmp.z = fVoxelCenter.z - _aCW[2];
+	float fSignedDistance = sqrt(Tmp.x*Tmp.x + Tmp.y*Tmp.y+ Tmp.z*Tmp.z) - fDepth; //- outside + inside
+	float fTrancDistInv = 1.0f / fTruncDistanceM_;
+	float fTSDF;
+	if(fSignedDistance > 0 ){
+		 fTSDF = fmin ( 1.0f, fSignedDistance * fTrancDistInv ); 
+	}
+	else{
+		 fTSDF = fmax (-1.0f, fSignedDistance * fTrancDistInv );
+	}// truncated and normalize the Signed Distance to [-1,1]
+	
+	//read an unpack tsdf value and store into the volumes
+	short2& sValue = cvgmYZxXVolume_.ptr(nY)[nX];
+    float fTSDFPrev;
+    int nWeightPrev;
+	pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
+	int nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+	float fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*nWeightNew)/(nWeightNew+nWeightPrev);
+	pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);
 	return;
 }//kernelIntegrateFrame2VolumeCVmCVm()
-void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const float fVoxelSize_, const unsigned short usPyrLevel_, const double* pR_, const double* pT_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmYZxXVolume_){
+void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const unsigned short usPyrLevel_, 
+const float fVoxelSize_, const float fTruncDistanceM_, 
+const double* pR_, const double* pT_,  const double* pC_, 
+const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmYZxXVolume_){
+	//pR_ is colume major 
 	size_t sN1 = sizeof(double) * 9;
 	cudaSafeCall( cudaMemcpyToSymbol(_aRW, pR_, sN1) );
 	size_t sN2 = sizeof(double) * 3;
 	cudaSafeCall( cudaMemcpyToSymbol(_aTW, pT_, sN2) );
+	cudaSafeCall( cudaMemcpyToSymbol(_aCW, pC_, sN2) );
 	pcl::device::Intr sCameraIntrisics(fFx_,fFy_,u_,v_);
 	//define grid and block
 	dim3 block(64, 4);
     dim3 grid(cv::gpu::divUp(pcvgmYZxXVolume_->cols, block.x), cv::gpu::divUp(pcvgmYZxXVolume_->rows, block.y));
-	kernelIntegrateFrame2VolumeCVmCVm<<<grid,block>>>(cvgmDepthScaled_, sCameraIntrisics(usPyrLevel_), fVoxelSize_, *pcvgmYZxXVolume_);
+	kernelIntegrateFrame2VolumeCVmCVm<<<grid,block>>>(cvgmDepthScaled_, sCameraIntrisics(usPyrLevel_), fVoxelSize_,fTruncDistanceM_, *pcvgmYZxXVolume_);
 	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-}//cuda_util
+}//device
 }//btl

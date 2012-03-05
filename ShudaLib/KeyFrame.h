@@ -7,7 +7,7 @@ class CKeyFrame {
 public:
 	typedef boost::shared_ptr< CKeyFrame > tp_shared_ptr;
 	typedef CKeyFrame* tp_ptr;
-	enum tp_cluster { NORMAL_CLUSTRE, DISTANCE_CLUSTER};
+	enum tp_cluster { NORMAL_CLUSTER, DISTANCE_CLUSTER};
 
 public:
     CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ );

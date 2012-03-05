@@ -33,22 +33,18 @@ elseif( WIN32 )
     link_directories ( "C:/csxsl/install/boost_1_48_0/lib" )
     link_directories ( "C:/csxsl/install/freeglut_x64/lib/x64" )
     link_directories ( "C:/csxsl/install/yaml-cpp/lib" )
-    link_directories ( "C:/csxsl/install/glew_170_win64/lib" )
+    set( GLEW_LIBRARY "C:/csxsl/install/glew_170_win64/lib/glew32.lib" )
+
     if(MSVC)
         set(SHUDALIB optimized ShudaLib debug ShudaLibd)
 		set(CUDALIB  optimized CudaLib  debug CudaLibd)
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
 		set(EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64 boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
-        boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
+        boost_serialization-vc100-mt-1_48 freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} ${GLEW_LIBRARY} )
     endif()
 
 endif()
 
-find_package(PCL 1.2 REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-
 add_executable(RenderVolume RenderVolume.cpp)
 # link with the 3d party libraries
-target_link_libraries( RenderVolume ${PCL_LIBRARIES} ${EXTRA_LIBS} )
+target_link_libraries( RenderVolume ${EXTRA_LIBS} )

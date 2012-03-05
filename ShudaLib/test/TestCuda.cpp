@@ -25,7 +25,7 @@ void tryCudaFloat3()
 	}
 	PRINT(cvmDepth);
 	cv::gpu::GpuMat cvgmDepth, cvgmOut; cvgmDepth.upload(cvmDepth);
-	btl::cuda_util::cudaTestFloat3(cvgmDepth,&cvgmOut);
+	btl::device::cudaTestFloat3(cvgmDepth,&cvgmOut);
 	cv::Mat cvmOut;
 	cvgmOut.download(cvmOut);
 	PRINT(cvmOut);
@@ -48,8 +48,8 @@ void testCudaDisparity()
 	cv::gpu::GpuMat cvgmDepth,cvgmDisparity,cvgmResult;
 	cvgmDepth.upload(cvmDepth);
 	PRINT(cvmDepth);
-    btl::cuda_util::cudaDepth2Disparity( cvgmDepth, &cvgmDisparity ); 
-	btl::cuda_util::cudaDisparity2Depth( cvgmDisparity, &cvgmResult ); 
+    btl::device::cudaDepth2Disparity( cvgmDepth, &cvgmDisparity ); 
+	btl::device::cudaDisparity2Depth( cvgmDisparity, &cvgmResult ); 
 	cvgmDisparity.download(cvmDisparity);
 	PRINT(cvmDisparity);
 	cvgmResult.download(cvmResult);
