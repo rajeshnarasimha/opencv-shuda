@@ -27,6 +27,7 @@
 #include "Camera.h"
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
@@ -59,7 +60,7 @@ bool _bRenderPlane = true;
 bool _bGpuPlane = true;
 bool _bGPURender = true;
 
-btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
+btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER;
 
 void normalKeys ( unsigned char key, int x, int y )
 {
@@ -150,9 +151,9 @@ void specialKeys(int nKey_,int x, int y)
 		PRINT(_nColorIdx);
 		break;
 	case GLUT_KEY_F5:
-		_enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTRE == _enumType? btl::kinect::CKeyFrame::DISTANCE_CLUSTER : btl::kinect::CKeyFrame::NORMAL_CLUSTRE;
-		if(btl::kinect::CKeyFrame::NORMAL_CLUSTRE == _enumType) {
-			PRINTSTR( "NORMAL_CLUSTRE" );
+		_enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER == _enumType? btl::kinect::CKeyFrame::DISTANCE_CLUSTER : btl::kinect::CKeyFrame::NORMAL_CLUSTER;
+		if(btl::kinect::CKeyFrame::NORMAL_CLUSTER == _enumType) {
+			PRINTSTR( "NORMAL_CLUSTER" );
 		}
 		else{
 			PRINTSTR( "DISTANCE_CLUSTER" );
