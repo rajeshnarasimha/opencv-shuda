@@ -55,7 +55,7 @@ double _dDepthFilterThreshold = 0.01;
 int _nDensity = 2;
 float _fSize = 0.2f; // range from 0.05 to 1 by step 0.05
 unsigned int _uPyrHeight = 4;
-int _nColorIdx = 0;
+unsigned short _usColorIdx = 0;
 bool _bRenderPlane = true;
 bool _bGpuPlane = true;
 bool _bGPURender = true;
@@ -146,9 +146,10 @@ void specialKeys(int nKey_,int x, int y)
 	_pGL->specialKeys(nKey_,x,y);
 	switch( nKey_ )
 	{
-	case GLUT_KEY_F4: //display camera
-		_nColorIdx++;
-		PRINT(_nColorIdx);
+	case GLUT_KEY_F6: //display camera
+		_usColorIdx++;
+		_pKinect->_pFrame->_nColorIdx = _usColorIdx;
+		glutPostRedisplay();
 		break;
 	case GLUT_KEY_F5:
 		_enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER == _enumType? btl::kinect::CKeyFrame::DISTANCE_CLUSTER : btl::kinect::CKeyFrame::NORMAL_CLUSTER;

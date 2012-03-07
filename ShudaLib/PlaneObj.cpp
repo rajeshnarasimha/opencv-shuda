@@ -6,7 +6,7 @@
 bool btl::geometry::SPlaneObj::identical(const SPlaneObj& sPlane_ ) const{
 	double dCos = _eivAvgNormal.dot(sPlane_._eivAvgNormal);
 	double dDif = fabs(_dAvgPosition - sPlane_._dAvgPosition );
-	if(dCos > 0.85 && dDif < 0.1 ) return true; 
+	if(dCos > 0.80 && dDif < 0.2 ) return true; 
 	else return false;
 }
 

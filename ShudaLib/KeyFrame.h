@@ -110,6 +110,7 @@ public:
 	bool _bMerge;
 	bool _bGPURender;
 	GLuint _uTexture;
+	unsigned short _nColorIdx;
 
 	btl::utility::tp_coordinate_convention _eConvention;
 	tp_cluster _eClusterType;

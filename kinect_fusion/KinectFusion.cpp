@@ -52,9 +52,23 @@ bool _bCapture = false;
 bool _bRenderPlane = false;
 int _nN = 1;
 int _nView = 0;
+unsigned short _usColorIdx=0;
 void init();
 void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
+	switch ( key ) {
+	case GLUT_KEY_F6: //display camera
+		_usColorIdx++;
+		for(unsigned int i=0; i < _nKFCounter; i++)	{
+			_aShrPtrKFs[i]->_nColorIdx = _usColorIdx;
+		}
+		glutPostRedisplay();
+		break;
+	case GLUT_KEY_F3:
+		_bRenderReference = !_bRenderReference;
+		glutPostRedisplay();
+		break;
+	}
 }
 void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
@@ -103,10 +117,10 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_bRenderPlane =! _bRenderPlane;
 		for(unsigned int i=0; i < _nKFCounter; i++)	{
 			_aShrPtrKFs[i]->_bRenderPlane=_bRenderPlane;
-			for (unsigned short u=0; u<4; u++)
+			/*for (unsigned short u=0; u<4; u++)
 			{
 				_aShrPtrKFs[i]->gpuDetectPlane(u);
-			}
+			}*/
 		}
 		glutPostRedisplay();
 		break;
@@ -115,10 +129,10 @@ void normalKeys ( unsigned char key, int x, int y ){
 			_bRenderReference =! _bRenderReference;
 			for(unsigned int i=0; i < _nKFCounter; i++)	{
 				_aShrPtrKFs[i]->_bMerge =_bRenderReference;
-				for (unsigned short u=0; u<4; u++)
+				/*for (unsigned short u=0; u<4; u++)
 				{
 					_aShrPtrKFs[i]->gpuDetectPlane(u);
-				}
+				}*/
 			}
 			glutPostRedisplay();
 			break;
@@ -179,13 +193,14 @@ float _fFPS;//frame per second
 void display ( void ) {
 // update frame
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	for (ushort usI=0;usI<4;usI++){
-		_pKinect->_pFrame->gpuDetectPlane(usI);
-	}
+
 // ( second frame )
 	//_pGL->timerStart();
 	unsigned short uInliers;
     if ( _bCapture && _nKFCounter < _nReserved ) {
+		for (ushort usI=0;usI<4;usI++){
+			_pKinect->_pFrame->gpuDetectPlane(usI);
+		}
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
