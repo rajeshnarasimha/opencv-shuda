@@ -79,6 +79,7 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 	_bGPURender = false;
 	_pGL = NULL;
 	_eClusterType = NORMAL_CLUSTER;//DISTANCE_CLUSTER;
+	_nColorIdx = 0;
 
 	//rendering
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
@@ -447,7 +448,7 @@ void btl::kinect::CKeyFrame::renderPlaneObjsInLocalCVGL(const unsigned short uLe
 	glPointSize(0.1f*(uLevel_+1)*20);
 	glBegin(GL_POINTS);
 	for(btl::geometry::tp_plane_obj_list::const_iterator citPlaneObj = _vPlaneObjsDistanceNormal[uLevel_].begin(); citPlaneObj!=_vPlaneObjsDistanceNormal[uLevel_].end();citPlaneObj++,sColor++){
-		const unsigned char* pColor = btl::utility::__aColors[citPlaneObj->_usIdx/*+_nColorIdx*/%BTL_NUM_COLOR];
+		const unsigned char* pColor = btl::utility::__aColors[citPlaneObj->_usIdx+_nColorIdx%BTL_NUM_COLOR];
 		for(std::vector<unsigned int>::const_iterator citIdx = citPlaneObj->_vIdx.begin(); citIdx != citPlaneObj->_vIdx.end(); citIdx++ ){
 			unsigned int uIdx = *citIdx*3;
 			glColor3ubv ( pColor ); 
@@ -564,10 +565,9 @@ void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 }
 void btl::kinect::CKeyFrame::associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_){
 	if( _vPlaneObjsDistanceNormal[usLevel_].empty()||sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].empty() ) return;
-
-	for (btl::geometry::tp_plane_obj_list::iterator itThisPlaneObj = _vPlaneObjsDistanceNormal[usLevel_].begin(); itThisPlaneObj!=_vPlaneObjsDistanceNormal[usLevel_].end(); itThisPlaneObj++ ){
-		for (btl::geometry::tp_plane_obj_list::iterator itRefPlaneObj = sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].begin(); itRefPlaneObj!=sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].end(); itRefPlaneObj++ ){
-			if( !itRefPlaneObj->_bCorrespondetFound && itThisPlaneObj->identical( *itRefPlaneObj ) ){
+	for (btl::geometry::tp_plane_obj_list::iterator itRefPlaneObj = sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].begin(); itRefPlaneObj!=sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].end(); itRefPlaneObj++ ){
+		for (btl::geometry::tp_plane_obj_list::iterator itThisPlaneObj = _vPlaneObjsDistanceNormal[usLevel_].begin(); itThisPlaneObj!=_vPlaneObjsDistanceNormal[usLevel_].end(); itThisPlaneObj++ ){
+			if( !itThisPlaneObj->_bCorrespondetFound && itThisPlaneObj->identical( *itRefPlaneObj ) ){
 				itThisPlaneObj->_usIdx=itRefPlaneObj->_usIdx;
 				itThisPlaneObj->_bCorrespondetFound = itRefPlaneObj->_bCorrespondetFound = true;
 				break;
