@@ -31,6 +31,7 @@
 #include "Camera.h"
 #include "Kinect.h"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "CVUtil.hpp"
@@ -74,7 +75,7 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 	_eivTw = -_eimRw.transpose()*eivC;
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
-	_bRenderPlaneSeparately = false;
+	_bMerge = false;
 	_bGPURender = false;
 	_pGL = NULL;
 	_eClusterType = NORMAL_CLUSTER;//DISTANCE_CLUSTER;
@@ -102,6 +103,8 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	for(int i=0; i<4; i++) {
 		copyTo(pKF_,i);
+		pKF_->_vPlaneObjsDistanceNormal[i] = _vPlaneObjsDistanceNormal[i];
+
 	}
 	pKF_->_bIsReferenceFrame = _bIsReferenceFrame;
 	pKF_->_eimRw = _eimRw;
@@ -303,17 +306,19 @@ void btl::kinect::CKeyFrame::renderCameraInGLWorld( bool bRenderCamera_, bool bB
 		_pRGBCamera->renderCameraInGLLocal ( _uTexture,*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
 	}
 	//render dot clouds
-	//if(_bRenderPlane) renderPlanesInGLLocal(uLevel_);
-	//render3DPtsInGLLocal(uLevel_);//rendering detected plane as well
+	//if(_bRenderPlane) renderPlanesInLocalGL(uLevel_);
+	//render3DPtsInLocalGL(uLevel_);//rendering detected plane as well
 	if(bRenderDepth_){
-		if (_bGPURender) gpuRender3DPtsCVInLocalGL(uLevel_,_bRenderPlane);
-		else render3DPtsInGLLocal(uLevel_,_bRenderPlane);
-		if (_bRenderPlaneSeparately) renderPlanesInGLLocal(2);
+		/*//if (_bGPURender) gpuRender3DPtsCVInLocalGL(uLevel_,_bRenderPlane);*/
+		//else render3DPtsInLocalGL(uLevel_,_bRenderPlane);
+		//if (_bRenderPlaneSeparately) //renderPlanesInLocalGL(2); 
+		if(_bRenderPlane) renderPlaneObjsInLocalCVGL(uLevel_);
+		else gpuRender3DPtsCVInLocalGL(uLevel_,_bRenderPlane);
 	}
 	glPopMatrix();
 }
 
-void btl::kinect::CKeyFrame::render3DPtsInGLLocal(const unsigned short uLevel_,const bool bRenderPlane_) const {
+void btl::kinect::CKeyFrame::render3DPtsInLocalGL(const unsigned short uLevel_,const bool bRenderPlane_) const {
 	//////////////////////////////////
 	//for rendering the detected plane
 	const unsigned char* pColor;
@@ -372,7 +377,6 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLev
 		}
 	}
 	//////////////////////////////////
-	//error
 	_acvgmShrPtrAA[uLevel_]->setTo(0);
 	btl::device::cudaNormalSetRotationAxisCVGL(*_acvgmShrPtrPyrNls[uLevel_],&*_acvgmShrPtrAA[uLevel_]);
 	_acvgmShrPtrAA[uLevel_]->download(*_acvmShrPtrAA[uLevel_]);
@@ -395,7 +399,7 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsCVInLocalGL(const unsigned short uLev
 	return;
 } 
 
-void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short uLevel_) const
+void btl::kinect::CKeyFrame::renderPlanesInLocalGL(const unsigned short uLevel_) const
 {
 	float dNx,dNy,dNz;
 	float dX, dY, dZ;
@@ -430,6 +434,28 @@ void btl::kinect::CKeyFrame::renderPlanesInGLLocal(const unsigned short uLevel_)
 		}
 	}
 	return;
+}
+
+void btl::kinect::CKeyFrame::renderPlaneObjsInLocalCVGL(const unsigned short uLevel_) const{
+	//////////////////////////////////
+	const float* pNl = (const float*) _acvmShrPtrPyrNls[uLevel_]->data;
+	const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;
+	const unsigned char* pColor; short sColor = 0;
+	// Generate the data
+	if( _pGL && _pGL->_bEnableLighting ){glEnable(GL_LIGHTING);}
+	else                            	{glDisable(GL_LIGHTING);}
+	glPointSize(0.1f*(uLevel_+1)*20);
+	glBegin(GL_POINTS);
+	for(btl::geometry::tp_plane_obj_list::const_iterator citPlaneObj = _vPlaneObjsDistanceNormal[uLevel_].begin(); citPlaneObj!=_vPlaneObjsDistanceNormal[uLevel_].end();citPlaneObj++,sColor++){
+		const unsigned char* pColor = btl::utility::__aColors[citPlaneObj->_usIdx/*+_nColorIdx*/%BTL_NUM_COLOR];
+		for(std::vector<unsigned int>::const_iterator citIdx = citPlaneObj->_vIdx.begin(); citIdx != citPlaneObj->_vIdx.end(); citIdx++ ){
+			unsigned int uIdx = *citIdx*3;
+			glColor3ubv ( pColor ); 
+			glVertex3f ( pPt[uIdx], -pPt[uIdx+1], -pPt[uIdx+2] ); 
+			glNormal3f ( pNl[uIdx], -pNl[uIdx+1], -pNl[uIdx+2] );
+		}// for each point
+	}//for each plane object
+	glEnd();
 }
 
 void btl::kinect::CKeyFrame::selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_, Eigen::MatrixXd* peimXInlier_, Eigen::MatrixXd* peimYInlier_ ) {
@@ -521,13 +547,34 @@ void btl::kinect::CKeyFrame::select5Rand ( const Eigen::MatrixXd& eimX_, const E
 void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 	//get next frame
 	BTL_ASSERT(btl::utility::BTL_CV == _eConvention, "CKeyFrame data convention must be opencv convention");
+	//clear previous plane objs
+	_vPlaneObjsDistanceNormal[uPyrLevel_].clear();
 	//cluster the top pyramid
 	_sNormalHist.gpuClusterNormal(*_acvgmShrPtrPyrNls[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vPlaneObjsNormal);
 	//enforce position continuity
-	_sDistanceHist.clusterDistanceHist(*_acvmShrPtrPyrPts[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,_vPlaneObjsNormal,&*_acvmShrPtrDistanceClusters[uPyrLevel_],&_vPlaneObjsDistanceNormal);
+	_sDistanceHist.clusterDistanceHist(*_acvmShrPtrPyrPts[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,_vPlaneObjsNormal,&*_acvmShrPtrDistanceClusters[uPyrLevel_],&_vPlaneObjsDistanceNormal[uPyrLevel_]);
+	//merge clusters according to avg normal and position.
+	btl::geometry::mergePlaneObj(_vPlaneObjsDistanceNormal[uPyrLevel_]);
+	//transform the planes into world coordinates
+	for (btl::geometry::tp_plane_obj_list::iterator itPlane = _vPlaneObjsDistanceNormal[uPyrLevel_].begin(); itPlane!= _vPlaneObjsDistanceNormal[uPyrLevel_].end(); itPlane++){
+		btl::geometry::transformPlaneIntoWorldCVCV(*itPlane,_eimRw,_eivTw);
+		//btl::geometry::transformPlaneIntoLocalCVCV(*itPlane,_eimRw,_eivTw);
+	}
 	return;
 }
+void btl::kinect::CKeyFrame::associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_){
+	if( _vPlaneObjsDistanceNormal[usLevel_].empty()||sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].empty() ) return;
 
+	for (btl::geometry::tp_plane_obj_list::iterator itThisPlaneObj = _vPlaneObjsDistanceNormal[usLevel_].begin(); itThisPlaneObj!=_vPlaneObjsDistanceNormal[usLevel_].end(); itThisPlaneObj++ ){
+		for (btl::geometry::tp_plane_obj_list::iterator itRefPlaneObj = sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].begin(); itRefPlaneObj!=sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].end(); itRefPlaneObj++ ){
+			if( !itRefPlaneObj->_bCorrespondetFound && itThisPlaneObj->identical( *itRefPlaneObj ) ){
+				itThisPlaneObj->_usIdx=itRefPlaneObj->_usIdx;
+				itThisPlaneObj->_bCorrespondetFound = itRefPlaneObj->_bCorrespondetFound = true;
+				break;
+			}
+		}//for each plane in refererce frame
+	}//for each plane in this frame
+}
 
 
 

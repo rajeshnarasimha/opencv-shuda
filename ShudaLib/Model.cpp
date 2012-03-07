@@ -30,6 +30,7 @@
 #include "Camera.h"
 #include "Kinect.h"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "Model.h"
@@ -59,7 +60,7 @@ void CModel::unpack_tsdf (short2 value, float& tsdf, int& weight)
     tsdf =  (value.x) / 32767;   //*/ * INV_DIV;
 }
 void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ ){
-	Eigen::Vector3d eivCw = - cFrame_._eimRw*cFrame_._eivTw ; //get camera center in world coordinate
+	Eigen::Vector3d eivCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
 	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
 	btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmPyrDepths[usPyrLevel_],usPyrLevel_,

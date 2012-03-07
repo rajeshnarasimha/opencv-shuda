@@ -1,5 +1,10 @@
 //display kinect depth in real-time
 #define INFO
+#include <GL/glew.h>
+#include <gl/freeglut.h>
+#include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <cuda_runtime_api.h>
 
 #include <iostream>
 #include <string>
@@ -22,6 +27,7 @@
 #include "EigenUtil.hpp"
 #include "Camera.h"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include <VideoSourceKinect.hpp>
@@ -96,11 +102,26 @@ void normalKeys ( unsigned char key, int x, int y ){
 		//use current keyframe as a reference
 		_bRenderPlane =! _bRenderPlane;
 		for(unsigned int i=0; i < _nKFCounter; i++)	{
-			_aShrPtrKFs[i]->_bRenderPlaneSeparately=_bRenderPlane;
-			//if(_bRenderPlane) {_aShrPtrKFs[i]->gpuDetectPlane(3);}
+			_aShrPtrKFs[i]->_bRenderPlane=_bRenderPlane;
+			for (unsigned short u=0; u<4; u++)
+			{
+				_aShrPtrKFs[i]->gpuDetectPlane(u);
+			}
 		}
 		glutPostRedisplay();
 		break;
+	case '8':
+			//use current keyframe as a reference
+			_bRenderReference =! _bRenderReference;
+			for(unsigned int i=0; i < _nKFCounter; i++)	{
+				_aShrPtrKFs[i]->_bMerge =_bRenderReference;
+				for (unsigned short u=0; u<4; u++)
+				{
+					_aShrPtrKFs[i]->gpuDetectPlane(u);
+				}
+			}
+			glutPostRedisplay();
+			break;
 	case '0':
 		(*_vShrPtrsKF[ _nView ])->setView(&_pGL->_eimModelViewGL);
 		break;
@@ -138,13 +159,15 @@ void init ( ){
 	
 // store a frame and detect feature points for tracking.
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	for (ushort usI=0;usI<4;usI++){
+		_pKinect->_pFrame->gpuDetectPlane(usI);
+	}
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
 	_pKinect->_pFrame->copyTo(&*p1stKF);
 	p1stKF->_bIsReferenceFrame = true;
 	p1stKF->setView(&_pGL->_eimModelViewGL);
-	p1stKF->gpuDetectPlane(2);
 	_vShrPtrsKF.push_back( &p1stKF );
     return;
 }
@@ -156,10 +179,11 @@ float _fFPS;//frame per second
 void display ( void ) {
 // update frame
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	//_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
 // ( second frame )
 	//_pGL->timerStart();
 	unsigned short uInliers;
-    if ( false && _nKFCounter < _nReserved ) {
+    if ( _bCapture && _nKFCounter < _nReserved ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
@@ -168,6 +192,8 @@ void display ( void ) {
 		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
         pCurrentKF->calcRT ( *pReferenceKF,0,&uInliers );
  		pCurrentKF->applyRelativePose( *pReferenceKF );
+		//pCurrentKF->associatePlanes(*pReferenceKF,_pGL->_uLevel);
+	
 		//detect planes
 		//pCurrentKF->detectPlane(_pGL->_uLevel);
 		_vShrPtrsKF.push_back( &pCurrentKF );
@@ -182,21 +208,23 @@ void display ( void ) {
 			_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
 		}
 		_bCapture = false;
+		//associate planes
     }
 	else if( _nKFCounter > 49 )	{
 		std::cout << "two many key frames to hold" << std::flush;  
 	}
-	else if (_bCapture && _nKFCounter < _nReserved){
+	else if (false && _nKFCounter < _nReserved){
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		// track camera motion
 		_pKinect->_pFrame->detectConnectionFromCurrentToReference(*pReferenceKF,0);
 		double dE = _pKinect->_pFrame->calcRT ( *pReferenceKF,0, &uInliers);
-		Eigen::AngleAxis<double> eiAA(_pKinect->_pFrame->_eimR);
+		Eigen::AngleAxis<double> eiAA(_pKinect->_pFrame->_eimRw);
 		double dAngle = eiAA.angle();
-		double dNorm = _pKinect->_pFrame->_eivT.norm(); 
+		double dNorm = _pKinect->_pFrame->_eivTw.norm(); 
 		_pKinect->_pFrame->applyRelativePose( *pReferenceKF );
 		if( dE < 0.05 && uInliers> 40 && ( dNorm > 0.05 || dAngle > M_PI_4/4.) ){
+
 			PRINT(dAngle);
 			PRINT(dNorm)
 			btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
@@ -209,7 +237,7 @@ void display ( void ) {
 				_vRFIdx.push_back( _nRFIdx );
 				_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
 			}
-			pCurrentKF->gpuDetectPlane(2);
+			pCurrentKF->associatePlanes(*pReferenceKF,3);
 			std::cout << "new key frame added" << std::flush;
 		}
 	}

@@ -1,5 +1,5 @@
-#ifndef BTL_EXTRA_MODEL
-#define BTL_EXTRA_MODEL
+#ifndef BTL_GEOMETRY_MODEL
+#define BTL_GEOMETRY_MODEL
 
 namespace btl{ namespace geometry
 {
