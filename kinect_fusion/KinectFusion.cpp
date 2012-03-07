@@ -179,7 +179,9 @@ float _fFPS;//frame per second
 void display ( void ) {
 // update frame
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	//_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
+	for (ushort usI=0;usI<4;usI++){
+		_pKinect->_pFrame->gpuDetectPlane(usI);
+	}
 // ( second frame )
 	//_pGL->timerStart();
 	unsigned short uInliers;
@@ -192,7 +194,7 @@ void display ( void ) {
 		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
         pCurrentKF->calcRT ( *pReferenceKF,0,&uInliers );
  		pCurrentKF->applyRelativePose( *pReferenceKF );
-		//pCurrentKF->associatePlanes(*pReferenceKF,_pGL->_uLevel);
+		pCurrentKF->associatePlanes(*pReferenceKF,_pGL->_uLevel);
 	
 		//detect planes
 		//pCurrentKF->detectPlane(_pGL->_uLevel);
