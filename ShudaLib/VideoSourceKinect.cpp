@@ -30,6 +30,7 @@
 #include "Utility.hpp"
 #include "Kinect.h"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
@@ -337,7 +338,10 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 		//		BTL_ASSERT(std::fabs(fSec-fRatio)<0.00001,"scaleDepthCVmCVm() error");
 		//	}
 		//}
+		//clear plane obj
+		_pFrame->_vPlaneObjsDistanceNormal[i].clear();
 	}
+
 	return;
 }
 void VideoSourceKinect::gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvgmUndistortDepth_ , cv::gpu::GpuMat* pcvgmAligned_){

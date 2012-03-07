@@ -21,6 +21,9 @@ public:
 		_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//order matters 
 		_eimRw = _eimRw*sReferenceKF_._eimRw;
 	}
+	void associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_);
+
+
 	// set the opengl modelview matrix to align with the current view
 	void setView(Eigen::Matrix4d* pModelViewGL_) const {
 		if (_eConvention == btl::utility::BTL_CV) {
@@ -45,8 +48,9 @@ public:
 	// render the camera location in the GL world
 	void renderCameraInGLWorld( bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
 	// render the depth in the GL world 
-	void render3DPtsInGLLocal(const unsigned short uLevel_,const bool bRenderPlane_) const;
-	void renderPlanesInGLLocal(const unsigned short _uLevel) const;
+	void render3DPtsInLocalGL(const unsigned short uLevel_,const bool bRenderPlane_) const;
+	void renderPlanesInLocalGL(const unsigned short _uLevel) const;
+	void renderPlaneObjsInLocalCVGL(const unsigned short uLevel_) const;
 	void gpuRender3DPtsCVInLocalGL(const unsigned short uLevel_, const bool bRenderPlane_) const;
 
 	// copy the content to another keyframe at 
@@ -67,7 +71,7 @@ private:
 	//for plane detection
 	//for normal cluster
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
-	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::utility::tp_plane_obj_list* pvPlaneObjs_);
+	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::geometry::tp_plane_obj_list* pvPlaneObjs_);
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
@@ -103,7 +107,7 @@ public:
 	btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;
 	bool _bRenderPlane;
-	bool _bRenderPlaneSeparately;
+	bool _bMerge;
 	bool _bGPURender;
 	GLuint _uTexture;
 
@@ -111,8 +115,8 @@ public:
 	tp_cluster _eClusterType;
 	static btl::utility::SNormalHist _sNormalHist;
 	static btl::utility::SDistanceHist _sDistanceHist;
-	btl::utility::tp_plane_obj_list _vPlaneObjsNormal;
-	btl::utility::tp_plane_obj_list _vPlaneObjsDistanceNormal;
+	btl::geometry::tp_plane_obj_list _vPlaneObjsNormal;
+	btl::geometry::tp_plane_obj_list _vPlaneObjsDistanceNormal[4];
 private:
 	//for surf matching
 	//host

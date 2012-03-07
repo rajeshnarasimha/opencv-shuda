@@ -3,7 +3,6 @@
 #define TIMER
 #include <GL/glew.h>
 #include <gl/freeglut.h>
-#include <gl/glew.h>
 #include <cuda.h>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime_api.h>
@@ -28,6 +27,7 @@
 #include "Camera.h"
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
@@ -177,8 +177,8 @@ void display ( void )
 		PRINTSTR("Pyramid")
 		_pGL->timerStop();
 		_pGL->timerStart();
-		_pKinect->_pFrame->_bGPURender = _bGPURender;
-		_pKinect->_pFrame->_bRenderPlane = false;
+		//_pKinect->_pFrame->_bRenderPlaneSeparately = _bGPURender;
+		_pKinect->_pFrame->_bRenderPlane = _bGPURender;
 		_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
 		PRINTSTR("Plane")
 		_pGL->timerStop();
@@ -201,8 +201,8 @@ void display ( void )
 	_pGL->renderPatternGL(.1f,20.f,20.f);
 	_pGL->renderPatternGL(1.f,10.f,10.f);
 	_pGL->timerStart();
-	_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_uLevel);
-	/*if(_pGL->_bRenderReference) */_pModel->gpuRenderVoxelInWorldCVGL();
+	//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_uLevel);
+	/*if(_pGL->_bRenderReference) *///_pModel->gpuRenderVoxelInWorldCVGL();
     //render3DPts();
 	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
 	_pKinect->_pFrame->_eClusterType = _enumType;
