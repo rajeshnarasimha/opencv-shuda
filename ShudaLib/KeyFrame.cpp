@@ -73,6 +73,8 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 	_eimRw.setIdentity();
 	Eigen::Vector3d eivC (0.,0.,-1.8); //camera location in the world cv-convention
 	_eivTw = -_eimRw.transpose()*eivC;
+	updateMVInv();
+
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
 	_bMerge = false;
@@ -85,6 +87,52 @@ btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 	glGenTextures ( 1, &_uTexture );
 }
+
+btl::kinect::CKeyFrame::CKeyFrame( CKeyFrame::tp_ptr pFrame_ )
+{
+	_pRGBCamera = pFrame_->_pRGBCamera;
+	//disparity
+	for(int i=0; i<4; i++){
+		int nRows = KINECT_HEIGHT>>i; 
+		int nCols = KINECT_WIDTH>>i;
+		//host
+		_acvmShrPtrPyrPts[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
+		_acvmShrPtrPyrNls[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
+		_acvmShrPtrPyrRGBs[i].reset(new cv::Mat(nRows,nCols,CV_8UC3));
+		_acvmShrPtrPyrBWs[i] .reset(new cv::Mat(nRows,nCols,CV_8UC1));
+		_acvmPyrDepths[i]	 .reset(new cv::Mat(nRows,nCols,CV_32FC1));
+		//device
+		_acvgmShrPtrPyrPts[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
+		_acvgmShrPtrPyrNls[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
+		_acvgmShrPtrPyrRGBs[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
+		_acvgmShrPtrPyrBWs[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC1));
+		_acvgmPyrDepths[i]	  .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
+		//plane detection
+		_acvmShrPtrNormalClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
+		_acvmShrPtrDistanceClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
+	}
+
+	_eConvention = btl::utility::BTL_CV;
+	_eimRw.setIdentity();
+	Eigen::Vector3d eivC (0.,0.,-1.8); //camera location in the world cv-convention
+	_eivTw = -_eimRw.transpose()*eivC;
+	updateMVInv();
+
+	_bIsReferenceFrame = false;
+	_bRenderPlane = false;
+	_bMerge = false;
+	_bGPURender = false;
+	_pGL = NULL;
+	_eClusterType = NORMAL_CLUSTER;//DISTANCE_CLUSTER;
+	_nColorIdx = 0;
+
+	//rendering
+	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
+	glGenTextures ( 1, &_uTexture );
+
+	pFrame_->copyTo(this);
+}
+
 
 
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
@@ -105,11 +153,11 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	for(int i=0; i<4; i++) {
 		copyTo(pKF_,i);
 		pKF_->_vPlaneObjsDistanceNormal[i] = _vPlaneObjsDistanceNormal[i];
-
 	}
 	pKF_->_bIsReferenceFrame = _bIsReferenceFrame;
 	pKF_->_eimRw = _eimRw;
 	pKF_->_eivTw = _eivTw;
+	pKF_->updateMVInv();
 }
 
 void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ )  {
@@ -285,11 +333,12 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
 }// calcRT
 
 void btl::kinect::CKeyFrame::renderCameraInGLWorld( bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ ) {
+	/*
 	Eigen::Matrix4d mGLM1;
-	setView( &mGLM1 );
-	mGLM1 = mGLM1.inverse().eval();
+		setView( &mGLM1 );
+		mGLM1 = mGLM1.inverse().eval();*/
 	glPushMatrix();
-	glMultMatrixd ( mGLM1.data() );
+	loadGLMVIn();
 	if( _bIsReferenceFrame ){
 		glColor3d( 1, 0, 0 );
 		glLineWidth(2);
@@ -449,16 +498,26 @@ void btl::kinect::CKeyFrame::renderPlaneObjsInLocalCVGL(const unsigned short uLe
 	glBegin(GL_POINTS);
 	for(btl::geometry::tp_plane_obj_list::const_iterator citPlaneObj = _vPlaneObjsDistanceNormal[uLevel_].begin(); citPlaneObj!=_vPlaneObjsDistanceNormal[uLevel_].end();citPlaneObj++,sColor++){
 		const unsigned char* pColor = btl::utility::__aColors[citPlaneObj->_usIdx+_nColorIdx%BTL_NUM_COLOR];
+		renderASinglePlaneObjInLocalCVGL(pPt,pNl,citPlaneObj->_vIdx,pColor);
+		/*
 		for(std::vector<unsigned int>::const_iterator citIdx = citPlaneObj->_vIdx.begin(); citIdx != citPlaneObj->_vIdx.end(); citIdx++ ){
-			unsigned int uIdx = *citIdx*3;
-			glColor3ubv ( pColor ); 
-			glVertex3f ( pPt[uIdx], -pPt[uIdx+1], -pPt[uIdx+2] ); 
-			glNormal3f ( pNl[uIdx], -pNl[uIdx+1], -pNl[uIdx+2] );
-		}// for each point
+					unsigned int uIdx = *citIdx*3;
+					glColor3ubv ( pColor ); 
+					glVertex3f ( pPt[uIdx], -pPt[uIdx+1], -pPt[uIdx+2] ); 
+					glNormal3f ( pNl[uIdx], -pNl[uIdx+1], -pNl[uIdx+2] );
+				}// for each point*/
+		
 	}//for each plane object
 	glEnd();
 }
-
+void btl::kinect::CKeyFrame::renderASinglePlaneObjInLocalCVGL(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const {
+	for(std::vector<unsigned int>::const_iterator citIdx = vIdx_.begin(); citIdx != vIdx_.end(); citIdx++ ){
+		unsigned int uIdx = *citIdx*3;
+		glColor3ubv ( pColor_ ); 
+		glVertex3f ( pPt_[uIdx], -pPt_[uIdx+1], -pPt_[uIdx+2] ); 
+		glNormal3f ( pNl_[uIdx], -pNl_[uIdx+1], -pNl_[uIdx+2] );
+	}// for each point
+}
 void btl::kinect::CKeyFrame::selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_, Eigen::MatrixXd* peimXInlier_, Eigen::MatrixXd* peimYInlier_ ) {
 	CHECK ( vVoterIdx_.size() == peimXInlier_->cols(), " vVoterIdx_.size() must be equal to peimXInlier->cols(). " );
 	CHECK ( vVoterIdx_.size() == peimYInlier_->cols(), " vVoterIdx_.size() must be equal to peimYInlier->cols(). " );
@@ -574,6 +633,17 @@ void btl::kinect::CKeyFrame::associatePlanes(btl::kinect::CKeyFrame& sReferenceF
 			}
 		}//for each plane in refererce frame
 	}//for each plane in this frame
+}
+
+void btl::kinect::CKeyFrame::applyRelativePose( const CKeyFrame& sReferenceKF_ ){
+	_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//order matters 
+	_eimRw = _eimRw*sReferenceKF_._eimRw;
+	updateMVInv();
+}
+
+void btl::kinect::CKeyFrame::updateMVInv(){
+	Eigen::Matrix4d mGLM1;	setView( &mGLM1 );
+	_eimGLMVInv = mGLM1.inverse().eval();
 }
 
 

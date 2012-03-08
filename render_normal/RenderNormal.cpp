@@ -32,6 +32,7 @@
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "Model.h"
+#include "PlaneWorld.h"
 #include "GLUtil.h"
 
 using namespace Eigen;
@@ -41,6 +42,7 @@ class CKinectView;
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CModel::tp_shared_ptr _pModel;
+btl::geometry::CMultiPlanesMultiViewsInWorld::tp_shared_ptr _pMPMV;
 
 Matrix4d _mGLMatrix;
 double _dNear = 0.01;
@@ -173,7 +175,7 @@ void mouseMotion ( int nX_, int nY_ ){
 
 void display ( void )
 {
-	//if(_bCaptureCurrentFrame) 
+	if(_bCaptureCurrentFrame) 
 	{
 		_pGL->timerStart();
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
@@ -182,7 +184,10 @@ void display ( void )
 		_pGL->timerStart();
 		_pKinect->_pFrame->_bGPURender = _bGPURender;
 		_pKinect->_pFrame->_bRenderPlane = false;
-		_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
+		for (ushort u=0;u<4;u++){
+			_pKinect->_pFrame->gpuDetectPlane(u);
+		}//for each pyramid level
+		_pMPMV->integrateFrameIntoPlanesWorldCVCV(_pKinect->_pFrame.get());
 		PRINTSTR("Plane")
 		_pGL->timerStop();
 		_bCaptureCurrentFrame = false;
@@ -201,12 +206,18 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	_pGL->renderVoxelGL(2.f);
-	_pModel->gpuRenderVoxelInWorldCVGL();
+	//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_uLevel);
+	//_pModel->gpuRenderVoxelInWorldCVGL();
+	//render all planes in the first frame
+	
+	//render first plane in multi-view
+	if(_pMPMV->_vShrPtrSPMV.size()>2) _pMPMV->_vShrPtrSPMV[1]->renderPlaneInAllViewsWorldGL(_pGL.get(),_usColorIdx,3);
+	else _pMPMV->renderAllPlanesInSingleViewWorldGL(_pGL.get(),_usColorIdx,3,0);
     //render3DPts();
-	_pKinect->_pFrame->_bRenderPlane = _bRenderPlane;
+	_pKinect->_pFrame->_bRenderPlane = false;
 	_pKinect->_pFrame->_eClusterType = _enumType;
 	_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,true,.05f,_pGL->_uLevel);
+	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,false,.05f,_pGL->_uLevel);
 	PRINTSTR("renderCameraInGLWorld()")
 	_pGL->timerStop();
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -252,7 +263,9 @@ void init ( ){
     glPixelStorei( GL_UNPACK_ALIGNMENT, 1);
 	_pGL->_uLevel=0;
 	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
- 	_pKinect->_pFrame->gpuDetectPlane(_pGL->_uLevel);
+ 	_pKinect->_pFrame->gpuDetectPlane(3);
+	//_pMPMV->integrateFrameIntoPlanesWorldCVCV(_pKinect->_pFrame.get(),3);
+	_pMPMV.reset( new btl::geometry::CMultiPlanesMultiViewsInWorld( _pKinect->_pFrame.get() ) );
 
 	_pGL->init();
 }
@@ -279,17 +292,13 @@ int main ( int argc, char** argv ){
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
 		
-		//btl::gl_util::CGLUtil::glBindBuffer    = (PFNGLBINDBUFFERARBPROC)   wglGetProcAddress("glBindBuffer");
-		//btl::gl_util::CGLUtil::glDeleteBuffers = (PFNGLDELETEBUFFERSARBPROC)wglGetProcAddress("glDeleteBuffers");
-		//btl::gl_util::CGLUtil::glGenBuffers    = (PFNGLGENBUFFERSARBPROC)   wglGetProcAddress("glGenBuffers");
-		//btl::gl_util::CGLUtil::glBufferData    = (PFNGLBUFFERDATAARBPROC)   wglGetProcAddress("glBufferData");
-
 		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
 		_pGL->initVBO();
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
 		_pKinect->_pFrame->_pGL=_pGL.get();
 		_pModel.reset( new btl::geometry::CModel() );
 		_pModel->_pGL=_pGL.get();
+		
 		init();
         _pModel->gpuCreateVBO();
 		glutMainLoop();

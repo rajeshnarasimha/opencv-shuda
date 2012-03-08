@@ -17,7 +17,6 @@ private:
 public:
 	CModel();
 	~CModel();
-	void gpuIntegrate( btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ );
 	void gpuRenderVoxelInWorldCVGL();
 	void gpuCreateVBO();
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ );
