@@ -11,16 +11,14 @@ public:
 
 public:
     CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ );
+	CKeyFrame(CKeyFrame::tp_ptr pFrame_);
     ~CKeyFrame() {}
 	// detect the correspondences 
 	void detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ );
 	//calculate the R and T relative to Reference Frame.
 	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , unsigned short* pInliers_);
 	//accumulate the relative R T to the global RT
-	void applyRelativePose( const CKeyFrame& sReferenceKF_ ) {
-		_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//order matters 
-		_eimRw = _eimRw*sReferenceKF_._eimRw;
-	}
+	void applyRelativePose( const CKeyFrame& sReferenceKF_ ); 
 	void associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_);
 
 
@@ -51,7 +49,10 @@ public:
 	void render3DPtsInLocalGL(const unsigned short uLevel_,const bool bRenderPlane_) const;
 	void renderPlanesInLocalGL(const unsigned short _uLevel) const;
 	void renderPlaneObjsInLocalCVGL(const unsigned short uLevel_) const;
+	void renderASinglePlaneObjInLocalCVGL(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
 	void gpuRender3DPtsCVInLocalGL(const unsigned short uLevel_, const bool bRenderPlane_) const;
+
+	inline void loadGLMVIn() const{	glMultMatrixd ( _eimGLMVInv.data() );}
 
 	// copy the content to another keyframe at 
 	void copyTo( CKeyFrame* pKF_, const short sLevel_ );
@@ -72,6 +73,7 @@ private:
 	//for normal cluster
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
 	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::geometry::tp_plane_obj_list* pvPlaneObjs_);
+	void updateMVInv();
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
@@ -103,6 +105,8 @@ public:
 	//      _c defined in camera reference system (local reference system) 
 	Eigen::Matrix3d _eimRw; 
 	Eigen::Vector3d _eivTw; 
+	//GL ModelView Matrix
+	Eigen::Matrix4d _eimGLMVInv;
 	//render context
 	btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;
