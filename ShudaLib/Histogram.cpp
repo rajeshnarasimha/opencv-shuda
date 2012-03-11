@@ -178,11 +178,11 @@ void btl::utility::SDistanceHist::distanceHistogram(const cv::Mat& cvmPts_, cons
 	//collect the distance histogram
 	for(std::vector< unsigned int >::const_iterator cit_vPointIdx = vPts_.begin(); cit_vPointIdx!=vPts_.end(); cit_vPointIdx++){
 		unsigned int uOffset = (*cit_vPointIdx)*3;
-		double dDist = fabs(pPt[uOffset]*eivAvgNl_(0) + pPt[uOffset+1]*eivAvgNl_(1)+ pPt[uOffset+2]*eivAvgNl_(2));
-		ushort nBin = (ushort)floor( (dDist -_dLow)/ _dSampleStep );
+		double dDistCoefficient = pPt[uOffset]*eivAvgNl_(0) + pPt[uOffset+1]*eivAvgNl_(1)+ pPt[uOffset+2]*eivAvgNl_(2);
+		ushort nBin = (ushort)floor( (dDistCoefficient -_dLow)/ _dSampleStep );
 		if( nBin < _uSamples ){
-			(*_pvDistHist)[nBin].first.push_back(tp_pair_hist_element(dDist,*cit_vPointIdx));
-			(*_pvDistHist)[nBin].second += dDist;
+			(*_pvDistHist)[nBin].first.push_back(tp_pair_hist_element(dDistCoefficient,*cit_vPointIdx));
+			(*_pvDistHist)[nBin].second += dDistCoefficient;
 		}
 	}
 	//calc avg distance 
@@ -224,8 +224,8 @@ void btl::utility::SDistanceHist::calcMergeFlag(){
 
 void btl::utility::SDistanceHist::init( const unsigned short usSamples_ ){
 	_uSamples=usSamples_;
-	_dLow  =  0; //negative doesnot make sense
-	_dHigh =  3;
+	_dLow  =  -3; //negative doesnot make sense
+	_dHigh =  0;
 	_dSampleStep = ( _dHigh - _dLow )/_uSamples; 
 	_pvDistHist.reset(new tp_dist_hist);
 	_vMergeFlags.resize(_uSamples, SDistanceHist::EMPTY); 

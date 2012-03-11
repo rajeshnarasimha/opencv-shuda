@@ -631,13 +631,13 @@ void btl::kinect::CKeyFrame::associatePlanes(btl::kinect::CKeyFrame& sReferenceF
 				itThisPlaneObj->_bCorrespondetFound = itRefPlaneObj->_bCorrespondetFound = true;
 				break;
 			}
-		}//for each plane in refererce frame
+		}//for each plane in reference frame
 	}//for each plane in this frame
 }
 
 void btl::kinect::CKeyFrame::applyRelativePose( const CKeyFrame& sReferenceKF_ ){
-	_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//order matters 
-	_eimRw = _eimRw*sReferenceKF_._eimRw;
+	_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//1.order matters 
+	_eimRw = _eimRw*sReferenceKF_._eimRw;//2.
 	updateMVInv();
 }
 

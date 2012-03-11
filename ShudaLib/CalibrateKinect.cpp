@@ -493,10 +493,10 @@ void CCalibrateKinect::calibrate ()
     _eimRGBK << _mRGBK;
     _eimRGBInvK << _mRGBInvK;
     _eimIRK  << _mIRK;
-    _eimIRInvK << _mIRInvK;
-    _eimRelativeRotation << _cvmRelativeRotation;
-    _eivRelativeTranslation << _cvmRelativeTranslation;
-    PRINT( dErrorRGB );
+	_eimIRInvK << _mIRInvK;
+	_eimRelativeRotation << _cvmRelativeRotation;
+	_eivRelativeTranslation << _cvmRelativeTranslation;
+	PRINT( dErrorRGB );
     PRINT( dErrorIR );
     PRINT( dErrorStereo );
 
@@ -521,8 +521,7 @@ void CCalibrateKinect::convertRV2RM ( const std::vector< cv::Mat >& vMat_, std::
 {
     pvMat_->clear();
 
-    for ( unsigned int n = 0; n < vMat_.size() ; n++ )
-    {
+    for ( unsigned int n = 0; n < vMat_.size() ; n++ ) {
         cv::Mat cvmRGB;
         cv::Rodrigues ( vMat_[n], cvmRGB );
         pvMat_->push_back ( cvmRGB );

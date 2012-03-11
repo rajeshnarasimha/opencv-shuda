@@ -1,5 +1,5 @@
-#ifndef OPTIMIZATION_SHUDA 
-#define OPTIMIZATION_SHUDA
+#ifndef BTL_OPTIMIZATION 
+#define BTL_OPTIMIZATION
 /**
 * @file optim.hpp
 * @brief Adapted from KennethLib developed by Dr. Kenneth Wong
@@ -14,11 +14,7 @@
 */
 
 
-#include "Converters.hpp"
-#include <math.h>
-#include <vector>
 using namespace std;
-//using namespace cv;
 using namespace btl::utility;
 #define OPTIM_TINY	(1.0e-20)
 #define OPTIM_ZEPS	(1.0e-13)
@@ -59,7 +55,7 @@ public:
 
 	// for multi-dimensional search
 	// set the algorithm to be used
-	void SetMdAlg(int mdAlg) {m_nMdAlg = mdAlg;}
+	void setMethod(int eMethod_) {_eMdAlg = eMethod_;}
 	// set the max no. of iterations
 	void SetMaxMdIter(int nMax) {m_nMaxMdIter = (nMax>0 ? nMax : 0);}
 	// set the fractional tolerance
@@ -78,14 +74,14 @@ public:
 	// for gradient calculation using finite difference
 	virtual void SetDelta(int nIdx_,double dx_) 
 	{
-		CHECK( (nIdx_>=(int)m_vDelta.rows*m_vDelta.cols||nIdx_<0), "m_vDelta is wrong.");  
-		m_vDelta.at<double>( nIdx_, 0 ) = (fabs(dx_)>1.0e-20 ? fabs(dx_) : 1.0e-20);
+		CHECK( (nIdx_>=(int)_cvmDelta.rows*_cvmDelta.cols||nIdx_<0), "m_vDelta is wrong.");  
+		_cvmDelta.at<double>( nIdx_, 0 ) = (fabs(dx_)>1.0e-20 ? fabs(dx_) : 1.0e-20);
 	}
 
 	// retrievers
 	inline const string& GetMdAlgName(int idx) const {return m_MdAlg_List[idx];}
 	inline const string& GetLnAlgName(int idx) const {return m_LnAlg_List[idx];}
-	inline const int& GetMdAlg() const {return m_nMdAlg;}
+	inline const int& GetMdAlg() const {return _eMdAlg;}
 	inline const int& GetLnAlg() const {return m_nLnAlg;}
 	inline const int& GetMaxMdIter() const {return m_nMaxMdIter;}
 	inline const int& GetMaxLnIter() const {return m_nMaxLnIter;}
@@ -94,13 +90,13 @@ public:
 	inline const double& GetMinMdGrad() const {return m_MinMdGrad;}
 	inline double GetDelta(int nIdx_) const 
 	{
-		CHECK( (nIdx_>=(int)m_vDelta.rows*m_vDelta.cols||nIdx_<0), "m_vDelta is wrong." );   
-		return m_vDelta.at<double>( nIdx_, 0 );
+		CHECK( (nIdx_>=(int)_cvmDelta.rows*_cvmDelta.cols||nIdx_<0), "m_vDelta is wrong." );   
+		return _cvmDelta.at<double>( nIdx_, 0 );
 	}
 	inline const int& Iter() const {return m_nIter;}
 	inline const double& Cost() const {return m_Cost;}
-	virtual const cv::Mat_<double>& GetX() const {return m_X;}
-	virtual cv::Mat_<double>& GetX() {return m_X;}
+	virtual const cv::Mat_<double>& GetX() const {return _cvmX;}
+	virtual cv::Mat_<double>& GetX() {return _cvmX;}
 
 	// launcher
 	// begin the optimization which calls isOK()
@@ -116,8 +112,7 @@ public:
 	virtual double Func(const cv::Mat_<double>& X);
 	// override this by the gradient of the cost function
 	// default is by finite-difference
-	virtual void dFunc(const cv::Mat_<double>& X, cv::Mat_<double>& G);
-
+	virtual void dFunc(const cv::Mat_<double>& cvmX_, cv::Mat_<double>& cvmG_ );
 	// serializations
 
 protected:
@@ -145,7 +140,7 @@ protected:
 protected:
 	// for multi-dimensional search
 	string m_MdAlg_List[MAXMDALG];
-	int m_nMdAlg;		// algorithm to be used
+	int _eMdAlg;		// algorithm to be used
 	int	m_nMaxMdIter;	// maximium number of iterations
 	double m_MdTol;		// fractional tolerance
 	double m_MinMdGrad;	// minimum magitude of the gradient
@@ -157,17 +152,17 @@ protected:
 	double m_LnTol;		// fractional tolerance
 
 	// for gradient calculation using finite difference
-	cv::Mat_<double> m_vDelta;
+	cv::Mat_<double> _cvmDelta;
 
 	// output
 	int m_nIter;		// current number of iterations
 	double m_Cost;		// current cost
 
 	// parameters
-	cv::Mat_<double> m_X;
-	vector<double> m_vdCosts;
-	vector< cv::Mat_<double> > m_vXs;
-	vector< cv::Mat_<double> > m_vGs;
+	cv::Mat_<double> _cvmX;
+	vector<double> _vCosts;
+	vector< cv::Mat_<double> > _vcvmXs;
+	vector< cv::Mat_<double> > _vcvmGs;
 };
 
 }//namespace utility
