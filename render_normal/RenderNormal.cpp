@@ -61,6 +61,8 @@ unsigned short _usColorIdx = 0;
 bool _bRenderPlane = true;
 bool _bGpuPlane = true;
 bool _bGPURender = true;
+ushort _usViewNO = 0;
+ushort _usPlaneNO = 0;
 
 btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER;
 
@@ -124,6 +126,16 @@ void normalKeys ( unsigned char key, int x, int y )
 		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
 		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
 		break;
+	case '1':
+		_usViewNO++;
+		PRINT(_usViewNO);
+		glutPostRedisplay();
+		break;
+	case '2':
+		_usPlaneNO++;
+		PRINT(_usPlaneNO);
+		glutPostRedisplay();
+		break;
 	case '7':
 		_bGPURender = !_bGPURender;
 		glutPostRedisplay();
@@ -177,19 +189,13 @@ void display ( void )
 {
 	if(_bCaptureCurrentFrame) 
 	{
-		_pGL->timerStart();
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-		PRINTSTR("Pyramid")
-		_pGL->timerStop();
-		_pGL->timerStart();
 		_pKinect->_pFrame->_bGPURender = _bGPURender;
 		_pKinect->_pFrame->_bRenderPlane = false;
 		for (ushort u=0;u<4;u++){
 			_pKinect->_pFrame->gpuDetectPlane(u);
 		}//for each pyramid level
 		_pMPMV->integrateFrameIntoPlanesWorldCVCV(_pKinect->_pFrame.get());
-		PRINTSTR("Plane")
-		_pGL->timerStop();
 		_bCaptureCurrentFrame = false;
 	}
 
@@ -211,15 +217,16 @@ void display ( void )
 	//render all planes in the first frame
 	
 	//render first plane in multi-view
-	if(_pMPMV->_vShrPtrSPMV.size()>2) _pMPMV->_vShrPtrSPMV[1]->renderPlaneInAllViewsWorldGL(_pGL.get(),_usColorIdx,3);
-	else _pMPMV->renderAllPlanesInSingleViewWorldGL(_pGL.get(),_usColorIdx,3,0);
-    //render3DPts();
+	//if(_pMPMV->_vShrPtrSPMV.size()>2) _pMPMV->_vShrPtrSPMV[1]->renderPlaneInAllViewsWorldGL(_pGL.get(),_usColorIdx,3);
+	//render all planes in single view
+	//_pMPMV->renderAllPlanesInGivenViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usViewNO);
+	//_pMPMV->renderGivenPlaneInGivenViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
+	_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
+	//
 	_pKinect->_pFrame->_bRenderPlane = false;
 	_pKinect->_pFrame->_eClusterType = _enumType;
-	_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,false,.05f,_pGL->_uLevel);
-	PRINTSTR("renderCameraInGLWorld()")
-	_pGL->timerStop();
+	//_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,true,false,.05f,_pGL->_uLevel);
+	_pMPMV->renderAllCamrea(_pGL.get(),true,false,.05f);
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
     //gluLookAt ( _eivCamera(0), _eivCamera(1), _eivCamera(2),  _eivCentroid(0), _eivCentroid(1), _eivCentroid(2), _eivUp(0), _eivUp(1), _eivUp(2) );
@@ -230,12 +237,8 @@ void display ( void )
     glLoadIdentity();
 
     // render objects
-	_pGL->timerStart();
 	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_uLevel],&(_pKinect->_pFrame->_uTexture) );
 	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_uLevel] );
-	PRINTSTR("Camera");
-	_pGL->timerStop();
-
 
     glutSwapBuffers();
     glutPostRedisplay();

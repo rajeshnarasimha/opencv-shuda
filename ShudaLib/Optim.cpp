@@ -1,6 +1,10 @@
+#define INFO
+#include "Converters.hpp"
+#include <math.h>
+#include <vector>
+
 #include "optim.hpp"
 #include <algorithm>
-#include <math.h>
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -11,7 +15,7 @@ COptim::COptim()
 {
 	cout << "COptim() ";
 	// for multi-dimensional search
-	m_nMdAlg = GRADIENTDESCENDENT;
+	_eMdAlg = GRADIENTDESCENDENT;
 	m_nMaxMdIter = 200;
 	m_MdTol = 1.0e-8;
 	m_MinMdGrad = 0.0;
@@ -43,19 +47,19 @@ bool COptim::Go()
 	if (isOK())
 	{
 		
-		switch(m_nMdAlg)
+		switch(_eMdAlg)
 		{
 		case (CONJUGATE):
-			return ConjugateGradient(m_X);
+			return ConjugateGradient(_cvmX);
 
 		case (DIRECTIONSETS):
-			return DirectionSets(m_X);
+			return DirectionSets(_cvmX);
 
 		case (GRADIENTDESCENDENT):
-			return GradientDescendent(m_X);
+			return GradientDescendent(_cvmX);
 	
 		default:
-			return GradientDescendent(m_X);
+			return GradientDescendent(_cvmX);
 		}
 	}
 	else
@@ -65,30 +69,28 @@ bool COptim::Go()
 }
 bool COptim::isOK()
 {
-	cout << "isOK() ";
-	m_X.create(2,1);
-	m_X.at<double>(0,0) = 100;
-	m_X.at<double>(1,0) = 7;
+	PRINTSTR( "isOK()" );
+	_cvmX.create(2,1);
+	_cvmX.at<double>(0,0) = 100;
+	_cvmX.at<double>(1,0) = 7;
  	
-	m_vDelta.create(m_X.size());
-	m_vDelta.at<double>(0,0) = .0001;
-	m_vDelta.at<double>(1,0) = .0001;
+	_cvmDelta.create(_cvmX.size());
+	_cvmDelta.at<double>(0,0) = .0001;
+	_cvmDelta.at<double>(1,0) = .0001;
 
-	m_vdCosts.clear();
-	m_vXs.clear();
-	m_vGs.clear();
+	_vCosts.clear();
+	_vcvmXs.clear();
+	_vcvmGs.clear();
 
 	return true;
 }
 
-void COptim::Display()
-{
-	if( m_nIter > 0 )
-	{
-	PRINT( m_nIter );
-	PRINT( m_vdCosts[ m_nIter-1 ] );
-	PRINT( m_vXs[ m_nIter-1 ] );
-	PRINT( m_vGs[ m_nIter-1 ] );
+void COptim::Display() {
+	if( m_nIter > 0 ) {
+		PRINT( m_nIter );
+		PRINT( _vCosts[ m_nIter-1 ] );
+		PRINT( _vcvmXs[ m_nIter-1 ] );
+		PRINT( _vcvmGs[ m_nIter-1 ] );
 	}
 }
 
@@ -119,17 +121,17 @@ void COptim::dFunc(const cv::Mat_<double>& X, cv::Mat_<double>& G)
 		return;
 	}	
 
-	CHECK( X.size() == m_vDelta.size(),  "m_vDelta is set incorrectly." );
+	CHECK( X.size() == _cvmDelta.size(),  "m_vDelta is set incorrectly." );
 
 	// calculate the gradient using finite difference
 	// G(X) = F(X+dX) - F(X-dX)
 	for(unsigned int i=0; i<X0.rows; i++) //X0 is column vector
 	{
 
-		X0.at<double>(i,0) = X.at<double>(i,0) + m_vDelta.at<double>(i, 0);
+		X0.at<double>(i,0) = X.at<double>(i,0) + _cvmDelta.at<double>(i, 0);
 		G.at<double>(i,0)  = Func(X0);
 
-		X0.at<double>(i,0) = X.at<double>(i,0) - m_vDelta.at<double>(i, 0);
+		X0.at<double>(i,0) = X.at<double>(i,0) - _cvmDelta.at<double>(i, 0);
 		G.at<double>(i,0) -= Func(X0);
 
 		X0.at<double>(i,0) = X.at<double>(i,0);
@@ -164,9 +166,9 @@ bool COptim::ConjugateGradient( cv::Mat_<double>& X)
 		D += Grad0;
 		lastCost = m_Cost;
 
-		m_vdCosts.push_back( m_Cost );
-		m_vXs.push_back( X );
-		m_vGs.push_back( D );
+		_vCosts.push_back( m_Cost );
+		_vcvmXs.push_back( X );
+		_vcvmGs.push_back( D );
 		Display();
 
 		// get the square of magnitude of grad0
@@ -220,9 +222,9 @@ bool COptim::GradientDescendent( cv::Mat_<double>& X)
         dFunc(X, Grad);
 		lastCost = m_Cost;
 
-		m_vdCosts.push_back( m_Cost );
-		m_vXs.push_back( X );
-		m_vGs.push_back( Grad );
+		_vCosts.push_back( m_Cost );
+		_vcvmXs.push_back( X );
+		_vcvmGs.push_back( Grad );
 
 		Display();
 
@@ -276,9 +278,9 @@ bool COptim::DirectionSets( cv::Mat_<double>& X)
 		ibig = 0;
 		del = 0.0;
 
-		m_vdCosts.push_back( m_Cost );
-		m_vXs.push_back( X );
-		m_vGs.push_back( D );
+		_vCosts.push_back( m_Cost );
+		_vcvmXs.push_back( X );
+		_vcvmGs.push_back( D );
 		PRINT( Dn );
 		Display();
 		// loop over each direction

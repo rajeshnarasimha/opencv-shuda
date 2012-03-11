@@ -5,11 +5,14 @@
 #include "../EigenUtil.hpp"
 #include "TestCuda.h"
 #include <vector>
+#include <list>
 using namespace btl::utility;
 #include <opencv2/gpu/gpu.hpp>
 #include <gl/freeglut.h>
 #include "../Camera.h"
 #include <limits>
+#include "../Optim.hpp"
+
 void testSCamera()
 {
 	btl::kinect::SCamera sRGB;
@@ -173,6 +176,47 @@ void testDownSampling()
 	PRINT(cvmDataHalf.size());
 	PRINT(cvmDataHalf);
 }
+void testCOptim(){
+	PRINTSTR("test btl::utility::COptim");
+	btl::utility::COptim cOptim;
+
+	cOptim.setMethod( btl::utility::COptim::GRADIENTDESCENDENT );
+	cOptim.Go();
+}
+void testSetSE3(){
+	cv::Mat _cvmX = (cv::Mat_<double>(1,6) << 0,0.1,.03,0,1,0);
+	cv::Mat cvmSE3(4,4,CV_64FC1); cvmSE3= cv::Mat::eye(4, 4, CV_64F);
+
+	cv::Mat cvmR,cvmMinusTR;
+	cv::Rodrigues(_cvmX.colRange(0,3),cvmR);
+	PRINT(cvmR);
+	cvmMinusTR = -_cvmX.colRange(3,6)*cvmR;
+	PRINT(cvmMinusTR);
+	//set SE3
+	double* pSE3 = (double*) cvmSE3.data;
+	const double* pR   = ( const double*) cvmR.data;
+	const double* pMTR = ( const double*) cvmMinusTR.data;
+	for (int r =0; r<4; r++){
+		for (int c =0; c<3; c++){
+			//assign pR
+			if (r <3 ){
+				*pSE3++ = *pR++;
+			}// if r < 3
+			else {
+				*pSE3++ = *pMTR++;
+			}// r==3
+		}//for each col
+		*pSE3++;
+	}//for each row of SE3
+	PRINT(cvmSE3);
+}
+void test(){
+	testSetSE3();
+	//testCOptim();
+	//testException();
+	//testCVUtil();
+	//testSCamera();
+}
 void cvUtilColor()
 {
 	PRINTSTR("try: btl::utility::aColors[]");
@@ -329,9 +373,36 @@ void tryStdLimits(){
 	PRINT(-fInf<10.f);
 	PRINT(fQNaN - 1);
 }
+void tryStdList(){
+	PRINTSTR("try std::list");
+	typedef unsigned int uint;
+	std::list<uint> lTmp;
+	for (unsigned int i=0; i<10; i++){
+		lTmp.push_back(i);
+	}
+	PRINT(lTmp);
+	std::list<uint>::iterator itErase;
+	bool bErase = false;
+	for (std::list<uint>::iterator itNum = lTmp.begin(); itNum != lTmp.end(); itNum++ ){
+		if( bErase ){
+			lTmp.erase(itErase);
+			bErase = false;
+		}//remove after itNum increased
+		if ((*itNum%2)==1)	{
+			itErase= itNum;
+			bErase = true;
+		}//store 
+	}
+	if( bErase ){
+		lTmp.erase(itErase);
+		bErase = false;
+	}//remove after itNum increased
+	PRINT(lTmp);
+}
 void tryCpp()
 {
-	tryStdLimits();
+	//tryStdList();
+	//tryStdLimits();
 	//tryCppBitwiseShift();
 	//tryCppOperator();
 	//tryCppLongDouble();
@@ -492,23 +563,32 @@ void tryEigenData(){
 	PRINT(eivVec);
 
 }
+void testEigenExponentialMap(){
+	PRINTSTR("try: Eigen exponential map");
+	Eigen::Matrix3d eimSkew;
+	btl::utility::setSkew<double>(1.e-10,0.05,0.07,&eimSkew);
+	PRINT(eimSkew);
+	Eigen::Matrix3d eimR;
+	btl::utility::setRotMatrixUsingExponentialMap(1.e-30,0.0,0.0,&eimR);
+	PRINT(eimR);
+	PRINT(eimR*eimR.transpose());
+}
 void tryEigen()
 {
-	tryDataOrderEigenMaxtrix();
+	testEigenExponentialMap();
+	//tryDataOrderEigenMaxtrix();
 	//tryEigenData();
 }
+
 int main()
 {
 	try
 	{
-		//testException();
-		//testCVUtil();
+		test();
 		//cudaTestTry();
-		//try Cpp
 		//tryCpp();
-		tryCV();
+		//tryCV();
 		//tryEigen();
-		//testSCamera();
 	}
 	catch ( std::runtime_error e )
 	{

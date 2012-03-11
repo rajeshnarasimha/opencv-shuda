@@ -83,29 +83,29 @@ void projectWorld2Camera ( const Eigen::Matrix< T, 3, 1 >& vPt_, const Eigen::Ma
 }
 
 template< class T >
-T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimateScale_, Eigen::Matrix< T, 3, 3>* pR_, Eigen::Matrix< T , 3, 1 >* pT_, double* pdScale_ )
-{
+T absoluteOrientation ( Eigen::MatrixXd& eimRef_, Eigen::MatrixXd&  eimCur_, bool bEstimateScale_, Eigen::Matrix< T, 3, 3>* pR_, Eigen::Matrix< T , 3, 1 >* pT_, double* pdScale_ ){
+	// A is Ref B is Cur
 	// main references: http://www.mathworks.com/matlabcentral/fileexchange/22422-absolute-orientation
-	CHECK ( 	A_.rows() == 3, " absoluteOrientation() requires the input matrix A_ is a 3 x N matrix. " );
-	CHECK ( 	B_.rows() == 3, " absoluteOrientation() requires the input matrix B_ is a 3 x N matrix. " );
-	CHECK ( 	A_.cols() == B_.cols(), " absoluteOrientation() requires the columns of input matrix A_ and B_ are equal. " );
+	CHECK ( 	eimRef_.rows() == 3, " absoluteOrientation() requires the input matrix A_ is a 3 x N matrix. " );
+	CHECK ( 	eimCur_.rows() == 3, " absoluteOrientation() requires the input matrix B_ is a 3 x N matrix. " );
+	CHECK ( 	eimRef_.cols() == eimCur_.cols(), " absoluteOrientation() requires the columns of input matrix A_ and B_ are equal. " );
 
 	//Compute the centroid of each point set
 	Eigen::Vector3d eivCentroidA(0,0,0), eivCentroidB(0,0,0);
-	for ( int nC = 0; nC < A_.cols(); nC++ ){
-		eivCentroidA += A_.col ( nC );
-		eivCentroidB += B_.col ( nC );
+	for ( int nC = 0; nC < eimRef_.cols(); nC++ ){
+		eivCentroidA += eimRef_.col ( nC );
+		eivCentroidB += eimCur_.col ( nC );
 	}
-	eivCentroidA /= A_.cols();
-	eivCentroidB /= A_.cols();
+	eivCentroidA /= eimRef_.cols();
+	eivCentroidB /= eimRef_.cols();
 	//PRINT( eivCentroidA );
 	//PRINT( eivCentroidB );
 
 	//Remove the centroid
-	Eigen::MatrixXd An ( 3, A_.cols() ), Bn ( 3, A_.cols() );
-	for ( int nC = 0; nC < A_.cols(); nC++ ){
-		An.col ( nC ) = A_.col ( nC ) - eivCentroidA;
-		Bn.col ( nC ) = B_.col ( nC ) - eivCentroidB;
+	Eigen::MatrixXd An ( 3, eimRef_.cols() ), Bn ( 3, eimRef_.cols() );
+	for ( int nC = 0; nC < eimRef_.cols(); nC++ ){
+		An.col ( nC ) = eimRef_.col ( nC ) - eivCentroidA;
+		Bn.col ( nC ) = eimCur_.col ( nC ) - eivCentroidB;
 	}
 
 	//PRINT( An );
@@ -114,7 +114,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	//Compute the quaternions
 	Eigen::Matrix4d M; M.setZero();
 	Eigen::Matrix4d Ma, Mb;
-	for ( int nC = 0; nC < A_.cols(); nC++ ){
+	for ( int nC = 0; nC < eimRef_.cols(); nC++ ){
 		//pure imaginary Shortcuts
 		Eigen::Vector4d a(0,0,0,0), b(0,0,0,0);
 		a ( 1 ) = An ( 0, nC );
@@ -177,7 +177,7 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	//Compute the scale factor if necessary
 	if ( bEstimateScale_ ){
 		double a = 0, b = 0;
-		for ( int nC = 0; nC < A_.cols(); nC++ ) {
+		for ( int nC = 0; nC < eimRef_.cols(); nC++ ) {
 			a += Bn.col ( nC ).transpose() * ( *pR_ ) * An.col ( nC );
 			b += Bn.col ( nC ).transpose() * Bn.col ( nC );
 		}
@@ -195,12 +195,12 @@ T absoluteOrientation ( Eigen::MatrixXd& A_, Eigen::MatrixXd&  B_, bool bEstimat
 	double dE = 0;
 	Eigen::Vector3d eivE;
 
-	for ( int nC = 0; nC < A_.cols(); nC++ ) {
-		eivE = B_.col ( nC ) - ( ( *pdScale_ ) * ( *pR_ ) * A_.col ( nC ) + ( *pT_ ) );
+	for ( int nC = 0; nC < eimRef_.cols(); nC++ ) {
+		eivE = eimCur_.col ( nC ) - ( ( *pdScale_ ) * ( *pR_ ) * eimRef_.col ( nC ) + ( *pT_ ) );
 		dE += eivE.norm();
 	}
 
-	return dE / A_.cols();
+	return dE / eimRef_.cols();
 }
 
 template< class T, int ROW, int COL >
@@ -209,6 +209,26 @@ T matNormL1 ( const Eigen::Matrix< T, ROW, COL >& eimMat1_, const Eigen::Matrix<
 	Eigen::Matrix< T, ROW, COL > eimTmp = eimMat1_ - eimMat2_;
 	Eigen::Matrix< T, ROW, COL > eimAbs = eimTmp.cwiseAbs();
 	return (T) eimAbs.sum();
+}
+
+template< class T >
+void setSkew( T x_, T y_, T z_, Eigen::Matrix< T, 3,3 >* peimMat_){
+	*peimMat_ << 0, -z_, y_, z_, 0, -x_, -y_, x_, 0 ;
+}
+
+template< class T >
+void setRotMatrixUsingExponentialMap( T x_, T y_, T z_, Eigen::Matrix< T, 3,3 >* peimR_ ){
+	//http://opencv.itseez.com/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html?highlight=rodrigues#void Rodrigues(InputArray src, OutputArray dst, OutputArray jacobian)
+	T theta = sqrt( x_*x_ + y_*y_ + z_*z_ );
+	if(	theta < std::numeric_limits<T>::epsilon() ){
+		*peimR_ = Eigen::Matrix< T, 3,3 >::Identity();
+		return;
+	}
+	T sinTheta = sin(theta);
+	T cosTheta = cos(theta);
+	Eigen::Matrix< T, 3,3 > eimSkew; 
+	setSkew< T >(x_/theta,y_/theta,z_/theta,&eimSkew);
+	*peimR_ = Eigen::Matrix< T, 3,3 >::Identity() + eimSkew*sinTheta + eimSkew*eimSkew*(1-cosTheta);
 }
 
 }//utility
