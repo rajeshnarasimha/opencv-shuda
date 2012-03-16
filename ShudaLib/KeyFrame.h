@@ -2,6 +2,22 @@
 #define BTL_KEYFRAME
 
 namespace btl { namespace kinect {
+
+struct SPlaneCorrespondence{
+	//constructor
+	SPlaneCorrespondence(float fCur_,float fRef_, unsigned int _uMatchIdx)
+	:_fCur(fCur_),_fRef(fRef_),_uMatchIdx(_uMatchIdx){}
+	//matcher
+	bool operator<( const SPlaneCorrespondence &sPC_ ) const {
+		return _fCur < sPC_._fCur;
+	}
+	//data
+	float _fCur;
+	float _fRef;
+	unsigned int _uMatchIdx;
+
+};
+
 class CKeyFrame {
 	//type
 public:
@@ -16,10 +32,11 @@ public:
 	// detect the correspondences 
 	void detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ );
 	//calculate the R and T relative to Reference Frame.
-	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , unsigned short* pInliers_);
+	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_);
 	//accumulate the relative R T to the global RT
 	void applyRelativePose( const CKeyFrame& sReferenceKF_ ); 
 	void associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_);
+	bool isMovedwrtReferencInRadiusM(const CKeyFrame* const pRefFrame_, double dRotAngleThreshold_, double dTranslationThreshold_);
 
 
 	// set the opengl modelview matrix to align with the current view
@@ -44,13 +61,16 @@ public:
 		}
 	}
 	// render the camera location in the GL world
-	void renderCameraInGLWorld( bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
+	void renderCameraInWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
+	void renderCameraInWorldCVGL2( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCameraTexture_, bool bBW_, const double& dPhysicalFocalLength_,const unsigned short usPyrLevel_);
 	// render the depth in the GL world 
-	void render3DPtsInLocalGL(const unsigned short uLevel_,const bool bRenderPlane_) const;
-	void renderPlanesInLocalGL(const unsigned short _uLevel) const;
-	void renderPlaneObjsInLocalCVGL(const unsigned short uLevel_) const;
+	void render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const;
+	void render3DPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_,int nColorIdx_, bool bRenderPlanes_);
+	void renderPlanesInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_) const;
+	void renderPlaneObjsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const unsigned short uLevel_) const;
 	void renderASinglePlaneObjInLocalCVGL(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
-	void gpuRender3DPtsCVInLocalGL(const unsigned short uLevel_, const bool bRenderPlane_) const;
+	void renderASinglePlaneObjInWorldCVCV(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
+	void gpuRender3DPtsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usColorIdx_, const unsigned short uLevel_, const bool bRenderPlane_) const;
 
 	inline void loadGLMVIn() const{	glMultMatrixd ( _eimGLMVInv.data() );}
 
@@ -60,6 +80,7 @@ public:
 
 	void detectPlane (const short uPyrLevel_);
 	void gpuDetectPlane (const short uPyrLevel_);
+	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
 
 private:
 	//surf keyframe matching
@@ -74,6 +95,8 @@ private:
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
 	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::geometry::tp_plane_obj_list* pvPlaneObjs_);
 	void updateMVInv();
+	void allocate();
+	void establishPlaneCorrespondences( const CKeyFrame& sReferenceKF_);
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera;
@@ -108,7 +131,7 @@ public:
 	//GL ModelView Matrix
 	Eigen::Matrix4d _eimGLMVInv;
 	//render context
-	btl::gl_util::CGLUtil::tp_ptr _pGL;
+	//btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;
 	bool _bRenderPlane;
 	bool _bMerge;
@@ -130,6 +153,8 @@ private:
 	//device
 	cv::gpu::GpuMat _cvgmKeyPoints;
 	cv::gpu::GpuMat _cvgmDescriptors;
+	//plane correspondences
+	std::vector<SPlaneCorrespondence> _vPlaneCorrespondences;
 };//end of class
 
 

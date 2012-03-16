@@ -47,16 +47,13 @@ btl::geometry::CSinglePlaneSingleViewInWorld::CSinglePlaneSingleViewInWorld(cons
 	_avIdx[usPyrLevel_].reset( new std::vector<unsigned int>(sPlaneObj_._vIdx.begin(),sPlaneObj_._vIdx.end()) ); 
 }//SPlaneW()
 
-void btl::geometry::CSinglePlaneSingleViewInWorld::renderInWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const uchar* pColor_, const ushort usPyrLevel_ ) const {
-	glPushMatrix();
-	_pFrame->loadGLMVIn(); //setup the modelview matrix for opengl
+void btl::geometry::CSinglePlaneSingleViewInWorld::renderInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_, const uchar* pColor_, const ushort usPyrLevel_ ) const {
 	const float* pPt = (const float*) _pFrame->_acvmShrPtrPyrPts[usPyrLevel_]->data;
 	const float* pNl = (const float*) _pFrame->_acvmShrPtrPyrNls[usPyrLevel_]->data;
 	glBegin(GL_POINTS);
-	_pFrame->renderASinglePlaneObjInLocalCVGL(pPt,pNl,*_avIdx[usPyrLevel_],pColor_);
+	_pFrame->renderASinglePlaneObjInWorldCVCV(pPt,pNl,*_avIdx[usPyrLevel_],pColor_);
 	glEnd();
-	glPopMatrix();
-}//renderInWorldCVGL()
+}//renderInWorldCVCV()
 bool btl::geometry::CSinglePlaneSingleViewInWorld::identical( const Eigen::Vector3d& eivNormal_, const double dPosition_, const ushort usPyrLevel_ ) const {
 	double dCos = eivNormal_.dot( _aeivAvgNormal[usPyrLevel_] );
 	double dDif = fabs( dPosition_ - _adAvgPosition[usPyrLevel_] );
@@ -74,12 +71,12 @@ btl::geometry::CSinglePlaneMultiViewsInWorld::CSinglePlaneMultiViewsInWorld( con
 bool btl::geometry::CSinglePlaneMultiViewsInWorld::identical( const Eigen::Vector3d& eivNormal_, const double dPosition_, const ushort usPyrLevel_ ) const {
 	double dCos = eivNormal_.dot( _aeivAvgNormal[usPyrLevel_] );
 	double dDif = fabs( dPosition_ - _adAvgPosition[usPyrLevel_] );
-	if(dCos > 0.80 && dDif < 0.1 ) return true; 
+	if(dCos > 0.89 && dDif < 0.1 ) return true; 
 	else return false;
 }
 void btl::geometry::CSinglePlaneMultiViewsInWorld::integrateFrameIntoPlanesWorldCVCV( btl::kinect::CKeyFrame::tp_ptr pFrame_, btl::geometry::tp_plane_obj_list& lPlanes_, const ushort usPyrLevel_, CMultiPlanesSingleViewInWorld::tp_ptr pMPSV_){
 	//find the close plane objects
-	btl::geometry::CSinglePlaneSingleViewInWorld::tp_shared_ptr pShrPtrSPSV;
+	btl::geometry::CSinglePlaneSingleViewInWorld::tp_shared_ptr pNewShrPtrSPSV;
 	btl::geometry::tp_plane_obj_list::iterator itErase;
 	bool bErase = false;
 	for (btl::geometry::tp_plane_obj_list::iterator itPlaneObj = lPlanes_.begin();itPlaneObj != lPlanes_.end();itPlaneObj++){
@@ -88,27 +85,40 @@ void btl::geometry::CSinglePlaneMultiViewsInWorld::integrateFrameIntoPlanesWorld
 			bErase = false;
 		}
 		if ( identical( itPlaneObj->_eivAvgNormal,itPlaneObj->_dAvgPosition, usPyrLevel_ ) ){
-			if(!pShrPtrSPSV.get()){
-				pShrPtrSPSV.reset( new btl::geometry::CSinglePlaneSingleViewInWorld(*itPlaneObj,usPyrLevel_,pFrame_,_usPlaneIdx) );
-			}//pShrPtrSPSV not yet assigned
+			if(!pNewShrPtrSPSV.get()){
+				pNewShrPtrSPSV.reset( new btl::geometry::CSinglePlaneSingleViewInWorld(*itPlaneObj,usPyrLevel_,pFrame_,_usPlaneIdx) );
+			}//pNewShrPtrSPSV not yet assigned
 			else{
-				pShrPtrSPSV->_avIdx[usPyrLevel_]->insert(pShrPtrSPSV->_avIdx[usPyrLevel_]->end(), itPlaneObj->_vIdx.begin(),itPlaneObj->_vIdx.end() );
-			}//else add index to exiting pShrPtrSPSV
-			{
-				//set erase marker
+				pNewShrPtrSPSV->_avIdx[usPyrLevel_]->insert(pNewShrPtrSPSV->_avIdx[usPyrLevel_]->end(), itPlaneObj->_vIdx.begin(),itPlaneObj->_vIdx.end() );
+			}//else add index to exiting pNewShrPtrSPSV
+			{//update average in SPMV
+
+			}
+			{	//set erase marker
 				itErase = itPlaneObj;
 				bErase = true;
 			}
 		}// if identical to the current SPMV
-	}//for each plane world in pFrame_
+	}//for each plane in the world in new pFrame_
 	if(bErase){
 		lPlanes_.erase(itErase);
 		bErase = false;
 	}
-	if(pShrPtrSPSV.get()){
-		_vShrPtrSPSV.push_back(pShrPtrSPSV);
+	if(pNewShrPtrSPSV.get()){
+		_vShrPtrSPSV.push_back(pNewShrPtrSPSV);
+		unsigned int uSize = 0;
+		double dAvgPosition = 0;
+		Eigen::Vector3d eivAvgNormal(0,0,0);
+		for (CSinglePlaneMultiViewsInWorld::tp_shr_spsv_vec::const_iterator citSPSV=_vShrPtrSPSV.begin(); citSPSV!=_vShrPtrSPSV.end(); citSPSV++){
+			dAvgPosition += (*citSPSV)->_adAvgPosition[3]*(*citSPSV)->_avIdx[3]->size() ;
+			uSize += (*citSPSV)->_avIdx[3]->size();
+			eivAvgNormal += (*citSPSV)->_aeivAvgNormal[3]*(*citSPSV)->_avIdx[3]->size() ;
+		}
+		_adAvgPosition[3]= dAvgPosition/uSize;
+		eivAvgNormal.normalize();
+		_aeivAvgNormal[3]= eivAvgNormal;
 		//update MPSV
-		pMPSV_->_vPtrSPSV.push_back( pShrPtrSPSV.get() );
+		pMPSV_->_vPtrSPSV.push_back( pNewShrPtrSPSV.get() );
 	}//if identical plane found
 	return;
 }//integrateFrameIntoPlanesWorldCVCV()
@@ -118,16 +128,16 @@ void btl::geometry::CSinglePlaneMultiViewsInWorld::renderSinglePlaneInAllViewsWo
 	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
 	else                            	{glDisable(GL_LIGHTING);}
 	for (tp_shr_spsv_vec::const_iterator citShrPtrSPSV = _vShrPtrSPSV.begin(); citShrPtrSPSV!= _vShrPtrSPSV.end(); citShrPtrSPSV++){
-		(*citShrPtrSPSV)->renderInWorldCVGL(pGL_,pColor,usPyrLevel_);
+		(*citShrPtrSPSV)->renderInWorldCVCV(pGL_,pColor,usPyrLevel_);
 	}//for each plane
 }//renderPlaneInWorldGL()
 
-void btl::geometry::CSinglePlaneMultiViewsInWorld::renderSinglePlaneInSingleViewWorldGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usView_, const ushort usPyrLevel_ /*= 3*/ ) const
+void btl::geometry::CSinglePlaneMultiViewsInWorld::renderSinglePlaneInSingleViewWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usView_, const ushort usPyrLevel_ /*= 3*/ ) const
 {
 	const unsigned char* pColor = btl::utility::__aColors[_usPlaneIdx+usColorIdx_%BTL_NUM_COLOR];
 	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
 	else                            	{glDisable(GL_LIGHTING);}
-	_vShrPtrSPSV[usView_]->renderInWorldCVGL(pGL_,pColor,usPyrLevel_);
+	_vShrPtrSPSV[usView_]->renderInWorldCVCV(pGL_,pColor,usPyrLevel_);
 }
 
 btl::geometry::CMultiPlanesSingleViewInWorld::CMultiPlanesSingleViewInWorld( btl::kinect::CKeyFrame::tp_ptr pFrame_ )
@@ -149,6 +159,22 @@ void btl::geometry::CMultiPlanesSingleViewInWorld::renderAllPlanesInSingleViewWo
 	glEnd();
 	glPopMatrix();
 }//renderAllPlanesInWorldCVGL()
+
+void btl::geometry::CMultiPlanesSingleViewInWorld::renderAllPlanesInSingleViewWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_ ) const {
+	//setup the lighting
+	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
+	else                            	{glDisable(GL_LIGHTING);}
+	const float* pPt = (const float*) _pFrame->_acvmShrPtrPyrPts[usPyrLevel_]->data;
+	const float* pNl = (const float*) _pFrame->_acvmShrPtrPyrNls[usPyrLevel_]->data;
+	glBegin(GL_POINTS);
+	for (tp_ptr_spsv_vec::const_iterator citPlane = _vPtrSPSV.begin(); citPlane != _vPtrSPSV.end(); citPlane++ ) {
+		const unsigned char* pColor = btl::utility::__aColors[(*citPlane)->_usPlaneIdx +usColorIdx_%BTL_NUM_COLOR];
+		_pFrame->renderASinglePlaneObjInWorldCVCV(pPt,pNl,*(*citPlane)->_avIdx[usPyrLevel_],pColor);
+	}//for each plane
+	glEnd();
+	//glPopMatrix();
+}//renderAllPlanesInWorldCVGL()
+
 
 btl::geometry::CMultiPlanesMultiViewsInWorld::CMultiPlanesMultiViewsInWorld( btl::kinect::CKeyFrame::tp_ptr pFrame_ ){
 	//store original key frame
@@ -173,6 +199,7 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::fuse(CMultiPlanesSingleViewIn
 	ushort usPlaneCounts = pMPSV_->_vPtrSPSV.size();
 	cOpt._cvmPlaneCur.create(4,usPlaneCounts);
 	cOpt._cvmPlaneRef.create(4,usPlaneCounts);
+	cOpt._cvmPlaneWeight.create(1,usPlaneCounts);
 	ushort usPlane = 0;
 	//merge planes into previous SPMV
 	for (tp_ptr_spsv_vec::iterator itSPSV = pMPSV_->_vPtrSPSV.begin(); itSPSV != pMPSV_->_vPtrSPSV.end(); itSPSV++, usPlane++ ) {
@@ -186,7 +213,10 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::fuse(CMultiPlanesSingleViewIn
 		cOpt._cvmPlaneCur.at<double>(1,usPlane) = (*itSPSV)->_aeivAvgNormal[3](1);
 		cOpt._cvmPlaneCur.at<double>(2,usPlane) = (*itSPSV)->_aeivAvgNormal[3](2);
 		cOpt._cvmPlaneCur.at<double>(3,usPlane) = (*itSPSV)->_adAvgPosition[3];
+		cOpt._cvmPlaneWeight.at<double>(0,usPlane) = (*itSPSV)->_avIdx[3]->size();
 	}//for eacn plane
+	//cOpt._cvmPlaneWeight /= cv::norm( cOpt._cvmPlaneWeight );
+	PRINT(cOpt._cvmPlaneWeight);
 	cOpt.Go();
 	cOpt.getRT(&pMPSV_->_pFrame->_eimRw,&pMPSV_->_pFrame->_eivTw);
 	pMPSV_->_pFrame->applyRelativePose(*_vShrPtrMPSV[0]->_pFrame);
@@ -205,7 +235,7 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::integrateFrameIntoPlanesWorld
 	
 	//1.fuse the newly added frame 2.update SPMV: AvgNormal and AvgPosition
 	//fuse();
-	fuse(pShrPtrMPSV.get(),3);
+	//fuse(pShrPtrMPSV.get(),3);
 
 	//insert the rest of plane objs as new SPMV
 	if (pFrame_->_vPlaneObjsDistanceNormal[3].size()>0)	{
@@ -230,12 +260,12 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::renderAllPlanesInGivenViewWor
 	_vShrPtrMPSV[usTmp]->renderAllPlanesInSingleViewWorldCVGL(pGL_,usColorIdx_,usPyrLevel_);
 }
 
-void btl::geometry::CMultiPlanesMultiViewsInWorld::renderGivenPlaneInGivenViewWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usView_, const ushort usPlane_ ){
+void btl::geometry::CMultiPlanesMultiViewsInWorld::renderGivenPlaneInGivenViewWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usView_, const ushort usPlane_ ){
 	//if citMPSV hits end set as the beginning otherwise increase it by 1
 	if (_vShrPtrMPSV.empty()) return;
 	ushort usPlaneNOSafe = usPlane_ % _vShrPtrSPMV.size();
 	ushort usViewNoSafe  = usView_  % _vShrPtrSPMV[usPlaneNOSafe]->_vShrPtrSPSV.size();
-	_vShrPtrSPMV[usPlaneNOSafe]->renderSinglePlaneInSingleViewWorldGL(pGL_,usColorIdx_,usViewNoSafe,usPyrLevel_);
+	_vShrPtrSPMV[usPlaneNOSafe]->renderSinglePlaneInSingleViewWorldCVCV(pGL_,usColorIdx_,usViewNoSafe,usPyrLevel_);
 }
 
 void btl::geometry::CMultiPlanesMultiViewsInWorld::renderGivenPlaneInAllViewWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usPlane_ ){
@@ -244,9 +274,25 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::renderGivenPlaneInAllViewWorl
 	_vShrPtrSPMV[usPlaneNOSafe]->renderSinglePlaneInAllViewsWorldGL(pGL_,usColorIdx_,usPyrLevel_);
 }
 
-void btl::geometry::CMultiPlanesMultiViewsInWorld::renderAllCamrea(btl::gl_util::CGLUtil::tp_ptr pGL_,bool bBW_, bool bRenderDepth_, float fSize_ ){
-	for (tp_shr_kfrm_vec::const_iterator citFrame = _vShrPtrKFrs.begin(); citFrame != _vShrPtrKFrs.end(); citFrame++){
-		(*citFrame)->renderCameraInGLWorld(pGL_->_bDisplayCamera,bBW_,bRenderDepth_,fSize_,pGL_->_uLevel);
+void btl::geometry::CMultiPlanesMultiViewsInWorld::renderAllPlanesInAllViewsWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usPyrLevel_ ){
+	for (tp_shr_mpsv_vec::const_iterator citView = _vShrPtrMPSV.begin(); citView != _vShrPtrMPSV.end(); citView++) {
+		(*citView)->renderAllPlanesInSingleViewWorldCVGL(pGL_,usColorIdx_,usPyrLevel_);
+	}
+}
+void btl::geometry::CMultiPlanesMultiViewsInWorld::renderAllPlanesInAllViewsWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usPyrLevel_ ){
+	for (tp_shr_mpsv_vec::const_iterator citView = _vShrPtrMPSV.begin(); citView != _vShrPtrMPSV.end(); citView++) {
+		(*citView)->renderAllPlanesInSingleViewWorldCVCV(pGL_,usColorIdx_,usPyrLevel_);
+	}
+}
+void btl::geometry::CMultiPlanesMultiViewsInWorld::renderAllCamrea(btl::gl_util::CGLUtil::tp_ptr pGL_,bool bBW_, bool bRenderDepth_,const ushort usColorIdx_, ushort usViewNo_, float fSize_ ){
+	ushort usView = 0;
+	for (tp_shr_kfrm_vec::const_iterator citFrame = _vShrPtrKFrs.begin(); citFrame != _vShrPtrKFrs.end(); citFrame++, usView++){
+		if (usView == usViewNo_) {
+			(*citFrame)->renderCameraInWorldCVGL(pGL_,usColorIdx_, pGL_->_bDisplayCamera,bBW_,bRenderDepth_,fSize_,pGL_->_usPyrLevel);
+		}
+		else{
+			(*citFrame)->renderCameraInWorldCVGL(pGL_,usColorIdx_, false,bBW_,bRenderDepth_,fSize_,pGL_->_usPyrLevel);
+		}
 	}//for each keyframe
 }
 

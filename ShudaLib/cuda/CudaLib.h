@@ -35,6 +35,8 @@ void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const un
 	const float fVoxelSize_, const float fTruncDistanceM_, 
 	const double* pR_, const double* pT_,  const double* pC_, 
 	const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmYZxXVolume_);
+void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_);
+
 }//device
 }//btl
 #endif

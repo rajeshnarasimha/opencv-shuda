@@ -676,5 +676,42 @@ const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::Gpu
 	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__constant__ double _aRwTrans[9];//row major 
+__constant__ double _aTw[3]; 
+__global__ void kernelTransformLocalToWorldCVCV(cv::gpu::DevMem2D_<float3> cvgmPts_, cv::gpu::DevMem2D_<float3> cvgmNls_){ 
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX >= cvgmPts_.cols || nY >= cvgmPts_.rows)  return;
+	//convert Pts
+	float3& Pt = cvgmPts_.ptr(nY)[nX];
+	float3 PtTmp; 
+	//PtTmp = X_c - Tw
+	PtTmp.x = Pt.x - _aTw[0];
+	PtTmp.y = Pt.y - _aTw[1];
+	PtTmp.z = Pt.z - _aTw[2];
+	//Pt = RwTrans * PtTmp
+	Pt.x = _aRwTrans[0]*PtTmp.x + _aRwTrans[1]*PtTmp.y + _aRwTrans[2]*PtTmp.z;
+	Pt.y = _aRwTrans[3]*PtTmp.x + _aRwTrans[4]*PtTmp.y + _aRwTrans[5]*PtTmp.z;
+	Pt.z = _aRwTrans[6]*PtTmp.x + _aRwTrans[7]*PtTmp.y + _aRwTrans[8]*PtTmp.z;
+	//convert Nls
+	float3& Nl = cvgmNls_.ptr(nY)[nX];
+	float3 NlTmp;
+	//Nlw = RwTrans*Nlc
+	NlTmp.x = _aRwTrans[0]*Nl.x + _aRwTrans[1]*Nl.y + _aRwTrans[2]*Nl.z;
+	NlTmp.y = _aRwTrans[3]*Nl.x + _aRwTrans[4]*Nl.y + _aRwTrans[5]*Nl.z;
+	NlTmp.z = _aRwTrans[6]*Nl.x + _aRwTrans[7]*Nl.y + _aRwTrans[8]*Nl.z;
+	Nl = NlTmp;
+}//kernelTransformLocalToWorld()
+void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_){
+	size_t sN1 = sizeof(double) * 9;
+	cudaSafeCall( cudaMemcpyToSymbol(_aRwTrans, pRw_, sN1) );
+	size_t sN2 = sizeof(double) * 3;
+	cudaSafeCall( cudaMemcpyToSymbol(_aTw, pTw_, sN2) );
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(pcvgmPts_->cols, block.x), cv::gpu::divUp(pcvgmPts_->rows, block.y));
+	kernelTransformLocalToWorldCVCV<<<grid,block>>>(*pcvgmPts_,*pcvgmNls_);
+	cudaSafeCall ( cudaGetLastError () );
+}//transformLocalToWorld()
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }//device
 }//btl

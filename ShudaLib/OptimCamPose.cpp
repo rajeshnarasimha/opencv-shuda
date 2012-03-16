@@ -73,7 +73,7 @@ double btl::utility::COptimCamPose::Func( const cv::Mat_<double>& cvmX_ )
 	for (int c=0; c<_cvmPlaneCur.cols; c++) {
 		cv::Mat_<double> cvmE = _cvmPlaneRef.col(c) - cvmSE3 * _cvmPlaneCur.col(c);//SE3*q_cur
 		
-		dE += 10*( fabs(cvmE.at<double>(0,0)) + fabs(cvmE.at<double>(1,0)) + fabs(cvmE.at<double>(2,0)) ) + fabs(cvmE.at<double>(3,0));
+		dE += _cvmPlaneWeight(0,c)*(10*( fabs(cvmE.at<double>(0,0)) + fabs(cvmE.at<double>(1,0)) + fabs(cvmE.at<double>(2,0)) ) + fabs(cvmE.at<double>(3,0)));
 	}
 
 	return dE;

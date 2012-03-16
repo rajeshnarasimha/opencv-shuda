@@ -1,6 +1,7 @@
 #include <vector>
 #include <list>
 #include <Eigen/Core>
+#include <opencv2/core/core.hpp>
 #include "PlaneObj.h"
 
 bool btl::geometry::SPlaneObj::identical(const SPlaneObj& sPlane_ ) const{
@@ -10,9 +11,10 @@ bool btl::geometry::SPlaneObj::identical(const SPlaneObj& sPlane_ ) const{
 	else return false;
 }
 
-void btl::geometry::mergePlaneObj(btl::geometry::tp_plane_obj_list& lPlanes_ ){
+void btl::geometry::mergePlaneObj(btl::geometry::tp_plane_obj_list& lPlanes_, cv::Mat* pcvmDistanceClusters_ ){
 	btl::geometry::tp_plane_obj_list::iterator itErase;
 	bool bErase = false;
+	float* pLabel = (float*)pcvmDistanceClusters_->data;
 	for (btl::geometry::tp_plane_obj_list::iterator itMerging = lPlanes_.begin(); itMerging!=lPlanes_.end(); itMerging++ ){
 		for (btl::geometry::tp_plane_obj_list::iterator itTesting = itMerging; itTesting!=lPlanes_.end(); itTesting++ ){
 			if (bErase) {
@@ -27,6 +29,10 @@ void btl::geometry::mergePlaneObj(btl::geometry::tp_plane_obj_list& lPlanes_ ){
 				itMerging->_eivAvgNormal = (nMerging* itMerging->_eivAvgNormal + nTesting* itTesting->_eivAvgNormal);
 				itMerging->_eivAvgNormal.normalize();
 				itMerging->_vIdx.insert(itMerging->_vIdx.end(),itTesting->_vIdx.begin(),itTesting->_vIdx.end());
+				float fMergingLabel = pLabel[*itMerging->_vIdx.begin()];
+				for( std::vector<unsigned int>::const_iterator citIdx = itTesting->_vIdx.begin(); citIdx != itTesting->_vIdx.end(); citIdx++ ){
+					pLabel[*citIdx] = fMergingLabel;
+				}//for each pixel being merged
 				//set up erase flag to erase itTesting
 				itErase = itTesting;
 				bErase = true;

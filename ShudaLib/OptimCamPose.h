@@ -19,6 +19,7 @@ public:
 	void getRT(Eigen::Matrix3d* peimR_, Eigen::Vector3d* peivT_);
 	cv::Mat_<double>	_cvmPlaneRef; //4 by # of planes
 	cv::Mat_<double>	_cvmPlaneCur; //4 by # of planes
+	cv::Mat_<double>    _cvmPlaneWeight;//1 by # of planes
 };
 
 }//utitlity

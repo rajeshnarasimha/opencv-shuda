@@ -11,7 +11,7 @@ private:
 	typedef std::vector<unsigned int>						 tp_idx_vector;
 public:
 	CSinglePlaneSingleViewInWorld(const btl::geometry::SPlaneObj& sPlaneObj_, ushort usPyrLevel_, btl::kinect::CKeyFrame::tp_ptr pFrame_, ushort usPlaneIdx_);
-	void renderInWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const uchar* pColor_, const ushort usPyrLevel_ ) const;
+	void renderInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_, const uchar* pColor_, const ushort usPyrLevel_ ) const;
 	bool identical(const Eigen::Vector3d& eivNormal_, const double dPosition_, const ushort usPyrLevel_) const;
 	//data
 	Eigen::Vector3d _aeivAvgNormal[4];
@@ -29,7 +29,8 @@ public:
 
 	CMultiPlanesSingleViewInWorld(btl::kinect::CKeyFrame::tp_ptr pFrame_);
 	void renderAllPlanesInSingleViewWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_) const;
-	
+	void renderAllPlanesInSingleViewWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_ ) const;
+
 	btl::kinect::CKeyFrame::tp_ptr _pFrame;
 	tp_ptr_spsv_vec _vPtrSPSV;
 };
@@ -44,7 +45,7 @@ public:
 
 	void integrateFrameIntoPlanesWorldCVCV( btl::kinect::CKeyFrame::tp_ptr pFrame_, btl::geometry::tp_plane_obj_list& lPlanes_, const ushort usPyrLevel_, CMultiPlanesSingleViewInWorld::tp_ptr pMPSV_);
 	void renderSinglePlaneInAllViewsWorldGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usPyrLevel_ ) const;
-	void renderSinglePlaneInSingleViewWorldGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usView_, const ushort usPyrLevel_ = 3) const;
+	void renderSinglePlaneInSingleViewWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usView_, const ushort usPyrLevel_ = 3) const;
 	bool identical( const Eigen::Vector3d& eivNormal_, const double dPosition_, const ushort usPyrLevel_ ) const;
 
 	//data
@@ -67,10 +68,12 @@ public:
 	CMultiPlanesMultiViewsInWorld(btl::kinect::CKeyFrame::tp_ptr pFrame_ );
 	void integrateFrameIntoPlanesWorldCVCV( btl::kinect::CKeyFrame::tp_ptr pFrame_ );
 	void renderAllPlanesInGivenViewWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usView_ );
-	void renderGivenPlaneInGivenViewWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usView_, const ushort usPlane_ );
+	void renderGivenPlaneInGivenViewWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usView_, const ushort usPlane_ );
 	void fuse(CMultiPlanesSingleViewInWorld::tp_ptr pMPSV_, const ushort usPyrLevel_);
 	void renderGivenPlaneInAllViewWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_, const ushort usPyrLevel_, const ushort usPlane_ );
-	void renderAllCamrea(btl::gl_util::CGLUtil::tp_ptr pGL_,bool bBW_, bool bRenderDepth_, float fSize_ );
+	void renderAllCamrea(btl::gl_util::CGLUtil::tp_ptr pGL_,bool bBW_, bool bRenderDepth_,const ushort usColorIdx_, ushort usViewNo_, float fSize_ );
+	void renderAllPlanesInAllViewsWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usPyrLevel_ );
+	void renderAllPlanesInAllViewsWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,const ushort usPyrLevel_ );
 	//data
 	tp_shr_spmv_vec _vShrPtrSPMV; //shared pointer of CSinglePlaneMultiViewsInWorld
 	tp_shr_mpsv_vec _vShrPtrMPSV; //shared pointer of CMultiPlanesSingleViewInWorld
