@@ -31,12 +31,12 @@
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include <VideoSourceKinect.hpp>
-
+#include "PlaneWorld.h"
 #define _nReserved 60
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-
+btl::geometry::CMultiPlanesMultiViewsInWorld::tp_shared_ptr _pMPMV;
 unsigned short _nWidth, _nHeight;
 
 btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
@@ -53,6 +53,8 @@ bool _bRenderPlane = false;
 int _nN = 1;
 int _nView = 0;
 unsigned short _usColorIdx=0;
+ushort _usViewNO = 0;
+ushort _usPlaneNO = 0;
 void init();
 void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
@@ -116,12 +118,20 @@ void normalKeys ( unsigned char key, int x, int y ){
 		//use current keyframe as a reference
 		_bRenderPlane =! _bRenderPlane;
 		for(unsigned int i=0; i < _nKFCounter; i++)	{
-			_aShrPtrKFs[i]->_bRenderPlane=_bRenderPlane;
 			/*for (unsigned short u=0; u<4; u++)
 			{
 				_aShrPtrKFs[i]->gpuDetectPlane(u);
 			}*/
 		}
+		glutPostRedisplay();
+		break;
+	case '1':
+		_usViewNO = ++_usViewNO % _nKFCounter; 
+		//(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
+		glutPostRedisplay();
+		break;
+	case '2':
+		_usPlaneNO++;
 		glutPostRedisplay();
 		break;
 	case '8':
@@ -137,7 +147,11 @@ void normalKeys ( unsigned char key, int x, int y ){
 			glutPostRedisplay();
 			break;
 	case '0':
-		(*_vShrPtrsKF[ _nView ])->setView(&_pGL->_eimModelViewGL);
+		_usViewNO = ++_usViewNO % _nKFCounter; 
+		(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
+		glutPostRedisplay();
+		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
+		//_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
 		break;
     }
 	_pGL->normalKeys(key,x,y);
@@ -154,7 +168,6 @@ void mouseMotion ( int nX_, int nY_ ){
 void init ( ){
 	for(int i=0; i <_nReserved; i++){ 
 		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));	
-		_aShrPtrKFs[i]->_pGL = _pGL.get();
 	}
     
     _pGL->clearColorDepth();
@@ -173,9 +186,11 @@ void init ( ){
 	
 // store a frame and detect feature points for tracking.
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->_pFrame->gpuDetectPlane(3);
 	for (ushort usI=0;usI<4;usI++){
-		_pKinect->_pFrame->gpuDetectPlane(usI);
+		_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
 	}
+	_pMPMV.reset( new btl::geometry::CMultiPlanesMultiViewsInWorld( _pKinect->_pFrame.get() ) );
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[0];
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
@@ -197,22 +212,25 @@ void display ( void ) {
 // ( second frame )
 	//_pGL->timerStart();
 	unsigned short uInliers;
-    if ( _bCapture && _nKFCounter < _nReserved ) {
-		for (ushort usI=0;usI<4;usI++){
-			_pKinect->_pFrame->gpuDetectPlane(usI);
-		}
+    if ( false && _nKFCounter < _nReserved ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
-        // track camera motion
+       	// track camera motion
 		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
-        pCurrentKF->calcRT ( *pReferenceKF,0,&uInliers );
- 		pCurrentKF->applyRelativePose( *pReferenceKF );
-		pCurrentKF->associatePlanes(*pReferenceKF,_pGL->_uLevel);
-	
+		pCurrentKF->gpuDetectPlane(3);
+		//attach surf features to planes
+		pCurrentKF->calcRT ( *pReferenceKF,0,.3,&uInliers );
+		//detect plane and transform pt to world
+		for (ushort usI=0;usI<4;usI++){
+			pCurrentKF->gpuTransformToWorldCVCV(usI);
+		}
+		//pCurrentKF->applyRelativePose( *pReferenceKF );
+		//pCurrentKF->associatePlanes(*pReferenceKF,_pGL->_usPyrLevel);
+		_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
 		//detect planes
-		//pCurrentKF->detectPlane(_pGL->_uLevel);
+		//pCurrentKF->detectPlane(_pGL->_usPyrLevel);
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;
 		std::cout << "new key frame added" << std::flush;
@@ -227,23 +245,26 @@ void display ( void ) {
 		_bCapture = false;
 		//associate planes
     }
-	else if( _nKFCounter > 49 )	{
-		std::cout << "two many key frames to hold" << std::flush;  
-	}
-	else if (false && _nKFCounter < _nReserved){
+	else if ( _bCapture && _nKFCounter < _nReserved){
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		// track camera motion
 		_pKinect->_pFrame->detectConnectionFromCurrentToReference(*pReferenceKF,0);
-		double dE = _pKinect->_pFrame->calcRT ( *pReferenceKF,0, &uInliers);
+		double dE = _pKinect->_pFrame->calcRT ( *pReferenceKF,0,.2,&uInliers);
+		//
 		Eigen::AngleAxis<double> eiAA(_pKinect->_pFrame->_eimRw);
 		double dAngle = eiAA.angle();
 		double dNorm = _pKinect->_pFrame->_eivTw.norm(); 
-		_pKinect->_pFrame->applyRelativePose( *pReferenceKF );
-		if( dE < 0.05 && uInliers> 40 && ( dNorm > 0.05 || dAngle > M_PI_4/4.) ){
 
+		if( dE < 0.05 && uInliers> 40 && _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/4.,0.05) ){
 			PRINT(dAngle);
-			PRINT(dNorm)
+			PRINT(dNorm);
+			//plane detection and transform to world
+			for (ushort usI=0;usI<4;usI++){
+				_pKinect->_pFrame->gpuDetectPlane(usI);
+				_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
+			}
+			//store as a new keyframe
 			btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 			_pKinect->_pFrame->copyTo(&*pCurrentKF);
 			_vShrPtrsKF.push_back( &pCurrentKF );
@@ -254,12 +275,16 @@ void display ( void ) {
 				_vRFIdx.push_back( _nRFIdx );
 				_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
 			}
-			pCurrentKF->associatePlanes(*pReferenceKF,3);
+			//pCurrentKF->associatePlanes(*pReferenceKF,3);
+			_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
 			std::cout << "new key frame added" << std::flush;
-		}
+		}//if moving far enough new keyframe will be added
+	}
+	else if( _nKFCounter > 49 )	{
+		std::cout << "two many key frames to hold" << std::flush;  
 	}
 	//_pGL->timerStop();
-// render first viewport
+	// render first viewport
     glMatrixMode ( GL_MODELVIEW );
     glViewport ( 0, 0, _nWidth / 2, _nHeight );
     glScissor  ( 0, 0, _nWidth / 2, _nHeight );
@@ -268,12 +293,19 @@ void display ( void ) {
 	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
+	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
+	_pMPMV->renderAllPlanesInAllViewsWorldCVCV(_pGL.get(),_usColorIdx,3);
+	//_pMPMV->renderGivenPlaneInGivenViewWorldCVCV(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
 	    // render objects
-	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++ ) {
-		(**cit)->renderCameraInGLWorld( _pGL->_bDisplayCamera,true,true, .05f,_pGL->_uLevel );
+	ushort usViewIdxTmp = 0;
+	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++,usViewIdxTmp++ ) {
+		if (usViewIdxTmp == _usViewNO)
+			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
+		else
+			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), false, true, .1f,_pGL->_usPyrLevel );
+		if(_bRenderPlane) (**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usPyrLevel, _usColorIdx, false );
 	}
-	_pKinect->_pFrame->renderCameraInGLWorld( false, true, false, .1f,_pGL->_uLevel );
+	//_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
 
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
@@ -288,8 +320,8 @@ void display ( void ) {
     glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel],&_pKinect->_pFrame->_uTexture);
-    _pKinect->_pRGBCamera->renderCameraInGLLocal(_pKinect->_pFrame->_uTexture, *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel], .2f );
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&_pKinect->_pFrame->_uTexture);
+    _pKinect->_pRGBCamera->renderCameraInGLLocal(_pKinect->_pFrame->_uTexture, *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel], .2f );
 
     glutSwapBuffers();
 
@@ -317,7 +349,6 @@ int main ( int argc, char** argv ) {
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset(new btl::gl_util::CGLUtil(btl::utility::BTL_CV));
-		_pKinect->_pFrame->_pGL = _pGL.get();
 		_pKinect->_pFrame->_bGPURender = true;
 		//_pRGBCamera=_pKinect->_pRGBCamera.get();
 		
