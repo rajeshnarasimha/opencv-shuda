@@ -221,7 +221,7 @@ void display ( void ) {
 		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
 		pCurrentKF->gpuDetectPlane(3);
 		//attach surf features to planes
-		pCurrentKF->calcRT ( *pReferenceKF,0,.3,&uInliers );
+		pCurrentKF->calcRT ( *pReferenceKF,0,.5,&uInliers );
 		//detect plane and transform pt to world
 		for (ushort usI=0;usI<4;usI++){
 			pCurrentKF->gpuTransformToWorldCVCV(usI);
@@ -250,7 +250,7 @@ void display ( void ) {
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		// track camera motion
 		_pKinect->_pFrame->detectConnectionFromCurrentToReference(*pReferenceKF,0);
-		double dE = _pKinect->_pFrame->calcRT ( *pReferenceKF,0,.2,&uInliers);
+		double dE = _pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers);
 		//
 		Eigen::AngleAxis<double> eiAA(_pKinect->_pFrame->_eimRw);
 		double dAngle = eiAA.angle();
