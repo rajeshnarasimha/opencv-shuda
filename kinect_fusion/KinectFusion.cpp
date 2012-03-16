@@ -32,7 +32,7 @@
 #include "KeyFrame.h"
 #include <VideoSourceKinect.hpp>
 #include "PlaneWorld.h"
-#define _nReserved 60
+#define _nReserved 30
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
@@ -212,7 +212,7 @@ void display ( void ) {
 // ( second frame )
 	//_pGL->timerStart();
 	unsigned short uInliers;
-    if ( false && _nKFCounter < _nReserved ) {
+    if ( _bCapture && _nKFCounter < _nReserved ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
@@ -236,8 +236,7 @@ void display ( void ) {
 		std::cout << "new key frame added" << std::flush;
 
 		//use current keyframe as a reference
-		if( _nRFIdx <_nKFCounter && _nKFCounter < _nReserved )
-		{
+		if( _nRFIdx <_nKFCounter && _nKFCounter < _nReserved ) {
 			_nRFIdx = _nKFCounter-1;
 			_vRFIdx.push_back( _nRFIdx );
 			_aShrPtrKFs[_nRFIdx]->_bIsReferenceFrame = true;
@@ -245,7 +244,7 @@ void display ( void ) {
 		_bCapture = false;
 		//associate planes
     }
-	else if ( _bCapture && _nKFCounter < _nReserved){
+	else if ( false && _nKFCounter < _nReserved){
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		// track camera motion
