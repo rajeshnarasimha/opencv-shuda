@@ -24,6 +24,7 @@ elseif( WIN32 )
     include_directories ( "C:/csxsl/install/yaml-cpp/include" )
     include_directories ( "C:/csxsl/src/opencv-shuda/ShudaLib/include" )
     include_directories ( "C:/csxsl/install/glew_170_win64/include" )
+	include_directories ( "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v4.1/include" )
     
     link_directories ( "C:/Program Files/OpenNI/Lib64" )
     link_directories ( "C:/csxsl/src/opencv-shuda/ShudaLib/lib" )
