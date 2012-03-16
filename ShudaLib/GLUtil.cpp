@@ -56,7 +56,7 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 	_bRenderNormal = false;
 	_bEnableLighting = false;
 	_fSize = 0.2f;
-	_uLevel=0;
+	_usPyrLevel=0;
 }
 void CGLUtil::mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 {
@@ -117,7 +117,7 @@ void CGLUtil::mouseMotion ( int nX_, int nY_ )
 		_dX  = _dXLast + _nXMotion;
 		_dY  = _dYLast + _nYMotion;
 		_dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
-		PRINT(_dZoom);
+		//PRINT(_dZoom);
 	}
 
 	glutPostRedisplay();
@@ -147,36 +147,36 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 		glDisable( GL_BLEND );
 		_dZoom += _dScale;
 		glutPostRedisplay();
-		PRINT( _dZoom );
+		//PRINT( _dZoom );
 		break;
 	case 'h':
 		//zoom out
 		glDisable( GL_BLEND );
 		_dZoom -= _dScale;
 		glutPostRedisplay();
-		PRINT( _dZoom );
+		//PRINT( _dZoom );
 		break;
 	case 'l':
 		_bEnableLighting = !_bEnableLighting;
 		glutPostRedisplay();
-		PRINT( _bEnableLighting );
+		//PRINT( _bEnableLighting );
 		break;
 	case 'n':
 		_bRenderNormal = !_bRenderNormal;
 		glutPostRedisplay();
-		PRINT( _bRenderNormal );
+		//PRINT( _bRenderNormal );
 		break;
 	case 'k':
 		_fSize += 0.05f;// range from 0.05 to 1 by step 0.05
 		_fSize = _fSize < 1 ? _fSize: 1;
 		glutPostRedisplay();
-		PRINT( _fSize );
+		//PRINT( _fSize );
 		break;
 	case 'j':
 		_fSize -= 0.05f;
 		_fSize = _fSize > 0.05f? _fSize : 0.05f;
 		glutPostRedisplay();
-		PRINT( _fSize );
+		//PRINT( _fSize );
 		break;
 	case '<':
 		_dYAngle += 1.0;
@@ -187,8 +187,8 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 		glutPostRedisplay();
 		break;
 	case '9':
-		_uLevel = ++_uLevel%4;
-		PRINT(_uLevel);
+		_usPyrLevel = ++_usPyrLevel%4;
+		//PRINT(_usPyrLevel);
 		break;
 	case '0'://reset camera location
 		_dXAngle = 0.;

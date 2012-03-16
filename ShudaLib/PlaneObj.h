@@ -33,7 +33,7 @@ typedef struct SPlaneObj{
 } tp_plane_obj;
 
 typedef std::list<tp_plane_obj> tp_plane_obj_list;
-void mergePlaneObj(btl::geometry::tp_plane_obj_list& lPlanes_ );
+void mergePlaneObj(btl::geometry::tp_plane_obj_list& lPlanes_, cv::Mat* pcvmDistanceClusters_ );
 void transformPlaneIntoWorldCVCV(tp_plane_obj& sPlane_, const Eigen::Matrix3d& eimRw_, const Eigen::Vector3d& eivTw_);
 void transformPlaneIntoLocalCVCV(tp_plane_obj& sPlane_, const Eigen::Matrix3d& eimRW_, const Eigen::Vector3d& eivTw_);
 

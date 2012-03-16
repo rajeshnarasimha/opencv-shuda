@@ -57,7 +57,7 @@ public:
 	bool _bEnableLighting;
 	bool _bDisplayCamera;
 	bool _bRenderReference;
-	unsigned short _uLevel;
+	unsigned short _usPyrLevel;
 private:
 	GLuint _uDisk;
 	GLuint _uNormal;

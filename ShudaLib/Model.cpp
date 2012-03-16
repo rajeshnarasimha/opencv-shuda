@@ -69,7 +69,7 @@ void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFram
 		cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,//
 		&_cvgmYZxXVolContentCV);
 	/*{
-		//test2
+		//test2	
 		cv::Mat cvmTest;
 		_cvgmYZxXVolContentCV.download(cvmTest);
 		short2* pData = (short2*) cvmTest.data;

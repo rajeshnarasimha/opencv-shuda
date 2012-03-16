@@ -237,7 +237,7 @@ void btl::utility::SDistanceHist::clusterDistanceHist( const cv::Mat& cvmPts_, c
 {
 	_usMinArea = 30;
 	pOutPlaneObjs_->clear();
-	pcvmDistanceClusters_->setTo(-1);
+	pcvmDistanceClusters_->setTo(-1.f);
 	//construct the label mat
 	short sLabel = 0;
 	for(btl::geometry::tp_plane_obj_list::const_iterator cit_vPlaneObj = vInPlaneObjs_.begin(); cit_vPlaneObj!=vInPlaneObjs_.end(); cit_vPlaneObj++){
@@ -254,15 +254,17 @@ void btl::utility::SDistanceHist::mergeDistanceBins( const cv::Mat& cvmNls_, sho
 	//
 	std::vector< tp_flag >::const_iterator cit_vMergeFlags = _vMergeFlags.begin();
 	std::vector< tp_pair_hist_bin >::const_iterator cit_endm1 = _pvDistHist->end() - 1;
-	short* pDistanceLabel = (short*) pcvmLabel_->data;
-	const float* pNls= (const float*)cvmNls_.data;
+	float* pDistanceLabel = (float*) pcvmLabel_->data; //distance cluster label
+	const float* pNls= (const float*)cvmNls_.data; //normal
 	btl::geometry::tp_plane_obj sPlane;sPlane._eivAvgNormal.setZero();sPlane._dAvgPosition=0;
 	for(std::vector< tp_pair_hist_bin >::const_iterator cit_vDistHist = _pvDistHist->begin() + 1; cit_vDistHist != cit_endm1; cit_vDistHist++,cit_vMergeFlags++ ){
+		//empty bins
 		if(EMPTY==*cit_vMergeFlags) continue;
+		//for isolated bins and mergable bins
 		if(NO_MERGE==*cit_vMergeFlags||MERGE_WITH_RIGHT==*cit_vMergeFlags||MERGE_WITH_BOTH==*cit_vMergeFlags||MERGE_WITH_LEFT==*cit_vMergeFlags){
 			if(cit_vDistHist->first.size()>_usMinArea){
 				for( std::vector<tp_pair_hist_element>::const_iterator cit_vPair = cit_vDistHist->first.begin();cit_vPair != cit_vDistHist->first.end(); cit_vPair++ ){
-					pDistanceLabel[cit_vPair->second] = *pLabel_;//labeling
+					pDistanceLabel[cit_vPair->second] = (float)*pLabel_;//labeling
 					sPlane._vIdx.push_back(cit_vPair->second);//store pts
 					sPlane._dAvgPosition += cit_vPair->first;//accumulate distance
 					unsigned int nOffset = cit_vPair->second*3;
