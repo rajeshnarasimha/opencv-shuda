@@ -2,6 +2,11 @@
 #define INFO
 
 #include <GL/glew.h>
+#include <gl/freeglut.h>
+//#include <cuda.h>
+#include <cuda_gl_interop.h>
+#include <cuda_runtime_api.h>
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -23,6 +28,7 @@
 
 #include "EigenUtil.hpp"
 #include "GLUtil.h"
+#include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
@@ -43,7 +49,7 @@ btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 unsigned short _nWidth, _nHeight;
 double _dDepthFilterThreshold = 10;
 int _nDensity = 2;
-btl::kinect::VideoSourceKinect::tp_frame _eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
+btl::kinect::VideoSourceKinect::tp_frame _eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV;
 bool _bGPURender = true;
 
 
@@ -53,7 +59,7 @@ void specialKeys( int key, int x, int y ){
 
 void normalKeys ( unsigned char key, int x, int y )
 {
-	_pGL->normalKeys( key, x, y);
+
 	switch( key )
 	{
 	case 27:
@@ -82,7 +88,7 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _nDensity );
 		break;
 	case '1':
-		_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL;
+		_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV;
 		PRINTSTR(  "VideoSourceKinect::GPU_PYRAMID" );
 		break;
 	case '2':
@@ -93,6 +99,10 @@ void normalKeys ( unsigned char key, int x, int y )
 		_bGPURender = !_bGPURender;
 		glutPostRedisplay();
 		break;
+	case '0':
+		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
+		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		break;
 	case ']':
 		_pKinect->_fSigmaSpace += 1;
 		PRINT( _pKinect->_fSigmaSpace );
@@ -102,7 +112,7 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _pKinect->_fSigmaSpace );
 		break;
     }
-
+		_pGL->normalKeys( key, x, y);
     return;
 }
 void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
@@ -120,8 +130,9 @@ void display ( void )
 	//load data from video source and model
 	switch( _eFrameType )
 	{
-	case btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL:
-		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
+	case btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV:
+		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
 		break;
 	case btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL:
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL);
@@ -135,17 +146,17 @@ void display ( void )
 	glScissor  (0, 0, _nWidth/2, _nHeight);
 	// after set the intrinsics and extrinsics
     // load the matrix to set camera pose
-	glLoadIdentity();
-	//glLoadMatrixd( _mGLMatrix.data() );
+	//glLoadIdentity();
 	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
     // render objects
     _pGL->renderAxisGL();
-	//_pKinect->_pFrame->render3DPts(_uLevel);
-	_pKinect->_pFrame->_bGPURender = _bGPURender;
+	//_pKinect->_pFrame->render3DPts(_usPyrLevel);
 	_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInGLWorld(_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_uLevel);
+	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,_pGL->_fSize,_pGL->_usPyrLevel);
+	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);
 	PRINTSTR("renderCameraInGLWorld");
 	_pGL->timerStop();
 
@@ -163,8 +174,8 @@ void display ( void )
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
-	_pKinect->_pRGBCamera->renderCameraInGLLocal( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_uLevel] );
+	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&(_pKinect->_pFrame->_uTexture)  );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pKinect->_pFrame->_uTexture, *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -193,7 +204,7 @@ void init ( ){
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_GL);
+	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 	_pGL->init();
 }
 
@@ -201,7 +212,6 @@ int main ( int argc, char** argv ){
     try {
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pGL.reset( new btl::gl_util::CGLUtil() );
-		_pKinect->_pFrame->_pGL=_pGL.get();
 
 		glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
