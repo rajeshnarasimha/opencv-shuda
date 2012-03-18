@@ -340,6 +340,20 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 		//}
 		//clear plane obj
 		_pFrame->_vPlaneObjsDistanceNormal[i].clear();
+		////check VNMap
+		//cv::gpu::GpuMat cvgmCheckResults;
+		//btl::device::checkNVMap(*_pFrame->_acvgmShrPtrPyrPts[i],*_pFrame->_acvgmShrPtrPyrNls[i],&cvgmCheckResults);
+		//cv::Mat cvmResult;
+		//cvgmCheckResults.download(cvmResult);
+		//const short* pRe = (const short*) cvmResult.data;
+		//int nRe = 0;
+		//for (int i=0; i<btl::kinect::__aKinectWxH[i];i++){
+		//	if(*pRe++>0) nRe++; 
+		//}
+		//if (nRe > 0)
+		//{
+		//	PRINT(nRe);
+		//}
 	}
 
 	return;

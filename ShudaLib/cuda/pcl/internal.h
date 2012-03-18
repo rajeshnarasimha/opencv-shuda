@@ -76,7 +76,11 @@ namespace pcl
       int number;
     };
 
-  
+	template<class D, class Matx> D& device_cast (Matx& matx)
+	{
+		return (*reinterpret_cast<D*>(matx.data ()));
+	}
+
   }
 }
 

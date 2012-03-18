@@ -12,6 +12,7 @@ using namespace btl::utility;
 #include "../Camera.h"
 #include <limits>
 #include "../Optim.hpp"
+#include "../cuda/pcl/internal.h"
 
 void testSCamera()
 {
@@ -121,21 +122,21 @@ void testConvert2DisparityDomain()
 	cv::Mat cvDisparity;
 
 	for(int r = 0; r < cvDepth.rows; r++ )
-		for(int c = 0; c < cvDepth.cols; c++ )
-		{
-			cvDepth.at<float>( r,c) = r* 43 + c;   
-		}
+	for(int c = 0; c < cvDepth.cols; c++ )
+	{
+		cvDepth.at<float>( r,c) = r* 43 + c;   
+	}
 
-		PRINT( cvDepth );
-		float fMin, fMax;
-		btl::utility::convert2DisparityDomain<float> ( cvDepth, &cvDisparity, &fMax, &fMin) ;
-		PRINT(fMin);
-		PRINT(fMax);
-		PRINT( cvDisparity );
-		btl::utility::convert2DepthDomain<float> ( cvDisparity, &cvResult, CV_32FC1 ); // convert back
-		PRINT( cvResult );
-		double dDiff = btl::utility::matNormL1<float>(cvDepth,cvResult);
-		PRINT( dDiff );
+	PRINT( cvDepth );
+	float fMin, fMax;
+	btl::utility::convert2DisparityDomain<float> ( cvDepth, &cvDisparity, &fMax, &fMin) ;
+	PRINT(fMin);
+	PRINT(fMax);
+	PRINT( cvDisparity );
+	btl::utility::convert2DepthDomain<float> ( cvDisparity, &cvResult, CV_32FC1 ); // convert back
+	PRINT( cvResult );
+	double dDiff = btl::utility::matNormL1<float>(cvDepth,cvResult);
+	PRINT( dDiff );
 }
 /*
 void testClearMat()
@@ -573,9 +574,50 @@ void testEigenExponentialMap(){
 	PRINT(eimR);
 	PRINT(eimR*eimR.transpose());
 }
+void tryEigenRowMajorAssignment(){
+	PRINTSTR("try: Eigen::Matrix RowMajor Assigning");
+	{
+		Eigen::Matrix3d eimdColMajor;
+		eimdColMajor << 1,2,3,
+			4,5,6,
+			7,8,9;
+
+		PRINT(eimdColMajor);
+		Eigen::Matrix3f eimfColMajor = eimdColMajor.cast<float>();
+		//Eigen::Matrix<float,3,3,Eigen::RowMajor> eimfRowMajor = eimdColMajor.cast<Eigen::Matrix<float,3,3,Eigen::RowMajor>>();
+		pcl::device::Mat33&  devRwRef = pcl::device::device_cast<pcl::device::Mat33> (eimfColMajor);
+		PRINT(devRwRef.data[0].x);
+		PRINT(devRwRef.data[0].y);
+		PRINT(devRwRef.data[0].z);
+		PRINT(devRwRef.data[1].x);
+		PRINT(devRwRef.data[1].y);
+		PRINT(devRwRef.data[1].z);
+		PRINT(devRwRef.data[2].x);
+		PRINT(devRwRef.data[2].y);
+		PRINT(devRwRef.data[2].z);
+	}
+	{
+		Eigen::Matrix<float,3,3,Eigen::RowMajor> eimRowMajor;
+		eimRowMajor << 1,2,3,
+			4,5,6,
+			7,8,9;
+		PRINT(eimRowMajor);
+		pcl::device::Mat33&  devRwRef = pcl::device::device_cast<pcl::device::Mat33> (eimRowMajor);
+		PRINT(devRwRef.data[0].x);
+		PRINT(devRwRef.data[0].y);
+		PRINT(devRwRef.data[0].z);
+		PRINT(devRwRef.data[1].x);
+		PRINT(devRwRef.data[1].y);
+		PRINT(devRwRef.data[1].z);
+		PRINT(devRwRef.data[2].x);
+		PRINT(devRwRef.data[2].y);
+		PRINT(devRwRef.data[2].z);
+	}
+}
 void tryEigen()
 {
-	testEigenExponentialMap();
+	 tryEigenRowMajorAssignment();
+	//testEigenExponentialMap();
 	//tryDataOrderEigenMaxtrix();
 	//tryEigenData();
 }
@@ -584,11 +626,11 @@ int main()
 {
 	try
 	{
-		test();
+		//test();
 		//cudaTestTry();
 		//tryCpp();
 		//tryCV();
-		//tryEigen();
+		tryEigen();
 	}
 	catch ( std::runtime_error e )
 	{
