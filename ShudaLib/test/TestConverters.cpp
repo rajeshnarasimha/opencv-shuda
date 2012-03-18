@@ -514,10 +514,23 @@ void tryCVMatPtr2UserAllocatedData(){
 		PRINT(_adModelViewGL[i]);
 	}
 }
+void tryCVFloodfill(){
+	PRINTSTR("try cv::floodFill()");
+	cv::Mat cvmImg = 
+	(cv::Mat_<float>(5,5) << 1,2,3,4,5,
+			  1,2,6,4,5,
+			  1,2,6,4,5,
+			  1,6,6,6,5,
+			  1,2,3,4,5 );
+	PRINT(cvmImg);
+	cv::floodFill(cvmImg,cv::Point(2,3), 10, NULL, 0.5,0.5 );
+	PRINT(cvmImg);
+}
 void tryCV()
 {
-	PRINTSTR("try opencv.")
-	tryCVMatPtr2UserAllocatedData();
+	PRINTSTR("try opencv.");
+	tryCVFloodfill();
+	//tryCVMatPtr2UserAllocatedData();
 	//tryCVPryDown();
 	//tryCVMat();
 	//tryCVOperator();
@@ -629,8 +642,8 @@ int main()
 		//test();
 		//cudaTestTry();
 		//tryCpp();
-		//tryCV();
-		tryEigen();
+		tryCV();
+		//tryEigen();
 	}
 	catch ( std::runtime_error e )
 	{

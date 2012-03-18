@@ -11,6 +11,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/math/special_functions/fpclassify.hpp> //isnan
 //stl
 #include <vector>
 #include <fstream>
@@ -149,7 +150,7 @@ void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame&
 	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
 	std::sort( _vMatches.begin(), _vMatches.end() );
-	if (_vMatches.size()> 500) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
+	if (_vMatches.size()> 200) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
 	return;
 }
 
@@ -194,12 +195,12 @@ void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sRe
 
 }//establishPlaneCorrespondences()
 double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
-	CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
+	//CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
 	//calculate the R and T
 	Eigen::Matrix3d eimRNew;
 	Eigen::Vector3d eivTNew;
 	//search for pairs of correspondences with depth data available.
-	const float*const  _pCurrentPts = (const float*)              _acvmShrPtrPyrPts[sLevel_]->data;
+	const float*const  _pCurrentPts   = (const float*)              _acvmShrPtrPyrPts[sLevel_]->data;
 	const float*const  _pReferencePts = (const float*)sReferenceKF_._acvmShrPtrPyrPts[sLevel_]->data;
 	std::vector< int > _vDepthIdxCur, _vDepthIdxRef, _vSelectedPairs;
 	for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++ ) {
@@ -210,12 +211,12 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
 		int nYCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.y );
 		int nXRef = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdxRef ].pt.x );
 		int nYRef = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdxRef ].pt.y );
-		
 
 		int nDepthIdxCur = nYCur * 640 * 3 + nXCur * 3;
 		int nDepthIdxRef = nYRef * 640 * 3 + nXRef * 3;
 
-		if ( _pCurrentPts[ nDepthIdxCur + 2 ] > 0 && _pReferencePts[ nDepthIdxRef + 2 ]  > 0 && btl::utility::norm3<float>(_pCurrentPts + nDepthIdxCur, _pReferencePts + nDepthIdxRef, sReferenceKF_._eimRw.data(), sReferenceKF_._eivTw.data()) < dDistanceThreshold_ ) {
+		if ( !boost::math::isnan<float>( _pCurrentPts[ nDepthIdxCur + 2 ] ) && !boost::math::isnan<float> (_pReferencePts[ nDepthIdxRef + 2 ]  )
+			 && btl::utility::norm3<float>(_pCurrentPts + nDepthIdxCur, _pReferencePts + nDepthIdxRef, sReferenceKF_._eimRw.data(), sReferenceKF_._eivTw.data()) < dDistanceThreshold_ ) {
 			_vDepthIdxCur  .push_back ( nDepthIdxCur );
 			_vDepthIdxRef  .push_back ( nDepthIdxRef );
 			_vSelectedPairs.push_back ( nKeyPointIdxCur );
@@ -223,39 +224,37 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
 		}
 	}
 
-	//PRINT ( _vSelectedPairs.size() );
-		/*
-        //for visualize the point correspondeneces calculated
-        cv::Mat cvmCorr  ( sReferenceKF_._cvmRGB.rows + _cvmRGB.rows, sReferenceKF_._cvmRGB.cols, CV_8UC3 );
-        cv::Mat cvmCorr2 ( sReferenceKF_._cvmRGB.rows + _cvmRGB.rows, sReferenceKF_._cvmRGB.cols, CV_8UC3 );
-        
-        cv::Mat roi1 ( cvmCorr, cv::Rect ( 0, 0, _cvmRGB.cols, _cvmRGB.rows ) );
-        cv::Mat roi2 ( cvmCorr, cv::Rect ( 0, _cvmRGB.rows, sReferenceKF_._cvmRGB.cols, sReferenceKF_._cvmRGB.rows ) );
-        _cvmRGB.copyTo ( roi1 );
-        sReferenceKF_._cvmRGB.copyTo ( roi2 );
-        
-        static CvScalar colors = {{255, 255, 255}};
-        int i = 0;
-        int nKey;
-        cv::namedWindow ( "myWindow", 1 );
-        
-        while ( true ) {
-            cvmCorr.copyTo ( cvmCorr2 );
-            cv::line ( cvmCorr2, _vKeyPoints[ _vSelectedPairs[i] ].pt, cv::Point ( sReferenceKF_._vKeyPoints [ _vSelectedPairs[i+1] ].pt.x, sReferenceKF_._vKeyPoints [ _vSelectedPairs[i+1] ].pt.y + _cvmRGB.rows ), colors );
-            cv::imshow ( "myWindow", cvmCorr2 );
-            nKey = cv::waitKey ( 30 );
-        
-            if ( nKey == 32 ){
-                i += 2;
-                if ( i > _vSelectedPairs.size() ){
-                    break;
-                }
-            }
-        
-            if ( nKey == 27 ){
-                break;
-            }
-        }*/
+  ////for visualize the point correspondences calculated
+  //      cv::Mat cvmCorr  ( sReferenceKF_._acvmShrPtrPyrRGBs[0]->cols + sReferenceKF_._acvmShrPtrPyrRGBs[0]->rows, sReferenceKF_._acvmShrPtrPyrRGBs[0]->cols, CV_8UC3 );
+  //      cv::Mat cvmCorr2 ( sReferenceKF_._acvmShrPtrPyrRGBs[0]->rows + _acvmShrPtrPyrRGBs[0]->rows, sReferenceKF_._acvmShrPtrPyrRGBs[0]->cols, CV_8UC3 );
+  //      
+  //      cv::Mat roi1 ( cvmCorr, cv::Rect ( 0, 0, _acvmShrPtrPyrRGBs[0]->cols, _acvmShrPtrPyrRGBs[0]->rows ) );
+  //      cv::Mat roi2 ( cvmCorr, cv::Rect ( 0, _acvmShrPtrPyrRGBs[0]->rows, sReferenceKF_._acvmShrPtrPyrRGBs[0]->cols, sReferenceKF_._acvmShrPtrPyrRGBs[0]->rows ) );
+  //      _acvmShrPtrPyrRGBs[0]->copyTo ( roi1 );
+  //      sReferenceKF_._acvmShrPtrPyrRGBs[0]->copyTo ( roi2 );
+  //      
+  //      static CvScalar colors = {{255, 255, 255}};
+  //      int i = 0;
+  //      int nKey;
+  //      cv::namedWindow ( "myWindow", 1 );
+  //      
+  //      while ( true ) {
+  //          cvmCorr.copyTo ( cvmCorr2 );
+  //          cv::line ( cvmCorr2, _vKeyPoints[ _vSelectedPairs[i] ].pt, cv::Point ( sReferenceKF_._vKeyPoints [ _vSelectedPairs[i+1] ].pt.x, sReferenceKF_._vKeyPoints [ _vSelectedPairs[i+1] ].pt.y + _acvmShrPtrPyrRGBs[0]->rows ), colors );
+  //          cv::imshow ( "myWindow", cvmCorr2 );
+  //          nKey = cv::waitKey ( 30 );
+  //      
+  //          if ( nKey == 32 ){
+  //              i += 2;
+  //              if ( i > _vSelectedPairs.size() ){
+  //                  break;
+  //              }
+  //          }
+  //      
+  //          if ( nKey == 27 ){
+  //              break;
+  //          }
+  //      }
                 
     int nSize = _vDepthIdxCur.size(); 
 	PRINT(nSize);
@@ -279,7 +278,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
 	//PRINT ( _eivT );
 	double dThreshold = dErrorBest;
         
-    if ( nSize > 10 ) {
+    if ( nSize > 30 ) {
                         
         // random generator
         boost::mt19937 rng;
@@ -297,7 +296,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
         std::vector < int > vRndIdx;
         Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
         
-        for ( int n = 0; n < 5000; n++ ) {
+        for ( int n = 0; n < 500; n++ ) {
             select5Rand (  eimRef, eimCur, dice, &eimYTmp, &eimXTmp );
             dError = btl::utility::absoluteOrientation < double > ( eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
         
@@ -783,7 +782,7 @@ bool btl::kinect::CKeyFrame::isMovedwrtReferencInRadiusM(const CKeyFrame* const 
 	return (eivCCur.norm() > dTranslationThreshold_ || cv::norm( cvmRVecCur, cv::NORM_L2 )  > dRotAngleThreshold_ );
 }
 
-void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pRefFrameWorld_){
+void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseReferenceRTAsInitial){
 	//define parameters
 	const short asICPIterations[] = {10, 5, 4, 4};
 	const float fDistThreshold = 0.10f; //meters
@@ -794,8 +793,17 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pRefFrameWorld_){
 	pcl::device::Mat33&  devRwRef = pcl::device::device_cast<pcl::device::Mat33> (eimrmRwRef);
 	float3& devTwRef = pcl::device::device_cast<float3> (eivTwRef);
 	//get R,T of current frame
-	Eigen::Matrix3f eimrmRwCur = pRefFrameWorld_->_eimRw.cast<float>();   //because by default eimrmRwRef is colume major
-	Eigen::Vector3f eivTwCur = pRefFrameWorld_->_eivTw.cast<float>();
+	Eigen::Matrix3f eimrmRwCur;
+	Eigen::Vector3f eivTwCur;
+	if (bUseReferenceRTAsInitial) {
+		eimrmRwCur = pRefFrameWorld_->_eimRw.cast<float>();   //because by default eimrmRwRef is colume major
+		eivTwCur = pRefFrameWorld_->_eivTw.cast<float>();
+	}//if use referece R and T as inital R and T for ICP, 
+	else{
+		eimrmRwCur = _eimRw.cast<float>();   //because by default eimrmRwRef is colume major
+		eivTwCur = _eivTw.cast<float>();
+	}//other wise just use 
+
 	//from low resolution to high
 	for (short sPyrLevel = 3; sPyrLevel >= 0; sPyrLevel--){
 		//	short sPyrLevel = 3;
