@@ -218,10 +218,11 @@ void display ( void ) {
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
        	// track camera motion
-		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
+		//pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
 		pCurrentKF->gpuDetectPlane(3);
 		//attach surf features to planes
-		pCurrentKF->calcRT ( *pReferenceKF,0,.5,&uInliers );
+		//pCurrentKF->calcRT ( *pReferenceKF,0,.5,&uInliers );
+		pCurrentKF->gpuICP ( pReferenceKF.get() );
 		//detect plane and transform pt to world
 		for (ushort usI=0;usI<4;usI++){
 			pCurrentKF->gpuTransformToWorldCVCV(usI);
@@ -293,7 +294,7 @@ void display ( void ) {
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
-	_pMPMV->renderAllPlanesInAllViewsWorldCVCV(_pGL.get(),_usColorIdx,3);
+	//_pMPMV->renderAllPlanesInAllViewsWorldCVCV(_pGL.get(),_usColorIdx,3);
 	//_pMPMV->renderGivenPlaneInGivenViewWorldCVCV(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
 	    // render objects
 	ushort usViewIdxTmp = 0;

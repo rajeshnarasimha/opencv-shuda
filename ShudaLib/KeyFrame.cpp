@@ -37,6 +37,8 @@
 #include "CVUtil.hpp"
 #include "Utility.hpp"
 #include "cuda/CudaLib.h"
+#include "cuda/pcl/internal.h"
+#include "cuda/Registartion.h"
 
 btl::utility::SNormalHist btl::kinect::CKeyFrame::_sNormalHist;
 btl::utility::SDistanceHist btl::kinect::CKeyFrame::_sDistanceHist;
@@ -779,6 +781,88 @@ bool btl::kinect::CKeyFrame::isMovedwrtReferencInRadiusM(const CKeyFrame* const 
 	eivCCur = -             _eimRw *             _eivTw;
 	eivCCur -= eivCRef;
 	return (eivCCur.norm() > dTranslationThreshold_ || cv::norm( cvmRVecCur, cv::NORM_L2 )  > dRotAngleThreshold_ );
+}
+
+void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pRefFrameWorld_){
+	//define parameters
+	const short asICPIterations[] = {10, 5, 4, 4};
+	const float fDistThreshold = 0.10f; //meters
+	const float fSinAngleThres_ = sin (20.f * 3.14159254f / 180.f);
+	//get R,T of reference 
+	Eigen::Matrix3f eimrmRwRef = pRefFrameWorld_->_eimRw.cast<float>();   eimrmRwRef.transposeInPlace(); //because by default eimrmRwRef is colume major
+	Eigen::Vector3f eivTwRef = pRefFrameWorld_->_eivTw.cast<float>();
+	pcl::device::Mat33&  devRwRef = pcl::device::device_cast<pcl::device::Mat33> (eimrmRwRef);
+	float3& devTwRef = pcl::device::device_cast<float3> (eivTwRef);
+	//get R,T of current frame
+	Eigen::Matrix3f eimrmRwCur = pRefFrameWorld_->_eimRw.cast<float>();   //because by default eimrmRwRef is colume major
+	Eigen::Vector3f eivTwCur = pRefFrameWorld_->_eivTw.cast<float>();
+	//from low resolution to high
+	for (short sPyrLevel = 3; sPyrLevel >= 0; sPyrLevel--){
+		//	short sPyrLevel = 3;
+	    for ( short sIter = 0; sIter < asICPIterations[sPyrLevel]; ++sIter ){
+			//	short sIter = 0;
+			//get R and T
+			pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (eimrmRwCur);
+			float3& devTwCur = pcl::device::device_cast<float3> (eivTwCur);
+			cv::gpu::GpuMat cvgmSumBuf;
+			//run ICP and reduction
+			btl::device::registrationICP( pcl::device::Intr(_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v)(sPyrLevel),fDistThreshold,fSinAngleThres_,
+				devRwCurTrans, devTwCur, devRwRef, devTwRef,
+				*pRefFrameWorld_->_acvgmShrPtrPyrPts[sPyrLevel],*pRefFrameWorld_->_acvgmShrPtrPyrNls[sPyrLevel],
+				&*_acvgmShrPtrPyrPts[sPyrLevel],&*_acvgmShrPtrPyrNls[sPyrLevel],
+				&cvgmSumBuf);
+			
+			cv::Mat cvmSumBuf;
+			cvgmSumBuf.download (cvmSumBuf);
+			double* aHostTmp = (double*) cvmSumBuf.data;
+			//declare A and b
+			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
+			Eigen::Matrix<double, 6, 1> b;
+			//retrieve A and b from cvmSumBuf
+			short sShift = 0;
+			for (int i = 0; i < 6; ++i){   // rows
+				for (int j = i; j < 7; ++j) { // cols + b
+					double value = aHostTmp[sShift++];
+					if (j == 6)       // vector b
+						b.data()[i] = value;
+					else
+						A.data()[j * 6 + i] = A.data()[i * 6 + j] = value;
+				}//for each col
+			}//for each row
+			//checking nullspace
+			double dDet = A.determinant ();
+			if (fabs (dDet) < 1e-15 || dDet != dDet ){
+				if (dDet != dDet) std::cout << "qnan" << std::endl;
+				//reset ();
+				return ;
+			}//if dDet is rational
+			//float maxc = A.maxCoeff();
+
+			Eigen::Matrix<float, 6, 1> result = A.llt ().solve (b).cast<float>();
+			//Eigen::Matrix<float, 6, 1> result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
+
+			float alpha = result (0);
+			float beta  = result (1);
+			float gamma = result (2);
+
+			Eigen::Matrix3f Rinc = (Eigen::Matrix3f)Eigen::AngleAxisf (gamma, Eigen::Vector3f::UnitZ ()) * Eigen::AngleAxisf (beta, Eigen::Vector3f::UnitY ()) * Eigen::AngleAxisf (alpha, Eigen::Vector3f::UnitX ());
+			Eigen::Vector3f tinc = result.tail<3> ();
+
+			//compose
+			//eivTwCur   = Rinc * eivTwCur + tinc;
+			//eimrmRwCur = Rinc * eimrmRwCur;
+			Eigen::Vector3f eivTinv = - eimrmRwCur.transpose()* eivTwCur;
+			Eigen::Matrix3f eimRinv = eimrmRwCur.transpose();
+			eivTinv = Rinc * eivTinv + tinc;
+			eimRinv = Rinc * eimRinv;
+			eivTwCur = - eimRinv.transpose() * eivTinv;
+			eimrmRwCur = eimRinv.transpose();
+		}//for each iteration
+	}//for each pyramid level
+	_eivTw = eivTwCur.cast<double>();
+	_eimRw = eimrmRwCur.cast<double>();
+
+	return;
 }
 
 

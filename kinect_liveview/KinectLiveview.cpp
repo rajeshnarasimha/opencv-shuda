@@ -153,12 +153,12 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	//_pKinect->_pFrame->render3DPts(_usPyrLevel);
-	_pGL->timerStart();
+	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,_pGL->_fSize,_pGL->_usPyrLevel);
 	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);
-	PRINTSTR("renderCameraInGLWorld");
-	_pGL->timerStop();
+	//PRINTSTR("renderCameraInGLWorld");
+	//_pGL->timerStop();
 
 	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 	//set viewport 2

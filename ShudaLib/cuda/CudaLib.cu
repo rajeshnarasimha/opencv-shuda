@@ -1,17 +1,4 @@
-/*
- * Copyright 1993-2010 NVIDIA Corporation.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property and 
- * proprietary rights in and to this software and related documentation. 
- * Any use, reproduction, disclosure, or distribution of this software 
- * and related documentation without an express license agreement from
- * NVIDIA Corporation is strictly prohibited.
- *
- * Please refer to the applicable NVIDIA end user license agreement (EULA) 
- * associated with this source code for terms and conditions that govern 
- * your use of this NVIDIA software.
- * 
- */
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -712,6 +699,27 @@ void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pT
 	kernelTransformLocalToWorldCVCV<<<grid,block>>>(*pcvgmPts_,*pcvgmNls_);
 	cudaSafeCall ( cudaGetLastError () );
 }//transformLocalToWorld()
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//check if the normal is NaN whether the corresponding is vertex NaN;
+__global__ void kernelCheck(const cv::gpu::DevMem2D_<float3> cvgmPts_,const cv::gpu::DevMem2D_<float3> cvgmNls_, cv::gpu::DevMem2D_<short> cvgmResults_){
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX >= cvgmPts_.cols || nY >= cvgmPts_.rows)  return;
+
+	const float3& pt = cvgmPts_.ptr(nY)[nX];
+	const float3& nl = cvgmNls_.ptr(nY)[nX];
+	//if(pt.x!=pt.x && nl.x == nl.x)
+	if(nl.x!=nl.x/* && pt.x == pt.x*/)
+		cvgmResults_.ptr(nY)[nX] = 1;
+}
+void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_, cv::gpu::GpuMat* pcvgmResults_){
+	pcvgmResults_->create(cvgmPts_.cols,cvgmPts_.rows,CV_16SC1);
+	pcvgmResults_->setTo(0);
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmPts_.cols, block.x), cv::gpu::divUp(cvgmPts_.rows, block.y));
+	kernelCheck<<<grid,block>>>( cvgmPts_,cvgmNls_,(*pcvgmResults_) );
+	cudaSafeCall ( cudaGetLastError () );
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }//device
 }//btl
