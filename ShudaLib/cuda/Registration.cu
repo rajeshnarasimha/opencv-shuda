@@ -72,11 +72,13 @@ struct SDeviceICPRegistration
 		//retrieve corresponding reference vertex
 		const float3& f3PtWorldRef = _cvgmVMapWorldRef.ptr (n2Ref.y)[n2Ref.x];  if (isnan (f3PtWorldRef.x))  return false;
 		//check distance
-		float fDist = norm (f3PtWorldRef - f3PtWorldCur); if (fDist > _fDistThres)  return (false);
+		float fDist = norm (f3PtWorldRef - f3PtWorldCur); 
+		if (fDist > _fDistThres)  return (false);
 		//transform current normal to world
 	    float3 f3NlWorldCur = _mRwCurTrans * f3NlLocalCur; 
 		//check normal angle
-		float fSin = norm ( cross(f3NlWorldCur, f3NlWorldRef) ); if (fSin >= _fSinAngleThres) return (false);
+		float fSin = norm ( cross(f3NlWorldCur, f3NlWorldRef) ); 
+		if (fSin >= _fSinAngleThres) return (false);
 		//return values
 		*pf3NlRef_ = f3NlWorldRef;
 		*pf3PtRef_ = f3PtWorldRef;
