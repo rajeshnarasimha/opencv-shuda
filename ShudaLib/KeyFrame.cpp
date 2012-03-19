@@ -717,16 +717,16 @@ void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 
 
 	//spacial continuity constraint
-	//float *pLabel = (float*) _acvmShrPtrDistanceClusters[uPyrLevel_]->data;
-	//ushort usNewLabel = 10000;
-	//for (int r =0; r<btl::kinect::__aKinectH[uPyrLevel_];r++){
-	//	for (int c=0; c<btl::kinect::__aKinectW[uPyrLevel_]; c++,pLabel++){
-	//		if( *pLabel>0 && *pLabel < 10000){
-	//			cv::floodFill(*_acvmShrPtrDistanceClusters[uPyrLevel_],cv::Point(c,r), usNewLabel, NULL, 0.5,0.5 );
-	//			usNewLabel++;
-	//		}//if pLabel is not floodfilled 
-	//	}//for each col
-	//}//for each row	
+	float *pLabel = (float*) _acvmShrPtrDistanceClusters[uPyrLevel_]->data;
+	ushort usNewLabel = 50000;
+	for (int r =0; r<btl::kinect::__aKinectH[uPyrLevel_];r++){
+		for (int c=0; c<btl::kinect::__aKinectW[uPyrLevel_]; c++,pLabel++){
+			if( *pLabel>0 && *pLabel < 50000){
+				cv::floodFill(*_acvmShrPtrDistanceClusters[uPyrLevel_],cv::Point(c,r), usNewLabel, NULL, 0.5,0.5 );
+				usNewLabel++;
+			}//if pLabel is not floodfilled 
+		}//for each col
+	}//for each row	
 	//recalc the planeobjs
 
 	//transform the planes into world coordinates
