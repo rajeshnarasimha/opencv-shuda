@@ -163,7 +163,7 @@ void btl::utility::SNormalHist::createNormalCluster( const cv::Mat& cvmNls_,cons
 void btl::utility::SNormalHist::gpuClusterNormal(const cv::gpu::GpuMat& cvgmNls,const cv::Mat& cvmNls,const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::geometry::tp_plane_obj_list* pvPlaneObjs_){
 	//define constants
 	const double dCosThreshold = std::cos(M_PI_4/4);
-	_usMinArea = 30;
+	_usMinArea = 3;
 	//make a histogram on the top pyramid
 	gpuNormalHistogram(cvgmNls,cvmNls,uPyrLevel_,btl::utility::BTL_CV);
 	clusterNormalHist(cvmNls,dCosThreshold,pcvmLabel_,pvPlaneObjs_);
@@ -230,12 +230,11 @@ void btl::utility::SDistanceHist::init( const unsigned short usSamples_ ){
 	_pvDistHist.reset(new tp_dist_hist);
 	_vMergeFlags.resize(_uSamples, SDistanceHist::EMPTY); 
 	//==0 no merging, ==1 merge with left, ==2 merge with right, ==3 merging with both
-	_usMinArea = 10;
+	_usMinArea = 3;
 }
 
 void btl::utility::SDistanceHist::clusterDistanceHist( const cv::Mat& cvmPts_, const cv::Mat& cvmNls_, const unsigned short usPyrLevel_, const btl::geometry::tp_plane_obj_list& vInPlaneObjs_, cv::Mat* pcvmDistanceClusters_, btl::geometry::tp_plane_obj_list* pOutPlaneObjs_ )
 {
-	_usMinArea = 30;
 	pOutPlaneObjs_->clear();
 	pcvmDistanceClusters_->setTo(-1.f);
 	//construct the label mat
@@ -276,7 +275,7 @@ void btl::utility::SDistanceHist::mergeDistanceBins( const cv::Mat& cvmNls_, sho
 			//calc the average 
 			sPlane._eivAvgNormal.normalize();
 			sPlane._dAvgPosition/=sPlane._vIdx.size();
-			sPlane._usIdx = *pLabel_;
+			sPlane._uIdx = *pLabel_;
 			//store plane objects
 			pPlaneObjs->push_back(sPlane);
 			//reset plane objects
