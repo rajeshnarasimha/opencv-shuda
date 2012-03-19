@@ -1,5 +1,5 @@
 //display kinect depth in real-time
-#define INFO
+//#define INFO
 #include <GL/glew.h>
 #include <gl/freeglut.h>
 #include <cuda.h>
@@ -239,7 +239,7 @@ void display ( void ) {
 		_pKinect->_pFrame->detectConnectionFromCurrentToReference(*pReferenceKF,0);
 		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers );
 		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );
-
+		_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), false, false, .1f,_pGL->_usPyrLevel );
 		if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/4.,0.05) ){
 			//plane detection and transform to world
 			_pKinect->_pFrame->gpuDetectPlane(3);
@@ -277,7 +277,7 @@ void display ( void ) {
 		if (usViewIdxTmp == _usViewNO)
 			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
 		else
-			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), false, true, .1f,_pGL->_usPyrLevel );
+			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), false, true, .01f,_pGL->_usPyrLevel );
 		if(_bRenderPlane) (**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usPyrLevel, _usColorIdx, false );
 	}
 	//_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
