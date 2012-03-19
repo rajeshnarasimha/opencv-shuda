@@ -517,13 +517,14 @@ void tryCVMatPtr2UserAllocatedData(){
 void tryCVFloodfill(){
 	PRINTSTR("try cv::floodFill()");
 	cv::Mat cvmImg = 
-	(cv::Mat_<float>(5,5) << 1,2,3,4,5,
+	(cv::Mat_<float>(5,5) << 
+			  1,2,3,4,5,
 			  1,2,6,4,5,
 			  1,2,6,4,5,
 			  1,6,6,6,5,
 			  1,2,3,4,5 );
 	PRINT(cvmImg);
-	cv::floodFill(cvmImg,cv::Point(2,3), 10, NULL, 0.5,0.5 );
+	cv::floodFill(cvmImg,cv::Point(4,0), 10, NULL, 0.5,0.5 );
 	PRINT(cvmImg);
 }
 void tryCV()

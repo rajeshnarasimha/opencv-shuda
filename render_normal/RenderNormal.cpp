@@ -188,7 +188,7 @@ void mouseMotion ( int nX_, int nY_ ){
 
 void display ( void )
 {
-	//if(_bCaptureCurrentFrame) 
+	if(_bCaptureCurrentFrame) 
 	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 		for (ushort u=0;u<4;u++){
