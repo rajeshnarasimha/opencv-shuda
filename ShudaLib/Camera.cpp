@@ -114,6 +114,12 @@ void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
 }
 void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const cv::Mat& cvmImg_, float fPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
 {
+	GLboolean bLightIsOn;
+	glGetBooleanv(GL_LIGHTING,&bLightIsOn);
+	if (bLightIsOn){
+		glDisable(GL_LIGHTING);
+	}
+
 	if(bRenderTexture_){
 		glBindTexture(GL_TEXTURE_2D, uTesture_);
 
@@ -211,6 +217,10 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const 
     glVertex3d ( dL, dB, -dPhysicalFocalLength_ );
     glEnd();
 */
+	if (bLightIsOn){
+		glEnable(GL_LIGHTING);
+	}
+
     return;
 }
 

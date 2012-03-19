@@ -48,9 +48,9 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 	}
 	else if( btl::utility::BTL_CV == _eConvention ){
 		_aCentroid[0] = 0.f; _aCentroid[1] = 0.f; _aCentroid[2] = 1.f; 
-		_aLight[0] = 3.0;
-		_aLight[1] =-1.0;
-		_aLight[2] =-1.0;
+		_aLight[0] = 0.0;
+		_aLight[1] =-0.3;
+		_aLight[2] =-1.8;
 		_aLight[3] = 1.0;
 	}
 	_bRenderNormal = false;
@@ -339,6 +339,12 @@ void CGLUtil::releaseVBO( GLuint uVBO_, cudaGraphicsResource *pResourceVBO_ ){
 }//releaseVBO()
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
+	GLboolean bLightIsOn;
+	glGetBooleanv(GL_LIGHTING,&bLightIsOn);
+	if (bLightIsOn){
+		glDisable(GL_LIGHTING);
+	}
+	
 	const float usStartZ = -usRows_/2*fSize_;
 	const float usEndZ =    usRows_/2*fSize_;
 	const float usStartX = -usCols_/2*fSize_;
@@ -359,6 +365,10 @@ void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, 
 	}
 	glEnd();
 	glPopMatrix();
+
+	if (bLightIsOn){
+		glEnable(GL_LIGHTING);
+	}
 	return;
 }
 void CGLUtil::renderVoxelGL( const float fSize_) const
