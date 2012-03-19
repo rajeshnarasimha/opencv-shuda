@@ -43,8 +43,6 @@
 
 btl::utility::SNormalHist btl::kinect::CKeyFrame::_sNormalHist;
 btl::utility::SDistanceHist btl::kinect::CKeyFrame::_sDistanceHist;
-//btl::utility::tp_plane_obj_list btl::kinect::CKeyFrame::_vPlaneObjsDistanceNormal;
-//btl::utility::tp_plane_obj_list btl::kinect::CKeyFrame::_vPlaneObjsNormal;
 boost::shared_ptr<cv::Mat> btl::kinect::CKeyFrame::_acvmShrPtrAA[4];
 boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrAA[4];//for rendering
 
@@ -278,66 +276,68 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
 	//PRINT ( _eivT );
 	double dThreshold = dErrorBest;
         
+    /*
     if ( nSize > 30 ) {
-                        
-        // random generator
-        boost::mt19937 rng;
-        boost::uniform_real<> gen ( 0, 1 );
-        boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
-        double dError;
-        Eigen::Matrix3d eimR;
-        Eigen::Vector3d eivT;
-        double dS;
-        std::vector< int > vVoterIdx;
-        Eigen::Matrix3d eimRBest;
-        Eigen::Vector3d eivTBest;
-        std::vector< int > vVoterIdxBest;
-        int nMax = 0;
-        std::vector < int > vRndIdx;
-        Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
-        
-        for ( int n = 0; n < 500; n++ ) {
-            select5Rand (  eimRef, eimCur, dice, &eimYTmp, &eimXTmp );
-            dError = btl::utility::absoluteOrientation < double > ( eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
-        
-            if ( dError > dThreshold ) {
-                continue;
+                            
+            // random generator
+            boost::mt19937 rng;
+            boost::uniform_real<> gen ( 0, 1 );
+            boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
+            double dError;
+            Eigen::Matrix3d eimR;
+            Eigen::Vector3d eivT;
+            double dS;
+            std::vector< int > vVoterIdx;
+            Eigen::Matrix3d eimRBest;
+            Eigen::Vector3d eivTBest;
+            std::vector< int > vVoterIdxBest;
+            int nMax = 0;
+            std::vector < int > vRndIdx;
+            Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
+            
+            for ( int n = 0; n < 500; n++ ) {
+                select5Rand (  eimRef, eimCur, dice, &eimYTmp, &eimXTmp );
+                dError = btl::utility::absoluteOrientation < double > ( eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
+            
+                if ( dError > dThreshold ) {
+                    continue;
+                }
+            
+                //voting
+                int nVotes = voting ( eimRef, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
+                if ( nVotes > eimCur.cols() *.75 ) {
+                    nMax = nVotes;
+                    eimRBest = eimR;
+                    eivTBest = eivT;
+                    vVoterIdxBest = vVoterIdx;
+                    break;
+                }
+            
+                if ( nVotes > nMax ){
+                    nMax = nVotes;
+                    eimRBest = eimR;
+                    eivTBest = eivT;
+                    vVoterIdxBest = vVoterIdx;
+                }
             }
-        
-            //voting
-            int nVotes = voting ( eimRef, eimCur, eimR, eivT, dThreshold, &vVoterIdx );
-            if ( nVotes > eimCur.cols() *.75 ) {
-                nMax = nVotes;
-                eimRBest = eimR;
-                eivTBest = eivT;
-                vVoterIdxBest = vVoterIdx;
-                break;
+            
+            if ( nMax <= 6 ){
+            	std::cout << "try increase the threshould" << std::endl;
+                return dErrorBest;
             }
-        
-            if ( nVotes > nMax ){
-                nMax = nVotes;
-                eimRBest = eimR;
-                eivTBest = eivT;
-                vVoterIdxBest = vVoterIdx;
-            }
-        }
-        
-        if ( nMax <= 6 ){
-        	std::cout << "try increase the threshould" << std::endl;
-            return dErrorBest;
-        }
-        
-        Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
-        Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
-        selectInlier ( eimRef, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
-        dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &dS2 );
-        
-        PRINT ( nMax );
-        PRINT ( dErrorBest );
-        //PRINT ( _eimR );
-        //PRINT ( _eivT );
-        *pInliers_ = (unsigned short)nMax;
-    }//if
+            
+            Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
+            Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
+            selectInlier ( eimRef, eimCur, vVoterIdxBest, &eimYInlier, &eimXInlier );
+            dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &dS2 );
+            
+            PRINT ( nMax );
+            PRINT ( dErrorBest );
+            //PRINT ( _eimR );
+            //PRINT ( _eivT );
+            *pInliers_ = (unsigned short)nMax;
+        }//if*/
+    
 	//apply new pose
 	_eivTw = eivTNew;//1.order matters 
 	_eimRw = eimRNew;
@@ -529,7 +529,7 @@ void btl::kinect::CKeyFrame::renderPlaneObjsInLocalCVGL(btl::gl_util::CGLUtil::t
 	glPointSize(0.1f*(uLevel_+1)*20);
 	glBegin(GL_POINTS);
 	for(btl::geometry::tp_plane_obj_list::const_iterator citPlaneObj = _vPlaneObjsDistanceNormal[uLevel_].begin(); citPlaneObj!=_vPlaneObjsDistanceNormal[uLevel_].end();citPlaneObj++,sColor++){
-		const unsigned char* pColor = btl::utility::__aColors[citPlaneObj->_usIdx+_nColorIdx%BTL_NUM_COLOR];
+		const unsigned char* pColor = btl::utility::__aColors[citPlaneObj->_uIdx+_nColorIdx%BTL_NUM_COLOR];
 		renderASinglePlaneObjInLocalCVGL(pPt,pNl,citPlaneObj->_vIdx,pColor);
 		/*
 		for(std::vector<unsigned int>::const_iterator citIdx = citPlaneObj->_vIdx.begin(); citIdx != citPlaneObj->_vIdx.end(); citIdx++ ){
@@ -706,49 +706,103 @@ void btl::kinect::CKeyFrame::gpuTransformToWorldCVCV(const ushort usPyrLevel_){
 void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 	//get next frame
 	BTL_ASSERT(btl::utility::BTL_CV == _eConvention, "CKeyFrame data convention must be opencv convention");
+	btl::geometry::tp_plane_obj_list vPlaneObjsNormalClusters,vPlaneObsNormalDistanceClusters;
 	//clear previous plane objs
 	_vPlaneObjsDistanceNormal[uPyrLevel_].clear();
 	//cluster the top pyramid
-	_sNormalHist.gpuClusterNormal(*_acvgmShrPtrPyrNls[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&_vPlaneObjsNormal);
+	_sNormalHist.gpuClusterNormal(*_acvgmShrPtrPyrNls[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,&*_acvmShrPtrNormalClusters[uPyrLevel_],&vPlaneObjsNormalClusters);
 	//enforce position continuity
-	_sDistanceHist.clusterDistanceHist(*_acvmShrPtrPyrPts[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,_vPlaneObjsNormal,&*_acvmShrPtrDistanceClusters[uPyrLevel_],&_vPlaneObjsDistanceNormal[uPyrLevel_]);
+	_sDistanceHist.clusterDistanceHist(*_acvmShrPtrPyrPts[uPyrLevel_],*_acvmShrPtrPyrNls[uPyrLevel_],uPyrLevel_,vPlaneObjsNormalClusters,&*_acvmShrPtrDistanceClusters[uPyrLevel_],&vPlaneObsNormalDistanceClusters);
 	//merge clusters according to avg normal and position.
-	btl::geometry::mergePlaneObj(_vPlaneObjsDistanceNormal[uPyrLevel_],&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
-
-
+	btl::geometry::mergePlaneObj(&vPlaneObsNormalDistanceClusters,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
 	//spacial continuity constraint
-	float *pLabel = (float*) _acvmShrPtrDistanceClusters[uPyrLevel_]->data;
-	ushort usNewLabel = 50000;
-	for (int r =0; r<btl::kinect::__aKinectH[uPyrLevel_];r++){
-		for (int c=0; c<btl::kinect::__aKinectW[uPyrLevel_]; c++,pLabel++){
-			if( *pLabel>0 && *pLabel < 50000){
-				cv::floodFill(*_acvmShrPtrDistanceClusters[uPyrLevel_],cv::Point(c,r), usNewLabel, NULL, 0.5,0.5 );
-				usNewLabel++;
-			}//if pLabel is not floodfilled 
-		}//for each col
-	}//for each row	
-	//recalc the planeobjs
+	btl::geometry::separateIntoDisconnectedRegions(&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
 
-	//transform the planes into world coordinates
-	for (btl::geometry::tp_plane_obj_list::iterator itPlane = _vPlaneObjsDistanceNormal[uPyrLevel_].begin(); itPlane!= _vPlaneObjsDistanceNormal[uPyrLevel_].end(); itPlane++){
+	//recalc planes
+	typedef btl::geometry::tp_plane_obj_list::iterator tp_plane_obj_list_iterator;
+	typedef std::map< unsigned int, tp_plane_obj_list_iterator > tp_plane_obj_map;
+	tp_plane_obj_map mPlaneObjs; //key is plane id, 
+
+	const float *pLabel = (float*) _acvmShrPtrDistanceClusters[uPyrLevel_]->data; 
+	const float *pNormal= (float*) _acvmShrPtrPyrNls[uPyrLevel_]->data;
+	for (unsigned int uIdx = 0; uIdx < btl::kinect::__aKinectWxH[uPyrLevel_]; uIdx++ ){
+		if(pLabel[uIdx]>0){
+			tp_plane_obj_map::iterator itMap = mPlaneObjs.find(pLabel[uIdx]);			unsigned int uNlIdx = uIdx*3; //get 3-channel index
+			if( itMap == mPlaneObjs.end() ){
+				_vPlaneObjsDistanceNormal[uPyrLevel_].push_back(btl::geometry::tp_plane_obj());
+				tp_plane_obj_list_iterator itPlaneObj = _vPlaneObjsDistanceNormal[uPyrLevel_].end(); --itPlaneObj; //get the iterator point
+				itPlaneObj->_eivAvgNormal += Eigen::Vector3d(pNormal[uNlIdx],pNormal[uNlIdx+1],pNormal[uNlIdx+2]);
+				itPlaneObj->_vIdx.push_back(uIdx);
+				itPlaneObj->_uIdx = pLabel[uIdx]; 
+				mPlaneObjs[pLabel[uIdx]] = itPlaneObj;//insert the new plane into map
+			}//it its a new plane, add a new plane obj into the map
+			else{
+				itMap->second->_eivAvgNormal += Eigen::Vector3d(pNormal[uNlIdx],pNormal[uNlIdx+1],pNormal[uNlIdx+2]);
+				itMap->second->_vIdx.push_back(uIdx);
+			}//if its an existing plane, accumulate avgnormal and store vertex index
+		}//if pLabel[uIdx]>0
+	}
+	//calc the avgPosition
+	const float* pPt= (float*) _acvmShrPtrPyrPts[uPyrLevel_]->data;
+	for (btl::geometry::tp_plane_obj_list::iterator itPlane = _vPlaneObjsDistanceNormal[uPyrLevel_].begin(); itPlane!= _vPlaneObjsDistanceNormal[uPyrLevel_].end(); itPlane++ ){
+		//average the accumulated normals
+		itPlane->_eivAvgNormal.normalize();
+		//accumulate plane positions
+		for(std::vector<unsigned int>::iterator itVertexID =  itPlane->_vIdx.begin(); itVertexID != itPlane->_vIdx.end(); itVertexID++ ){
+			unsigned int uPtIdx = *itVertexID*3; //get 3-channel index
+			itPlane->_dAvgPosition += pPt[uPtIdx]*itPlane->_eivAvgNormal(0) + pPt[uPtIdx+1]*itPlane->_eivAvgNormal(1)+ pPt[uPtIdx+2]*itPlane->_eivAvgNormal(2);
+		}//for each vertex of the plane
+		//average the plane position
+		itPlane->_dAvgPosition /= itPlane->_vIdx.size();
+	}//for each plane
+	/*
+	const float *pLabel = (float*) _acvmShrPtrDistanceClusters[uPyrLevel_]->data; 
+	const float *pNormal= (float*) _acvmShrPtrPyrNls[uPyrLevel_]->data;
+	typedef btl::geometry::tp_plane_obj_list::iterator tp_plane_obj_list_iterator;
+	typedef std::map< unsigned int, tp_plane_obj_list_iterator > tp_plane_obj_map;
+	tp_plane_obj_map mPlaneObjs; //key is plane id, 
+	for (btl::geometry::tp_plane_obj_list::iterator itPlane = vPlaneObjsNormalClusters.begin(); itPlane!= vPlaneObjsNormalClusters.end(); itPlane++){
+		for(std::vector<unsigned int>::iterator itVertexID =  itPlane->_vIdx.begin(); itVertexID != itPlane->_vIdx.end(); itVertexID++ ){
+			tp_plane_obj_map::iterator itMap = mPlaneObjs.find(pLabel[*itVertexID]);			unsigned int uNlIdx = *itVertexID*3; //get 3-channel index
+			if( itMap == mPlaneObjs.end() ){
+				_vPlaneObjsDistanceNormal[uPyrLevel_].push_back(btl::geometry::tp_plane_obj());
+				tp_plane_obj_list_iterator itPlaneObj = _vPlaneObjsDistanceNormal[uPyrLevel_].end(); --itPlaneObj; //get the iterator point
+				itPlaneObj->_eivAvgNormal += Eigen::Vector3d(pNormal[uNlIdx],pNormal[uNlIdx+1],pNormal[uNlIdx+2]);
+				itPlaneObj->_vIdx.push_back(*itVertexID);
+				mPlaneObjs[pLabel[*itVertexID]] = itPlaneObj;//insert the new plane into map
+			}//it its a new plane
+			else{
+				itMap->second->_eivAvgNormal += Eigen::Vector3d(pNormal[uNlIdx],pNormal[uNlIdx+1],pNormal[uNlIdx+2]);
+				itMap->second->_vIdx.push_back(*itVertexID);
+			}//it plane exists accumulates to avgnormal
+		}//for each vertex in the plane
+	}//for each plane
+	//calc the avgPosition
+	const float* pPt= (float*) _acvmShrPtrPyrPts[uPyrLevel_]->data;
+	for (btl::geometry::tp_plane_obj_list::iterator itPlane = _vPlaneObjsDistanceNormal[uPyrLevel_].begin(); itPlane!= _vPlaneObjsDistanceNormal[uPyrLevel_].end(); itPlane++ ){
+		//average the accumulated normals
+		itPlane->_eivAvgNormal.normalize();
+		//accumulate plane positions
+		for(std::vector<unsigned int>::iterator itVertexID =  itPlane->_vIdx.begin(); itVertexID != itPlane->_vIdx.end(); itVertexID++ ){
+			unsigned int uPtIdx = *itVertexID*3; //get 3-channel index
+			itPlane->_dAvgPosition += pPt[uPtIdx]*itPlane->_eivAvgNormal(0) + pPt[uPtIdx+1]*itPlane->_eivAvgNormal(1)+ pPt[uPtIdx+2]*itPlane->_eivAvgNormal(2);
+		}//for each vertex of the plane
+		//average the plane position
+		itPlane->_dAvgPosition /= itPlane->_vIdx.size();
+		//transform the planes into world coordinates
 		btl::geometry::transformPlaneIntoWorldCVCV(*itPlane,_eimRw,_eivTw);
 		//btl::geometry::transformPlaneIntoLocalCVCV(*itPlane,_eimRw,_eivTw);
-	}
+	}//for each plane
+	*/
 	return;
 }
-void btl::kinect::CKeyFrame::associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_){
-	if( _vPlaneObjsDistanceNormal[usLevel_].empty()||sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].empty() ) return;
-	for (btl::geometry::tp_plane_obj_list::iterator itRefPlaneObj = sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].begin(); itRefPlaneObj!=sReferenceFrame_._vPlaneObjsDistanceNormal[usLevel_].end(); itRefPlaneObj++ ){
-		for (btl::geometry::tp_plane_obj_list::iterator itThisPlaneObj = _vPlaneObjsDistanceNormal[usLevel_].begin(); itThisPlaneObj!=_vPlaneObjsDistanceNormal[usLevel_].end(); itThisPlaneObj++ ){
-			if( !itThisPlaneObj->_bCorrespondetFound && itThisPlaneObj->identical( *itRefPlaneObj ) ){
-				itThisPlaneObj->_usIdx=itRefPlaneObj->_usIdx;
-				itThisPlaneObj->_bCorrespondetFound = itRefPlaneObj->_bCorrespondetFound = true;
-				break;
-			}
-		}//for each plane in reference frame
-	}//for each plane in this frame
+void btl::kinect::CKeyFrame::transformPlaneObjsToWorldCVCV(const ushort usPyrLevel_){
+	//transform the planes into world coordinates
+	for (btl::geometry::tp_plane_obj_list::iterator itPlane = _vPlaneObjsDistanceNormal[usPyrLevel_].begin(); itPlane!= _vPlaneObjsDistanceNormal[usPyrLevel_].end(); itPlane++ ){
+		btl::geometry::transformPlaneIntoWorldCVCV(*itPlane,_eimRw,_eivTw);
+		//btl::geometry::transformPlaneIntoLocalCVCV(*itPlane,_eimRw,_eivTw);
+	}//for each plane
 }
-
 void btl::kinect::CKeyFrame::applyRelativePose( const CKeyFrame& sReferenceKF_ ){
 	//1.when the Rw and Tw is: Rw * Cam_Ref + Tw = Cam_Cur
 	//_eivTw = _eimRw*sReferenceKF_._eivTw + _eivTw;//1.order matters 

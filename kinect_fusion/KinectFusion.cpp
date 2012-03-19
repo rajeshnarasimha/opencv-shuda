@@ -32,7 +32,7 @@
 #include "KeyFrame.h"
 #include <VideoSourceKinect.hpp>
 #include "PlaneWorld.h"
-#define _nReserved 60
+#define _nReserved 20
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
@@ -177,6 +177,7 @@ void init ( ){
 // store a frame and detect feature points for tracking.
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 	_pKinect->_pFrame->gpuDetectPlane(3);
+	_pKinect->_pFrame->transformPlaneObjsToWorldCVCV(3);
 	for (ushort usI=0;usI<4;usI++){
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
 	}
@@ -203,7 +204,7 @@ void display ( void ) {
 // ( second frame )
 	//_pGL->timerStart();
 	unsigned short uInliers;
-    if ( false && _nKFCounter < _nReserved ) {
+    if ( _bCapture && _nKFCounter < _nReserved ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
@@ -215,6 +216,7 @@ void display ( void ) {
 		pCurrentKF->calcRT ( *pReferenceKF,0,.5,&uInliers );
 		pCurrentKF->gpuICP ( pReferenceKF.get(), false );
 		//detect plane and transform pt to world
+		pCurrentKF->transformPlaneObjsToWorldCVCV(3);
 		for (ushort usI=0;usI<4;usI++){
 			pCurrentKF->gpuTransformToWorldCVCV(usI);
 		}
@@ -230,7 +232,7 @@ void display ( void ) {
 		_bCapture = false;
 		//associate planes
     }
-	else if ( _bCapture && _nKFCounter < _nReserved){
+	else if ( false && _nKFCounter < _nReserved){
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];

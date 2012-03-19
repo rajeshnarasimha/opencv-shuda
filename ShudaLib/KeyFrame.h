@@ -82,6 +82,7 @@ public:
 
 	void detectPlane (const short uPyrLevel_);
 	void gpuDetectPlane (const short uPyrLevel_);
+	void transformPlaneObjsToWorldCVCV(const ushort usPyrLevel_);
 	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
 
 private:
