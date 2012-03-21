@@ -125,6 +125,7 @@ VideoSourceKinect::VideoSourceKinect ()
 	//initialize normal histogram
 	btl::kinect::CKeyFrame::_sNormalHist.init(2);
 	btl::kinect::CKeyFrame::_sDistanceHist.init(30);
+	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
 
 	std::cout << " Done. " << std::endl;
 }
@@ -318,8 +319,8 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
 	}	
 	//scale the depthmap
-	for (int i=0; i<_uPyrHeight;i++){
-		btl::device::scaleDepthCVmCVm(i,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmPyrDepths[i]);
+	{
+		btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmPyrDepths[0]);
 		//for testing scaleDepthCVmCVm();
 		//cv::Mat cvmTest,cvmTestScaled;
 		//_pFrame->_acvgmPyrDepths[i]->download(cvmTest);
@@ -338,6 +339,9 @@ void VideoSourceKinect::gpuBuildPyramid(btl::utility::tp_coordinate_convention e
 		//		BTL_ASSERT(std::fabs(fSec-fRatio)<0.00001,"scaleDepthCVmCVm() error");
 		//	}
 		//}
+	}
+	for (int i=0; i<_uPyrHeight;i++){
+
 		//clear plane obj
 		_pFrame->_vPlaneObjsDistanceNormal[i].clear();
 		////check VNMap

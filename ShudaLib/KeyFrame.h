@@ -30,7 +30,7 @@ public:
 	CKeyFrame(CKeyFrame::tp_ptr pFrame_);
     ~CKeyFrame() {}
 	// detect the correspondences 
-	void detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ );
+	void extractSurfFeatures ();
 	//calculate the R and T relative to Reference Frame.
 	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_);
 	void gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseReferenceRTAsInitial);
@@ -84,6 +84,7 @@ public:
 	void gpuDetectPlane (const short uPyrLevel_);
 	void transformPlaneObjsToWorldCVCV(const ushort usPyrLevel_);
 	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
+	void updateMVInv();
 
 private:
 	//surf keyframe matching
@@ -97,7 +98,6 @@ private:
 	//for normal cluster
 	void clusterNormal(const unsigned short& uPyrLevel_,cv::Mat* pcvmLabel_,std::vector< std::vector< unsigned int > >* pvvLabelPointIdx_);
 	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::geometry::tp_plane_obj_list* pvPlaneObjs_);
-	void updateMVInv();
 	void allocate();
 	void establishPlaneCorrespondences( const CKeyFrame& sReferenceKF_);
 
@@ -137,7 +137,6 @@ public:
 	//btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;
 	bool _bRenderPlane;
-	bool _bMerge;
 	bool _bGPURender;
 	GLuint _uTexture;
 	unsigned short _nColorIdx;
@@ -148,6 +147,7 @@ public:
 	static btl::utility::SDistanceHist _sDistanceHist;
 	btl::geometry::tp_plane_obj_list _vPlaneObjsNormal;
 	btl::geometry::tp_plane_obj_list _vPlaneObjsDistanceNormal[4];
+	static boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf;
 private:
 	//for surf matching
 	//host
@@ -158,6 +158,7 @@ private:
 	cv::gpu::GpuMat _cvgmDescriptors;
 	//plane correspondences
 	std::vector<SPlaneCorrespondence> _vPlaneCorrespondences;
+	
 };//end of class
 
 

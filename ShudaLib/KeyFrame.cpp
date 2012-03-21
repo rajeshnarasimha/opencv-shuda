@@ -45,7 +45,7 @@ btl::utility::SNormalHist btl::kinect::CKeyFrame::_sNormalHist;
 btl::utility::SDistanceHist btl::kinect::CKeyFrame::_sDistanceHist;
 boost::shared_ptr<cv::Mat> btl::kinect::CKeyFrame::_acvmShrPtrAA[4];
 boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrAA[4];//for rendering
-
+boost::shared_ptr<cv::gpu::SURF_GPU> btl::kinect::CKeyFrame::_pSurf;
 
 btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ )
 :_pRGBCamera(pRGBCamera_){
@@ -92,7 +92,6 @@ void btl::kinect::CKeyFrame::allocate(){
 
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
-	_bMerge = false;
 	_bGPURender = false;
 	_eClusterType = NORMAL_CLUSTER;//DISTANCE_CLUSTER;
 	_nColorIdx = 0;
@@ -121,34 +120,20 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	for(int i=0; i<4; i++) {
 		copyTo(pKF_,i);
-		pKF_->_vPlaneObjsDistanceNormal[i] = _vPlaneObjsDistanceNormal[i];
 	}
+	_acvgmPyrDepths[0]->copyTo(*pKF_->_acvgmPyrDepths[0]);
 	pKF_->_bIsReferenceFrame = _bIsReferenceFrame;
 	pKF_->_eimRw = _eimRw;
 	pKF_->_eivTw = _eivTw;
 	pKF_->updateMVInv();
 }
 
-void btl::kinect::CKeyFrame::detectConnectionFromCurrentToReference ( CKeyFrame& sReferenceKF_, const short sLevel_ )  {
-	boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf(new cv::gpu::SURF_GPU(100));
-	(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
+void btl::kinect::CKeyFrame::extractSurfFeatures ()  {
+	(*_pSurf)(*_acvgmShrPtrPyrBWs[0], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
 	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
 	//from current to reference
 	//_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
-	(*_pSurf)(*sReferenceKF_._acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), sReferenceKF_._cvgmKeyPoints, sReferenceKF_._cvgmDescriptors/*,true*/);//make use of provided keypoints
-	_pSurf->downloadKeypoints(sReferenceKF_._cvgmKeyPoints, sReferenceKF_._vKeyPoints);
-	//from reference to current
-	//sReferenceKF_._cvgmKeyPoints.copyTo(_cvgmKeyPoints); sReferenceKF_._cvgmDescriptors.copyTo(_cvgmDescriptors);
-	//(*_pSurf)(*_acvgmShrPtrPyrBWs[sLevel_], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors,true);
-	//_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
-
-	//matching from current to reference
-	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
-	cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
-	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
-	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
-	std::sort( _vMatches.begin(), _vMatches.end() );
-	if (_vMatches.size()> 200) { _vMatches.erase( _vMatches.begin()+200, _vMatches.end() ); }
+	
 	return;
 }
 
@@ -193,6 +178,14 @@ void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sRe
 
 }//establishPlaneCorrespondences()
 double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
+	BTL_ASSERT(sReferenceKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
+	//matching from current to reference
+	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
+	cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
+	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
+	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
+	std::sort( _vMatches.begin(), _vMatches.end() );
+	if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
 	//CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
 	//calculate the R and T
 	Eigen::Matrix3d eimRNew;
@@ -345,59 +338,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
     return dErrorBest;
 }// calcRT
 
-void btl::kinect::CKeyFrame::renderCameraInWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ ) {
-	/*
-	Eigen::Matrix4d mGLM1;
-		setView( &mGLM1 );
-		mGLM1 = mGLM1.inverse().eval();*/
-	glPushMatrix();
-	loadGLMVIn();
-	if( _bIsReferenceFrame ){
-		glColor3d( 1, 0, 0 );
-		glLineWidth(2);
-	}
-	else{
-		glColor3d( 1, 1, 1);
-		glLineWidth(1);
-	}
-	//glColor4d( 1,1,1,0.5 );
-	if(bBW_){
-		if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[uLevel_],&_uTexture);
-		_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[uLevel_], dSize_, bRenderCamera_);
-	}else{
-		if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&_uTexture);
-		_pRGBCamera->renderCameraInGLLocal ( _uTexture,*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
-	}
-	//render dot clouds
-	//if(_bRenderPlane) renderPlanesInLocalGL(uLevel_);
-	//render3DPtsInLocalGL(uLevel_);//rendering detected plane as well
-	if(bRenderDepth_){
-		/*//if (_bGPURender) gpuRender3DPtsInLocalCVGL(uLevel_,_bRenderPlane);*/
-		//else render3DPtsInLocalGL(uLevel_,_bRenderPlane);
-		//if (_bRenderPlaneSeparately) //renderPlanesInLocalGL(2); 
-		//if(_bRenderPlane) renderPlaneObjsInLocalCVGL(pGL_, uLevel_);
-		//else 
-		//gpuRender3DPtsInLocalCVGL(pGL_, usColorIdx_, uLevel_, true);
-		//////////////////////////////////
-		const float* pNl = (const float*) _acvmShrPtrPyrNls[uLevel_]->data;
-		const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;
-		const uchar* pRGB = (const uchar*)_acvmShrPtrPyrRGBs[uLevel_]->data;
 
-		// Generate the data
-		if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
-		else                            	{glDisable(GL_LIGHTING);}
-		glPointSize(0.1f*(uLevel_+1)*20);
-		glBegin(GL_POINTS);
-		for (unsigned int u = 0; u < btl::kinect::__aKinectWxH[uLevel_]; u++){
-			unsigned int uIdx = u*3;
-			glColor3ubv ( pRGB ); pRGB += 3;
-			glVertex3f ( pPt[uIdx], -pPt[uIdx+1], -pPt[uIdx+2] ); 
-			glNormal3f ( pNl[uIdx], -pNl[uIdx+1], -pNl[uIdx+2] );
-		}
-		glEnd();
-	}
-	glPopMatrix();
-}
 
 void btl::kinect::CKeyFrame::render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const {
 	//////////////////////////////////
@@ -550,7 +491,57 @@ void btl::kinect::CKeyFrame::renderASinglePlaneObjInLocalCVGL(const float*const 
 		glNormal3f ( pNl_[uIdx], -pNl_[uIdx+1], -pNl_[uIdx+2] );
 	}// for each point
 }
+void btl::kinect::CKeyFrame::renderCameraInWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ ) {
+	glPushMatrix();
+	loadGLMVIn();
+	if( _bIsReferenceFrame ){
+		glColor3d( 1, 0, 0 );
+		glLineWidth(2);
+	}
+	else{
+		glColor3d( 1, 1, 1);
+		glLineWidth(1);
+	}
+	//glColor4d( 1,1,1,0.5 );
+	if(bBW_){
+		if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[uLevel_],&_uTexture);
+		_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[uLevel_], dSize_, bRenderCamera_);
+	}else{
+		if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&_uTexture);
+		_pRGBCamera->renderCameraInGLLocal ( _uTexture,*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
+	}
+	//render dot clouds
+	//if(_bRenderPlane) renderPlanesInLocalGL(uLevel_);
+	//render3DPtsInLocalGL(uLevel_);//rendering detected plane as well
+	//the vertex must be in LOCAL cv reference system
+	if(bRenderDepth_){
+		//
+		/*//if (_bGPURender) gpuRender3DPtsInLocalCVGL(uLevel_,_bRenderPlane);*/
+		//else render3DPtsInLocalGL(uLevel_,_bRenderPlane);
+		//if (_bRenderPlaneSeparately) //renderPlanesInLocalGL(2); 
+		//if(_bRenderPlane) renderPlaneObjsInLocalCVGL(pGL_, uLevel_);
+		//else 
+		//gpuRender3DPtsInLocalCVGL(pGL_, usColorIdx_, uLevel_, true);
+		//////////////////////////////////
+		const float* pNl = (const float*) _acvmShrPtrPyrNls[uLevel_]->data;
+		const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;
+		const uchar* pRGB = (const uchar*)_acvmShrPtrPyrRGBs[uLevel_]->data;
 
+		// Generate the data
+		if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
+		else                            	{glDisable(GL_LIGHTING);}
+		glPointSize(0.1f*(uLevel_+1)*20);
+		glBegin(GL_POINTS);
+		for (unsigned int u = 0; u < btl::kinect::__aKinectWxH[uLevel_]; u++){
+			unsigned int uIdx = u*3;
+			glColor3ubv ( pRGB ); pRGB += 3;
+			glVertex3f ( pPt[uIdx], -pPt[uIdx+1], -pPt[uIdx+2] ); 
+			glNormal3f ( pNl[uIdx], -pNl[uIdx+1], -pNl[uIdx+2] );
+		}
+		glEnd();
+	}
+	glPopMatrix();
+}
 void btl::kinect::CKeyFrame::renderCameraInWorldCVGL2( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCameraTexture_, bool bBW_, const double& dPhysicalFocalLength_,const unsigned short usPyrLevel_) {
 	//render camera in world cv
 	glPushMatrix();
@@ -859,7 +850,7 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseRe
 	}//other wise just use 
 
 	//from low resolution to high
-	for (short sPyrLevel = 3; sPyrLevel >= 0; sPyrLevel--){
+	for (short sPyrLevel = 2; sPyrLevel >= 0; sPyrLevel--){
 		//	short sPyrLevel = 3;
 	    for ( short sIter = 0; sIter < asICPIterations[sPyrLevel]; ++sIter ){
 			//	short sIter = 0;

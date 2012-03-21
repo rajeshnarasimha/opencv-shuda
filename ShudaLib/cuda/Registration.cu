@@ -10,9 +10,9 @@
 #include <math_constants.h>
 #include "pcl/limits.hpp"
 #include "pcl/device.hpp"
-#include <vector>
 #include "pcl/vector_math.hpp"
 #include "pcl/block.hpp"
+#include <vector>
 
 namespace btl{ namespace device {
 typedef double float_type;

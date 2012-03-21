@@ -5,24 +5,26 @@
 #include <cuda.h>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime_api.h>
-
+//stl
 #include <iostream>
 #include <string>
 #include <vector>
 #define _USE_MATH_DEFINES
 #include <math.h>
+//boost
 #include <boost/lexical_cast.hpp>
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-
-#include <Converters.hpp>
+//openncv
 #include <opencv2/gpu/gpumat.hpp>
+#include <opencv2/gpu/gpu.hpp>
 #include <utility>
 #include <boost/lexical_cast.hpp>
 #include <gl/freeglut.h>
 #include <XnCppWrapper.h>
+#include "Converters.hpp"
 #include "GLUtil.h"
 #include "EigenUtil.hpp"
 #include "Camera.h"
@@ -30,7 +32,7 @@
 #include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
-#include <VideoSourceKinect.hpp>
+#include "VideoSourceKinect.hpp"
 #include "PlaneWorld.h"
 #define _nReserved 20
 
@@ -175,19 +177,19 @@ void init ( ){
 	_pGL->init();
 	
 // store a frame and detect feature points for tracking.
+	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFIdx];
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	_pKinect->_pFrame->gpuDetectPlane(3);
-	_pKinect->_pFrame->transformPlaneObjsToWorldCVCV(3);
+	_pKinect->_pFrame->copyTo(&*p1stKF);
+	p1stKF->extractSurfFeatures();
+	p1stKF->gpuDetectPlane(3);
+	p1stKF->transformPlaneObjsToWorldCVCV(3);
 	for (ushort usI=0;usI<4;usI++){
-		_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
+		p1stKF->gpuTransformToWorldCVCV(usI);
 	}
 	_nRFIdx = 0; _nKFCounter = 1;
-	_pMPMV.reset( new btl::geometry::CMultiPlanesMultiViewsInWorld( _pKinect->_pFrame.get() ) );
-	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFIdx];
+	_pMPMV.reset( new btl::geometry::CMultiPlanesMultiViewsInWorld( p1stKF.get() ) );
 	_vRFIdx.push_back(0);
     // assign the rgb and depth to the current frame.
-	_pKinect->_pFrame->copyTo(&*p1stKF);
-	p1stKF->_bIsReferenceFrame = true;
 	p1stKF->setView(&_pGL->_eimModelViewGL);
 	_vShrPtrsKF.push_back( &p1stKF );
     return;
@@ -212,7 +214,7 @@ void display ( void ) {
        	// track camera motion
 		pCurrentKF->gpuDetectPlane(3);
 		//attach surf features to planes
-		pCurrentKF->detectConnectionFromCurrentToReference(*pReferenceKF,0);
+		pCurrentKF->extractSurfFeatures();
 		pCurrentKF->calcRT ( *pReferenceKF,0,.5,&uInliers );
 		pCurrentKF->gpuICP ( pReferenceKF.get(), false );
 		//detect plane and transform pt to world
@@ -220,11 +222,8 @@ void display ( void ) {
 		for (ushort usI=0;usI<4;usI++){
 			pCurrentKF->gpuTransformToWorldCVCV(usI);
 		}
-		//pCurrentKF->applyRelativePose( *pReferenceKF );
-		//pCurrentKF->associatePlanes(*pReferenceKF,_pGL->_usPyrLevel);
 		_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
 		//detect planes
-		//pCurrentKF->detectPlane(_pGL->_usPyrLevel);
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;_nRFIdx++;
 		std::cout << "new key frame added" << std::flush;
@@ -238,7 +237,7 @@ void display ( void ) {
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		// track camera motion
-		_pKinect->_pFrame->detectConnectionFromCurrentToReference(*pReferenceKF,0);
+		_pKinect->_pFrame->extractSurfFeatures();
 		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers );
 		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );
 		_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), false, false, .1f,_pGL->_usPyrLevel );

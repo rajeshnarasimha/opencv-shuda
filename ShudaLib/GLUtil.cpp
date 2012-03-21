@@ -306,7 +306,7 @@ void CGLUtil::init()
 	glEnable(GL_BLEND);
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 }//init();
-void CGLUtil::initVBO(){
+void CGLUtil::setCudaDeviceForGLInteroperation(){
 	cudaDeviceProp  sProp;
 	memset( &sProp, 0, sizeof( cudaDeviceProp ) );
 	sProp.major = 1;
@@ -320,7 +320,7 @@ void CGLUtil::initVBO(){
 	cudaSafeCall( cudaGLSetGLDevice( nDev ) );
 
 	return;
-}//initVBO()
+}//setCudaDeviceForGLInteroperation()
 void CGLUtil::createVBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_,
 	GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ ){
 	// the first four are standard OpenGL, the 5th is the CUDA reg 

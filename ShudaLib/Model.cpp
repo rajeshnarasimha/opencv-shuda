@@ -23,6 +23,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/gpu/gpu.hpp>
+#include <Eigen/Core>
 //self
 #include "OtherUtil.hpp"
 #include "Converters.hpp"
@@ -35,7 +36,8 @@
 #include "KeyFrame.h"
 #include "Model.h"
 #include "cuda/CudaLib.h"
-
+#include "cuda/pcl/internal.h"
+#include "cuda/RayCaster.h"
 
 namespace btl{ namespace geometry
 {
@@ -47,8 +49,9 @@ CModel::CModel()
 	_fTruncateDistanceM = _fVoxelSizeM*3;
 	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
-	//_cvgmYZxXVolContentCV.setTo(0);
-	_cvgmYZxXVolContentCV.download(_cvmYZxXVolContent);
+	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
+	//_cvgmYZxXVolContentCV.download(_cvmYZxXVolContent);
+
 }
 CModel::~CModel(void)
 {
@@ -62,7 +65,6 @@ void CModel::unpack_tsdf (short2 value, float& tsdf, int& weight)
 void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ ){
 	Eigen::Vector3d eivCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
 	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
-	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
 	btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmPyrDepths[usPyrLevel_],usPyrLevel_,
 		_fVoxelSizeM,_fTruncateDistanceM, 
 		cFrame_._eimRw.data(),cFrame_._eivTw.data(), eivCw.data(),//camera parameters
@@ -83,7 +85,23 @@ void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFram
 	}*/
 	//_cvgmYZxXVolContentCV.download(cvmTest);
 }
-void CModel::gpuCreateVBO(){
+void CModel::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, ushort usPyrLevel_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const {
+	Eigen::Matrix3f eimcmRwCur = cCurrentFrame_._eimRw.cast<float>();
+	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
+	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (eimcmRwCur);
+	//Cw = -Rw'*Tw
+	Eigen::Vector3f eivCwCur = Eigen::Vector3d( - cCurrentFrame_._eimRw.transpose() * cCurrentFrame_._eivTw).cast<float>();
+	float3& devCwCur = pcl::device::device_cast<float3> (eivCwCur);
+	btl::device::raycast(pcl::device::Intr(cCurrentFrame_._pRGBCamera->_fFx,cCurrentFrame_._pRGBCamera->_fFy,cCurrentFrame_._pRGBCamera->_u,cCurrentFrame_._pRGBCamera->_v)(usPyrLevel_),
+		devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[usPyrLevel_],&*pVirtualFrame_->_acvgmShrPtrPyrNls[usPyrLevel_]);
+	pVirtualFrame_->_acvgmShrPtrPyrPts[usPyrLevel_]->download(*pVirtualFrame_->_acvmShrPtrPyrPts[usPyrLevel_]);
+	pVirtualFrame_->_acvgmShrPtrPyrNls[usPyrLevel_]->download(*pVirtualFrame_->_acvmShrPtrPyrNls[usPyrLevel_]);
+	pVirtualFrame_->_eimRw = cCurrentFrame_._eimRw;
+	pVirtualFrame_->_eivTw = cCurrentFrame_._eivTw;
+	pVirtualFrame_->updateMVInv();
+}
+void CModel::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
+	_pGL = pGL_;
 	if(_pGL) _pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
 }
 void CModel::gpuRenderVoxelInWorldCVGL(){

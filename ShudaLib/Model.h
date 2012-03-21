@@ -18,9 +18,10 @@ public:
 	CModel();
 	~CModel();
 	void gpuRenderVoxelInWorldCVGL();
-	void gpuCreateVBO();
+	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_, unsigned short usPyrLevel_ );
 	void unpack_tsdf (short2 value, float& tsdf, int& weight);
+	void gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, ushort usPyrLevel_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const;
 public:
 	//data
 	Eigen::Vector3d _eivAvgNormal;
