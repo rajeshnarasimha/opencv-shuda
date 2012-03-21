@@ -21,7 +21,7 @@ public:
 	void clearColorDepth();
 	void init();
 	//to initialize for the interoperation with opengl
-	void initVBO();
+	void setCudaDeviceForGLInteroperation();
 
 	void viewerGL();
 	void renderVoxelGL( const float fSize_) const;
