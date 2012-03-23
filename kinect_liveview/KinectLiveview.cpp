@@ -44,13 +44,14 @@ class CKinectView;
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-//btl::kinect::SCamera::tp_ptr _pRGBCamera;
+btl::geometry::CModel::tp_shared_ptr _pModel;
+btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
 
 unsigned short _nWidth, _nHeight;
 double _dDepthFilterThreshold = 10;
 int _nDensity = 2;
 btl::kinect::VideoSourceKinect::tp_frame _eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV;
-bool _bGPURender = true;
+bool _bRenderVolume = true;
 
 
 void specialKeys( int key, int x, int y ){
@@ -96,7 +97,7 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINTSTR(  "VideoSourceKinect::CPU_PYRAMID" );
 		break;
 	case '7':
-		_bGPURender = !_bGPURender;
+		_bRenderVolume = !_bRenderVolume;
 		glutPostRedisplay();
 		break;
 	case '0':
@@ -128,18 +129,12 @@ void mouseMotion ( int nX_, int nY_ )
 void display ( void )
 {
 	//load data from video source and model
-	switch( _eFrameType )
-	{
-	case btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV:
+	//if( _bCapture )	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
-		break;
-	case btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL:
-		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL);
-		break;
-	default:
-		break;
-	}
+		_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_usPyrLevel);
+		_pModel->gpuRaycast(*_pKinect->_pFrame,_pGL->_usPyrLevel,&*_pVirtualFrame);
+	//}
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
@@ -152,10 +147,15 @@ void display ( void )
 	
     // render objects
     _pGL->renderAxisGL();
+	_pGL->renderPatternGL(.1f,20.f,20.f);
+	_pGL->renderPatternGL(1.f,10.f,10.f);
+	_pGL->renderVoxelGL(4.f);
 	//_pKinect->_pFrame->render3DPts(_usPyrLevel);
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,_pGL->_fSize,_pGL->_usPyrLevel);
-	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+	if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
+	_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);
 	//PRINTSTR("renderCameraInGLWorld");
 	//_pGL->timerStop();
@@ -204,20 +204,26 @@ void init ( ){
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->getNextPyramid(_pGL->_usPyrLevel,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
+	_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_usPyrLevel);
+	_pModel->gpuRaycast(*_pKinect->_pFrame,_pGL->_usPyrLevel,&*_pVirtualFrame);
+	
 	_pGL->init();
 }
 
 int main ( int argc, char** argv ){
     try {
-		_pKinect.reset(new btl::kinect::VideoSourceKinect);
-		_pGL.reset( new btl::gl_util::CGLUtil() );
-
+		
 		glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
-		init();
+		GLenum eError = glewInit();
+		if (GLEW_OK != eError){
+			PRINTSTR("glewInit() error.");
+			PRINT( glewGetErrorString(eError) );
+		}
         glutKeyboardFunc( normalKeys );
 		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
@@ -225,6 +231,13 @@ int main ( int argc, char** argv ){
 
 		glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
+		_pGL.reset( new btl::gl_util::CGLUtil() );
+		_pGL->setCudaDeviceForGLInteroperation();
+		_pKinect.reset(new btl::kinect::VideoSourceKinect);
+		_pModel.reset( new btl::geometry::CModel() );
+		_pModel->gpuCreateVBO(_pGL.get());
+		_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+		init();
         glutMainLoop();
 	}
     catch ( btl::utility::CError& e )  {

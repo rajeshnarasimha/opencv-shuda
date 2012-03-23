@@ -27,6 +27,8 @@ static unsigned int __aKinectWxH[4] = {KINECT_WxH,   KINECT_WxH_L1,   KINECT_WxH
 static unsigned short __aKinectW[4] = {KINECT_WIDTH, KINECT_WIDTH_L1, KINECT_WIDTH_L2, KINECT_WIDTH_L3};
 static unsigned short __aKinectH[4] = {KINECT_HEIGHT,KINECT_HEIGHT_L1,KINECT_HEIGHT_L2,KINECT_HEIGHT_L3};
 
+
+
 }//kinect
 }//btl
 #endif

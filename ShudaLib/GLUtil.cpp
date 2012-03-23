@@ -39,20 +39,12 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 	_nXMotion = 0;
 	_nYMotion = 0;
 
-	if( btl::utility::BTL_GL == _eConvention )	{
-		_aCentroid[0] = 0.f; _aCentroid[1] = 0.f; _aCentroid[2] = -1.f; 
-		_aLight[0] = 3.0;
-		_aLight[1] = 1.0;
-		_aLight[2] = 1.0;
-		_aLight[3] = 1.0;
-	}
-	else if( btl::utility::BTL_CV == _eConvention ){
-		_aCentroid[0] = 0.f; _aCentroid[1] = 0.f; _aCentroid[2] = 1.f; 
-		_aLight[0] = 0.0;
-		_aLight[1] =-0.3;
-		_aLight[2] =-1.8;
-		_aLight[3] = 1.0;
-	}
+	_aCentroid[0] = 2.f; _aCentroid[1] = 2.f; _aCentroid[2] = 1.f; 
+	_aLight[0] = 2.0;
+	_aLight[1] = 1.7;
+	_aLight[2] =-0.2;
+	_aLight[3] = 1.0;
+
 	_bRenderNormal = false;
 	_bEnableLighting = false;
 	_fSize = 0.2f;
@@ -373,10 +365,42 @@ void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, 
 }
 void CGLUtil::renderVoxelGL( const float fSize_) const
 {
-	float fHS = fSize_/2.f;
+	
 	// x axis
 	glColor3f ( 1.f, .0f, .0f );
 	//top
+	glBegin ( GL_LINE_LOOP );
+	glVertex3f ( 0.f,    0.f, 0.f ); 
+	glVertex3f ( fSize_, 0.f, 0.f ); 
+	glVertex3f ( fSize_, 0.f, fSize_ ); 
+	glVertex3f ( 0.f,    0.f, fSize_ ); 
+	glEnd();
+	//bottom
+	glBegin ( GL_LINE_LOOP );
+	glVertex3f ( 0.f,    fSize_, 0.f ); 
+	glVertex3f ( fSize_, fSize_, 0.f ); 
+	glVertex3f ( fSize_, fSize_, fSize_ ); 
+	glVertex3f ( 0.f,    fSize_, fSize_ ); 
+	glEnd();
+	//middle
+	glBegin ( GL_LINES );
+	glVertex3f ( 0.f,    0.f, 0.f ); 
+	glVertex3f ( 0.f,    fSize_, 0.f );
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f ( fSize_, 0.f, 0.f ); 
+	glVertex3f ( fSize_, fSize_, 0.f );
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f ( fSize_, 0.f,   fSize_ ); 
+	glVertex3f ( fSize_, fSize_,fSize_ );
+	glEnd();
+	glBegin ( GL_LINES );
+	glVertex3f ( 0.f, 0.f,    fSize_ ); 
+	glVertex3f ( 0.f, fSize_, fSize_ );
+	glEnd();
+	/*//top
+	float fHS = fSize_/2.f;
 	glBegin ( GL_LINE_LOOP );
 	glVertex3f ( fHS, fHS, fHS ); 
 	glVertex3f ( fHS, fHS,-fHS ); 
@@ -406,7 +430,7 @@ void CGLUtil::renderVoxelGL( const float fSize_) const
 	glBegin ( GL_LINES );
 	glVertex3f (-fHS, fHS, fHS ); 
 	glVertex3f (-fHS,-fHS, fHS ); 
-	glEnd();
+	glEnd();*/
 }
 
 void CGLUtil::timerStart(){

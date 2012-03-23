@@ -3,9 +3,9 @@
 
 namespace btl{ namespace geometry
 {
-#define RESOL 256//128  
-#define LEVEL 65536//16384 //VOLUME_RESOL * VOLUME_RESOL
-#define TOTAL 16777216//2097152//VOLUME_LEVEL * VOLUME_RESOL
+#define RESOL 256//128  512//
+#define LEVEL 65536//16384 //VOLUME_RESOL * VOLUME_RESOL 262144//
+#define TOTAL 16777216//2097152//VOLUME_LEVEL * VOLUME_RESOL 134217728//
 class CModel
 {
 //type
@@ -23,6 +23,7 @@ public:
 	void unpack_tsdf (short2 value, float& tsdf, int& weight);
 	void gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, ushort usPyrLevel_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const;
 public:
+
 	//data
 	Eigen::Vector3d _eivAvgNormal;
 	double _dAvgPosition;

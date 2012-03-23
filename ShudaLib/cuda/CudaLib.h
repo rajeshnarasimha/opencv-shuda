@@ -1,6 +1,6 @@
 #ifndef BTL_CUDA_HEADER
 #define BTL_CUDA_HEADER
-#include "../OtherUtil.hpp"
+//#include "../OtherUtil.hpp"
 
 namespace btl { namespace device
 {
@@ -18,23 +18,16 @@ void cudaProjectRGBCVCV(const cv::gpu::GpuMat& cvgmRGBWorld_,
 	cv::gpu::GpuMat* pcvgmAligned_ );
 void cudaBilateralFiltering(const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaSpace_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_ );
 void cudaPyrDown (const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_);
-void cudaUnprojectRGBCVBOTH ( const cv::gpu::GpuMat& cvgmDepths_, 
+void unprojectRGBCVm ( const cv::gpu::GpuMat& cvgmDepths_, 
 	const float& fFxRGB_,const float& fFyRGB_,const float& uRGB_, const float& vRGB_, unsigned int uLevel_, 
-	cv::gpu::GpuMat* pcvgmPts_, 
-	btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL );
+	cv::gpu::GpuMat* pcvgmPts_ );
 void cudaFastNormalEstimation(const cv::gpu::GpuMat& cvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNls_, const unsigned short usSamplesAzimuth_, const unsigned short usSamplesElevationZ_, 
 	const unsigned short usWidth_,const unsigned short usLevel_,  const float fNormalBinSize_, cv::gpu::GpuMat* pcvgmBinIdx_);
 //set the rotation angle and axis for rendering disk GL convention; the input are normals in cv-convention
 void cudaNormalSetRotationAxisCVGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::GpuMat* pcvgmAAs_ );
-//get the threshold voxel centers
-void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxZVolume_, const float fThreshold_, const float fVoxelSize_, const cv::gpu::GpuMat* pcvgmYZxZVolCenter_);
 //get scale depth
 void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmDepth_);
-void integrateFrame2VolumeCVCV(const cv::gpu::GpuMat& cvgmDepthScaled_, const unsigned short usPyrLevel_, 
-	const float fVoxelSize_, const float fTruncDistanceM_, 
-	const double* pR_, const double* pT_,  const double* pC_, 
-	const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmYZxXVolume_);
 void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_);
 void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_, cv::gpu::GpuMat* pcvgmResults_);
 }//device

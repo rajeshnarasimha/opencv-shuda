@@ -65,7 +65,7 @@ private:
 	void fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pcvmNls_);
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
-	void gpuBuildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
+	void gpuBuildPyramidCVm( );
 	//for debug
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
@@ -100,8 +100,7 @@ private:
 	//rgb pyramid
 	//depth pyramid (need to be initially allocated in constructor)
 	//gpu
-	std::vector< cv::gpu::GpuMat > _vcvgmPyrDisparity;
-	std::vector< cv::gpu::GpuMat > _vcvgmPyr32FC1Tmp;
+	
 
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image

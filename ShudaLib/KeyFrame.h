@@ -85,6 +85,7 @@ public:
 	void transformPlaneObjsToWorldCVCV(const ushort usPyrLevel_);
 	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
 	void updateMVInv();
+	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
 
 private:
 	//surf keyframe matching
@@ -115,6 +116,11 @@ public:
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrNls[4]; //CV_32FC3 type
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrRGBs[4];
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBWs[4];
+
+	static boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrDisparity[4];
+	static boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyr32FC1Tmp[4];
+
+
 	static boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrAA[4];//for rendering
 	//clusters
 	boost::shared_ptr<cv::Mat>   _acvmShrPtrNormalClusters[4];
