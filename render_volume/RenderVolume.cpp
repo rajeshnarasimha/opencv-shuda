@@ -240,8 +240,8 @@ void display ( void ) {
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		// track camera motion
-		_pKinect->_pFrame->extractSurfFeatures();
-		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers );
+		//_pKinect->_pFrame->extractSurfFeatures();
+		//_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers );
 		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );
 		_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), false, false, .1f,_pGL->_usPyrLevel );
 		if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/4.,0.05) ){
@@ -274,7 +274,7 @@ void display ( void ) {
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
 	//_pMPMV->renderAllPlanesInAllViewsWorldCVCV(_pGL.get(),_usColorIdx,3);
-	if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
+	//if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
 	if(_bRenderVirtualFrame ) _pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),0,0,false);
 
 	//_pMPMV->renderGivenPlaneInGivenViewWorldCVCV(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
@@ -330,26 +330,26 @@ int main ( int argc, char** argv ) {
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
-		GLenum eError = glewInit();
-		if (GLEW_OK != eError){
-			PRINTSTR("glewInit() error.");
-			PRINT( glewGetErrorString(eError) );
-		}
+		//init glew
+		//GLenum eError = glewInit();
+		//if (GLEW_OK != eError){
+		//	PRINTSTR("glewInit() error.");
+		//	PRINT( glewGetErrorString(eError) );
+		//}
         glutKeyboardFunc ( normalKeys );
 		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
-
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
 
 		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
-		_pGL->setCudaDeviceForGLInteroperation();
+		//_pGL->setCudaDeviceForGLInteroperation();
 
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
 		_pModel.reset( new btl::geometry::CModel() );
 		init();
-		_pModel->gpuCreateVBO(_pGL.get());
+		//_pModel->gpuCreateVBO(_pGL.get());
         glutMainLoop();
 	}
 	catch ( btl::utility::CError& e )	{

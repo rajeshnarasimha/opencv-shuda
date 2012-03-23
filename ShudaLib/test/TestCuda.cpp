@@ -7,8 +7,8 @@
 //using namespace boost::gregorian;
 using namespace std;
 #include <opencv2/gpu/gpu.hpp>
-#include "../cuda/CudaLib.h"
 #include "../OtherUtil.hpp"
+#include "../cuda/CudaLib.h"
 
 void tryCudaFloat3()
 {
