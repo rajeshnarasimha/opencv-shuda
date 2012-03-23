@@ -111,7 +111,7 @@ public:
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrRGBs[4];
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrBWs[4];
 	//device
-	boost::shared_ptr<cv::gpu::GpuMat> _acvgmPyrDepths[4];
+	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrDepths[4];
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrNls[4]; //CV_32FC3 type
 	boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrRGBs[4];
