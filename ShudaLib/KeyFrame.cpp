@@ -76,7 +76,7 @@ void btl::kinect::CKeyFrame::allocate(){
 		_acvgmShrPtrPyrNls[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
 		_acvgmShrPtrPyrRGBs[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
 		_acvgmShrPtrPyrBWs[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC1));
-		_acvgmPyrDepths[i]	  .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
+		_acvgmShrPtrPyrDepths[i]	  .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
 		//plane detection
 		_acvmShrPtrNormalClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
 		_acvmShrPtrDistanceClusters[i].reset(new cv::Mat(nRows,nCols,CV_32FC1));
@@ -127,7 +127,7 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	for(int i=0; i<4; i++) {
 		copyTo(pKF_,i);
 	}
-	_acvgmPyrDepths[0]->copyTo(*pKF_->_acvgmPyrDepths[0]);
+	_acvgmShrPtrPyrDepths[0]->copyTo(*pKF_->_acvgmShrPtrPyrDepths[0]);
 	pKF_->_bIsReferenceFrame = _bIsReferenceFrame;
 	pKF_->_eimRw = _eimRw;
 	pKF_->_eivTw = _eivTw;
@@ -925,29 +925,26 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseRe
 }
 
 void btl::kinect::CKeyFrame::constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_){
-	/*_acvgmShrPtrPyrPts[0]->setTo(std::numeric_limits<float>::quiet_NaN());
-	btl::device::unprojectRGBCVm(*_acvgmPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_acvgmShrPtrPyrPts[0]);
+	/*
+	//get pts and normal from depth
+	_acvgmShrPtrPyrPts[0]->setTo(std::numeric_limits<float>::quiet_NaN());
+	btl::device::unprojectRGBCVm(*_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_acvgmShrPtrPyrPts[0]);
 	_acvgmShrPtrPyrNls[0]->setTo(std::numeric_limits<float>::quiet_NaN());
 	btl::device::cudaFastNormalEstimation(*_acvgmShrPtrPyrPts[0],&*_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
 	_acvgmShrPtrPyrPts[0]->download(*_acvmShrPtrPyrPts[0]);
 	_acvgmShrPtrPyrNls[0]->download(*_acvmShrPtrPyrNls[0]);
 	*/
-	_acvgmShrPtrPyr32FC1Tmp[0]->setTo(std::numeric_limits<float>::quiet_NaN());	
-	btl::device::cudaDepth2Disparity(*_acvgmPyrDepths[0], &*_acvgmShrPtrPyr32FC1Tmp[0]);
 	_acvgmShrPtrPyrDisparity[0]->setTo(std::numeric_limits<float>::quiet_NaN());
-	btl::device::cudaBilateralFiltering(*_acvgmShrPtrPyr32FC1Tmp[0],fSigmaSpace_,fSigmaDisparity_,&*_acvgmShrPtrPyrDisparity[0]);
-	_acvgmPyrDepths[0]->setTo(std::numeric_limits<float>::quiet_NaN());
-	btl::device::cudaDisparity2Depth(*_acvgmShrPtrPyrDisparity[0],&*_acvgmPyrDepths[0]);
-	_acvgmShrPtrPyrPts[0]->setTo(std::numeric_limits<float>::quiet_NaN());
-	btl::device::unprojectRGBCVm(*_acvgmPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_acvgmShrPtrPyrPts[0]);
-	_acvgmShrPtrPyrNls[0]->setTo(std::numeric_limits<float>::quiet_NaN());
-	btl::device::cudaFastNormalEstimation(*_acvgmShrPtrPyrPts[0],&*_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
+	btl::device::cudaDepth2Disparity(*_acvgmShrPtrPyrDepths[0], &*_acvgmShrPtrPyrDisparity[0]);
+	//_acvgmShrPtrPyrPts[0]->setTo(std::numeric_limits<float>::quiet_NaN());
+	//btl::device::unprojectRGBCVm(*_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_acvgmShrPtrPyrPts[0]);
+	//_acvgmShrPtrPyrNls[0]->setTo(std::numeric_limits<float>::quiet_NaN());
+	//btl::device::cudaFastNormalEstimation(*_acvgmShrPtrPyrPts[0],&*_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
 	//_acvgmShrPtrPyrRGBs[0]->download(*_acvmShrPtrPyrRGBs[0]);
 	_acvgmShrPtrPyrPts[0]->download(*_acvmShrPtrPyrPts[0]);
 	_acvgmShrPtrPyrNls[0]->download(*_acvmShrPtrPyrNls[0]);
 	//cv::gpu::cvtColor(*_acvgmShrPtrPyrRGBs[0],*_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
 	//_acvgmShrPtrPyrBWs[0]->download(*_acvmShrPtrPyrBWs[0]);
-
 	for( unsigned int i=1; i<4; i++ )	{
 		//_acvgmShrPtrPyrRGBs[i]->setTo(0);
 		//cv::gpu::pyrDown(*_acvgmShrPtrPyrRGBs[i-1],*_acvgmShrPtrPyrRGBs[i]);
@@ -958,16 +955,16 @@ void btl::kinect::CKeyFrame::constructPyramid(const float fSigmaSpace_, const fl
 		btl::device::cudaPyrDown( *_acvgmShrPtrPyrDisparity[i-1],fSigmaDisparity_,&*_acvgmShrPtrPyr32FC1Tmp[i]);
 		_acvgmShrPtrPyrDisparity[i]->setTo(std::numeric_limits<float>::quiet_NaN());
 		btl::device::cudaBilateralFiltering(*_acvgmShrPtrPyr32FC1Tmp[i],fSigmaSpace_,fSigmaDisparity_,&*_acvgmShrPtrPyrDisparity[i]);
-		_acvgmPyrDepths[i]->setTo(std::numeric_limits<float>::quiet_NaN());
-		btl::device::cudaDisparity2Depth(*_acvgmShrPtrPyrDisparity[i],&*_acvgmPyrDepths[i]);
+		_acvgmShrPtrPyrDepths[i]->setTo(std::numeric_limits<float>::quiet_NaN());
+		btl::device::cudaDisparity2Depth(*_acvgmShrPtrPyrDisparity[i],&*_acvgmShrPtrPyrDepths[i]);
 		_acvgmShrPtrPyrPts[i]->setTo(std::numeric_limits<float>::quiet_NaN());
-		btl::device::unprojectRGBCVm(*_acvgmPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_acvgmShrPtrPyrPts[i] );
+		btl::device::unprojectRGBCVm(*_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_acvgmShrPtrPyrPts[i] );
 		_acvgmShrPtrPyrPts[i]->download(*_acvmShrPtrPyrPts[i]);
 		_acvgmShrPtrPyrNls[i]->setTo(std::numeric_limits<float>::quiet_NaN());
 		btl::device::cudaFastNormalEstimation(*_acvgmShrPtrPyrPts[i],&*_acvgmShrPtrPyrNls[i]);
 		_acvgmShrPtrPyrNls[i]->download(*_acvmShrPtrPyrNls[i]);	
 	}	
-	for( unsigned int i=0; i<4; i++ )	{
+	for( unsigned int i=1; i<4; i++ )	{
 		gpuTransformToWorldCVCV(i);
 	}
 	return;

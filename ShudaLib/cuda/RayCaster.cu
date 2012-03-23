@@ -33,7 +33,7 @@ __device__ __forceinline__ float getMaxTime (const float3& volume_max, const flo
 struct RayCaster
 {
     enum { CTA_SIZE_X = 32, CTA_SIZE_Y = 16 };
-	enum { VOLUME_X = 256 };
+	enum { VOLUME_X = 512 };
 
     Mat33 Rcurr;
     float3 tcurr;
@@ -92,9 +92,9 @@ struct RayCaster
 		if (g.y <= 0 || g.y >= VOLUME_X - 1)		return numeric_limits<float>::quiet_NaN ();
 		if (g.z <= 0 || g.z >= VOLUME_X - 1)		return numeric_limits<float>::quiet_NaN ();
 
-		float vx = (g.x + 0.5f) * cell_size.x;
-		float vy = (g.y + 0.5f) * cell_size.y;
-		float vz = (g.z + 0.5f) * cell_size.z;
+		float vx = (g.x /*+ 0.5f*/) * cell_size.x;
+		float vy = (g.y /*+ 0.5f*/) * cell_size.y;
+		float vz = (g.z /*+ 0.5f*/) * cell_size.z;
 
 		g.x = (point.x < vx) ? (g.x - 1) : g.x;
 		g.y = (point.y < vy) ? (g.y - 1) : g.y;
@@ -104,42 +104,23 @@ struct RayCaster
 		float b = (point.y - (g.y + 0.5f) * cell_size.y) / cell_size.y;
 		float c = (point.z - (g.z + 0.5f) * cell_size.z) / cell_size.z;
 
-		float tsdf0 = readTsdf (g.x + 0, g.y + 0, g.z + 0); if ( !tsdf0 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf1 = readTsdf (g.x + 0, g.y + 0, g.z + 1); if ( !tsdf1 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf2 = readTsdf (g.x + 0, g.y + 1, g.z + 0); if ( !tsdf2 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf3 = readTsdf (g.x + 0, g.y + 1, g.z + 1); if ( !tsdf3 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf4 = readTsdf (g.x + 1, g.y + 0, g.z + 0); if ( !tsdf4 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf5 = readTsdf (g.x + 1, g.y + 0, g.z + 1); if ( !tsdf5 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf6 = readTsdf (g.x + 1, g.y + 1, g.z + 0); if ( !tsdf6 ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf7 = readTsdf (g.x + 1, g.y + 1, g.z + 1); if ( !tsdf7 ) return numeric_limits<float>::quiet_NaN ();
-/*
-		float triW =triW0 * (1 - a) * (1 - b) * (1 - c) +
-					triW1 * (1 - a) * (1 - b) * c +
-					triW2 * (1 - a) * b * (1 - c) +
-					triW3 * (1 - a) * b * c +
-					triW4 * a * (1 - b) * (1 - c) +
-					triW5 * a * (1 - b) * c +
-					triW6 * a * b * (1 - c) +
-					triW7 * a * b * c;
-
-		float res = tsdf0 * triW0 *(1 - a) * (1 - b) * (1 - c) +
-					tsdf1 * triW1 *(1 - a) * (1 - b) * c +
-					tsdf2 * triW2 *(1 - a) * b * (1 - c) +
-					tsdf3 * triW3 *(1 - a) * b * c +
-					tsdf4 * triW4 *a * (1 - b) * (1 - c) +
-					tsdf5 * triW5 *a * (1 - b) * c +
-					tsdf6 * triW6 *a * b * (1 - c) +
-					tsdf7 * triW7 *a * b * c;
-		return res/triW;*/
-		float res = readTsdf (g.x + 0, g.y + 0, g.z + 0) * (1 - a) * (1 - b) * (1 - c) +
-					readTsdf (g.x + 0, g.y + 0, g.z + 1) * (1 - a) * (1 - b) * c +
-					readTsdf (g.x + 0, g.y + 1, g.z + 0) * (1 - a) * b * (1 - c) +
-					readTsdf (g.x + 0, g.y + 1, g.z + 1) * (1 - a) * b * c +
-					readTsdf (g.x + 1, g.y + 0, g.z + 0) * a * (1 - b) * (1 - c) +
-					readTsdf (g.x + 1, g.y + 0, g.z + 1) * a * (1 - b) * c +
-					readTsdf (g.x + 1, g.y + 1, g.z + 0) * a * b * (1 - c) +
-					readTsdf (g.x + 1, g.y + 1, g.z + 1) * a * b * c;
-        return res;
+		float tsdf0 = readTsdf (g.x + 0, g.y + 0, g.z + 0); //if ( tsdf0>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf1 = readTsdf (g.x + 0, g.y + 0, g.z + 1); //if ( tsdf1>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf2 = readTsdf (g.x + 0, g.y + 1, g.z + 0); //if ( tsdf2>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf3 = readTsdf (g.x + 0, g.y + 1, g.z + 1); //if ( tsdf3>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf4 = readTsdf (g.x + 1, g.y + 0, g.z + 0); //if ( tsdf4>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf5 = readTsdf (g.x + 1, g.y + 0, g.z + 1); //if ( tsdf5>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf6 = readTsdf (g.x + 1, g.y + 1, g.z + 0); //if ( tsdf6>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf7 = readTsdf (g.x + 1, g.y + 1, g.z + 1); //if ( tsdf7>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float res = tsdf0 * (1 - a) * (1 - b) * (1 - c) +
+					tsdf1 * (1 - a) * (1 - b) * c +
+					tsdf2 * (1 - a) * b * (1 - c) +
+					tsdf3 * (1 - a) * b * c +
+					tsdf4 * a * (1 - b) * (1 - c) +
+					tsdf5 * a * (1 - b) * c +
+					tsdf6 * a * b * (1 - c) +
+					tsdf7 * a * b * c;
+		return res;
     }//interpolateTrilineary()
 	/*
 	    __device__ __forceinline__ void operator () () const
@@ -210,6 +191,7 @@ struct RayCaster
 
         float3& f3V = _cvgmVMapWorld.ptr (y)[x];	f3V.x = f3V.y = f3V.z = numeric_limits<float>::quiet_NaN ();
         float3& f3N = _cvgmNMapWorld.ptr (y)[x];	f3N.x = f3N.y = f3N.z = numeric_limits<float>::quiet_NaN ();
+		_cvgmDepth.ptr (y)[x] = numeric_limits<float>::quiet_NaN ();
 
 		float3 ray_start = tcurr; //is the camera center in world
 		float3 ray_next = Rcurr * get_ray_next (x, y) + tcurr; //transform the point to the world
@@ -247,15 +229,12 @@ struct RayCaster
 
           if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
           {
-            float Ftdt = interpolateTrilineary (ray_start, ray_dir, time_curr + time_step);
-            if (isnan (Ftdt))  break;
-
-            float Ft = interpolateTrilineary (ray_start, ray_dir, time_curr);
-            if (isnan (Ft))  break;
-
-            float Ts = time_curr + time_step * tsdf_prev / (tsdf_prev - tsdf);
+            float Ftdt = interpolateTrilineary (ray_start, ray_dir, time_curr + time_step); if (isnan (Ftdt))  break;
+            float Ft = interpolateTrilineary (ray_start, ray_dir, time_curr);               if (isnan (Ft))  break;
+			float lambda = Ft / (Ft - Ftdt); if( lambda > 1.f || lambda < 0.f ) lambda = 0.5; //lambda = max( 0.f, min( lambda, 1.f) ); //control lambda into (0,1)
+            float Ts = time_curr + time_step * lambda ; //tsdf_prev/(tsdf_prev - tsdf);//
             float3 vetex_found = ray_start + ray_dir * Ts;
-            _cvgmVMapWorld.ptr (y)[x] =  vetex_found;
+            
             int3 g = getVoxel ( ray_start + ray_dir * time_curr );
             if (g.x > 1 && g.y > 1 && g.z > 1 && g.x < VOLUME_X - 2 && g.y < VOLUME_X - 2 && g.z < VOLUME_X - 2)
             {
@@ -295,6 +274,8 @@ struct RayCaster
               n = normalized (n);
 
               _cvgmNMapWorld.ptr (y)[x] = n;
+			  _cvgmVMapWorld.ptr (y)[x] = vetex_found;
+			  _cvgmDepth.ptr (y)[x] = vetex_found.z;
             }
             break;
           }//if
@@ -351,7 +332,7 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCurrTrans_, const float3& CwCurr_, 
 		float fTrancDist_, const float& fVolumeSize_,
-		const cv::gpu::GpuMat& cvgmYZxXVolume_,  cv::gpu::GpuMat* pcvgmVMapWorld_, cv::gpu::GpuMat* pcvgmNMapWorld_ )
+		const cv::gpu::GpuMat& cvgmYZxXVolume_,  cv::gpu::GpuMat* pcvgmVMapWorld_, cv::gpu::GpuMat* pcvgmNMapWorld_,cv::gpu::GpuMat* pcvgmDepth_ )
 {
   btl::device::RayCaster sRC;
 
@@ -369,7 +350,6 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
   sRC.time_step = fTrancDist_*0.8;
   sRC.time_step_fine = sRC.cell_size.x * 2.f;
 
-
   sRC.cols = pcvgmVMapWorld_->cols;
   sRC.rows = pcvgmVMapWorld_->rows;
 
@@ -377,11 +357,9 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
 
   sRC._cvgmYZxXVolume = cvgmYZxXVolume_;
   
-  pcvgmVMapWorld_->setTo(std::numeric_limits<float>::quiet_NaN ());
-  pcvgmNMapWorld_->setTo(std::numeric_limits<float>::quiet_NaN ());
-  
   sRC._cvgmVMapWorld = *pcvgmVMapWorld_;
   sRC._cvgmNMapWorld = *pcvgmNMapWorld_;
+  sRC._cvgmDepth     = *pcvgmDepth_;
 
   dim3 block (RayCaster::CTA_SIZE_X, RayCaster::CTA_SIZE_Y);
   dim3 grid (cv::gpu::divUp (sRC.cols, block.x), cv::gpu::divUp (sRC.rows, block.y));

@@ -83,12 +83,20 @@ struct SVolumn{
 	
 		//read an unpack tsdf value and store into the volumes
 		short2& sValue = _cvgmYZxXVolume.ptr(nY)[nX];
-		float fTSDFPrev;
-		int nWeightPrev;
-		pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
-		float fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
-		int nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+		float fTSDFNew;
+		int nWeightNew;
+		if(sValue.x < 30000 ){
+			float fTSDFPrev;
+			int nWeightPrev;
+			pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
+			fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
+			nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+		}else{
+			fTSDFNew = fTSDF;
+			nWeightNew = 1;
+		}
 		pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);
+
 		return;
 	}//kernelIntegrateFrame2VolumeCVmCVm()
 };
