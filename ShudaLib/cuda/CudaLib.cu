@@ -567,5 +567,62 @@ void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_
 	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<bool normalize>
+__global__ void kernelResizeMap (const cv::gpu::DevMem2D_<float3> cvgmSrc_, cv::gpu::DevMem2D_<float3> cvgmDst_)
+{
+	using namespace pcl::device;
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (x >= cvgmDst_.cols || y >= cvgmDst_.rows) return;
+
+    float3 qnan; qnan.x = qnan.y = qnan.z = pcl::device::numeric_limits<float>::quiet_NaN ();
+
+    int xs = x * 2;
+    int ys = y * 2;
+
+    float3 x00 = cvgmSrc_.ptr (ys + 0)[xs + 0];
+    float3 x01 = cvgmSrc_.ptr (ys + 0)[xs + 1];
+    float3 x10 = cvgmSrc_.ptr (ys + 1)[xs + 0];
+    float3 x11 = cvgmSrc_.ptr (ys + 1)[xs + 1];
+
+    if (isnan (x00.x) || isnan (x01.x) || isnan (x10.x) || isnan (x11.x))
+    {
+		cvgmDst_.ptr (y)[x] = qnan;
+		return;
+    }
+    else
+    {
+		float3 n;
+
+		n = (x00 + x01 + x10 + x11) / 4;
+
+		if (normalize)
+			n = normalized (n);
+
+		cvgmDst_.ptr (y)[x] = n;
+    }
+}//kernelResizeMap()
+
+void resizeMap (bool bNormalize_, const cv::gpu::GpuMat& cvgmSrc_, cv::gpu::GpuMat* pcvgmDst_ )
+{
+    int in_cols = cvgmSrc_.cols;
+    int in_rows = cvgmSrc_.rows;
+
+    int out_cols = in_cols / 2;
+    int out_rows = in_rows / 2;
+
+    pcvgmDst_->create (out_rows, out_cols,cvgmSrc_.type());
+
+    dim3 block (32, 8);
+    dim3 grid (cv::gpu::divUp (out_cols, block.x), cv::gpu::divUp (out_rows, block.y));
+	if(bNormalize_)
+		kernelResizeMap<true><<<grid, block>>>(cvgmSrc_, *pcvgmDst_);
+	else
+		kernelResizeMap<false><<<grid, block>>>(cvgmSrc_, *pcvgmDst_);
+	cudaSafeCall ( cudaGetLastError () );
+    //cudaSafeCall (cudaDeviceSynchronize ());
+}
+
 }//device
 }//btl

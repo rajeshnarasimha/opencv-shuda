@@ -22,6 +22,7 @@ public:
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
 	void unpack_tsdf (short2 value, float& tsdf, int& weight);
 	void gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const;
+	void reset();
 public:
 
 	//data

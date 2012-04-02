@@ -59,6 +59,8 @@ namespace pcl
         PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(float3, float, -=)    
         PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(float3, float, +=)
         PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(float3, float, *=)
+		PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(float3, float, /=)
+
 
         PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(short3, short, -=) 
 
@@ -90,6 +92,7 @@ namespace pcl
         PCL_GPU_IMPLEMENT_VEC_BINOP(float3, float, -, -=)
         PCL_GPU_IMPLEMENT_VEC_BINOP(float3, float, +, +=)
         PCL_GPU_IMPLEMENT_VEC_BINOP(float3, float, *, *=)
+		PCL_GPU_IMPLEMENT_VEC_BINOP(float3, float, /, /=)
 
         PCL_GPU_IMPLEMENT_VEC_BINOP(short3, short, -, -=)
 

@@ -104,14 +104,14 @@ struct RayCaster
 		float b = (point.y - (g.y + 0.5f) * cell_size.y) / cell_size.y;
 		float c = (point.z - (g.z + 0.5f) * cell_size.z) / cell_size.z;
 
-		float tsdf0 = readTsdf (g.x + 0, g.y + 0, g.z + 0); //if ( tsdf0>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf1 = readTsdf (g.x + 0, g.y + 0, g.z + 1); //if ( tsdf1>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf2 = readTsdf (g.x + 0, g.y + 1, g.z + 0); //if ( tsdf2>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf3 = readTsdf (g.x + 0, g.y + 1, g.z + 1); //if ( tsdf3>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf4 = readTsdf (g.x + 1, g.y + 0, g.z + 0); //if ( tsdf4>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf5 = readTsdf (g.x + 1, g.y + 0, g.z + 1); //if ( tsdf5>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf6 = readTsdf (g.x + 1, g.y + 1, g.z + 0); //if ( tsdf6>=1.f ) return numeric_limits<float>::quiet_NaN ();
-		float tsdf7 = readTsdf (g.x + 1, g.y + 1, g.z + 1); //if ( tsdf7>=1.f ) return numeric_limits<float>::quiet_NaN ();
+		float tsdf0 = readTsdf (g.x + 0, g.y + 0, g.z + 0); if ( tsdf0>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf0 = 0;//
+		float tsdf1 = readTsdf (g.x + 0, g.y + 0, g.z + 1); if ( tsdf1>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf1 = 0;//
+		float tsdf2 = readTsdf (g.x + 0, g.y + 1, g.z + 0); if ( tsdf2>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf2 = 0;//
+		float tsdf3 = readTsdf (g.x + 0, g.y + 1, g.z + 1); if ( tsdf3>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf3 = 0;//
+		float tsdf4 = readTsdf (g.x + 1, g.y + 0, g.z + 0); if ( tsdf4>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf4 = 0;//
+		float tsdf5 = readTsdf (g.x + 1, g.y + 0, g.z + 1); if ( tsdf5>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf5 = 0;//
+		float tsdf6 = readTsdf (g.x + 1, g.y + 1, g.z + 0); if ( tsdf6>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf6 = 0;//
+		float tsdf7 = readTsdf (g.x + 1, g.y + 1, g.z + 1); if ( tsdf7>=1.f ) return numeric_limits<float>::quiet_NaN (); //tsdf7 = 0;//
 		float res = tsdf0 * (1 - a) * (1 - b) * (1 - c) +
 					tsdf1 * (1 - a) * (1 - b) * c +
 					tsdf2 * (1 - a) * b * (1 - c) +
@@ -122,67 +122,7 @@ struct RayCaster
 					tsdf7 * a * b * c;
 		return res;
     }//interpolateTrilineary()
-	/*
-	    __device__ __forceinline__ void operator () () const
-    {
-		int x = threadIdx.x + blockIdx.x * CTA_SIZE_X;
-		int y = threadIdx.y + blockIdx.y * CTA_SIZE_Y;
 
-		if (x >= cols || y >= rows)	return;
-
-		float3 ray_start = tcurr; //is the camera center in world
-		float3 ray_next = Rcurr * get_ray_next (x, y) + tcurr; //transform the point to the world
-		float3 ray_dir = normalized (ray_next - ray_start); //get ray direction in the world
-
-		//ensure that it isn't a degenerate case
-		ray_dir.x = (ray_dir.x == 0.f) ? 1e-15 : ray_dir.x;
-		ray_dir.y = (ray_dir.y == 0.f) ? 1e-15 : ray_dir.y;
-		ray_dir.z = (ray_dir.z == 0.f) ? 1e-15 : ray_dir.z;
-
-		// computer time when entry and exit volume
-		float time_start_volume = getMinTime (volume_size, ray_start, ray_dir);
-		float time_exit_volume = getMaxTime (volume_size, ray_start, ray_dir);
-
-		const float min_dist = 0.f;         //in meters
-		time_start_volume = fmax (time_start_volume, min_dist);
-		if (time_start_volume >= time_exit_volume)	return;
-
-		float time_curr = time_start_volume;
-		int3 g = getVoxel (ray_start + ray_dir * time_curr); if (!checkInds (g)) return;
-		
-		
-		g.x = max (0, min (g.x, VOLUME_X - 1));
-		g.y = max (0, min (g.y, VOLUME_X - 1));
-		g.z = max (0, min (g.z, VOLUME_X - 1));
-
-		float tsdf = readTsdf (g.x, g.y, g.z);
-
-		//infinite loop guard
-		const float max_time = volume_size.x + volume_size.y + volume_size.z;
-
-		for (; time_curr < max_time; time_curr += time_step){
-			
-			float tsdf_prev = tsdf;
-			int3 g = getVoxel (  ray_start + ray_dir * (time_curr+time_step)  );	if (!checkInds (g)) break;
-			tsdf = readTsdf (g.x, g.y, g.z);                                        if (tsdf_prev < 0.f && tsdf > 0.f)	break;
-
-			if (tsdf_prev > 0.f && tsdf < 0.f ) {          //zero crossing
-				float max_time_fine = time_curr + time_step + time_step_fine;
-				float tsdf_prev_fine = tsdf_prev;
-				for (float time_curr_fine = time_curr + time_step_fine; time_curr_fine < max_time_fine; time_curr_fine += time_step_fine){
-					int3 g = getVoxel (  ray_start + ray_dir * (time_curr_fine)  );	//if (!checkInds (g)) break;
-					float tsdf_fine = readTsdf (g.x, g.y, g.z);  //if (tsdf_prev_fine < 0.f && tsdf_fine > 0.f)	break;
-					if (tsdf_prev_fine > 0.f && tsdf_fine < 0.f ) {
-						_cvgmDepth.ptr (y)[x] = ray_dir.z * (time_curr_fine+time_step_fine/2.f);
-						break;
-					}
-				}
-				break;
-			}//if
-		}// for(;;)  
-		return;    
-	}//operator()
-	*/
 	__device__ __forceinline__ void operator () () const {
 		int x = threadIdx.x + blockIdx.x * CTA_SIZE_X;
         int y = threadIdx.y + blockIdx.y * CTA_SIZE_Y;
@@ -194,7 +134,8 @@ struct RayCaster
 		_cvgmDepth.ptr (y)[x] = numeric_limits<float>::quiet_NaN ();
 
 		float3 ray_start = tcurr; //is the camera center in world
-		float3 ray_next = Rcurr * get_ray_next (x, y) + tcurr; //transform the point to the world
+		float3 ray_camera = get_ray_next (x, y);
+		float3 ray_next = Rcurr * ray_camera + tcurr; //transform the point to the world
 		float3 ray_dir = normalized (ray_next - ray_start); //get ray direction in the world
 
         //ensure that it isn't a degenerate case
@@ -229,8 +170,30 @@ struct RayCaster
 
           if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
           {
-            float Ftdt = interpolateTrilineary (ray_start, ray_dir, time_curr + time_step); if (isnan (Ftdt))  break;
-            float Ft = interpolateTrilineary (ray_start, ray_dir, time_curr);               if (isnan (Ft))  break;
+			  /*
+			  //do a finer search{
+			  float tsdf_finer = tsdf_prev;
+			  float time_finer_prev = 0;
+			  for(float time_finer = time_step_fine; time_finer < time_step; time_finer += time_step_fine){
+				float tsdf_finer_prev = tsdf_finer;
+				int3 g_curr = getVoxel (  ray_start + ray_dir * (time_curr + time_finer)  );      
+				tsdf_finer = readTsdf (g_curr.x, g_curr.y, g_curr.z);    if (tsdf_finer_prev < 0.f && tsdf_finer > 0.f) break;
+				if (tsdf_finer_prev > 0.f && tsdf_finer < 0.f) {
+					float Ftdt = interpolateTrilineary (ray_start, ray_dir, time_curr + time_finer); if (isnan (Ftdt))  return;
+					float Ft   = interpolateTrilineary (ray_start, ray_dir, time_curr + time_finer_prev);      if (isnan (Ft))  return;
+					float lambda = Ft / (Ft - Ftdt); if( lambda > 1.f || lambda < 0.f ) lambda = 0.5; //lambda = max( 0.f, min( lambda, 1.f) ); //control lambda into (0,1)
+					float Ts_finer = time_curr + time_finer_prev + time_finer * lambda ; //tsdf_prev/(tsdf_prev - tsdf);//
+					float3 vetex_found = ray_start + ray_dir * Ts_finer;
+					float fCos = 1.f/pcl::device::norm( ray_camera );
+					_cvgmDepth.ptr (y)[x] = Ts_finer*fCos;
+					return;
+				}//zero cross detectde, do interpolation
+			    time_finer_prev = time_finer;
+			  }//for each finer step
+			  */
+			
+            float Ftdt = interpolateTrilineary (ray_start, ray_dir, time_curr + time_step); if (isnan (Ftdt))  return;
+            float Ft = interpolateTrilineary (ray_start, ray_dir, time_curr);               if (isnan (Ft))  return;
 			float lambda = Ft / (Ft - Ftdt); if( lambda > 1.f || lambda < 0.f ) lambda = 0.5; //lambda = max( 0.f, min( lambda, 1.f) ); //control lambda into (0,1)
             float Ts = time_curr + time_step * lambda ; //tsdf_prev/(tsdf_prev - tsdf);//
             float3 vetex_found = ray_start + ray_dir * Ts;
@@ -243,42 +206,44 @@ struct RayCaster
 
               t = vetex_found;
               t.x += cell_size.x;
-              float Fx1 = interpolateTrilineary (t); if (isnan(Fx1)) break;
+              float Fx1 = interpolateTrilineary (t); if (isnan(Fx1)) return;
 
               t = vetex_found;
               t.x -= cell_size.x;
-              float Fx2 = interpolateTrilineary (t); if (isnan(Fx2)) break;
+              float Fx2 = interpolateTrilineary (t); if (isnan(Fx2)) return;
 
               n.x = (Fx1 - Fx2);
 
               t = vetex_found;
               t.y += cell_size.y;
-              float Fy1 = interpolateTrilineary (t); if (isnan(Fy1)) break;
+              float Fy1 = interpolateTrilineary (t); if (isnan(Fy1)) return;
 
               t = vetex_found;
               t.y -= cell_size.y;
-              float Fy2 = interpolateTrilineary (t); if (isnan(Fy2)) break;
+              float Fy2 = interpolateTrilineary (t); if (isnan(Fy2)) return;
 
               n.y = (Fy1 - Fy2);
 
               t = vetex_found;
               t.z += cell_size.z;
-              float Fz1 = interpolateTrilineary (t); if (isnan(Fz1)) break;
+              float Fz1 = interpolateTrilineary (t); if (isnan(Fz1)) return;
 
               t = vetex_found;
               t.z -= cell_size.z;
-              float Fz2 = interpolateTrilineary (t); if (isnan(Fz2)) break;
+              float Fz2 = interpolateTrilineary (t); if (isnan(Fz2)) return;
 
               n.z = (Fz1 - Fz2);
 
               n = normalized (n);
-
-              _cvgmNMapWorld.ptr (y)[x] = n;
-			  _cvgmVMapWorld.ptr (y)[x] = vetex_found;
-			  _cvgmDepth.ptr (y)[x] = vetex_found.z;
-            }
-            break;
-          }//if
+			  //if( pcl::device::dot( n, ray_dir ) < -0.5f ){ //cos (pi/3)
+				  //float fCos = 1.f/pcl::device::norm( ray_camera );
+			      _cvgmNMapWorld.ptr (y)[x] = n;
+				  _cvgmVMapWorld.ptr (y)[x] = vetex_found;
+				  //_cvgmDepth.ptr (y)[x] = Ts*fCos;
+			  //}
+            }//if grid inside volume
+            return;
+          }//if zero cross has found
         }// for each time step
 		return;
       }//operator()

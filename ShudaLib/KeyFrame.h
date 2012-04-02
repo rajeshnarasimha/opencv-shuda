@@ -86,6 +86,7 @@ public:
 	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
 	void updateMVInv();
 	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
+	void setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_);
 
 private:
 	//surf keyframe matching
