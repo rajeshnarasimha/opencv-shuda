@@ -196,6 +196,7 @@ void reshape ( int nWidth_, int nHeight_ ){
     return;
 }
 void init ( ){
+	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
@@ -236,7 +237,6 @@ int main ( int argc, char** argv ){
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
 		_pModel.reset( new btl::geometry::CModel() );
 		_pModel->gpuCreateVBO(_pGL.get());
-		_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
 		init();
         glutMainLoop();
 	}

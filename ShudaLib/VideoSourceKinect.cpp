@@ -280,12 +280,14 @@ void VideoSourceKinect::gpuBuildPyramidCVm( ){
 	_cvgmUndistDepth.setTo(std::numeric_limits<float>::quiet_NaN());//clear(_cvgmUndistDepth)
 	cv::gpu::remap(_cvgmDepth, _cvgmUndistDepth, _pIRCamera->_cvgmMapX, _pIRCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 	gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedRawDepth );//_cvgmAlignedRawDepth cleaned inside
+	//bilateral filtering
 	_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]->setTo(std::numeric_limits<float>::quiet_NaN());
 	btl::device::cudaDepth2Disparity(_cvgmAlignedRawDepth, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);
 	_pFrame->_acvgmShrPtrPyrDisparity[0]->setTo(std::numeric_limits<float>::quiet_NaN());
 	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
 	_pFrame->_acvgmShrPtrPyrDepths[0]->setTo(std::numeric_limits<float>::quiet_NaN());
 	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+	//get pts and nls
 	_pFrame->_acvgmShrPtrPyrPts[0]->setTo(std::numeric_limits<float>::quiet_NaN());
 	btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_pFrame->_acvgmShrPtrPyrPts[0] );
 	_pFrame->_acvgmShrPtrPyrNls[0]->setTo(std::numeric_limits<float>::quiet_NaN());
@@ -295,6 +297,7 @@ void VideoSourceKinect::gpuBuildPyramidCVm( ){
 	_pFrame->_acvgmShrPtrPyrNls[0]->download(*_pFrame->_acvmShrPtrPyrNls[0]);
 	cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[0],*_pFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
 	_pFrame->_acvgmShrPtrPyrBWs[0]->download(*_pFrame->_acvmShrPtrPyrBWs[0]);
+	//down-sampling
 	for( unsigned int i=1; i<_uPyrHeight; i++ )	{
 		_pFrame->_acvgmShrPtrPyrRGBs[i]->setTo(0);
 		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);

@@ -165,5 +165,6 @@ void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxXVolume_, const float fTh
 	cudaSafeCall ( cudaGetLastError () );
 }//thresholdVolume()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 }//device
 }//btl

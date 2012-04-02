@@ -1,5 +1,5 @@
 //display kinect depth in real-time
-//#define INFO
+#define INFO
 #include <GL/glew.h>
 #include <gl/freeglut.h>
 #include <cuda.h>
@@ -34,14 +34,19 @@
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "PlaneWorld.h"
+#include "Model.h"
 #define _nReserved 20
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CMultiPlanesMultiViewsInWorld::tp_shared_ptr _pMPMV;
+btl::geometry::CModel::tp_shared_ptr _pVolumeWorld;
+btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
 unsigned short _nWidth, _nHeight;
 
 btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
+btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrRenderFrms[3];
+
 std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
 std::vector< int > _vRFIdx;
 int _nKFCounter = 1; //key frame counter
@@ -82,6 +87,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_nRFIdx=0;
 		_vShrPtrsKF.clear();
         init();
+		_pVolumeWorld->reset();
         glutPostRedisplay();
         break;
     case 'n':
@@ -95,7 +101,6 @@ void normalKeys ( unsigned char key, int x, int y ){
     case 'c': 
 		//capture current view as a key frame
         _bCapture = !_bCapture;
-		
         break;
 	case 'd':
 		//remove last key frame
@@ -130,7 +135,6 @@ void normalKeys ( unsigned char key, int x, int y ){
 			//use current keyframe as a reference
 			_bRenderReference =! _bRenderReference;
 			for(unsigned int i=0; i < _nKFCounter; i++)	{
-				_aShrPtrKFs[i]->_bMerge =_bRenderReference;
 				/*for (unsigned short u=0; u<4; u++)
 				{
 					_aShrPtrKFs[i]->gpuDetectPlane(u);
@@ -161,7 +165,28 @@ void init ( ){
 	for(int i=0; i <_nReserved; i++){ 
 		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));	
 	}
+	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+	
+	_aShrPtrRenderFrms[0].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+	_aShrPtrRenderFrms[0]->setRT(0.,0.,0.,2.,2.,-0.5);
+	_aShrPtrRenderFrms[0]->_bIsReferenceFrame = true;
     
+	_aShrPtrRenderFrms[1].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+	_aShrPtrRenderFrms[1]->setRT(0.,M_PI_4,0.,2.5,2.,-0.5);
+	_aShrPtrRenderFrms[1]->_bIsReferenceFrame = true;
+
+	_aShrPtrRenderFrms[2].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+	_aShrPtrRenderFrms[2]->setRT(0.,-M_PI_4,0.,1.5,2.,-0.5);
+	_aShrPtrRenderFrms[2]->_bIsReferenceFrame = true;
+
+	_aShrPtrRenderFrms[3].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+	_aShrPtrRenderFrms[3]->setRT(-M_PI_4,0.,0.,2,2.5,-0.5);
+	_aShrPtrRenderFrms[3]->_bIsReferenceFrame = true;
+
+	_aShrPtrRenderFrms[4].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+	_aShrPtrRenderFrms[4]->setRT( M_PI_4,0.,0.,2,1.5,-0.5);
+	_aShrPtrRenderFrms[4]->_bIsReferenceFrame = true;
+
     _pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
     glEnable     ( GL_DEPTH_TEST );
@@ -183,9 +208,11 @@ void init ( ){
 	p1stKF->extractSurfFeatures();
 	p1stKF->gpuDetectPlane(3);
 	p1stKF->transformPlaneObjsToWorldCVCV(3);
-	for (ushort usI=0;usI<4;usI++){
+	for (ushort usI=0;usI<4;usI++) {
 		p1stKF->gpuTransformToWorldCVCV(usI);
 	}
+	_pVolumeWorld->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+
 	_nRFIdx = 0; _nKFCounter = 1;
 	_pMPMV.reset( new btl::geometry::CMultiPlanesMultiViewsInWorld( p1stKF.get() ) );
 	_vRFIdx.push_back(0);
@@ -200,63 +227,87 @@ boost::posix_time::ptime _cT0, _cT1;
 boost::posix_time::time_duration _cTDAll;
 float _fFPS;//frame per second
 void display ( void ) {
+	_pGL->timerStart();
+
 // update frame
     _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	PRINTSTR("Contruct pyramid.");
+	_pGL->timerStop();
 
 // ( second frame )
-	//_pGL->timerStart();
 	unsigned short uInliers;
-    if ( _bCapture && _nKFCounter < _nReserved ) {
+    if ( false && _bCapture && _nKFCounter < _nReserved ) {
 		// assign the rgb and depth to the current frame.
 		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
 		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
-		_pKinect->_pFrame->copyTo(&*pCurrentKF);
-       	// track camera motion
-		pCurrentKF->gpuDetectPlane(3);
 		//attach surf features to planes
-		pCurrentKF->extractSurfFeatures();
-		pCurrentKF->calcRT ( *pReferenceKF,0,.5,&uInliers );
-		pCurrentKF->gpuICP ( pReferenceKF.get(), false );
-		//detect plane and transform pt to world
-		pCurrentKF->transformPlaneObjsToWorldCVCV(3);
-		for (ushort usI=0;usI<4;usI++){
-			pCurrentKF->gpuTransformToWorldCVCV(usI);
-		}
-		_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
+		_pKinect->_pFrame->extractSurfFeatures();
+		//track camera motion
+		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
+		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );//refine the R,T with w.r.t. last key frame
+		for (short sIt = 0; sIt< 3; sIt++){
+			_pVolumeWorld->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
+			_pKinect->_pFrame->gpuICP ( _pVirtualFrame.get(), false );//refine R,T w.r.t. the virtual frame
+		}//iterate 3 times 
 		//detect planes
+		_pKinect->_pFrame->gpuDetectPlane(3);
+		//transform pts and nls to the world
+		for (ushort usI=0;usI<4;usI++){
+			_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
+		}
+		//transform detected planes to the world
+		_pKinect->_pFrame->transformPlaneObjsToWorldCVCV(3);
+		//integrate current frame into the global volume
+		_pVolumeWorld->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+		//_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
+		//save current frame and make it as the reference frame
+		_pKinect->_pFrame->copyTo(&*pCurrentKF);
 		_vShrPtrsKF.push_back( &pCurrentKF );
 		_nKFCounter++;_nRFIdx++;
 		std::cout << "new key frame added" << std::flush;
-		
 		_bCapture = false;
-		//associate planes
-    }
-	else if ( false && _nKFCounter < _nReserved){
+    }//if step by step tracking 
+	else if ( _bCapture && _nKFCounter < _nReserved){
 		// assign the rgb and depth to the current frame.
-		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
-		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
-		_pKinect->_pFrame->copyTo(&*pCurrentKF);
-		// track camera motion
+		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[0];//_aShrPtrKFs[_nReserved]
+		
+		//attach surf features to planes
 		_pKinect->_pFrame->extractSurfFeatures();
-		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers );
-		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );
-		_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), false, false, .1f,_pGL->_usPyrLevel );
-		if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/4.,0.05) ){
-			//plane detection and transform to world
-			_pKinect->_pFrame->gpuDetectPlane(3);
-			for (ushort usI=0;usI<4;usI++){
-				_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
-			}
-			//store as a new keyframe
+		//track camera motion
+		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
+		PRINTSTR("Surf calibration.");
+		_pGL->timerStop();
+		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );//refine the R,T with w.r.t. last key frame
+		for (short sIt = 0; sIt< 3; sIt++){
+			_pVolumeWorld->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
+			_pKinect->_pFrame->gpuICP ( _pVirtualFrame.get(), false );//refine R,T w.r.t. the virtual frame
+		}//iterate 3 times 
+		PRINTSTR("ICP tracking.");
+		_pGL->timerStop();
+		//detect planes
+		_pKinect->_pFrame->gpuDetectPlane(3);
+		//transform pts and nls to the world
+		for (ushort usI=0;usI<4;usI++){
+			_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
+		}
+		//transform detected planes to the world
+		_pKinect->_pFrame->transformPlaneObjsToWorldCVCV(3);
+		PRINTSTR("Plane detection.");
+		_pGL->timerStop();
+		//integrate current frame into the global volume
+		_pVolumeWorld->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+		PRINTSTR("Volume integration.");
+		_pGL->timerStop();
+		if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/4.,0.3) ){
+			btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[0];
 			_pKinect->_pFrame->copyTo(&*pCurrentKF);
-			_vShrPtrsKF.push_back( &pCurrentKF );
-			_nKFCounter++; _nRFIdx++;
-			//pCurrentKF->associatePlanes(*pReferenceKF,3);
-			_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
+			//_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
+			//save current frame and make it as the reference frame
+			//_nKFCounter++;_nRFIdx++;
 			std::cout << "new key frame added" << std::flush;
 		}//if moving far enough new keyframe will be added
 	}
-	else if( _nKFCounter > 49 )	{
+	else if( _nKFCounter == _nReserved )	{
 		std::cout << "two many key frames to hold" << std::flush;  
 	}
 	//_pGL->timerStop();
@@ -269,8 +320,14 @@ void display ( void ) {
 	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	for (short s=0;s<1;s++){
+		_pVolumeWorld->gpuRaycast( *_aShrPtrRenderFrms[s], &*_aShrPtrRenderFrms[s] ); //get virtual frame
+		_aShrPtrRenderFrms[s]->renderCameraInWorldCVGL2(_pGL.get(),false, true, .1f,_pGL->_usPyrLevel);
+		_aShrPtrRenderFrms[s]->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+	}
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
-	_pMPMV->renderAllPlanesInAllViewsWorldCVCV(_pGL.get(),_usColorIdx,3);
+	//_pMPMV->renderAllPlanesInAllViewsWorldCVCV(_pGL.get(),_usColorIdx,3);
 	//_pMPMV->renderGivenPlaneInGivenViewWorldCVCV(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
 	    // render objects
 	ushort usViewIdxTmp = 0;
@@ -279,8 +336,9 @@ void display ( void ) {
 			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
 		else
 			(**cit)->renderCameraInWorldCVGL2( _pGL.get(), false, true, .01f,_pGL->_usPyrLevel );
-		if(_bRenderPlane) (**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usPyrLevel, _usColorIdx, false );
+		//if(_bRenderPlane) (**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usPyrLevel, _usColorIdx, false );
 	}
+	//if(_bRenderPlane) _pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usPyrLevel, _usColorIdx, false );
 	//_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
 
 	if(_pGL->_bRenderReference) {
@@ -332,14 +390,19 @@ int main ( int argc, char** argv ) {
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
         glutInitWindowSize ( 1280, 480 );
         glutCreateWindow ( "CameraPose" );
-        init();
         glutKeyboardFunc ( normalKeys );
 		glutSpecialFunc ( specialKeys );
         glutMouseFunc   ( mouseClick );
         glutMotionFunc  ( mouseMotion );
-
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
+		_pGL.reset( new btl::gl_util::CGLUtil() );
+		//_pGL->setCudaDeviceForGLInteroperation();
+		_pKinect.reset(new btl::kinect::VideoSourceKinect);
+		_pVolumeWorld.reset( new btl::geometry::CModel() );
+		//_pVolumeWorld->gpuCreateVBO(_pGL.get());
+		_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
+		init();
         glutMainLoop();
 	}
 	catch ( btl::utility::CError& e )	{

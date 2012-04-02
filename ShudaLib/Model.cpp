@@ -56,6 +56,9 @@ CModel::~CModel(void)
 {
 	if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
+void CModel::reset(){
+	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
+}
 void CModel::unpack_tsdf (short2 value, float& tsdf, int& weight)
 {
     weight = value.y;
@@ -95,18 +98,26 @@ void CModel::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinec
 	//	devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
 	btl::device::raycast(pcl::device::Intr(cCurrentFrame_._pRGBCamera->_fFx,cCurrentFrame_._pRGBCamera->_fFy,cCurrentFrame_._pRGBCamera->_u,cCurrentFrame_._pRGBCamera->_v)(0),
 		devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[0],&*pVirtualFrame_->_acvgmShrPtrPyrNls[0],&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
-	//pVirtualFrame_->_acvgmShrPtrPyrPts[0]->download(*pVirtualFrame_->_acvmShrPtrPyrPts[0]);
-	//pVirtualFrame_->_acvgmShrPtrPyrNls[0]->download(*pVirtualFrame_->_acvmShrPtrPyrNls[0]);
 	//assign rotation and translation 
 	pVirtualFrame_->_eimRw = cCurrentFrame_._eimRw;
 	pVirtualFrame_->_eivTw = cCurrentFrame_._eivTw;
 	pVirtualFrame_->updateMVInv();
-	//construct the pyramid
-	float _fThresholdDepthInMeter = 0.01f;
-	float _fSigmaSpace = 1;
-	float _fSigmaDisparity = 1.f/.6f - 1.f/(.6f+_fThresholdDepthInMeter);
-	pVirtualFrame_->constructPyramid(_fSigmaSpace, _fSigmaDisparity);
+	//down-sampling
+	pVirtualFrame_->_acvgmShrPtrPyrPts[0]->download(*pVirtualFrame_->_acvmShrPtrPyrPts[0]);
+	pVirtualFrame_->_acvgmShrPtrPyrNls[0]->download(*pVirtualFrame_->_acvmShrPtrPyrNls[0]);
+	for (short s=1; s<4; s++ ){
+		btl::device::resizeMap(false,*pVirtualFrame_->_acvgmShrPtrPyrPts[s-1],&*pVirtualFrame_->_acvgmShrPtrPyrPts[s]);
+		btl::device::resizeMap(true, *pVirtualFrame_->_acvgmShrPtrPyrNls[s-1],&*pVirtualFrame_->_acvgmShrPtrPyrNls[s]);
+		pVirtualFrame_->_acvgmShrPtrPyrPts[s]->download(*pVirtualFrame_->_acvmShrPtrPyrPts[s]);
+		pVirtualFrame_->_acvgmShrPtrPyrNls[s]->download(*pVirtualFrame_->_acvmShrPtrPyrNls[s]);
+	}//for each pyramid level
+	////construct the pyramid
+	//float _fThresholdDepthInMeter = 0.1f;
+	//float _fSigmaSpace = 3;
+	//float _fSigmaDisparity = 1.f/.6f - 1.f/(.6f+_fThresholdDepthInMeter);
+	//pVirtualFrame_->constructPyramid(_fSigmaSpace, _fSigmaDisparity);
 }
+
 void CModel::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
 	_pGL = pGL_;
 	if(_pGL) _pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
