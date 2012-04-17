@@ -452,6 +452,36 @@ void btl::kinect::CKeyFrame::gpuRender3DPtsInLocalCVGL(btl::gl_util::CGLUtil::tp
 	return;
 } 
 
+void btl::kinect::CKeyFrame::renderPlanesInWorld(btl::gl_util::CGLUtil::tp_ptr pGL_, int nColorIdx_, const unsigned short usPyrLevel_) const
+{
+	//////////////////////////////////
+	const float* pNl = (const float*) _acvmShrPtrPyrNls[usPyrLevel_]->data;
+	const float* pPt = (const float*) _acvmShrPtrPyrPts[usPyrLevel_]->data;
+	const uchar* pRGB = (const uchar*)_acvmShrPtrPyrRGBs[usPyrLevel_]->data;
+	//render detected plane
+	const float* pDistNormalCluster = (const float*) _acvmShrPtrDistanceClusters[usPyrLevel_]->data;
+	//const short* pNormalCluster = (const short*) _acvmShrPtrNormalClusters[usPyrLevel_]->data;
+	const unsigned char* pColor;
+	// Generate the data
+	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
+	else                            	{glDisable(GL_LIGHTING);}
+	glPointSize(0.1f*(usPyrLevel_+1)*20);
+	glBegin(GL_POINTS);
+	for (unsigned int uIdx = 0; uIdx < btl::kinect::__aKinectWxH[usPyrLevel_]; uIdx++){
+		if( pDistNormalCluster[uIdx]>0){
+			int nColor = (int)pDistNormalCluster[uIdx];
+			pColor = btl::utility::__aColors[(nColor+nColorIdx_)%BTL_NUM_COLOR];
+		}//if render planes
+		else{
+			pColor = pRGB;
+		}//if not
+		glColor3ubv ( pColor ); pRGB += 3;
+		glVertex3fv ( pPt );  pPt  += 3;
+		glNormal3fv ( pNl );  pNl  += 3;
+	}
+	glEnd();
+}
+
 void btl::kinect::CKeyFrame::renderPlanesInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_) const
 {
 	float dNx,dNy,dNz;
@@ -736,8 +766,8 @@ void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 	//merge clusters according to avg normal and position.
 	btl::geometry::mergePlaneObj(&vPlaneObsNormalDistanceClusters,&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
 	//spacial continuity constraint
-	btl::geometry::separateIntoDisconnectedRegions(&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
-
+	//btl::geometry::separateIntoDisconnectedRegions(&*_acvmShrPtrDistanceClusters[uPyrLevel_]);
+	/*
 	//recalc planes
 	typedef btl::geometry::tp_plane_obj_list::iterator tp_plane_obj_list_iterator;
 	typedef std::map< unsigned int, tp_plane_obj_list_iterator > tp_plane_obj_map;
@@ -775,6 +805,7 @@ void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
 		//average the plane position
 		itPlane->_dAvgPosition /= itPlane->_vIdx.size();
 	}//for each plane
+	*/
 	/*
 	const float *pLabel = (float*) _acvmShrPtrDistanceClusters[uPyrLevel_]->data; 
 	const float *pNormal= (float*) _acvmShrPtrPyrNls[uPyrLevel_]->data;

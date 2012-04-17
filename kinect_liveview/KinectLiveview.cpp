@@ -131,9 +131,10 @@ void display ( void )
 	//load data from video source and model
 	//if( _bCapture )	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+		_pKinect->_pFrame->gpuDetectPlane(_pGL->_usPyrLevel);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
-		_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
-		_pModel->gpuRaycast(*_pKinect->_pFrame,&*_pVirtualFrame);
+		//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+		//_pModel->gpuRaycast(*_pKinect->_pFrame,&*_pVirtualFrame);
 	//}
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -153,9 +154,10 @@ void display ( void )
 	//_pKinect->_pFrame->render3DPts(_usPyrLevel);
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,_pGL->_fSize,_pGL->_usPyrLevel);
+	_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usPyrLevel);
 	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 	//if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
-	_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+	//_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);
 	//PRINTSTR("renderCameraInGLWorld");
 	//_pGL->timerStop();
@@ -206,9 +208,10 @@ void init ( ){
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	_pKinect->getNextPyramid(_pGL->_usPyrLevel,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->_pFrame->gpuDetectPlane(_pGL->_usPyrLevel);
 	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
-	_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
-	_pModel->gpuRaycast(*_pKinect->_pFrame,&*_pVirtualFrame);
+	//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+	//_pModel->gpuRaycast(*_pKinect->_pFrame,&*_pVirtualFrame);
 	
 	_pGL->init();
 }

@@ -54,7 +54,7 @@ CModel::CModel()
 }
 CModel::~CModel(void)
 {
-	if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
+	//if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
 void CModel::reset(){
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
