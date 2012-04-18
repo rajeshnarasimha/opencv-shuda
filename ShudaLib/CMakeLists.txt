@@ -5,7 +5,6 @@ find_package( OpenCV REQUIRED )
 
 find_package( CUDA )
 include(FindCUDA)
-
 if( UNIX )
     message(STATUS "platform: UNIX")
     include_directories ( ${EIGEN_INCLUDE_DIRS} )
@@ -67,7 +66,8 @@ install( TARGETS ShudaLib  DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
 install( TARGETS CudaLib   DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
 install( FILES ${HEADERS} ${CUDAHEADERS} DESTINATION "${PROJECT_SOURCE_DIR}/include")
 
-
-
 add_executable( TestShudaLib ${TESTERS} )
 target_link_libraries( TestShudaLib ${OpenCV_LIBS} freeglut ShudaLib CudaLib)#
+
+include("C:/csxsl/src/opencv-shuda/ShudaLib/kinect_liveview/CMakeLists.txt")
+
