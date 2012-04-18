@@ -70,4 +70,4 @@ add_executable( TestShudaLib ${TESTERS} )
 target_link_libraries( TestShudaLib ${OpenCV_LIBS} freeglut ShudaLib CudaLib)#
 
 include("C:/csxsl/src/opencv-shuda/ShudaLib/kinect_liveview/CMakeLists.txt")
-
+include("C:/csxsl/src/opencv-shuda/ShudaLib/kinect_fusion/CMakeLists.txt")
