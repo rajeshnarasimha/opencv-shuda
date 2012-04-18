@@ -34,11 +34,10 @@ elseif( WIN32 )
     link_directories ( $ENV{GLEW_LIB_DIR} )
     if(MSVC)
         set(SHUDALIB optimized ShudaLib debug ShudaLibd)
-	set(CUDALIB  optimized CudaLib  debug CudaLibd )
-	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
+	    set(CUDALIB  optimized CudaLib  debug CudaLibd )
+    	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
         set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64  freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
-		#boost_system-vc100-mt-1_48 boost_filesystem-vc100-mt-1_48
-        #boost_serialization-vc100-mt-1_48
+		#${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SERIALIZATION_LIBRARY}
     endif()
 endif()
 
