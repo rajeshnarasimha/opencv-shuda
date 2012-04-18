@@ -23,11 +23,13 @@ elseif( WIN32 )
     include_directories ( $ENV{GLEW_INCLUDE_DIR} )
 	include_directories ( $ENV{CUDA_INC_PATH} )
 
-	link_directories ( "C:/csxsl/install/freeglut_x64/lib/x64" )
+	link_directories ( $ENV{FREEGLUT_LIB_DIR} )
 endif()
+
 #find_package(PCL 1.2 REQUIRED)
 #include_directories(${PCL_INCLUDE_DIRS})
 #find all files
+
 file(GLOB HEADERS "[a-zA-Z]*.h" "[a-zA-Z]*.hpp"   )
 message(STATUS "header names: ${HEADERS}")
 file(GLOB SOURCES "[a-zA-Z]*.cpp")
@@ -71,3 +73,4 @@ target_link_libraries( TestShudaLib ${OpenCV_LIBS} freeglut ShudaLib CudaLib)#
 
 include("C:/csxsl/src/opencv-shuda/ShudaLib/kinect_liveview/CMakeLists.txt")
 include("C:/csxsl/src/opencv-shuda/ShudaLib/kinect_fusion/CMakeLists.txt")
+include("C:/csxsl/src/opencv-shuda/ShudaLib/render_normal/CMakeLists.txt")

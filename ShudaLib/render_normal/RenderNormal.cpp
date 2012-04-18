@@ -298,7 +298,7 @@ int main ( int argc, char** argv ){
         glutDisplayFunc ( display );
 		
 		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
-		_pGL->initVBO();//initialize before using any cuda component
+		_pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
 		//_pModel.reset( new btl::geometry::CModel() );
 		//_pModel->_pGL=_pGL.get();
