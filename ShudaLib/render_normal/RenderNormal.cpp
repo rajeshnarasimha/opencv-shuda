@@ -223,7 +223,7 @@ void display ( void )
 	//_pMPMV->renderGivenPlaneInGivenViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
 	//
-	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,.05f,_pGL->_usPyrLevel);
+	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,false,.05f,_pGL->_usPyrLevel);
 	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,_usColorIdx,_bRenderPlane );
 	_pKinect->_pFrame->gpuRenderPtsInWorldCVGL(_pGL.get(),_pGL->_usPyrLevel);
 	//_pMPMV->renderAllCamrea(_pGL.get(),true,_bRenderDepth,_usViewNO,.05f);
@@ -237,8 +237,8 @@ void display ( void )
     glLoadIdentity();
 
     // render objects
-	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_usPyrLevel],&(_pKinect->_pFrame->_uTexture) );
-	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrBWs[_pGL->_usPyrLevel] );
+	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&(_pKinect->_pFrame->_uTexture) );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel] );
 
     glutSwapBuffers();
     glutPostRedisplay();
@@ -303,9 +303,9 @@ int main ( int argc, char** argv ){
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
 		
 		init();
-		_pGL->constructVBOs();
+		_pGL->constructVBOsPBOs();
 		glutMainLoop();
-		_pGL->destroyVBOs();
+		_pGL->destroyVBOsPBOs();
     }
 	/*
     catch ( CError& e ) {
