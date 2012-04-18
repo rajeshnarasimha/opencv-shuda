@@ -188,11 +188,11 @@ void mouseMotion ( int nX_, int nY_ ){
 
 void display ( void )
 {
-	if(_bCaptureCurrentFrame) 
+	//if(_bCaptureCurrentFrame) 
 	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 		for (ushort u=0;u<4;u++){
-			_pKinect->_pFrame->gpuDetectPlane(u);
+			//_pKinect->_pFrame->gpuDetectPlane(u);
 			_pKinect->_pFrame->gpuTransformToWorldCVCV(u);
 		}//for each pyramid level
 	
@@ -224,7 +224,8 @@ void display ( void )
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
 	//
 	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,.05f,_pGL->_usPyrLevel);
-	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,_usColorIdx,_bRenderPlane );
+	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,_usColorIdx,_bRenderPlane );
+	_pKinect->_pFrame->gpuRenderPtsInWorldCVGL(_pGL.get(),_pGL->_usPyrLevel);
 	//_pMPMV->renderAllCamrea(_pGL.get(),true,_bRenderDepth,_usViewNO,.05f);
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -300,12 +301,11 @@ int main ( int argc, char** argv ){
 		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
 		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
-		//_pModel.reset( new btl::geometry::CModel() );
-		//_pModel->_pGL=_pGL.get();
 		
 		init();
-        //_pModel->gpuCreateVBO();
+		_pGL->constructVBOs();
 		glutMainLoop();
+		_pGL->destroyVBOs();
     }
 	/*
     catch ( CError& e ) {

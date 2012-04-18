@@ -69,26 +69,27 @@ void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //global constant used by kernelUnprojectIR() and cudaUnProjectIR()
 __constant__ float _aIRCameraParameter[4];// 1/f_x, 1/f_y, u, v for IR camera; constant memory declaration
-
+//
 __global__ void kernelUnprojectIRCVmmCVm(const cv::gpu::DevMem2Df cvgmDepth_,
 	cv::gpu::DevMem2D_<float3> cvgmIRWorld_) {
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
 
-	if (nX < cvgmIRWorld_.cols && nY < cvgmIRWorld_.rows) {
-		const float& fDepth = cvgmDepth_.ptr(nY)[nX];
-		float3& temp = cvgmIRWorld_.ptr(nY)[nX];
+	if (nX >= cvgmIRWorld_.cols && nY >= cvgmIRWorld_.rows) return;
+
+	const float& fDepth = cvgmDepth_.ptr(nY)[nX];
+	float3& temp = cvgmIRWorld_.ptr(nY)[nX];
 		
-		if(400.f < fDepth && fDepth < 4000.f ){ //truncate, fDepth is captured from openni and always > 0
-			temp.z = fDepth /1000.f;//convert to meter z 5 million meter is added according to experience. as the OpenNI
-			//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
-			temp.x = (nX - _aIRCameraParameter[2]) * _aIRCameraParameter[0] * temp.z;
-			temp.y = (nY - _aIRCameraParameter[3]) * _aIRCameraParameter[1] * temp.z;
-		}//if within 0.4m - 4m
-		else{
-			temp.x = temp.y = temp.z = pcl::device::numeric_limits<float>::quiet_NaN();
-		}//else
-	}//if inside image
+	if(400.f < fDepth && fDepth < 4000.f ){ //truncate, fDepth is captured from openni and always > 0
+		temp.z = fDepth /1000.f;//convert to meter z 5 million meter is added according to experience. as the OpenNI
+		//coordinate system is defined w.r.t. the camera plane which is 0.5 centimeters in front of the camera center
+		temp.x = (nX - _aIRCameraParameter[2]) * _aIRCameraParameter[0] * temp.z;
+		temp.y = (nY - _aIRCameraParameter[3]) * _aIRCameraParameter[1] * temp.z;
+	}//if within 0.4m - 4m
+	else{
+		temp.x = temp.y = temp.z = pcl::device::numeric_limits<float>::quiet_NaN();
+	}//else
+
 	return;
 }//kernelUnprojectIRCVCV
 
@@ -169,23 +170,25 @@ __global__ void kernelProjectRGBCVmCVm(const cv::gpu::DevMem2D_<float3> cvgmRGBW
 		// get 2D image projection in RGB image of the XYZ in the world
 		int nXAligned = __float2int_rn( _aRGBCameraParameter[0] * rgbWorld.x / rgbWorld.z + _aRGBCameraParameter[2] );
 		int nYAligned = __float2int_rn( _aRGBCameraParameter[1] * rgbWorld.y / rgbWorld.z + _aRGBCameraParameter[3] );
-		if ( nXAligned >= 0 && nXAligned < cvgmRGBWorld_.cols && nYAligned >= 0 && nYAligned < cvgmRGBWorld_.rows )	{
-			float fPt = cvgmAligned_.ptr(nYAligned)[nXAligned];
-			if(isnan<float>(fPt)){
-				cvgmAligned_.ptr(nYAligned)[nXAligned] = rgbWorld.z;
-			}//if havent been asigned
-			else{
-				fPt = (fPt+ rgbWorld.z)/2.f;
-			}//if it does use the average 
-		}//if inside rgb
+		//if outside image return;
+		if ( nXAligned < 0 || nXAligned >= cvgmRGBWorld_.cols || nYAligned < 0 || nYAligned >= cvgmRGBWorld_.rows )	return;
+		
+		float fPt = cvgmAligned_.ptr(nYAligned)[nXAligned];
+		if(isnan<float>(fPt)){
+			cvgmAligned_.ptr(nYAligned)[nXAligned] = rgbWorld.z;
+		}//if havent been asigned
+		else{
+			fPt = (fPt+ rgbWorld.z)/2.f;
+		}//if it does use the average 
 	}//if within 0.4m-4m
 	//else is not required
-	//the cvgmAligned_ is preset to NaN
+	//the cvgmAligned_ must be preset to NaN
 	return;
 }//kernelProjectRGB
 void cudaProjectRGBCVCV(const cv::gpu::GpuMat& cvgmRGBWorld_, 
 const float& fFxRGB_, const float& fFyRGB_, const float& uRGB_, const float& vRGB_, 
 cv::gpu::GpuMat* pcvgmAligned_ ){
+	pcvgmAligned_->setTo(std::numeric_limits<float>::quiet_NaN());
 	//constant definition
 	size_t sN = sizeof(float) * 4;
 	float* const pRGBCameraParameters = (float*) malloc( sN );
@@ -248,6 +251,7 @@ __global__ void kernelBilateral (const cv::gpu::DevMem2Df src, cv::gpu::DevMem2D
 
 void cudaBilateralFiltering(const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaSpace_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_ )
 {
+	pcvgmDst_->setTo(std::numeric_limits<float>::quiet_NaN());
 	//constant definition
 	size_t sN = sizeof(float) * 2;
 	float* const pSigma = (float*) malloc( sN );
@@ -349,18 +353,18 @@ __global__ void kernelFastNormalEstimation (const cv::gpu::DevMem2D_<float3> cvg
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
 
-    if (nX >= cvgmPts_.cols-1 || nY >= cvgmPts_.rows-1) return;
-
+    if (nX >= cvgmPts_.cols || nY >= cvgmPts_.rows ) return;
+	float3& fN = cvgmNls_.ptr(nY)[nX];
+	if (nX == cvgmPts_.cols - 1 || nY >= cvgmPts_.rows - 1 ){
+		fN.x = fN.y = fN.z = pcl::device::numeric_limits<float>::quiet_NaN();
+		return;
+	}
 	const float3& pt = cvgmPts_.ptr(nY)[nX];
 	const float3& pt1= cvgmPts_.ptr(nY)[nX+1]; //right 
 	const float3& pt2= cvgmPts_.ptr(nY+1)[nX]; //down
 
-	float3& fN = cvgmNls_.ptr(nY)[nX];
-
-	if(pt.z!=pt.z||pt1.z!=pt1.z||pt2.z!=pt2.z){
-		fN.x = pcl::device::numeric_limits<float>::quiet_NaN();
-		fN.y = pcl::device::numeric_limits<float>::quiet_NaN();
-		fN.z = pcl::device::numeric_limits<float>::quiet_NaN();
+	if(isnan<float>(pt.z) ||isnan<float>(pt1.z) ||isnan<float>(pt2.z) ){
+		fN.x = fN.y = fN.z = pcl::device::numeric_limits<float>::quiet_NaN();
 		return;
 	}//if input or its neighour is NaN,
 	float3 v1;
@@ -380,9 +384,7 @@ __global__ void kernelFastNormalEstimation (const cv::gpu::DevMem2D_<float3> cvg
 	float norm = sqrtf(n.x*n.x + n.y*n.y + n.z*n.z);
 
 	if( norm < 1.0e-10 ) {
-		fN.x = pcl::device::numeric_limits<float>::quiet_NaN();
-		fN.y = pcl::device::numeric_limits<float>::quiet_NaN();
-		fN.z = pcl::device::numeric_limits<float>::quiet_NaN();
+		fN.x = fN.y = fN.z = pcl::device::numeric_limits<float>::quiet_NaN();
 		return;
 	}//set as NaN,
 	n.x /= norm;
@@ -426,7 +428,7 @@ __global__ void kernelNormalSetRotationAxisCVmGL (const cv::gpu::DevMem2D_<float
 	//Assuming both vectors v1, v2 are of equal magnitude, 
 	//a unique rotation R about the origin exists satisfying R.z-axis = Nl.
 	//It is most easily expressed in axis-angle representation.
-	//First, normalise the two source vectors, then compute w = z-axis × Nl (z-axis 0,0,1) Nl (x,-y,-z)
+	//First, normalise the two source vectors, then compute w = z-axis ?Nl (z-axis 0,0,1) Nl (x,-y,-z)
 	//Normalise again for the axis: w' = w / |w|
 	//Take the arcsine of the magnitude for the angle: 
 	//q = asin(|w|)
