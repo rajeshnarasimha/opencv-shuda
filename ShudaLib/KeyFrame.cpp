@@ -1032,7 +1032,11 @@ void btl::kinect::CKeyFrame::gpuRenderPtsInWorldCVGL(btl::gl_util::CGLUtil::tp_p
 
 	pGL_->gpuMapPtResources(*_acvgmShrPtrPyrPts[usPyrLevel_],usPyrLevel_);
 	pGL_->gpuMapNlResources(*_acvgmShrPtrPyrNls[usPyrLevel_],usPyrLevel_);
+	pGL_->gpuMapRGBResources(*_acvgmShrPtrPyrRGBs[usPyrLevel_],usPyrLevel_);
+
 	glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_NORMAL_ARRAY);
+	glDisableClientState(GL_COLOR_ARRAY);
 }//gpuRenderVoxelInWorldCVGL()

@@ -47,12 +47,19 @@ public:
 	void renderVoxel( const T& x, const T& y, const T& z, const T& dSize_ ) const;
 	void timerStart();
 	void timerStop();
+	//create vertex buffer
 	void createVBO(const unsigned int uRows, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ );
 	void releaseVBO( GLuint uVBO_, cudaGraphicsResource* pResourceVBO_ );
-	void constructVBOs();
-	void destroyVBOs();
+	//create pixel buffer
+	void createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_ );
+	void releasePBO( GLuint uPBO_ );
+	void constructVBOsPBOs();
+	void destroyVBOsPBOs();
 	void gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_);
-	void CGLUtil::gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
+	void gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
+	void gpuMapRGBResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
+	void gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_);
+
 public:
 	Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.
 	//double _adModelViewGL[16];
@@ -100,6 +107,7 @@ private:
 	cudaGraphicsResource* _apResourceNlVBO[4];
 	GLuint _auRGBVBO[4];
 	cudaGraphicsResource* _apResourceRGBVBO[4];
+	GLuint _auRGBPBO[4];
 	//std::vector<cv::gpu::GpuMat> _vcvgmCudaMem;
 	//GLuint	_uVBO;
 	//cudaGraphicsResource* _pResourceVBO;

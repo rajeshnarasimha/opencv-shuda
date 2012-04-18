@@ -334,17 +334,41 @@ void CGLUtil::releaseVBO( GLuint uVBO_, cudaGraphicsResource *pResourceVBO_ ){
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glDeleteBuffers( 1, &uVBO_ );
 }//releaseVBO()
-void CGLUtil::constructVBOs(){
+void CGLUtil::createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_ ){
+	//Generate a buffer ID called a PBO (Pixel Buffer Object)
+	//http://www.drdobbs.com/architecture-and-design/222600097?pgno=2
+	//http://stackoverflow.com/questions/3883790/how-to-copy-cuda-generated-pbo-to-texture-with-mipmapping
+
+	glGenBuffers(1, puPBO_);
+	//Make this the current UNPACK buffer
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, *puPBO_);
+	//Allocate data for the buffer. 4-channel 8-bit image
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, uRows_*uCols_*usChannel_*usBytes_, NULL, GL_DYNAMIC_COPY);
+	cudaSafeCall( cudaGLRegisterBufferObject(*puPBO_) ); 
+}//createVBO()
+void CGLUtil::releasePBO( GLuint uPBO_ ){
+	// unregister this buffer object with CUDA
+	// http://www.drdobbs.com/architecture-and-design/222600097?pgno=2
+	//http://stackoverflow.com/questions/3883790/how-to-copy-cuda-generated-pbo-to-texture-with-mipmapping
+	cudaSafeCall( cudaGLUnregisterBufferObject( uPBO_ ) );
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uPBO_);
+	glDeleteBuffers(1, &uPBO_);
+}//releaseVBO()
+void CGLUtil::constructVBOsPBOs(){
 	for (ushort u=0; u<4; u++){
-		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auPtVBO[u],&_apResourcePtVBO[u]);
-		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auNlVBO[u],&_apResourceNlVBO[u]);
-	}
-}//constructVBOs()
-void CGLUtil::destroyVBOs(){
+		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auPtVBO[u], &_apResourcePtVBO[u] );
+		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auNlVBO[u], &_apResourceNlVBO[u] );
+		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBVBO[u],&_apResourceRGBVBO[u]);
+		//createPBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBPBO[u]);
+	}//for each pyramid level
+}//constructVBOsPBOs()
+void CGLUtil::destroyVBOsPBOs(){
 	for (ushort u=0; u<4; u++){
-		releaseVBO( _auPtVBO[u],_apResourcePtVBO[u]);
-		releaseVBO( _auNlVBO[u],_apResourceNlVBO[u]);
-	}
+		releaseVBO( _auPtVBO[u], _apResourcePtVBO[u] );
+		releaseVBO( _auNlVBO[u], _apResourceNlVBO[u] );
+		releaseVBO( _auRGBVBO[u],_apResourceRGBVBO[u]);
+		//releasePBO( _auRGBPBO[u]);
+	}//for each pyramid level
 }
 void CGLUtil::gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_){
 	// map OpenGL buffer object for writing from CUDA
@@ -359,7 +383,7 @@ void CGLUtil::gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort us
 	glBindBuffer(GL_ARRAY_BUFFER, _auPtVBO[usPyrLevel_]);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 	glEnableClientState(GL_VERTEX_ARRAY);
-	glColor3f(1.0, 0.0, 0.0);
+	//glColor3f(1.0, 0.0, 0.0);
 	//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
 	//glDisableClientState(GL_VERTEX_ARRAY);
 }
@@ -379,6 +403,37 @@ void CGLUtil::gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort us
 	//glColor3f(1.0, 0.0, 0.0);
 	//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
 	//glDisableClientState(GL_NORMAL_ARRAY);
+}
+void CGLUtil::gpuMapRGBResources(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_){
+	// map OpenGL buffer object for writing from CUDA
+	void *pDev;
+	cudaGraphicsMapResources(1, &_apResourceRGBVBO[usPyrLevel_], 0);
+	size_t nSize; 
+	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourceRGBVBO[usPyrLevel_] );
+	cv::gpu::GpuMat cvgmRGBs(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_8UC3,pDev);
+	cudaGraphicsUnmapResources(1, &_apResourceRGBVBO[usPyrLevel_], 0);
+	cvgmRGBs_.copyTo(cvgmRGBs);
+	// render from the vbo
+	glBindBuffer(GL_ARRAY_BUFFER, _auRGBVBO[usPyrLevel_]);
+	glColorPointer(3, GL_UNSIGNED_BYTE, 0, 0);
+	glEnableClientState(GL_COLOR_ARRAY);
+}
+void CGLUtil::gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_){
+	//http://www.drdobbs.com/architecture-and-design/222600097?pgno=2
+	//http://stackoverflow.com/questions/3883790/how-to-copy-cuda-generated-pbo-to-texture-with-mipmapping
+	// map OpenGL buffer object for writing from CUDA
+	void *pDev;
+	cudaGLMapBufferObject((void**)&pDev, _auRGBPBO[usPyrLevel_] ); 
+	cv::gpu::GpuMat cvgmRGB( btl::kinect::__aKinectH[usPyrLevel_], btl::kinect::__aKinectW[usPyrLevel_], CV_8UC3, pDev);
+	cudaGLUnmapBufferObject(_auRGBPBO[usPyrLevel_]);
+	cvgmRGBs_.copyTo(cvgmRGB);
+	// render from the vbo
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, _auRGBPBO[usPyrLevel_]);
+	glColorPointer(3, GL_UNSIGNED_BYTE, 0, 0);
+	glEnableClientState(GL_COLOR_ARRAY);
+	//glColor3f(1.0, 0.0, 0.0);
+	//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+	//glDisableClientState(GL_VERTEX_ARRAY);
 }
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
