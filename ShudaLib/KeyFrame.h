@@ -88,6 +88,8 @@ public:
 	void updateMVInv();
 	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
 	void setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_);
+	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
+	void gpuRenderPtsInWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_);
 
 private:
 	//surf keyframe matching
@@ -148,6 +150,7 @@ public:
 	bool _bGPURender;
 	GLuint _uTexture;
 	unsigned short _nColorIdx;
+
 
 	btl::utility::tp_coordinate_convention _eConvention;
 	tp_cluster _eClusterType;

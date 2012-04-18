@@ -10,13 +10,17 @@
 #include <cuda_runtime_api.h>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/gpu/gpumat.hpp>
 #include <vector>
 #include <Eigen/Core>
-#include "OtherUtil.hpp"
-#include "boost/date_time/posix_time/posix_time.hpp"
-#include "GLUtil.h"
+
 #include "cuda/cv/common.hpp"
-#include <opencv2/core/core.hpp>
+#include "OtherUtil.hpp"
+#include "Kinect.h"
+#include "GLUtil.h"
 
 namespace btl{	namespace gl_util
 {
@@ -40,10 +44,10 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 	_nYMotion = 0;
 
 	_aCentroid[0] = 2.f; _aCentroid[1] = 2.f; _aCentroid[2] = 1.f; 
-	_aLight[0] = 2.0;
-	_aLight[1] = 1.7;
-	_aLight[2] =-0.2;
-	_aLight[3] = 1.0;
+	_aLight[0] = 2.0f;
+	_aLight[1] = 1.7f;
+	_aLight[2] =-0.2f;
+	_aLight[3] = 1.0f;
 
 	_bRenderNormal = false;
 	_bEnableLighting = false;
@@ -313,6 +317,7 @@ void CGLUtil::setCudaDeviceForGLInteroperation(){
 
 	return;
 }//setCudaDeviceForGLInteroperation()
+
 void CGLUtil::createVBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_,
 	GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ ){
 	// the first four are standard OpenGL, the 5th is the CUDA reg 
@@ -329,6 +334,52 @@ void CGLUtil::releaseVBO( GLuint uVBO_, cudaGraphicsResource *pResourceVBO_ ){
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glDeleteBuffers( 1, &uVBO_ );
 }//releaseVBO()
+void CGLUtil::constructVBOs(){
+	for (ushort u=0; u<4; u++){
+		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auPtVBO[u],&_apResourcePtVBO[u]);
+		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auNlVBO[u],&_apResourceNlVBO[u]);
+	}
+}//constructVBOs()
+void CGLUtil::destroyVBOs(){
+	for (ushort u=0; u<4; u++){
+		releaseVBO( _auPtVBO[u],_apResourcePtVBO[u]);
+		releaseVBO( _auNlVBO[u],_apResourceNlVBO[u]);
+	}
+}
+void CGLUtil::gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_){
+	// map OpenGL buffer object for writing from CUDA
+	void *pDev;
+	cudaGraphicsMapResources(1, &_apResourcePtVBO[usPyrLevel_], 0);
+	size_t nSize; 
+	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourcePtVBO[usPyrLevel_] );
+	cv::gpu::GpuMat cvgmPts(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_32FC3,pDev);
+	cudaGraphicsUnmapResources(1, &_apResourcePtVBO[usPyrLevel_], 0);
+	cvgmPts_.copyTo(cvgmPts);
+	// render from the vbo
+	glBindBuffer(GL_ARRAY_BUFFER, _auPtVBO[usPyrLevel_]);
+	glVertexPointer(3, GL_FLOAT, 0, 0);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glColor3f(1.0, 0.0, 0.0);
+	//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+	//glDisableClientState(GL_VERTEX_ARRAY);
+}
+void CGLUtil::gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_){
+	// map OpenGL buffer object for writing from CUDA
+	void *pDev;
+	cudaGraphicsMapResources(1, &_apResourceNlVBO[usPyrLevel_], 0);
+	size_t nSize; 
+	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourceNlVBO[usPyrLevel_] );
+	cv::gpu::GpuMat cvgmNls(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_32FC3,pDev);
+	cudaGraphicsUnmapResources(1, &_apResourceNlVBO[usPyrLevel_], 0);
+	cvgmNls_.copyTo(cvgmNls);
+	// render from the vbo
+	glBindBuffer(GL_ARRAY_BUFFER, _auNlVBO[usPyrLevel_]);
+	glNormalPointer(GL_FLOAT, 0, 0);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	//glColor3f(1.0, 0.0, 0.0);
+	//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+	//glDisableClientState(GL_NORMAL_ARRAY);
+}
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {
 	GLboolean bLightIsOn;

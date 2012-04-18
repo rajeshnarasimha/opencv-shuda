@@ -1024,4 +1024,15 @@ void btl::kinect::CKeyFrame::constructPyramid(const float fSigmaSpace_, const fl
 	return;
 }
 
+void btl::kinect::CKeyFrame::gpuRenderPtsInWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_){
+	
+	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
+	else                            	{glDisable(GL_LIGHTING);}
+	glPointSize(0.1f*(usPyrLevel_+1)*20);
 
+	pGL_->gpuMapPtResources(*_acvgmShrPtrPyrPts[usPyrLevel_],usPyrLevel_);
+	pGL_->gpuMapNlResources(*_acvgmShrPtrPyrNls[usPyrLevel_],usPyrLevel_);
+	glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_NORMAL_ARRAY);
+}//gpuRenderVoxelInWorldCVGL()

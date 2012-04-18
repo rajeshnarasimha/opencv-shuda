@@ -37,9 +37,6 @@
 //camera calibration from a sequence of images
 #include "Camera.h"
 
-using namespace Eigen;
-//using namespace cv;
-
 class CKinectView;
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
@@ -60,7 +57,6 @@ void specialKeys( int key, int x, int y ){
 
 void normalKeys ( unsigned char key, int x, int y )
 {
-
 	switch( key )
 	{
 	case 27:
@@ -113,7 +109,7 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _pKinect->_fSigmaSpace );
 		break;
     }
-		_pGL->normalKeys( key, x, y);
+	_pGL->normalKeys( key, x, y);
     return;
 }
 void mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
@@ -129,20 +125,18 @@ void mouseMotion ( int nX_, int nY_ )
 void display ( void )
 {
 	//load data from video source and model
-	//if( _bCapture )	{
+	//if( _bCapture )	
+	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-		_pKinect->_pFrame->gpuDetectPlane(_pGL->_usPyrLevel);
+		//_pKinect->_pFrame->gpuDetectPlane(_pGL->_usPyrLevel);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
-		//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
-		//_pModel->gpuRaycast(*_pKinect->_pFrame,&*_pVirtualFrame);
-	//}
+	}
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
 	glScissor  (0, 0, _nWidth/2, _nHeight);
 	// after set the intrinsics and extrinsics
     // load the matrix to set camera pose
-	//glLoadIdentity();
 	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
@@ -154,8 +148,8 @@ void display ( void )
 	//_pKinect->_pFrame->render3DPts(_usPyrLevel);
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,_pGL->_fSize,_pGL->_usPyrLevel);
-	_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usPyrLevel);
-	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+	//_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usPyrLevel);
+	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 	//if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
 	//_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);
