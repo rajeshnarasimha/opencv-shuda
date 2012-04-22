@@ -625,6 +625,47 @@ void resizeMap (bool bNormalize_, const cv::gpu::GpuMat& cvgmSrc_, cv::gpu::GpuM
 	cudaSafeCall ( cudaGetLastError () );
     //cudaSafeCall (cudaDeviceSynchronize ());
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__global__ void kernelRgb2RGBA(const cv::gpu::DevMem2D_<uchar3> cvgmRGB_, uchar uA_, cv::gpu::DevMem2D_<uchar4> cvgmRGBA_){
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX >= cvgmRGB_.cols || nY >= cvgmRGB_.rows)  return;
+	//convert Pts
+	const uchar3& RGB = cvgmRGB_.ptr(nY)[nX];
+	uchar4& RGBA = cvgmRGBA_.ptr(nY)[nX];
+	RGBA.w = RGB.x;
+	RGBA.x = RGB.y;
+	RGBA.y = RGB.z;
+	RGBA.z = uA_;
+	return;
+}
+__global__ void kernelRgb2RGBAfloat(const cv::gpu::DevMem2D_<uchar3> cvgmRGB_, uchar uA_, cv::gpu::DevMem2D_<float4> cvgmRGBA_){
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX >= cvgmRGB_.cols || nY >= cvgmRGB_.rows)  return;
+	//convert Pts
+	const uchar3& RGB = cvgmRGB_.ptr(nY)[nX];
+	float4& RGBA = cvgmRGBA_.ptr(nY)[nX];
+	RGBA.w = RGB.x/255.f;
+	RGBA.x = RGB.y/255.f;
+	RGBA.y = RGB.z/255.f;
+	RGBA.z = uA_/255.f;
+	return;
+}
+void rgb2RGBA(const cv::gpu::GpuMat& cvgmRGB_, const uchar uA_, cv::gpu::GpuMat* pcvgmRGBA_){
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmRGB_.cols, block.x), cv::gpu::divUp(cvgmRGB_.rows, block.y));
+	//different type
+	if(CV_8UC4 == pcvgmRGBA_->type() )
+	{	
+		kernelRgb2RGBA<<<grid,block>>>(cvgmRGB_,uA_,*pcvgmRGBA_);
+	}
+	else if(CV_32FC4 == pcvgmRGBA_->type() )
+	{
+		kernelRgb2RGBAfloat<<<grid,block>>>(cvgmRGB_,uA_,*pcvgmRGBA_);
+	}
+	cudaSafeCall ( cudaGetLastError () );
+}//rgb2RGBA()
 
 }//device
 }//btl

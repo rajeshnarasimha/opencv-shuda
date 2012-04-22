@@ -51,14 +51,14 @@ public:
 	void createVBO(const unsigned int uRows, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puVBO_, cudaGraphicsResource** ppResourceVBO_ );
 	void releaseVBO( GLuint uVBO_, cudaGraphicsResource* pResourceVBO_ );
 	//create pixel buffer
-	void createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_ );
-	void releasePBO( GLuint uPBO_ );
+	void createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_, cudaGraphicsResource** ppResourcePixelBO_, GLuint* pTexture_);
+	void releasePBO( GLuint uPBO_,cudaGraphicsResource *pResourcePixelBO_ );
 	void constructVBOsPBOs();
 	void destroyVBOsPBOs();
 	void gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_);
 	void gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
 	void gpuMapRGBResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
-	void gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_);
+	void gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_ );
 
 public:
 	Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.
@@ -69,6 +69,16 @@ public:
 	bool _bDisplayCamera;
 	bool _bRenderReference;
 	unsigned short _usPyrLevel;
+	//Cuda OpenGl interoperability
+	GLuint _auPtVBO[4];
+	cudaGraphicsResource* _apResourcePtVBO[4];
+	GLuint _auNlVBO[4];
+	cudaGraphicsResource* _apResourceNlVBO[4];
+	GLuint _auRGBVBO[4];
+	cudaGraphicsResource* _apResourceRGBVBO[4];
+	GLuint _auRGBPixelBO[4];
+	cudaGraphicsResource* _apResourceRGBPxielBO[4];
+	GLuint _auTexture[4];
 private:
 	GLuint _uDisk;
 	GLuint _uNormal;
@@ -100,17 +110,7 @@ private:
 	GLfloat _aLight[4];
 
 	btl::utility::tp_coordinate_convention _eConvention;
-	//Cuda OpenGl interoperability
-	GLuint _auPtVBO[4];
-	cudaGraphicsResource* _apResourcePtVBO[4];
-	GLuint _auNlVBO[4];
-	cudaGraphicsResource* _apResourceNlVBO[4];
-	GLuint _auRGBVBO[4];
-	cudaGraphicsResource* _apResourceRGBVBO[4];
-	GLuint _auRGBPBO[4];
-	//std::vector<cv::gpu::GpuMat> _vcvgmCudaMem;
-	//GLuint	_uVBO;
-	//cudaGraphicsResource* _pResourceVBO;
+
 	//timer
 	boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;

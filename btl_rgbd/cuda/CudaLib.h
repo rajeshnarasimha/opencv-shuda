@@ -32,6 +32,7 @@ void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pT
 void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_, cv::gpu::GpuMat* pcvgmResults_);
 //resize the normal or vertex map to half of its size
 void resizeMap (bool bNormalize_, const cv::gpu::GpuMat& cvgmSrc_, cv::gpu::GpuMat* pcvgmDst_);
+void rgb2RGBA(const cv::gpu::GpuMat& cvgmRGB_, const uchar uA_, cv::gpu::GpuMat* pcvgmRGBA_);
 }//device
 }//btl
 #endif

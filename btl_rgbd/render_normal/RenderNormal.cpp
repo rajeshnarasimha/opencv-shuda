@@ -188,6 +188,27 @@ void mouseMotion ( int nX_, int nY_ ){
 
 void display ( void )
 {
+	{
+		GLenum eError = glGetError();
+		if (eError != GL_NO_ERROR)
+		{
+			int a;
+			switch(eError){
+			case GL_INVALID_ENUM:
+				a=0;break;
+			case GL_INVALID_VALUE:
+				a=1;break;
+			case GL_INVALID_OPERATION:
+				a=2;break;
+			case GL_STACK_OVERFLOW:
+				a=3;break;
+			case GL_STACK_UNDERFLOW:
+				a=4;break;
+			case GL_OUT_OF_MEMORY:
+				a=5;break;
+			}
+		}
+	}
 	//if(_bCaptureCurrentFrame) 
 	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
@@ -223,9 +244,11 @@ void display ( void )
 	//_pMPMV->renderGivenPlaneInGivenViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usViewNO,_usPlaneNO);
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
 	//
+
 	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,false,.05f,_pGL->_usPyrLevel);
 	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,_usColorIdx,_bRenderPlane );
 	_pKinect->_pFrame->gpuRenderPtsInWorldCVGL(_pGL.get(),_pGL->_usPyrLevel);
+
 	//_pMPMV->renderAllCamrea(_pGL.get(),true,_bRenderDepth,_usViewNO,.05f);
     glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
     glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -237,9 +260,31 @@ void display ( void )
     glLoadIdentity();
 
     // render objects
-	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&(_pKinect->_pFrame->_uTexture) );
-	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pKinect->_pFrame->_uTexture,*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel] );
+	//_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&(_pKinect->_pFrame->_uTexture) );
+	_pGL->gpuMapRGBPBO(*_pKinect->_pFrame->_acvgmShrPtrPyrRGBs[_pGL->_usPyrLevel],_pGL->_usPyrLevel );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal( _pGL->_auTexture[_pGL->_usPyrLevel],*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel], true );
 
+	{
+		GLenum eError = glGetError();
+		if (eError != GL_NO_ERROR)
+		{
+			int a;
+			switch(eError){
+			case GL_INVALID_ENUM:
+				a=0;break;
+			case GL_INVALID_VALUE:
+				a=1;break;
+			case GL_INVALID_OPERATION:
+				a=2;break;
+			case GL_STACK_OVERFLOW:
+				a=3;break;
+			case GL_STACK_UNDERFLOW:
+				a=4;break;
+			case GL_OUT_OF_MEMORY:
+				a=5;break;
+			}
+		}
+	}
     glutSwapBuffers();
     glutPostRedisplay();
 }//display()
@@ -257,6 +302,7 @@ void reshape ( int nWidth_, int nHeight_ ){
 }
 
 void init ( ){
+
 	_pGL->clearColorDepth();
     glDepthFunc  ( GL_LESS );
     glEnable     ( GL_DEPTH_TEST );
@@ -269,7 +315,7 @@ void init ( ){
 	_pKinect->_pFrame->_bGPURender = _bRenderDepth;
 	_pKinect->_pFrame->_bRenderPlane = true;
 	for (ushort u=0;u<4;u++){
-		_pKinect->_pFrame->gpuDetectPlane(u);
+		//_pKinect->_pFrame->gpuDetectPlane(u);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(u);
 	}//for each pyramid level
 	//_pMPMV->integrateFrameIntoPlanesWorldCVCV(_pKinect->_pFrame.get(),3);
@@ -304,6 +350,27 @@ int main ( int argc, char** argv ){
 		
 		init();
 		_pGL->constructVBOsPBOs();
+		{
+			GLenum eError = glGetError();
+			if (eError != GL_NO_ERROR)
+			{
+				int a;
+				switch(eError){
+				case GL_INVALID_ENUM:
+					a=0;break;
+				case GL_INVALID_VALUE:
+					a=1;break;
+				case GL_INVALID_OPERATION:
+					a=2;break;
+				case GL_STACK_OVERFLOW:
+					a=3;break;
+				case GL_STACK_UNDERFLOW:
+					a=4;break;
+				case GL_OUT_OF_MEMORY:
+					a=5;break;
+				}
+			}
+		}
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();
     }

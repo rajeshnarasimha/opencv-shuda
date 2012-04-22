@@ -7,14 +7,14 @@ find_package( CUDA )
 include(FindCUDA)
 find_package(Boost 1.40.0 REQUIRED COMPONENTS system filesystem serialization)
 if( UNIX )
-    include_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
-    link_directories ( "/space/csxsl/src/opencv-shuda/ShudaLib" )
+    include_directories ( "/space/csxsl/src/opencv-shuda/BtlRgbd" )
+    link_directories ( "/space/csxsl/src/opencv-shuda/BtlRgbd" )
 
     include_directories ( "/usr/local/include/eigen3" )
     include_directories ( "/usr/include/ni" )
 
 # set collection of libraries
-    set ( EXTRA_LIBS ${EXTRA_LIBS} ShudaLib OpenNI boost_system boost_filesystem boost_serialization yaml-cpp glut GLU opencv_core
+    set ( EXTRA_LIBS ${EXTRA_LIBS} BtlRgbd OpenNI boost_system boost_filesystem boost_serialization yaml-cpp glut GLU opencv_core
 opencv_highgui opencv_calib3d opencv_features2d opencv_video opencv_imgproc )
 elseif( WIN32 )
     include_directories ( $ENV{EIGEN_INCLUDE_DIR} )
@@ -24,16 +24,16 @@ elseif( WIN32 )
     include_directories ( $ENV{YAML-CPP_INCLUDE_DIR} )
     include_directories ( $ENV{GLEW_INCLUDE_DIR} )
 	include_directories ( $ENV{CUDA_INC_PATH} )
-	include_directories ( "C:/csxsl/src/opencv-shuda/ShudaLib/include" )
+	include_directories ( "C:/csxsl/src/opencv-shuda/btl_rgbd/include" )
     
-    link_directories ( "C:/csxsl/src/opencv-shuda/ShudaLib/lib" )
+    link_directories ( "C:/csxsl/src/opencv-shuda/btl_rgbd/lib" )
 	link_directories ( $ENV{OPEN_NI_LIB_DIR}  )
     link_directories ( $ENV{BOOST_LIB_DIR} )
     link_directories ( $ENV{FREEGLUT_LIB_DIR} )
     link_directories ( $ENV{YAML-CPP_LIB_DIR} )
     link_directories ( $ENV{GLEW_LIB_DIR} )
     if(MSVC)
-        set(SHUDALIB optimized ShudaLib debug ShudaLibd)
+        set(SHUDALIB optimized BtlRgbd debug BtlRgbdd)
 		set(CUDALIB  optimized CudaLib  debug CudaLibd)
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
         set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64

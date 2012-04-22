@@ -106,7 +106,7 @@ void btl::kinect::CKeyFrame::allocate(){
 	_nColorIdx = 0;
 
 	//rendering
-	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
+	glPixelStorei ( GL_UNPACK_ALIGNMENT, 4 ); // 4
 	glGenTextures ( 1, &_uTexture );
 }
 
@@ -563,10 +563,11 @@ void btl::kinect::CKeyFrame::renderCameraInWorldCVGL( btl::gl_util::CGLUtil::tp_
 	}
 	//glColor4d( 1,1,1,0.5 );
 	if(bBW_){
-		if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[uLevel_],&_uTexture);
-		_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[uLevel_], dSize_, bRenderCamera_);
+		//if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[uLevel_],&_uTexture);
+		//_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[uLevel_], dSize_, bRenderCamera_);
 	}else{
-		if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&_uTexture);
+		if(bRenderCamera_) pGL_->gpuMapRGBPBO(*_acvgmShrPtrPyrRGBs[pGL_->_usPyrLevel],pGL_->_usPyrLevel);
+		//if(bRenderCamera_) _pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&_uTexture);
 		_pRGBCamera->renderCameraInGLLocal ( _uTexture,*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
 	}
 	//render dot clouds
@@ -615,11 +616,12 @@ void btl::kinect::CKeyFrame::renderCameraInWorldCVGL2( btl::gl_util::CGLUtil::tp
 	}
 	//glColor4d( 1,1,1,0.5 );
 	if(bBW_){
-		if(bRenderCameraTexture_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[usPyrLevel_],&_uTexture);
-		_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[usPyrLevel_], dPhysicalFocalLength_, bRenderCameraTexture_);
+		//if(bRenderCameraTexture_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[usPyrLevel_],&_uTexture);
+		//_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[usPyrLevel_], dPhysicalFocalLength_, bRenderCameraTexture_);
 	}else{
-		if(bRenderCameraTexture_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[usPyrLevel_],&_uTexture);
-		_pRGBCamera->renderCameraInGLLocal ( _uTexture,*_acvmShrPtrPyrRGBs[usPyrLevel_], dPhysicalFocalLength_, bRenderCameraTexture_);
+		//if(bRenderCameraTexture_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[usPyrLevel_],&_uTexture);
+		if(bRenderCameraTexture_) pGL_->gpuMapRGBPBO(*_acvgmShrPtrPyrRGBs[pGL_->_usPyrLevel],pGL_->_usPyrLevel);
+		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[usPyrLevel_],*_acvmShrPtrPyrRGBs[usPyrLevel_], dPhysicalFocalLength_, bRenderCameraTexture_);
 	}
 	glPopMatrix();
 }
