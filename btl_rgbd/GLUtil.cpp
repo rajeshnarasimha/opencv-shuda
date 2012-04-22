@@ -21,6 +21,7 @@
 #include "OtherUtil.hpp"
 #include "Kinect.h"
 #include "GLUtil.h"
+#include "CudaLib.h"
 
 namespace btl{	namespace gl_util
 {
@@ -299,8 +300,8 @@ void CGLUtil::init()
 	glEnable(GL_RESCALE_NORMAL);
 	glEnable(GL_LIGHT0);
 
-	glEnable(GL_BLEND);
-	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
+	//glEnable(GL_BLEND);
+	//glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 }//init();
 void CGLUtil::setCudaDeviceForGLInteroperation(){
 	cudaDeviceProp  sProp;
@@ -334,32 +335,45 @@ void CGLUtil::releaseVBO( GLuint uVBO_, cudaGraphicsResource *pResourceVBO_ ){
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glDeleteBuffers( 1, &uVBO_ );
 }//releaseVBO()
-void CGLUtil::createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_ ){
+void CGLUtil::createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_, cudaGraphicsResource** ppResourcePixelBO_, GLuint* pTexture_){
 	//Generate a buffer ID called a PBO (Pixel Buffer Object)
-	//http://www.drdobbs.com/architecture-and-design/222600097?pgno=2
-	//http://stackoverflow.com/questions/3883790/how-to-copy-cuda-generated-pbo-to-texture-with-mipmapping
-
+	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
+	//generate a texture
+	glEnable(GL_TEXTURE_2D);
+	glGenTextures(1, pTexture_);
+	glBindTexture ( GL_TEXTURE_2D, *pTexture_ );
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST ); // cheap scaling when image bigger than texture
+	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST ); // cheap scaling when image smalled than texture  
+	// 2d texture, level of detail 0 (normal), 3 components (red, green, blue), x size from image, y size from image,
+	// border 0 (normal), rgb color data, unsigned byte data, and finally the data itself.
+	glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGB, uCols_, uRows_, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL ); //???????????????????
+	glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_MIN_FILTER , GL_NEAREST);
+	glBindTexture( GL_TEXTURE_2D, 0);
+	//generate PBO
 	glGenBuffers(1, puPBO_);
 	//Make this the current UNPACK buffer
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, *puPBO_);
 	//Allocate data for the buffer. 4-channel 8-bit image
-	glBufferData(GL_PIXEL_UNPACK_BUFFER, uRows_*uCols_*usChannel_*usBytes_, NULL, GL_DYNAMIC_COPY);
-	cudaSafeCall( cudaGLRegisterBufferObject(*puPBO_) ); 
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, uRows_*uCols_*	usChannel_ *usBytes_, NULL, GL_STREAM_DRAW); //GL_STREAM_DRAW //http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0 );
+	cudaSafeCall( cudaGraphicsGLRegisterBuffer( ppResourcePixelBO_, *puPBO_, cudaGraphicsRegisterFlagsNone) );//cudaGraphicsRegisterFlagsWriteDiscard) ); //
+	//cudaSafeCall( cudaGLRegisterBufferObject(*puPBO_) ); //deprecated
 }//createVBO()
-void CGLUtil::releasePBO( GLuint uPBO_ ){
-	// unregister this buffer object with CUDA
-	// http://www.drdobbs.com/architecture-and-design/222600097?pgno=2
-	//http://stackoverflow.com/questions/3883790/how-to-copy-cuda-generated-pbo-to-texture-with-mipmapping
-	cudaSafeCall( cudaGLUnregisterBufferObject( uPBO_ ) );
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uPBO_);
-	glDeleteBuffers(1, &uPBO_);
+void CGLUtil::releasePBO( GLuint uPBO_,cudaGraphicsResource *pResourcePixelBO_ ){
+	/*// unregister this buffer object with CUDA
+	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
+	cudaSafeCall( cudaGraphicsUnregisterResource( pResourcePixelBO_ ) );
+	glDeleteBuffers(1, &uPBO_);*/
+
 }//releaseVBO()
 void CGLUtil::constructVBOsPBOs(){
 	for (ushort u=0; u<4; u++){
 		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auPtVBO[u], &_apResourcePtVBO[u] );
 		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auNlVBO[u], &_apResourceNlVBO[u] );
 		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBVBO[u],&_apResourceRGBVBO[u]);
-		//createPBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBPBO[u]);
+		createPBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBPixelBO[u],&_apResourceRGBPxielBO[u],&_auTexture[u]);
 	}//for each pyramid level
 }//constructVBOsPBOs()
 void CGLUtil::destroyVBOsPBOs(){
@@ -367,7 +381,7 @@ void CGLUtil::destroyVBOsPBOs(){
 		releaseVBO( _auPtVBO[u], _apResourcePtVBO[u] );
 		releaseVBO( _auNlVBO[u], _apResourceNlVBO[u] );
 		releaseVBO( _auRGBVBO[u],_apResourceRGBVBO[u]);
-		//releasePBO( _auRGBPBO[u]);
+		releasePBO( _auRGBPixelBO[u],_apResourceRGBPxielBO[u]);
 	}//for each pyramid level
 }
 void CGLUtil::gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_){
@@ -418,22 +432,54 @@ void CGLUtil::gpuMapRGBResources(const cv::gpu::GpuMat& cvgmRGBs_, const ushort 
 	glColorPointer(3, GL_UNSIGNED_BYTE, 0, 0);
 	glEnableClientState(GL_COLOR_ARRAY);
 }
-void CGLUtil::gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_){
-	//http://www.drdobbs.com/architecture-and-design/222600097?pgno=2
-	//http://stackoverflow.com/questions/3883790/how-to-copy-cuda-generated-pbo-to-texture-with-mipmapping
+void CGLUtil::gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGB_, const ushort usPyrLevel_ ){
+	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
+
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
-	cudaGLMapBufferObject((void**)&pDev, _auRGBPBO[usPyrLevel_] ); 
+	cudaSafeCall( cudaGraphicsMapResources(1, &_apResourceRGBPxielBO[usPyrLevel_], 0)); 
+	size_t nSize; 
+	cudaSafeCall( cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize , _apResourceRGBPxielBO[usPyrLevel_]));
+	cv::gpu::GpuMat cvgmRGBA( btl::kinect::__aKinectH[usPyrLevel_], btl::kinect::__aKinectW[usPyrLevel_], CV_8UC3, pDev);
+	//btl::device::rgb2RGBA(cvgmRGB_,0, &cvgmRGBA);
+	cvgmRGB_.copyTo(cvgmRGBA);
+	cudaSafeCall( cudaGraphicsUnmapResources(1, &_apResourceRGBPxielBO[usPyrLevel_], 0) );
+	/*//deprecated
+	void *pDev;
+	cudaSafeCall( cudaGLMapBufferObject((void**)&pDev, _auRGBPixelBO[usPyrLevel_]) );
 	cv::gpu::GpuMat cvgmRGB( btl::kinect::__aKinectH[usPyrLevel_], btl::kinect::__aKinectW[usPyrLevel_], CV_8UC3, pDev);
-	cudaGLUnmapBufferObject(_auRGBPBO[usPyrLevel_]);
-	cvgmRGBs_.copyTo(cvgmRGB);
-	// render from the vbo
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, _auRGBPBO[usPyrLevel_]);
-	glColorPointer(3, GL_UNSIGNED_BYTE, 0, 0);
-	glEnableClientState(GL_COLOR_ARRAY);
-	//glColor3f(1.0, 0.0, 0.0);
-	//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
-	//glDisableClientState(GL_VERTEX_ARRAY);
+	cvgmRGB_.copyTo(cvgmRGB);
+	cudaSafeCall( cudaGLUnmapBufferObject(_auRGBPixelBO[usPyrLevel_]) );*/
+	//texture mapping
+	
+	glBindTexture( GL_TEXTURE_2D, _auTexture[usPyrLevel_]);
+	glBindBuffer ( GL_PIXEL_UNPACK_BUFFER_ARB, _auRGBPixelBO[usPyrLevel_]);
+
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, btl::kinect::__aKinectW[usPyrLevel_], btl::kinect::__aKinectH[usPyrLevel_], 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	//glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, btl::kinect::__aKinectW[usPyrLevel_], btl::kinect::__aKinectH[usPyrLevel_], GL_RGBA, GL_FLOAT, 0);
+	{
+		GLenum eError = glGetError();
+		if (eError != GL_NO_ERROR)
+		{
+			switch(eError){
+			case GL_INVALID_ENUM:
+				PRINTSTR("GL_INVALID_ENUM");break;
+			case GL_INVALID_VALUE:
+				PRINTSTR("GL_INVALID_VALUE");break;
+			case GL_INVALID_OPERATION:
+				PRINTSTR("GL_INVALID_OPERATION");break;
+			case GL_STACK_OVERFLOW:
+				PRINTSTR("GL_STACK_OVERFLOW");break;
+			case GL_STACK_UNDERFLOW:
+				PRINTSTR("GL_STACK_UNDERFLOW");break;
+			case GL_OUT_OF_MEMORY:
+				PRINTSTR("GL_OUT_OF_MEMORY");break;
+			}
+		}
+	}
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
 }
 void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 {

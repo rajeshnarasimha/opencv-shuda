@@ -96,22 +96,6 @@ void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTextu
     //gluBuild2DMipmaps ( GL_TEXTURE_2D, GL_RGB, img.cols, img.rows,  GL_RGB, GL_UNSIGNED_BYTE, img.data );
     return;
 }
-void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
-{
-    const double f = ( _fFx + _fFy ) / 2.;
-
-    // Draw principle point
-    double dPhysicalFocalLength = .015;
-    double dY =  _v - nY_;
-    dY /= f;
-    dY *= dPhysicalFocalLength;
-    double dX = -_u + nX_;
-    dX /= f;
-    dX *= dPhysicalFocalLength;
-
-    //draw principle point
-    glVertex3d ( dX, dY, -dPhysicalFocalLength );
-}
 void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const cv::Mat& cvmImg_, float fPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	GLboolean bLightIsOn;
@@ -120,14 +104,14 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const 
 		glDisable(GL_LIGHTING);
 	}
 
-	if(bRenderTexture_){
-		glBindTexture(GL_TEXTURE_2D, uTesture_);
+	//if(bRenderTexture_){
+	//	glBindTexture(GL_TEXTURE_2D, uTesture_);
 
-		if( 3 == cvmImg_.channels())
-			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmImg_.data);
-		else if( 1 == cvmImg_.channels())
-			glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_LUMINANCE, GL_UNSIGNED_BYTE, cvmImg_.data);
-	}
+	//	if( 3 == cvmImg_.channels())
+	//		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_RGB, GL_UNSIGNED_BYTE, cvmImg_.data);
+	//	else if( 1 == cvmImg_.channels())
+	//		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cvmImg_.cols,cvmImg_.rows, GL_LUMINANCE, GL_UNSIGNED_BYTE, cvmImg_.data);
+	//}
 
     const double f = ( _fFx + _fFy ) / 2.;
 
@@ -185,7 +169,7 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const 
         glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
         glBindTexture ( GL_TEXTURE_2D, uTesture_ );
 
-        glColor4f(1.f, 1.f, 1.f, 0.5f); glLineWidth(.5);
+        glColor4f(1.f, 1.f, 1.f, 1.f); glLineWidth(.5);
         glBegin ( GL_QUADS );
         glTexCoord2f ( 0.0, 0.0 );
         glVertex3d ( dL, dT, -fPhysicalFocalLength_ );
@@ -224,5 +208,21 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const 
     return;
 }
 
+void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
+{
+	const double f = ( _fFx + _fFy ) / 2.;
+
+	// Draw principle point
+	double dPhysicalFocalLength = .015;
+	double dY =  _v - nY_;
+	dY /= f;
+	dY *= dPhysicalFocalLength;
+	double dX = -_u + nX_;
+	dX /= f;
+	dX *= dPhysicalFocalLength;
+
+	//draw principle point
+	glVertex3d ( dX, dY, -dPhysicalFocalLength );
+}
 
 
