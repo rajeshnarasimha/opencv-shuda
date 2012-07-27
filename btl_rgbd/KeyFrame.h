@@ -1,6 +1,6 @@
 #ifndef BTL_KEYFRAME
 #define BTL_KEYFRAME
-
+#define USE_PBO 1
 namespace btl { namespace kinect {
 
 struct SPlaneCorrespondence{
@@ -63,8 +63,7 @@ public:
 		}
 	}
 	// render the camera location in the GL world
-	void renderCameraInWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ );
-	void renderCameraInWorldCVGL2( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCameraTexture_, bool bBW_, const double& dPhysicalFocalLength_,const unsigned short usPyrLevel_);
+	void renderCameraInWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCamera_, const double& dSize_,const unsigned short uLevel_ );
 	// render the depth in the GL world 
 	void render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const;
 	void render3DPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_,int nColorIdx_, bool bRenderPlanes_);
@@ -89,8 +88,9 @@ public:
 	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
 	void setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_);
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
-	void gpuRenderPtsInWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_);
-
+	void gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_);
+	void applyClassifier(btl::gl_util::CGLUtil::tp_ptr pGL_, float fThreshold_, const unsigned short usPyrLevel_);
+	void gpuBoundaryDetector(float fThreshold_, const unsigned short usPyrLevel_);
 private:
 	//surf keyframe matching
     void selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_,
@@ -148,7 +148,6 @@ public:
 	bool _bIsReferenceFrame;
 	bool _bRenderPlane;
 	bool _bGPURender;
-	GLuint _uTexture;
 	unsigned short _nColorIdx;
 
 

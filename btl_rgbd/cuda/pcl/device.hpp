@@ -46,8 +46,21 @@
 namespace btl{ namespace device{
 	template<typename T>
 	__device__ __forceinline__ bool isnan(T t){	return t!=t;}
-}
-}
+	template<typename T>
+	__device__ __forceinline__ void outProductSelf(const T V_, T* pMRm_){
+		pMRm_[0].x = V_.x*V_.x;
+		pMRm_[0].y = pMRm_[1].x = V_.x*V_.y;
+		pMRm_[0].z = pMRm_[2].x = V_.x*V_.z;
+		pMRm_[1].y = V_.y*V_.y;
+		pMRm_[1].z = pMRm_[2].y = V_.y*V_.z;
+		pMRm_[2].z = V_.z*V_.z;
+	}
+	__device__ __forceinline__ void setIdentity(float fScalar_, float3* pMRm_){
+		pMRm_[0].x = pMRm_[1].y = pMRm_[2].z = fScalar_;
+		pMRm_[0].y = pMRm_[0].z = pMRm_[1].x = pMRm_[1].z = pMRm_[2].x = pMRm_[2].y = 0;
+	}
+}//device
+}//btl
 
 namespace pcl
 {

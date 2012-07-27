@@ -9,7 +9,6 @@
 * @date 2011-03-17
 */
 
-//turn on timer
 //#define INFO
 
 namespace btl{
@@ -36,9 +35,7 @@ public:
 	}
     // 1. need to call getNextFrame() before hand
     // 2. RGB color channel (rather than BGR as used by cv::imread())
-    //const cv::Mat&           cvRGB()     const { return  _vcvmPyrRGBs[0]; }
-	//const double*		alignedDepth()    const { return  _pRGBWorldRGB; }
-
+ 
 	//opencv convention
 	void centroid( Eigen::Vector3d* peivCentroid_ ) const 
 	{
@@ -123,10 +120,6 @@ private:
 	float _aR[9];	// Relative rotation transpose
 	float _aRT[3]; // aRT =_aR * T, the relative translation
 
-	//timer
-	boost::posix_time::ptime _cT0, _cT1;
-	boost::posix_time::time_duration _cTDAll;
-	float _fFPS;//frame per second
 };
 
 } //namespace kinect

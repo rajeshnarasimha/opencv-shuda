@@ -87,27 +87,14 @@ void btl::kinect::CKeyFrame::allocate(){
 
 	_eConvention = btl::utility::BTL_CV;
 	setRT(0,0,0,2.,2.,-0.5);
-	/*
-	cv::Mat_<double> cvmR,cvmRVec(3,1);
-	cvmRVec << 0,0,0;
-	cv::Rodrigues(cvmRVec,cvmR);
-	using namespace btl::utility;
-	_eimRw << cvmR;
-	//_eimRw.setIdentity();
-	Eigen::Vector3d eivC(2.,2.,-0.5); //camera location in the world cv-convention
-	_eivTw = -_eimRw.transpose()*eivC;
-	updateMVInv();
-	*/
 
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
-	_bGPURender = false;
 	_eClusterType = NORMAL_CLUSTER;//DISTANCE_CLUSTER;
 	_nColorIdx = 0;
 
 	//rendering
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 4 ); // 4
-	glGenTextures ( 1, &_uTexture );
 }
 
 void btl::kinect::CKeyFrame::setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_){
@@ -116,7 +103,6 @@ void btl::kinect::CKeyFrame::setRT(double dXA_, double dYA_, double dZA_, double
 	cv::Rodrigues(cvmRVec,cvmR);
 	using namespace btl::utility;
 	_eimRw << cvmR;
-	//_eimRw.setIdentity();
 	Eigen::Vector3d eivC(dXC_,dYC_,dZC_); //camera location in the world cv-convention
 	_eivTw = -_eimRw*eivC;
 	updateMVInv();
@@ -413,7 +399,22 @@ void btl::kinect::CKeyFrame::render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr 
 	}
 	return;
 } 
+void btl::kinect::CKeyFrame::gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_){
 
+	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
+	else                            	{glDisable(GL_LIGHTING);}
+	glPointSize(0.1f*(usPyrLevel_+1)*20);
+
+	pGL_->gpuMapPtResources(*_acvgmShrPtrPyrPts[usPyrLevel_],usPyrLevel_);
+	pGL_->gpuMapNlResources(*_acvgmShrPtrPyrNls[usPyrLevel_],usPyrLevel_);
+	pGL_->gpuMapRGBResources(*_acvgmShrPtrPyrRGBs[usPyrLevel_],usPyrLevel_);
+
+	glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_NORMAL_ARRAY);
+	glDisableClientState(GL_COLOR_ARRAY);
+}//gpuRenderVoxelInWorldCVGL()
 void btl::kinect::CKeyFrame::gpuRender3DPtsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usColorIdx_, const unsigned short uLevel_, const bool bRenderPlane_) const {
 	//////////////////////////////////
 	//for rendering the detected plane
@@ -467,15 +468,22 @@ void btl::kinect::CKeyFrame::renderPlanesInWorld(btl::gl_util::CGLUtil::tp_ptr p
 	else                            	{glDisable(GL_LIGHTING);}
 	glPointSize(0.1f*(usPyrLevel_+1)*20);
 	glBegin(GL_POINTS);
+	unsigned char ucColor[3];
 	for (unsigned int uIdx = 0; uIdx < btl::kinect::__aKinectWxH[usPyrLevel_]; uIdx++){
 		if( pDistNormalCluster[uIdx]>0){
 			int nColor = (int)pDistNormalCluster[uIdx];
 			pColor = btl::utility::__aColors[(nColor+nColorIdx_)%BTL_NUM_COLOR];
+			ucColor[0] = 0.5*pRGB[0] + 0.5*pColor[0];
+			ucColor[1] = 0.5*pRGB[1] + 0.5*pColor[1];
+			ucColor[2] = 0.5*pRGB[2] + 0.5*pColor[2];
 		}//if render planes
 		else{
-			pColor = pRGB;
+			ucColor[0] = pRGB[0];
+			ucColor[1] = pRGB[1];
+			ucColor[2] = pRGB[2]; 
+			//pColor = pRGB;
 		}//if not
-		glColor3ubv ( pColor ); pRGB += 3;
+		glColor3ubv ( ucColor ); pRGB += 3;
 		glVertex3fv ( pPt );  pPt  += 3;
 		glNormal3fv ( pNl );  pNl  += 3;
 	}
@@ -550,81 +558,21 @@ void btl::kinect::CKeyFrame::renderASinglePlaneObjInLocalCVGL(const float*const 
 		glNormal3f ( pNl_[uIdx], -pNl_[uIdx+1], -pNl_[uIdx+2] );
 	}// for each point
 }
-void btl::kinect::CKeyFrame::renderCameraInWorldCVGL( btl::gl_util::CGLUtil::tp_ptr pGL_, const ushort usColorIdx_,bool bRenderCamera_, bool bBW_, bool bRenderDepth_, const double& dSize_,const unsigned short uLevel_ ) {
+void btl::kinect::CKeyFrame::renderCameraInWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCamera_, const double& dSize_,const unsigned short uLevel_ ) {
 	glPushMatrix();
 	loadGLMVIn();
-	if( _bIsReferenceFrame ){
-		glColor3d( 1, 0, 0 );
-		glLineWidth(2);
-	}
-	else{
-		glColor3d( 1, 1, 1);
-		glLineWidth(1);
-	}
-	//glColor4d( 1,1,1,0.5 );
-	if(bBW_){
-		//if(bRenderCamera_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[uLevel_],&_uTexture);
-		//_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[uLevel_], dSize_, bRenderCamera_);
-	}else{
-		if(bRenderCamera_) pGL_->gpuMapRGBPBO(*_acvgmShrPtrPyrRGBs[pGL_->_usPyrLevel],pGL_->_usPyrLevel);
-		//if(bRenderCamera_) _pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&_uTexture);
-		_pRGBCamera->renderCameraInGLLocal ( _uTexture,*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
-	}
-	//render dot clouds
-	//if(_bRenderPlane) renderPlanesInLocalGL(uLevel_);
-	//render3DPtsInLocalGL(uLevel_);//rendering detected plane as well
-	//the vertex must be in LOCAL cv reference system
-	if(bRenderDepth_){
-		//
-		/*//if (_bGPURender) gpuRender3DPtsInLocalCVGL(uLevel_,_bRenderPlane);*/
-		//else render3DPtsInLocalGL(uLevel_,_bRenderPlane);
-		//if (_bRenderPlaneSeparately) //renderPlanesInLocalGL(2); 
-		//if(_bRenderPlane) renderPlaneObjsInLocalCVGL(pGL_, uLevel_);
-		//else 
-		//gpuRender3DPtsInLocalCVGL(pGL_, usColorIdx_, uLevel_, true);
-		//////////////////////////////////
-		const float* pNl = (const float*) _acvmShrPtrPyrNls[uLevel_]->data;
-		const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;
-		const uchar* pRGB = (const uchar*)_acvmShrPtrPyrRGBs[uLevel_]->data;
+	if( _bIsReferenceFrame ){ glColor3d( 1, 0, 0 );glLineWidth(2); }
+	else					{ glColor3d( 1, 1, 1 );glLineWidth(1); }
+#if USE_PBO
+		if(bRenderCamera_) pGL_->gpuMapRgb2PixelBufferObj(*_acvgmShrPtrPyrRGBs[pGL_->_usPyrLevel],pGL_->_usPyrLevel);
+		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[pGL_->_usPyrLevel],*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
+#else 
+		if(bRenderCamera_) _pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&pGL_->_auTexture[pGL_->_usPyrLevel]);
+		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[pGL_->_usPyrLevel],*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
+#endif	
+	glPopMatrix();
+}
 
-		// Generate the data
-		if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
-		else                            	{glDisable(GL_LIGHTING);}
-		glPointSize(0.1f*(uLevel_+1)*20);
-		glBegin(GL_POINTS);
-		for (unsigned int u = 0; u < btl::kinect::__aKinectWxH[uLevel_]; u++){
-			unsigned int uIdx = u*3;
-			glColor3ubv ( pRGB ); pRGB += 3;
-			glVertex3f ( pPt[uIdx], -pPt[uIdx+1], -pPt[uIdx+2] ); 
-			glNormal3f ( pNl[uIdx], -pNl[uIdx+1], -pNl[uIdx+2] );
-		}
-		glEnd();
-	}
-	glPopMatrix();
-}
-void btl::kinect::CKeyFrame::renderCameraInWorldCVGL2( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCameraTexture_, bool bBW_, const double& dPhysicalFocalLength_,const unsigned short usPyrLevel_) {
-	//render camera in world cv
-	glPushMatrix();
-	loadGLMVIn();
-	if( _bIsReferenceFrame ){
-		glColor3d( 1, 0, 0 );
-		glLineWidth(2);
-	}
-	else{
-		glColor3d( 1, 1, 1);
-		glLineWidth(1);
-	}
-	//glColor4d( 1,1,1,0.5 );
-	if(bBW_){
-		//if(bRenderCameraTexture_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrBWs[usPyrLevel_],&_uTexture);
-		//_pRGBCamera->renderCameraInGLLocal ( _uTexture, *_acvmShrPtrPyrBWs[usPyrLevel_], dPhysicalFocalLength_, bRenderCameraTexture_);
-	}else{
-		//if(bRenderCameraTexture_)	_pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[usPyrLevel_],&_uTexture);
-		if(bRenderCameraTexture_) pGL_->gpuMapRGBPBO(*_acvgmShrPtrPyrRGBs[pGL_->_usPyrLevel],pGL_->_usPyrLevel);
-		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[usPyrLevel_],*_acvmShrPtrPyrRGBs[usPyrLevel_], dPhysicalFocalLength_, bRenderCameraTexture_);
-	}
-	glPopMatrix();
-}
 void btl::kinect::CKeyFrame::render3DPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_,int nColorIdx_, bool bRenderPlanes_){
 	//////////////////////////////////
 	const float* pNl = (const float*) _acvmShrPtrPyrNls[usPyrLevel_]->data;
@@ -753,6 +701,8 @@ void btl::kinect::CKeyFrame::gpuTransformToWorldCVCV(const ushort usPyrLevel_){
 	btl::device::transformLocalToWorldCVCV(_eimRw.data(),_eivTw.data(),&*_acvgmShrPtrPyrPts[usPyrLevel_],&*_acvgmShrPtrPyrNls[usPyrLevel_]);
 	_acvgmShrPtrPyrPts[usPyrLevel_]->download(*_acvmShrPtrPyrPts[usPyrLevel_]);
 	_acvgmShrPtrPyrNls[usPyrLevel_]->download(*_acvmShrPtrPyrNls[usPyrLevel_]);
+#if !USE_PBO
+#endif
 }//gpuTransformToWorldCVCV()
 
 void btl::kinect::CKeyFrame::gpuDetectPlane (const short uPyrLevel_){
@@ -1026,19 +976,80 @@ void btl::kinect::CKeyFrame::constructPyramid(const float fSigmaSpace_, const fl
 	return;
 }
 
-void btl::kinect::CKeyFrame::gpuRenderPtsInWorldCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_){
-	
-	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
-	else                            	{glDisable(GL_LIGHTING);}
-	glPointSize(0.1f*(usPyrLevel_+1)*20);
+void btl::kinect::CKeyFrame::applyClassifier(btl::gl_util::CGLUtil::tp_ptr pGL_, float fThreshold_, const unsigned short usPyrLevel_)
+{
+	//////////////////////////////////
+	const float* pNl = (const float*) _acvmShrPtrPyrNls[usPyrLevel_]->data;
+	const float* pPt = (const float*) _acvmShrPtrPyrPts[usPyrLevel_]->data;
+	const uchar* pRGB = (uchar*)_acvmShrPtrPyrRGBs[usPyrLevel_]->data;
+	cv::Mat cvmColor;
+	cvmColor.create(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_8UC3);
+	_acvmShrPtrPyrRGBs[usPyrLevel_]->copyTo(cvmColor);
+	uchar* pTmp = (uchar*)cvmColor.data;
+	const unsigned char* pColor;
+	// Generate the data
+	for (unsigned int c = 0; c< btl::kinect::__aKinectW[usPyrLevel_]; c++)
+	for (unsigned int r = 0; r< btl::kinect::__aKinectH[usPyrLevel_]; r++){
+		if(boost::math::isnan<float>(pPt[0])||c==0||r==0||c==btl::kinect::__aKinectW[usPyrLevel_]-1||r==btl::kinect::__aKinectH[usPyrLevel_]-1)
+		{
+			pTmp += 3;
+			pRGB += 3;
+			pPt  += 3;
+			pNl  += 3;
+			continue;
+		}
+		int nColor = 1;
+		pColor = btl::utility::__aColors[0];
+		const float* pLeft = pPt -3;
+		const float* pRight= pPt +3;
+		const float* pUp   = pPt +btl::kinect::__aKinectW[usPyrLevel_]*3;
+		const float* pDown = pPt -btl::kinect::__aKinectW[usPyrLevel_]*3;
+		const float* pUpLeft= pUp -3;
+		const float* pUpRight= pUp +3;
+		const float* pDownLeft= pDown -3;
+		const float* pDownRight= pDown +3;
+		short sCount=0;
+		float fThreshold = fThreshold_;//*(1+usPyrLevel_);
+		float fDistance;
+		fDistance = sqrt((pUpLeft[0]-pPt[0])*(pUpLeft[0]-pPt[0])+(pUpLeft[1]-pPt[1])*(pUpLeft[1]-pPt[1])+(pUpLeft[2]-pPt[2])*(pUpLeft[2]-pPt[2]));
+		if(fDistance>fThreshold||boost::math::isnan<float>(fDistance))
+			sCount++;
+		fDistance = sqrt((pUpRight[0]-pPt[0])*(pUpRight[0]-pPt[0])+(pUpRight[1]-pPt[1])*(pUpRight[1]-pPt[1])+(pUpRight[2]-pPt[2])*(pUpRight[2]-pPt[2]));
+		if(fDistance>fThreshold||boost::math::isnan<float>(fDistance))
+			sCount++;
+		fDistance = sqrt((pUp[0]-pPt[0])*(pUp[0]-pPt[0])+(pUp[1]-pPt[1])*(pUp[1]-pPt[1])+(pUp[2]-pPt[2])*(pUp[2]-pPt[2]));
+		if(fDistance>fThreshold||boost::math::isnan<float>(fDistance))
+			sCount++;
+		fDistance = sqrt((pDown[0]-pPt[0])*(pDown[0]-pPt[0])+(pDown[1]-pPt[1])*(pDown[1]-pPt[1])+(pDown[2]-pPt[2])*(pDown[2]-pPt[2]));
+		if(fDistance>fThreshold||boost::math::isnan<float>(fDistance))
+			sCount++;
+		fDistance = sqrt((pDownLeft[0]-pPt[0])*(pDownLeft[0]-pPt[0])+(pDownLeft[1]-pPt[1])*(pDownLeft[1]-pPt[1])+(pDownLeft[2]-pPt[2])*(pDownLeft[2]-pPt[2]));
+		if(fDistance>fThreshold||boost::math::isnan<float>(fDistance))
+			sCount++;
+		fDistance = sqrt((pDownRight[0]-pPt[0])*(pDownRight[0]-pPt[0])+(pDownRight[1]-pPt[1])*(pDownRight[1]-pPt[1])+(pDownRight[2]-pPt[2])*(pDownRight[2]-pPt[2]));
+		if(fDistance>fThreshold||boost::math::isnan<float>(fDistance))
+			sCount++;
+		if(sCount>2&&sCount<8){//if it is a border pixel
+			pTmp[0] = 0.5*pRGB[0] + 0.5*pColor[0];
+			pTmp[1] = 0.5*pRGB[1] + 0.5*pColor[1];
+			pTmp[2] = 0.5*pRGB[2] + 0.5*pColor[2];
+		}
+		else{
+			pTmp[0] = pRGB[0];
+			pTmp[1] = pRGB[1];
+			pTmp[2] = pRGB[2];
+		}
+		
+		pTmp += 3;
+		pRGB += 3;
+		pPt  += 3;
+		pNl  += 3;
+	}//for each pixel
+	cvmColor.copyTo(*_acvmShrPtrPyrRGBs[usPyrLevel_]);
+}
 
-	pGL_->gpuMapPtResources(*_acvgmShrPtrPyrPts[usPyrLevel_],usPyrLevel_);
-	pGL_->gpuMapNlResources(*_acvgmShrPtrPyrNls[usPyrLevel_],usPyrLevel_);
-	pGL_->gpuMapRGBResources(*_acvgmShrPtrPyrRGBs[usPyrLevel_],usPyrLevel_);
-
-	glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
-
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
-}//gpuRenderVoxelInWorldCVGL()
+void btl::kinect::CKeyFrame::gpuBoundaryDetector(float fThreshold_, const unsigned short usPyrLevel_)
+{
+	btl::device::boundaryDetector(fThreshold_,*_acvgmShrPtrPyrPts[usPyrLevel_],*_acvgmShrPtrPyrNls[usPyrLevel_],&*_acvgmShrPtrPyrRGBs[usPyrLevel_]);
+	_acvgmShrPtrPyrRGBs[usPyrLevel_]->download(*_acvmShrPtrPyrRGBs[usPyrLevel_]);
+}

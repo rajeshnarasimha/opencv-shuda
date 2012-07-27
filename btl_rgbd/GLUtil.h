@@ -58,7 +58,8 @@ public:
 	void gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_);
 	void gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
 	void gpuMapRGBResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
-	void gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_ );
+	void gpuMapRgb2PixelBufferObj(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_ );
+	void errorDetectorGL() const;
 
 public:
 	Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.

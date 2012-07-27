@@ -74,3 +74,5 @@ target_link_libraries( TestBtlRgbd ${OpenCV_LIBS} freeglut BtlRgbd CudaLib)#
 include("kinect_liveview/CMakeLists.txt")
 include("kinect_fusion/CMakeLists.txt")
 include("render_normal/CMakeLists.txt")
+include("render_qglviewer/CMakeLists.txt")
+include("classifier/CMakeLists.txt")

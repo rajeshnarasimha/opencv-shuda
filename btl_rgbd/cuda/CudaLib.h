@@ -33,6 +33,7 @@ void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_
 //resize the normal or vertex map to half of its size
 void resizeMap (bool bNormalize_, const cv::gpu::GpuMat& cvgmSrc_, cv::gpu::GpuMat* pcvgmDst_);
 void rgb2RGBA(const cv::gpu::GpuMat& cvgmRGB_, const uchar uA_, cv::gpu::GpuMat* pcvgmRGBA_);
+void boundaryDetector(const float fThreshold, const cv::gpu::GpuMat& cvgmPt_, const cv::gpu::GpuMat& cvgmNl_, cv::gpu::GpuMat* cvgmRGB_);
 }//device
 }//btl
 #endif
