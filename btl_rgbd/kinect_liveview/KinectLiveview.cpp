@@ -37,19 +37,12 @@
 //camera calibration from a sequence of images
 #include "Camera.h"
 
-class CKinectView;
-
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-btl::geometry::CModel::tp_shared_ptr _pModel;
-btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
 
 unsigned short _nWidth, _nHeight;
 double _dDepthFilterThreshold = 10;
 int _nDensity = 2;
-btl::kinect::VideoSourceKinect::tp_frame _eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV;
-bool _bRenderVolume = true;
-
 
 void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
@@ -84,18 +77,6 @@ void normalKeys ( unsigned char key, int x, int y )
 		glutPostRedisplay();
 		PRINT( _nDensity );
 		break;
-	case '1':
-		_eFrameType = btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV;
-		PRINTSTR(  "VideoSourceKinect::GPU_PYRAMID" );
-		break;
-	case '2':
-		_eFrameType = btl::kinect::VideoSourceKinect::CPU_PYRAMID_GL;
-		PRINTSTR(  "VideoSourceKinect::CPU_PYRAMID" );
-		break;
-	case '7':
-		_bRenderVolume = !_bRenderVolume;
-		glutPostRedisplay();
-		break;
 	case '0':
 		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
 		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
@@ -128,7 +109,6 @@ void display ( void )
 	//if( _bCapture )	
 	{
 		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-		//_pKinect->_pFrame->gpuDetectPlane(_pGL->_usPyrLevel);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
 	}
 	//set viewport
@@ -145,18 +125,14 @@ void display ( void )
 	_pGL->renderPatternGL(.1f,20.f,20.f);
 	_pGL->renderPatternGL(1.f,10.f,10.f);
 	_pGL->renderVoxelGL(4.f);
-	//_pKinect->_pFrame->render3DPts(_usPyrLevel);
 	//_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInWorldCVGL2(_pGL.get(),_pGL->_bDisplayCamera,true,_pGL->_fSize,_pGL->_usPyrLevel);
-	//_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usPyrLevel);
-	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
-	//if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
-	//_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
-	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);
+	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usPyrLevel);
+	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel);
+	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
+
 	//PRINTSTR("renderCameraInGLWorld");
 	//_pGL->timerStop();
 
-	//_cView.renderCamera( _uTexture, CCalibrateKinect::RGB_CAMERA );
 	//set viewport 2
 	glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
 	glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
@@ -164,14 +140,15 @@ void display ( void )
 	//gluLookAt ( _eivCamera(0), _eivCamera(1), _eivCamera(2),  _eivCenter(0), _eivCenter(1), _eivCenter(2), _eivUp(0), _eivUp(1), _eivUp(2) );
     //glScaled( _dZoom, _dZoom, _dZoom );    
     //glRotated ( _dYAngle, 0, 1 ,0 );
-    //glRotated ( _dXAngle, 1, 0 ,0 );
+    //glR	//if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
+	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_usPyrLevel);otated ( _dXAngle, 1, 0 ,0 );
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_pKinect->_pRGBCamera->LoadTexture( *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&(_pKinect->_pFrame->_uTexture)  );
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pKinect->_pFrame->_uTexture, *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel] );
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel],&_pGL->_auTexture[_pGL->_usPyrLevel]);
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usPyrLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usPyrLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -192,7 +169,6 @@ void reshape ( int nWidth_, int nHeight_ ){
     return;
 }
 void init ( ){
-	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get()));
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
@@ -202,10 +178,7 @@ void init ( ){
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	_pKinect->getNextPyramid(_pGL->_usPyrLevel,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	_pKinect->_pFrame->gpuDetectPlane(_pGL->_usPyrLevel);
 	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usPyrLevel);
-	//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
-	//_pModel->gpuRaycast(*_pKinect->_pFrame,&*_pVirtualFrame);
 	
 	_pGL->init();
 }
@@ -232,10 +205,10 @@ int main ( int argc, char** argv ){
 		_pGL.reset( new btl::gl_util::CGLUtil() );
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect);
-		_pModel.reset( new btl::geometry::CModel() );
-		_pModel->gpuCreateVBO(_pGL.get());
 		init();
-        glutMainLoop();
+		_pGL->constructVBOsPBOs();
+		glutMainLoop();
+		_pGL->destroyVBOsPBOs();
 	}
     catch ( btl::utility::CError& e )  {
         if ( std::string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) ) {

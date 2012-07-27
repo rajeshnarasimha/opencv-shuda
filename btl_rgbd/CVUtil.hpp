@@ -16,7 +16,7 @@ namespace utility
 #define BTL_NUM_COLOR 60
 	static unsigned char __aColors[BTL_NUM_COLOR][3]=
 	{
-		//{255, 0, 0, },//red
+		{255, 0, 0, },//red
 		//{0, 255, 0,}, //green
 		//{0, 0, 255,}, //blue
 		//{255, 255, 255,}, //white
@@ -31,7 +31,7 @@ namespace utility
 		//{46,139,87,},   //sea green
 		//{255,215,0,},   //gold
 		//{255,165,0,},    //orange
-		{	86	,	65	,	68	,	}	,
+		//{	86	,	65	,	68	,	}	,
 		{	152	,	202	,	82	,	}	,
 		{	142	,	10	,	78	,	}	,
 		{	77	,	87	,	50	,	}	,

@@ -666,6 +666,88 @@ void rgb2RGBA(const cv::gpu::GpuMat& cvgmRGB_, const uchar uA_, cv::gpu::GpuMat*
 	}
 	cudaSafeCall ( cudaGetLastError () );
 }//rgb2RGBA()
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__global__ void kernelBoundaryDetector(const float fThreshold, const cv::gpu::DevMem2D_<float3> cvgmPt_, const cv::gpu::DevMem2D_<float3> cvgmNl_, cv::gpu::DevMem2D_<uchar3> cvgmRGB_){
+	using namespace pcl::device;
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX ==0 || nY == 0 || nX >= cvgmRGB_.cols-1 || nY >= cvgmRGB_.rows-1)  return;
+
+	const float3& Pt = cvgmPt_.ptr(nY)[nX];
+	
+	if(isnan<float>(Pt.x)) return;
+
+	const float3& Nl = cvgmNl_.ptr(nY)[nX];
+	uchar3& RGB= cvgmRGB_.ptr(nY)[nX];
+
+	short sCount=0;
+	float fDistance;
+	float3 PtNeighbour;
+	PtNeighbour = cvgmPt_.ptr(nY)[nX-1];//Left
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY)[nX+1];//Right
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY-1)[nX-1];//UL
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY-1)[nX+1];//UR
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY-1)[nX];//Up
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY+1)[nX-1];//DL
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY+1)[nX+1];//DR
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+	PtNeighbour = cvgmPt_.ptr(nY+1)[nX];//Down
+	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
+
+	if(sCount>2&&sCount<8){//if it is a border pixel
+		RGB = RGB*0.5 + make_uchar3(255,0,0)*0.5;
+	}
+	return;
+}
+void boundaryDetector(const float fThreshold_, const cv::gpu::GpuMat& cvgmPt_, const cv::gpu::GpuMat& cvgmNl_, cv::gpu::GpuMat* pcvgmRGB_){
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(pcvgmRGB_->cols, block.x), cv::gpu::divUp(pcvgmRGB_->rows, block.y));
+	kernelBoundaryDetector<<<grid,block>>>(fThreshold_,cvgmPt_,cvgmNl_,*pcvgmRGB_);
+	cudaSafeCall ( cudaGetLastError () );
+}//boundaryDetector()
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__global__ void kernelShapeClassifier(const float fThreshold, const cv::gpu::DevMem2D_<float3> cvgmPt_, const cv::gpu::DevMem2D_<float3> cvgmNl_, cv::gpu::DevMem2D_<uchar3> cvgmRGB_){
+	using namespace pcl::device;
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX ==0 || nY == 0 || nX >= cvgmRGB_.cols-1 || nY >= cvgmRGB_.rows-1)  return;
+
+	const float3& Pt = cvgmPt_.ptr(nY)[nX];
+	
+	if(isnan<float>(Pt.x)) return;
+
+	const float3& Nl = cvgmNl_.ptr(nY)[nX];
+	uchar3& RGB= cvgmRGB_.ptr(nY)[nX];
+	
+	const float3& Left= cvgmPt_.ptr(nY)[nX-1];
+	const float3& LeftN=cvgmNl_.ptr(nY)[nX-1];
+
+	const float3& Right= cvgmPt_.ptr(nY)[nX+1];
+	const float3& Up= cvgmPt_.ptr(nY-1)[nX];
+	const float3& Down= cvgmPt_.ptr(nY+1)[nX-1];
+	//line-line intersection
+	//http://en.wikipedia.org/wiki/Line-line_intersection
+	float3 OutProduct[3];
+	outProductSelf<float3>( LeftN, OutProduct);
+	
+	{//if it is a border pixel
+		RGB = RGB*0.5 + make_uchar3(0,255,0)*0.5;
+	}
+	return;
+}//kernelShapeClassifier()
+void shapeClassifier(const float fThreshold_, const cv::gpu::GpuMat& cvgmPt_, const cv::gpu::GpuMat& cvgmNl_, cv::gpu::GpuMat* pcvgmRGB_){
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(pcvgmRGB_->cols, block.x), cv::gpu::divUp(pcvgmRGB_->rows, block.y));
+	kernelShapeClassifier<<<grid,block>>>(fThreshold_,cvgmPt_,cvgmNl_,*pcvgmRGB_);
+	cudaSafeCall ( cudaGetLastError () );
+}//boundaryDetector()
 
 }//device
 }//btl

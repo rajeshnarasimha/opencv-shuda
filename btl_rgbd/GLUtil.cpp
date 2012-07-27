@@ -215,6 +215,7 @@ void CGLUtil::viewerGL()
 	// light position in 3d
 	glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
 }
+
 void CGLUtil::renderAxisGL() const
 {
 	glDisable(GL_LIGHTING);
@@ -291,7 +292,7 @@ void CGLUtil::init()
 	glEndList();
 
 	// light
-	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
+	GLfloat mat_diffuse[] = { 1.0, 0.0, 0.0, 1.0};
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
 
 	GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
@@ -362,11 +363,10 @@ void CGLUtil::createPBO(const unsigned int uRows_, const unsigned int uCols_, co
 	//cudaSafeCall( cudaGLRegisterBufferObject(*puPBO_) ); //deprecated
 }//createVBO()
 void CGLUtil::releasePBO( GLuint uPBO_,cudaGraphicsResource *pResourcePixelBO_ ){
-	/*// unregister this buffer object with CUDA
+	// unregister this buffer object with CUDA
 	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
 	cudaSafeCall( cudaGraphicsUnregisterResource( pResourcePixelBO_ ) );
-	glDeleteBuffers(1, &uPBO_);*/
-
+	glDeleteBuffers(1, &uPBO_);
 }//releaseVBO()
 void CGLUtil::constructVBOsPBOs(){
 	for (ushort u=0; u<4; u++){
@@ -432,7 +432,7 @@ void CGLUtil::gpuMapRGBResources(const cv::gpu::GpuMat& cvgmRGBs_, const ushort 
 	glColorPointer(3, GL_UNSIGNED_BYTE, 0, 0);
 	glEnableClientState(GL_COLOR_ARRAY);
 }
-void CGLUtil::gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGB_, const ushort usPyrLevel_ ){
+void CGLUtil::gpuMapRgb2PixelBufferObj(const cv::gpu::GpuMat& cvgmRGB_, const ushort usPyrLevel_ ){
 	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
 
 	// map OpenGL buffer object for writing from CUDA
@@ -444,39 +444,12 @@ void CGLUtil::gpuMapRGBPBO(const cv::gpu::GpuMat& cvgmRGB_, const ushort usPyrLe
 	//btl::device::rgb2RGBA(cvgmRGB_,0, &cvgmRGBA);
 	cvgmRGB_.copyTo(cvgmRGBA);
 	cudaSafeCall( cudaGraphicsUnmapResources(1, &_apResourceRGBPxielBO[usPyrLevel_], 0) );
-	/*//deprecated
-	void *pDev;
-	cudaSafeCall( cudaGLMapBufferObject((void**)&pDev, _auRGBPixelBO[usPyrLevel_]) );
-	cv::gpu::GpuMat cvgmRGB( btl::kinect::__aKinectH[usPyrLevel_], btl::kinect::__aKinectW[usPyrLevel_], CV_8UC3, pDev);
-	cvgmRGB_.copyTo(cvgmRGB);
-	cudaSafeCall( cudaGLUnmapBufferObject(_auRGBPixelBO[usPyrLevel_]) );*/
 	//texture mapping
-	
 	glBindTexture( GL_TEXTURE_2D, _auTexture[usPyrLevel_]);
 	glBindBuffer ( GL_PIXEL_UNPACK_BUFFER_ARB, _auRGBPixelBO[usPyrLevel_]);
-
 	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, btl::kinect::__aKinectW[usPyrLevel_], btl::kinect::__aKinectH[usPyrLevel_], 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 	//glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, btl::kinect::__aKinectW[usPyrLevel_], btl::kinect::__aKinectH[usPyrLevel_], GL_RGBA, GL_FLOAT, 0);
-	{
-		GLenum eError = glGetError();
-		if (eError != GL_NO_ERROR)
-		{
-			switch(eError){
-			case GL_INVALID_ENUM:
-				PRINTSTR("GL_INVALID_ENUM");break;
-			case GL_INVALID_VALUE:
-				PRINTSTR("GL_INVALID_VALUE");break;
-			case GL_INVALID_OPERATION:
-				PRINTSTR("GL_INVALID_OPERATION");break;
-			case GL_STACK_OVERFLOW:
-				PRINTSTR("GL_STACK_OVERFLOW");break;
-			case GL_STACK_UNDERFLOW:
-				PRINTSTR("GL_STACK_UNDERFLOW");break;
-			case GL_OUT_OF_MEMORY:
-				PRINTSTR("GL_OUT_OF_MEMORY");break;
-			}
-		}
-	}
+	errorDetectorGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -596,6 +569,26 @@ void CGLUtil::timerStop(){
 	_fFPS = 1000.f/_cTDAll.total_milliseconds();
 	PRINT( _fFPS );
 }
-
+void CGLUtil::errorDetectorGL() const
+{
+	GLenum eError = glGetError();
+	if (eError != GL_NO_ERROR)
+	{
+		switch(eError){
+		case GL_INVALID_ENUM:
+			PRINTSTR("GL_INVALID_ENUM");break;
+		case GL_INVALID_VALUE:
+			PRINTSTR("GL_INVALID_VALUE");break;
+		case GL_INVALID_OPERATION:
+			PRINTSTR("GL_INVALID_OPERATION");break;
+		case GL_STACK_OVERFLOW:
+			PRINTSTR("GL_STACK_OVERFLOW");break;
+		case GL_STACK_UNDERFLOW:
+			PRINTSTR("GL_STACK_UNDERFLOW");break;
+		case GL_OUT_OF_MEMORY:
+			PRINTSTR("GL_OUT_OF_MEMORY");break;
+		}
+	}
+}
 }//gl_util
 }//btl

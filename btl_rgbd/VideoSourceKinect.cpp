@@ -6,7 +6,6 @@
 * @date 2011-02-23
 */
 #define INFO
-//#define TIMER
 //gl
 #include <gl/glew.h>
 #include <gl/freeglut.h>
@@ -50,7 +49,6 @@ namespace btl{ namespace kinect
 {
 
 VideoSourceKinect::VideoSourceKinect ()
-//:CCalibrateKinect()
 {
     std::cout << "  VideoSourceKinect: Opening Kinect..." << std::endl;
 
@@ -87,7 +85,6 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvmIRWorld .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 	_cvmRGBWorld.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 
-
 	// allocate memory for later use ( registrate the depth with rgb image
 	// refreshed for every frame
 	// pre-allocate cvgm to increase the speed
@@ -95,27 +92,12 @@ VideoSourceKinect::VideoSourceKinect ()
 	_cvgmRGBWorld       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 	_cvgmAlignedRawDepth.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
 	_cvgm32FC1Tmp       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
-
 	_cvgmUndistDepth    .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
-
-	//for(int i=0; i<4; i++)	{
-	//	int nRows = KINECT_HEIGHT>>i; 
-	//	int nCols = KINECT_WIDTH>>i;
-	//	//device
-	//	btl::kinect::__acvgmShrPtrPyrDisparity .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
-	//	btl::kinect::__acvgmShrPtrPyr32FC1Tmp  .push_back(cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
-	//	//host
-	//	//rendering (static)
-	//	//btl::kinect::CKeyFrame::_acvgmShrPtrAA[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
-	//	//btl::kinect::CKeyFrame::_acvmShrPtrAA[i].reset(new cv::Mat(nRows,nCols,CV_32FC3));
-	//	PRINTSTR("construct pyrmide level:");
-	//	PRINT(i);
-	//}
 
 	//other
 	//definition of parameters
 	_fThresholdDepthInMeter = 0.01f;
-	_fSigmaSpace = 1;
+	_fSigmaSpace = 1.5;
 	_fSigmaDisparity = 1.f/.6f - 1.f/(.6f+_fThresholdDepthInMeter);
 	_uPyrHeight = 1;
 
@@ -204,51 +186,29 @@ void VideoSourceKinect::findRange(const cv::Mat& cvmMat_)
 }
 void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 {
-    //get next frame
-#ifdef TIMER	
-	// timer on
-	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
-#endif
-	//
     XnStatus nRetVal = _cContext.WaitAndUpdateAll();
     CHECK_RC ( nRetVal, "UpdateData failed: " );
 	// these two lines are required for getting a stable image and depth.
     _cImgGen.GetMetaData ( _cImgMD );
     _cDepthGen.GetMetaData( _cDepthMD );
 
-    const XnRGB24Pixel* pRGBImg  = _cImgMD.RGB24Data();
-	     unsigned char* pRGB = _cvmRGB.data;
-    const unsigned short* pDepth   = (unsigned short*)_cDepthMD.Data();
-	      float* pcvDepth = (float*)_cvmDepth.data;
-    
-    //XnStatus nRetVal = _cContext.WaitOneUpdateAll( _cIRGen );
-    //CHECK_RC ( nRetVal, "UpdateData failed: " );
-		  
-	for( unsigned int i = 0; i < __aKinectWxH[0]; i++,pRGBImg++){
-        // notice that OpenCV is use BGR order
-        *pRGB++ = uchar(pRGBImg->nRed);
-        *pRGB++ = uchar(pRGBImg->nGreen);
-        *pRGB++ = uchar(pRGBImg->nBlue);
-		*pcvDepth++ = *pDepth++;
-    }
+	cv::Mat cvmRGB(__aKinectH[0],__aKinectW[0],CV_8UC3, (unsigned char*)_cImgMD.WritableRGB24Data());
+	cv::Mat cvmDep(__aKinectH[0],__aKinectW[0],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
+	cvmRGB.copyTo(_cvmRGB);
+	cvmDep.convertTo(_cvmDepth,CV_32FC1);
+
     switch( eFrameType_ ){
 		case CPU_PYRAMID_CV:
 			buildPyramid( btl::utility::BTL_CV );
 			break;
 		case GPU_PYRAMID_CV:
-				gpuBuildPyramidCVm( );
+			gpuBuildPyramidCVm( );
 			break;
 		case CPU_PYRAMID_GL:
 			buildPyramid( btl::utility::BTL_GL );
 			break;
     }
-#ifdef TIMER
-// timer off
-	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
- 	_cTDAll = _cT1 - _cT0 ;
-	_fFPS = 1000.f/_cTDAll.total_milliseconds();
-	PRINT( _fFPS );
-#endif
+
 	//cout << " getNextFrame() ends."<< endl;
     return;
 }
@@ -279,9 +239,9 @@ void VideoSourceKinect::gpuBuildPyramidCVm( ){
 	cv::gpu::remap(_cvgmRGB, *_pFrame->_acvgmShrPtrPyrRGBs[0], _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 	_cvgmUndistDepth.setTo(std::numeric_limits<float>::quiet_NaN());//clear(_cvgmUndistDepth)
 	cv::gpu::remap(_cvgmDepth, _cvgmUndistDepth, _pIRCamera->_cvgmMapX, _pIRCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
-	gpuAlignDepthWithRGB( _cvgmUndistDepth, &_cvgmAlignedRawDepth );//_cvgmAlignedRawDepth cleaned inside
-	//bilateral filtering
-	btl::device::cudaDepth2Disparity(_cvgmAlignedRawDepth, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);
+	gpuAlignDepthWithRGB( _cvgmUndistDepth, &*_pFrame->_acvgmShrPtrPyrDepths[0] );//_cvgmAlignedRawDepth cleaned inside
+	//bilateral filtering (comments off the following three lines to get raw depth map image of kinect)
+	btl::device::cudaDepth2Disparity(*_pFrame->_acvgmShrPtrPyrDepths[0], &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);
 	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
 	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
 	//get pts and nls
@@ -309,7 +269,9 @@ void VideoSourceKinect::gpuBuildPyramidCVm( ){
 		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
 		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
 	}
-	//scale the depthmap
+#if !USE_PBO
+#endif
+	//scale the depth map
 	{
 		btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);
 		//for testing scaleDepthCVmCVm();

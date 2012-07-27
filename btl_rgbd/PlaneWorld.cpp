@@ -288,10 +288,10 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::renderAllCamrea(btl::gl_util:
 	ushort usView = 0;
 	for (tp_shr_kfrm_vec::const_iterator citFrame = _vShrPtrKFrs.begin(); citFrame != _vShrPtrKFrs.end(); citFrame++, usView++){
 		if (usView == usViewNo_) {
-			(*citFrame)->renderCameraInWorldCVGL(pGL_,usColorIdx_, pGL_->_bDisplayCamera,bBW_,bRenderDepth_,fSize_,pGL_->_usPyrLevel);
+			//(*citFrame)->renderCameraInWorldCVGL(pGL_,usColorIdx_, pGL_->_bDisplayCamera,bBW_,bRenderDepth_,fSize_,pGL_->_usPyrLevel);
 		}
 		else{
-			(*citFrame)->renderCameraInWorldCVGL(pGL_,usColorIdx_, false,bBW_,bRenderDepth_,fSize_,pGL_->_usPyrLevel);
+			//(*citFrame)->renderCameraInWorldCVGL(pGL_,usColorIdx_, false,bBW_,bRenderDepth_,fSize_,pGL_->_usPyrLevel);
 		}
 	}//for each keyframe
 }
