@@ -57,7 +57,8 @@ CKinectCapturer::CKinectCapturer(){
 
 	_cvmIR.create(480,640,CV_8UC1);
 	_cvmRGB.create(480,640,CV_8UC3);
-	_uCapturedViews = 0;
+	_uCapturedIR = 0;
+	_uCapturedRGB = 0;
 }
 void CKinectCapturer::mainLoop()
 {
@@ -87,13 +88,15 @@ void CKinectCapturer::mainLoop()
 				if(_vis == IR){
 					storeIR();
 					switchRGBIR();
-					storeRGB();
+					//getNextFrameRGB(_cvmRGB);
+					//storeRGB();
 				}else if (_vis == RGB ){
 					storeRGB();
 					switchRGBIR();
-					storeIR();
+					//getNextFrameIR(_cvmIR);
+					//storeIR();
 				}
-				_uCapturedViews++; 
+				
 
 				break; 
 			case 's':
@@ -155,24 +158,23 @@ void CKinectCapturer::getNextFrameRGB(cv::Mat& cvmRGB_){
 
 void CKinectCapturer::storeIR(){ 
 	char filename[100]; 
-	sprintf(filename, "IR%04d.tif", _uCapturedViews); 
+	sprintf(filename, "IR%04d.tif", _uCapturedIR); 
 	printf("%s\n", filename); 
 
 	getNextFrameIR(_cvmIR);
 	cv::imwrite(filename,_cvmIR);
+	_uCapturedIR++; 
 } 
 
 void CKinectCapturer::storeRGB(){ 
 	char filename[100]; 
-	sprintf(filename, "RGB%04d.tif", _uCapturedViews); 
+	sprintf(filename, "RGB%04d.tif", _uCapturedRGB); 
 	printf("%s\n", filename); 
 
 	getNextFrameRGB(_cvmRGB);
 	cv::imwrite(filename,_cvmRGB);
+	_uCapturedRGB++; 
 } 
-
-
-
 
 int main(int argc, char* argv[]){ 
 
