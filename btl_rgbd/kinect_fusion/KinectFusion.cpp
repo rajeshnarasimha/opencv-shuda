@@ -34,13 +34,13 @@
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "PlaneWorld.h"
-#include "Model.h"
+#include "KinfuTracker.h"
 #define _nReserved 20
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CMultiPlanesMultiViewsInWorld::tp_shared_ptr _pMPMV;
-btl::geometry::CModel::tp_shared_ptr _pVolumeWorld;
+btl::geometry::CKinfuTracker::tp_shared_ptr _pTracker;
 btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
 btl::kinect::CKeyFrame::tp_shared_ptr _pDisplayFrame;
 unsigned short _nWidth, _nHeight;
@@ -97,7 +97,7 @@ void init ( ){
 	std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + ".yml";
 	//p1stKF->exportYML(strPath,strFileName);
 	//p1stKF->importYML(strPath,strFileName);
-	_pVolumeWorld->gpuIntegrateFrameIntoVolumeCVCV(*p1stKF);
+	//_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*p1stKF);
 
 	// assign the rgb and depth to the current frame.
 	p1stKF->setView(&_pGL->_eimModelViewGL);
@@ -124,10 +124,10 @@ void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
     case 'r':
         //reset
-		_nKFCounter=1;
+		_nRFIdx = 0;
 		_vShrPtrsKF.clear();
         init();
-		_pVolumeWorld->reset();
+		//_pTracker->reset();
         glutPostRedisplay();
         break;
     case 'n':
@@ -144,8 +144,8 @@ void normalKeys ( unsigned char key, int x, int y ){
         break;
 	case 'd':
 		//remove last key frame
-		if(_nKFCounter >0 ) {
-			_nKFCounter--;
+		if(_nRFIdx >0 ) {
+			_nRFIdx--;
 			_vShrPtrsKF.pop_back();
 		}
 		glutPostRedisplay();
@@ -212,10 +212,10 @@ void display ( void ) {
 		//track camera motion
 		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
 		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false ); //refine the R,T with w.r.t. last key frame
-		for (short sIt = 0; sIt< 3; sIt++){
-			_pVolumeWorld->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
+		/*for (short sIt = 0; sIt< 3; sIt++){
+			_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
 			_pKinect->_pFrame->gpuICP ( _pVirtualFrame.get(), false ); //refine R,T w.r.t. the virtual frame
-		}//iterate 3 times 
+		}//iterate 3 times */
 		
 		//transform pts and nls to the world
 		for (ushort usI=0;usI<4;usI++){
@@ -224,7 +224,7 @@ void display ( void ) {
 		//transform detected planes to the world
 		_pKinect->_pFrame->transformPlaneObjsToWorldCVCV(3);
 		//integrate current frame into the global volume
-		_pVolumeWorld->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+		//_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
 		//_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
 		//save current frame and make it as the reference frame
 		_pKinect->_pFrame->copyTo(&*pCurrentKF);
@@ -235,7 +235,6 @@ void display ( void ) {
     }//if step by step tracking 
 	else if ( _bCapture && _nKFCounter < _nReserved){
 		// assign the rgb and depth to the current frame.
-		_nRFIdx++;
 		std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
 		std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + ".yml";
 		//_pKinect->_pFrame->exportYML(strPath,strFileName);
@@ -252,9 +251,9 @@ void display ( void ) {
 			PRINTSTR("Surf calibration.");
 			_pGL->timerStop();
 			_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false );//refine the R,T with w.r.t. last key frame
-			_pVolumeWorld->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame );
+			//_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame );
 			//for (short sIt = 0; sIt< 3; sIt++){
-			//	_pVolumeWorld->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
+			//	_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
 			//	_pKinect->_pFrame->gpuICP ( _pVirtualFrame.get(), false );//refine R,T w.r.t. the virtual frame
 			//}//iterate 3 times 
 			PRINTSTR("ICP tracking.");
@@ -268,10 +267,10 @@ void display ( void ) {
 			PRINTSTR("Plane detection.");
 			_pGL->timerStop();
 			//ingrate current frame into the global volume
-			_pVolumeWorld->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+			//_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
 			PRINTSTR("Volume integration.");
 			_pGL->timerStop();
-			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/6.,0.15) ){
+			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pReferenceKF.get(),M_PI_4/24.,0.15) ){
 				_pKinect->_pFrame->gpuTransformToWorldCVCV();
 				_nRFIdx++;
 				btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nRFIdx];
@@ -280,6 +279,7 @@ void display ( void ) {
 				//save current frame and make it as the reference frame
 				std::cout << "new key frame added" << std::flush;
 			}//if moving far enough new keyframe will be added
+			
 		}//if(dError < 0.5)
 		_bCapture = false;
 	}//if(_bCapture && _nKFCounter < _nReserved)
@@ -289,18 +289,16 @@ void display ( void ) {
 	//_pGL->timerStop();
 	// render first viewport
     glMatrixMode ( GL_MODELVIEW );
-    glViewport ( 0, 0, _nWidth / 2, _nHeight );
-    glScissor  ( 0, 0, _nWidth / 2, _nHeight );
+    glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
+    glScissor  ( 0, _nHeight/2, _nWidth/2, _nHeight/2 );
     // after set the intrinsics and extrinsics
     //glLoadIdentity();
 	_pGL->viewerGL();
 
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	
-	//_pVolumeWorld->gpuRaycast( *_pKinect->_pFrame, &*_pDisplayFrame ); //get virtual frame
-	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
-	//_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usLevel);
-	//(**_vShrPtrsKF.rbegin())
+	//_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pDisplayFrame ); //get virtual frame
+	//_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
 	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
 	//_pDisplayFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
 	//_pDisplayFrame->setView(&_pGL->_eimModelViewGL);
@@ -321,22 +319,27 @@ void display ( void ) {
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
-		_pGL->renderVoxelGL(2.f);
+		_pGL->renderVoxelGL(3.f);
 		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
 
 // render second viewport
-    glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight );
-    glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
+    glViewport ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
+    glScissor  ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
     glLoadIdentity();
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	//_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pKinect->_pFrame->_uTexture);
-  	  _pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
-
-	//_pKinect->_pRGBCamera->renderCameraInGLLocal(_pKinect->_pFrame->_uTexture, *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel], .2f );
+  	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
-    glutSwapBuffers();
 
+// render third viewport
+	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
+	glScissor  ( 0, 0, _nWidth/2, _nHeight/2 );
+	glLoadIdentity();
+	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
+
+    glutSwapBuffers();
     if ( _bContinuous ) {
         glutPostRedisplay();
     }
@@ -352,7 +355,7 @@ void reshape ( int nWidth_, int nHeight_ ) {
 
     unsigned short nTemp = nWidth_ / 8; //make sure that _nWidth is divisible to 4
     _nWidth = nTemp * 8;
-    _nHeight = nTemp * 3;
+    _nHeight = nTemp * 6; //3
     glutReshapeWindow ( int ( _nWidth ), int ( _nHeight ) );
     return;
 }
@@ -361,7 +364,7 @@ int main ( int argc, char** argv ) {
     try {
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
-        glutInitWindowSize ( 1280, 480 );
+        glutInitWindowSize ( 1280, 960 ); //480
         glutCreateWindow ( "CameraPose" );
 		GLenum eError = glewInit();
 		if (GLEW_OK != eError){
@@ -378,9 +381,9 @@ int main ( int argc, char** argv ) {
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution));
-		_pVolumeWorld.reset( new btl::geometry::CModel() );
+		//_pTracker.reset( new btl::geometry::CKinfuTracker() );
 		init();
-		_pVolumeWorld->gpuCreateVBO(_pGL.get());
+		//_pTracker->gpuCreateVBO(_pGL.get());
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();

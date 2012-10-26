@@ -902,7 +902,9 @@ bool btl::kinect::CKeyFrame::isMovedwrtReferencInRadiusM(const CKeyFrame* const 
 	eivCRef = - pRefFrame_->_eimRw * pRefFrame_->_eivTw;
 	eivCCur = -             _eimRw *             _eivTw;
 	eivCCur -= eivCRef;
-	return ( cv::norm( cvmRVecCur, cv::NORM_L2 )  > dRotAngleThreshold_ || eivCCur.norm() > dTranslationThreshold_);
+	double dRot = cv::norm( cvmRVecCur, cv::NORM_L2 );
+	double dTrn = eivCCur.norm();
+	return ( dRot > dRotAngleThreshold_ || dTrn > dTranslationThreshold_);
 }
 
 void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pPrevFrameWorld_,bool bUsePrevRTAsInitial_){
