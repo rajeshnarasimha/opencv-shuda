@@ -28,7 +28,8 @@ class CKinectCapturer{
 	cv::Mat _cvmRGB;
 //auxiliary buffers and images 
 	uchar  tempIR2[640*480]; 
-	ushort _uCapturedViews;  
+	ushort _uCapturedIR;  
+	ushort _uCapturedRGB;
 	Visualization _vis ; 
 
 //method
