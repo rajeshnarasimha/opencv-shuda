@@ -83,29 +83,30 @@ void projectWorld2Camera ( const Eigen::Matrix< T, 3, 1 >& vPt_, const Eigen::Ma
 }
 
 template< class T >
-T absoluteOrientation ( Eigen::MatrixXd& eimRef_, Eigen::MatrixXd&  eimCur_, bool bEstimateScale_, Eigen::Matrix< T, 3, 3>* pR_, Eigen::Matrix< T , 3, 1 >* pT_, double* pdScale_ ){
+T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bEstimateScale_, Eigen::Matrix< T, 3, 3>* pR_, Eigen::Matrix< T , 3, 1 >* pT_, double* pdScale_ ){
 	// A is Ref B is Cur
+	// eimB_ = R * eimA_ + T;
 	// main references: http://www.mathworks.com/matlabcentral/fileexchange/22422-absolute-orientation
-	CHECK ( 	eimRef_.rows() == 3, " absoluteOrientation() requires the input matrix A_ is a 3 x N matrix. " );
-	CHECK ( 	eimCur_.rows() == 3, " absoluteOrientation() requires the input matrix B_ is a 3 x N matrix. " );
-	CHECK ( 	eimRef_.cols() == eimCur_.cols(), " absoluteOrientation() requires the columns of input matrix A_ and B_ are equal. " );
+	CHECK ( 	eimA_.rows() == 3, " absoluteOrientation() requires the input matrix A_ is a 3 x N matrix. " );
+	CHECK ( 	eimB_.rows() == 3, " absoluteOrientation() requires the input matrix B_ is a 3 x N matrix. " );
+	CHECK ( 	eimA_.cols() == eimB_.cols(), " absoluteOrientation() requires the columns of input matrix A_ and B_ are equal. " );
 
 	//Compute the centroid of each point set
 	Eigen::Vector3d eivCentroidA(0,0,0), eivCentroidB(0,0,0);
-	for ( int nC = 0; nC < eimRef_.cols(); nC++ ){
-		eivCentroidA += eimRef_.col ( nC );
-		eivCentroidB += eimCur_.col ( nC );
+	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
+		eivCentroidA += eimA_.col ( nC );
+		eivCentroidB += eimB_.col ( nC );
 	}
-	eivCentroidA /= eimRef_.cols();
-	eivCentroidB /= eimRef_.cols();
+	eivCentroidA /= eimA_.cols();
+	eivCentroidB /= eimA_.cols();
 	//PRINT( eivCentroidA );
 	//PRINT( eivCentroidB );
 
 	//Remove the centroid
-	Eigen::MatrixXd An ( 3, eimRef_.cols() ), Bn ( 3, eimRef_.cols() );
-	for ( int nC = 0; nC < eimRef_.cols(); nC++ ){
-		An.col ( nC ) = eimRef_.col ( nC ) - eivCentroidA;
-		Bn.col ( nC ) = eimCur_.col ( nC ) - eivCentroidB;
+	Eigen::MatrixXd An ( 3, eimA_.cols() ), Bn ( 3, eimA_.cols() );
+	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
+		An.col ( nC ) = eimA_.col ( nC ) - eivCentroidA;
+		Bn.col ( nC ) = eimB_.col ( nC ) - eivCentroidB;
 	}
 
 	//PRINT( An );
@@ -114,7 +115,7 @@ T absoluteOrientation ( Eigen::MatrixXd& eimRef_, Eigen::MatrixXd&  eimCur_, boo
 	//Compute the quaternions
 	Eigen::Matrix4d M; M.setZero();
 	Eigen::Matrix4d Ma, Mb;
-	for ( int nC = 0; nC < eimRef_.cols(); nC++ ){
+	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
 		//pure imaginary Shortcuts
 		Eigen::Vector4d a(0,0,0,0), b(0,0,0,0);
 		a ( 1 ) = An ( 0, nC );
@@ -177,7 +178,7 @@ T absoluteOrientation ( Eigen::MatrixXd& eimRef_, Eigen::MatrixXd&  eimCur_, boo
 	//Compute the scale factor if necessary
 	if ( bEstimateScale_ ){
 		double a = 0, b = 0;
-		for ( int nC = 0; nC < eimRef_.cols(); nC++ ) {
+		for ( int nC = 0; nC < eimA_.cols(); nC++ ) {
 			a += Bn.col ( nC ).transpose() * ( *pR_ ) * An.col ( nC );
 			b += Bn.col ( nC ).transpose() * Bn.col ( nC );
 		}
@@ -195,12 +196,12 @@ T absoluteOrientation ( Eigen::MatrixXd& eimRef_, Eigen::MatrixXd&  eimCur_, boo
 	double dE = 0;
 	Eigen::Vector3d eivE;
 
-	for ( int nC = 0; nC < eimRef_.cols(); nC++ ) {
-		eivE = eimCur_.col ( nC ) - ( ( *pdScale_ ) * ( *pR_ ) * eimRef_.col ( nC ) + ( *pT_ ) );
+	for ( int nC = 0; nC < eimA_.cols(); nC++ ) {
+		eivE = eimB_.col ( nC ) - ( ( *pdScale_ ) * ( *pR_ ) * eimA_.col ( nC ) + ( *pT_ ) );
 		dE += eivE.norm();
 	}
 
-	return dE / eimRef_.cols();
+	return dE / eimA_.cols();
 }
 
 template< class T, int ROW, int COL >

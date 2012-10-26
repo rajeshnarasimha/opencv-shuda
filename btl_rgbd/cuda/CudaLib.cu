@@ -503,6 +503,13 @@ __global__ void kernelScaleDepthCVmCVm (cv::gpu::DevMem2Df cvgmDepth_, const pcl
     float fSec = sqrtf (fTanX*fTanX + fTanY*fTanY + 1);
     fDepth *= fSec; //meters
 }//kernelScaleDepthCVmCVm()
+//scaleDepth is to transform raw depth into scaled depth which is the distance from the 3D point to the camera centre
+//     *---* 3D point
+//     |  / 
+//raw  | /scaled depth
+//depth|/
+//     * camera center
+//
 void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmDepth_){
 	pcl::device::Intr sCameraIntrinsics(fFx_,fFy_,u_,v_);
 	dim3 block(32, 8);

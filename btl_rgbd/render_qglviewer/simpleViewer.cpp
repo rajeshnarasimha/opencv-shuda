@@ -89,11 +89,9 @@ void Viewer::draw()
     }
   glEnd();
 
-  _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-  for (ushort u=0;u<4;u++){
-	  //_pKinect->_pFrame->gpuDetectPlane(u);
-	  _pKinect->_pFrame->gpuTransformToWorldCVCV(u);
-  }//for each pyramid level
+  _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+  //_pKinect->_pFrame->gpuDetectPlane(u);
+  _pKinect->_pFrame->gpuTransformToWorldCVCV();
 
   glMatrixMode ( GL_MODELVIEW );
   // after set the intrinsics and extrinsics
@@ -102,8 +100,8 @@ void Viewer::draw()
   //glLoadMatrixd( _mGLMatrix.data() );
   //_pGL->viewerGL();
 
-  _pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usPyrLevel);
-  _pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel);
+  _pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
+  _pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 }
 
 void Viewer::init()
@@ -121,18 +119,15 @@ void Viewer::init()
 	  PRINTSTR("glewInit() error.");
 	  PRINT( glewGetErrorString(eError) );
   }
-  _pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
+  _pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
   _pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
-  _pKinect.reset( new btl::kinect::VideoSourceKinect() );
+  _pKinect.reset( new btl::kinect::VideoSourceKinect(1) );
 
   _pGL->constructVBOsPBOs();
 
-  _pGL->_usPyrLevel=2;
-  _pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-  for (ushort u=0;u<4;u++){
-	  //_pKinect->_pFrame->gpuDetectPlane(u);
-	  _pKinect->_pFrame->gpuTransformToWorldCVCV(u);
-  }//for each pyramid level
+  _pGL->_usLevel=2;
+  _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+  _pKinect->_pFrame->gpuTransformToWorldCVCV();
 }
 
 QString Viewer::helpString() const

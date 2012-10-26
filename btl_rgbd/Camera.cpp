@@ -1,15 +1,16 @@
 
 #include <gl/freeglut.h>
 #include <opencv2/core/core.hpp>
-#include "boost/shared_ptr.hpp"
+#include <boost/shared_ptr.hpp>
 #include <opencv2/gpu/gpumat.hpp>
 #include "Camera.h"
 #include <string>
 #include <Eigen/Core>
+#include "Kinect.h"
 #include "CVUtil.hpp"
 
-btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/ )
-	:_eType(eT_)
+btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/, ushort uResolution_ )
+	:_eType(eT_), _uResolution(uResolution_)
 {
 	importYML();
 }
@@ -19,7 +20,10 @@ void btl::kinect::SCamera::generateMapXY4Undistort()
 	cv::Mat_<float> cvmK(3,3); cvmK.setTo(0.f);
 	cvmK.at<float>(0,0) = _fFx;cvmK.at<float>(1,1) = _fFy;cvmK.at<float>(2,2) = 1.f;
 	cvmK.at<float>(0,2) = _u;cvmK.at<float>(1,2) = _v;
+
 	cv::Mat_<float> cvmInvK = cvmK.inv(cv::DECOMP_SVD);
+	cv::Mat          _cvmMapX; //for undistortion
+	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
 	btl::utility::map4UndistortImage<float> ( _sHeight, _sWidth, cvmK, cvmInvK, _cvmDistCoeffs, &_cvmMapX, &_cvmMapY );
 	_cvgmMapX.upload(_cvmMapX);
 	_cvgmMapY.upload(_cvmMapY);
@@ -35,8 +39,8 @@ void btl::kinect::SCamera::importYML()
 	strFileName = "C:\\csxsl\\src\\opencv-shuda\\Data\\";
 	//cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
 #endif
-	if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "CameraRGB.yml";}
-	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "CameraIR.yml";}
+	if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "XtionRGB.yml";}
+	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "XtionIR.yml";}
 
 	cv::FileStorage cFSRead ( strFileName, cv::FileStorage::READ );
 	cFSRead ["_fFx"] >> _fFx;
@@ -48,6 +52,15 @@ void btl::kinect::SCamera::importYML()
 	cFSRead ["_cvmDistCoeffs"] >> _cvmDistCoeffs;
 	cFSRead.release();
 
+	int div = 1 << _uResolution;
+	_fFx/=div;
+	_fFy/=div;
+	_u/=div;
+	_v/=div;
+	_sWidth/=div;
+	_sHeight/=div;
+	_cvmDistCoeffs/=div;
+	
 	generateMapXY4Undistort();
 
 	return;

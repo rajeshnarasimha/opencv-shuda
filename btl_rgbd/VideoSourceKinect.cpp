@@ -48,58 +48,65 @@ using namespace btl::utility;
 namespace btl{ namespace kinect
 {
 
-VideoSourceKinect::VideoSourceKinect ()
+
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_)
 {
+	/*boost::posix_time::ptime _cT0, _cT1;
+	boost::posix_time::time_duration _cTDAll;
+	_cT0 =  boost::posix_time::microsec_clock::local_time(); 
+	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
+	_cTDAll = _cT1 - _cT0 ;
+	PRINT( _cTDAll.total_milliseconds() );*/
+
     std::cout << "  VideoSourceKinect: Opening Kinect..." << std::endl;
 
     XnStatus nRetVal = XN_STATUS_OK;
-    //initialize OpenNI context
-    nRetVal = _cContext.Init();
-    CHECK_RC ( nRetVal, "Initialize context: " );
-    //create a image generator
-    nRetVal =  _cImgGen.Create ( _cContext );
-    CHECK_RC ( nRetVal, "Create image generator: " );
-    //create a depth generator
-    nRetVal =  _cDepthGen.Create ( _cContext );
-    CHECK_RC ( nRetVal, "Create depth generator: " );
-    //start generating data
-    nRetVal = _cContext.StartGeneratingAll();
-    CHECK_RC ( nRetVal, "Start generating data: " );
+	//_cContext inizialization 
+	nRetVal = _cContext.Init();						CHECK_RC(nRetVal, "Initialize _cContext"); 
+	//RGB node creation 
+	nRetVal = _cImgGen.Create(_cContext);			CHECK_RC(nRetVal, "Create rgb generator fail"); 
+	//IR node creation 
+	nRetVal = _cDepthGen.Create(_cContext);			CHECK_RC(nRetVal, "Create depth generator"); 
+	// set as the highest resolution 0 480x640
+	setResolution(uResolution_);
+    
 	//register the depth generator with the image generator
     //nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );
 	//CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
 	PRINTSTR("Kinect connected");
-	//import camera parameters
-	_pRGBCamera.reset(new SCamera(btl::kinect::SCamera::CAMERA_RGB));
-	_pIRCamera .reset(new SCamera(btl::kinect::SCamera::CAMERA_IR));
-	importYML();
-	PRINTSTR("data holder constructed...");
-	_pFrame.reset(new CKeyFrame(_pRGBCamera.get()));
-	//allocate
-    _cvmRGB			   .create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
-	_cvmUndistRGB	   .create( KINECT_HEIGHT, KINECT_WIDTH, CV_8UC3 );
-	_cvmDepth		   .create( KINECT_HEIGHT, KINECT_WIDTH, CV_32FC1);
-	_cvmUndistDepth	   .create( KINECT_HEIGHT, KINECT_WIDTH, CV_32FC1);
-	_cvmAlignedRawDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_32FC1);
 
-	_cvmIRWorld .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
-	_cvmRGBWorld.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
+	//allocate
+	_cvmRGB			   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_8UC3 );
+	_cvmUndistRGB	   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_8UC3 );
+	_cvmDepth		   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_32FC1);
+	_cvmUndistDepth	   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_32FC1);
+	//_cvmAlignedRawDepth.create( KINECT_HEIGHT, KINECT_WIDTH, CV_32FC1);
+
+	//_cvmIRWorld .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
+	//_cvmRGBWorld.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
 
 	// allocate memory for later use ( registrate the depth with rgb image
 	// refreshed for every frame
 	// pre-allocate cvgm to increase the speed
-	_cvgmIRWorld        .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
-	_cvgmRGBWorld       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC3);
-	_cvgmAlignedRawDepth.create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
-	_cvgm32FC1Tmp       .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
-	_cvgmUndistDepth    .create(KINECT_HEIGHT,KINECT_WIDTH,CV_32FC1);
+	_cvgmIRWorld        .create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC3);
+	_cvgmRGBWorld       .create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC3);
+	_cvgmAlignedRawDepth.create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC1);
+	_cvgm32FC1Tmp       .create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC1);
+	_cvgmUndistDepth    .create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC1);
+
+	//import camera parameters
+	_pRGBCamera.reset(new SCamera(btl::kinect::SCamera::CAMERA_RGB,_uResolution));
+	_pIRCamera .reset(new SCamera(btl::kinect::SCamera::CAMERA_IR, _uResolution));
+
+	importYML();
+	PRINTSTR("data holder constructed...");
+	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight));
 
 	//other
 	//definition of parameters
 	_fThresholdDepthInMeter = 0.01f;
 	_fSigmaSpace = 1.5;
 	_fSigmaDisparity = 1.f/.6f - 1.f/(.6f+_fThresholdDepthInMeter);
-	_uPyrHeight = 1;
 
 	//default centroid follows opencv-convention
 	_dXCentroid = _dYCentroid = 0;
@@ -124,7 +131,7 @@ void VideoSourceKinect::importYML()
 #if __linux__
 	cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
 #else if _WIN32 || _WIN64
-	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
+	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\xtion_intrinsics.yml", cv::FileStorage::READ );
 #endif
 	cv::Mat cvmRelativeRotation,cvmRelativeTranslation;
 	cFSRead ["cvmRelativeRotation"] >> cvmRelativeRotation;
@@ -192,28 +199,30 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
     _cImgGen.GetMetaData ( _cImgMD );
     _cDepthGen.GetMetaData( _cDepthMD );
 
-	cv::Mat cvmRGB(__aKinectH[0],__aKinectW[0],CV_8UC3, (unsigned char*)_cImgMD.WritableRGB24Data());
-	cv::Mat cvmDep(__aKinectH[0],__aKinectW[0],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
+	cv::Mat cvmRGB(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_8UC3, (unsigned char*)_cImgMD.WritableRGB24Data());
+	cv::Mat cvmDep(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
 	cvmRGB.copyTo(_cvmRGB);
 	cvmDep.convertTo(_cvmDepth,CV_32FC1);
+	//mail capturing fuction
+	gpuBuildPyramidCVm( );
 
-    switch( eFrameType_ ){
+    /*switch( eFrameType_ ){
 		case CPU_PYRAMID_CV:
 			buildPyramid( btl::utility::BTL_CV );
-			break;
-		case GPU_PYRAMID_CV:
-			gpuBuildPyramidCVm( );
 			break;
 		case CPU_PYRAMID_GL:
 			buildPyramid( btl::utility::BTL_GL );
 			break;
-    }
+		case GPU_PYRAMID_CV:
+			gpuBuildPyramidCVm( );
+			break;
+    }*/
 
 	//cout << " getNextFrame() ends."<< endl;
     return;
 }
 void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eConvention_ ){
-	_pFrame->_eConvention = eConvention_;
+	/*_pFrame->_eConvention = eConvention_;
 	// not fullly understand the lense distortion model used by OpenNI.
 	//undistortRGB( _cvmRGB, &*_pFrame->_acvmShrPtrPyrRGBs[0] );
 	cv::remap(_cvmRGB,_cvmUndistRGB,_pRGBCamera->_cvmMapX,_pRGBCamera->_cvmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT);
@@ -229,7 +238,7 @@ void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eCon
 		btl::utility::bilateralFilterInDisparity<float>(&*_pFrame->_acvmPyrDepths[i],_fSigmaDisparity,_fSigmaSpace);
 		unprojectRGB(*_pFrame->_acvmPyrDepths[i],i, &*_pFrame->_acvmShrPtrPyrPts[i],eConvention_);
 		fastNormalEstimation(*_pFrame->_acvmShrPtrPyrPts[i],&*_pFrame->_acvmShrPtrPyrNls[i]);
-	}
+	}*/
 }
 
 void VideoSourceKinect::gpuBuildPyramidCVm( ){
@@ -293,7 +302,8 @@ void VideoSourceKinect::gpuBuildPyramidCVm( ){
 		//	}
 		//}
 	}
-	for (int i=0; i<_uPyrHeight;i++){
+	/*
+	for (unsigned int i=_uResolution; i<_uPyrHeight;i++){
 
 		//clear plane obj
 		_pFrame->_vPlaneObjsDistanceNormal[i].clear();
@@ -311,7 +321,7 @@ void VideoSourceKinect::gpuBuildPyramidCVm( ){
 		//{
 		//	PRINT(nRe);
 		//}
-	}
+	}*/
 
 	return;
 }
@@ -331,13 +341,13 @@ void VideoSourceKinect::gpuAlignDepthWithRGB( const cv::gpu::GpuMat& cvgmUndisto
 void VideoSourceKinect::alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_)
 {
 	// initialize the Registered depth as NULLs
-	pcvAligned_->setTo(0);
+	//pcvAligned_->setTo(0);
 	//unproject the depth map to IR coordinate
-	unprojectIR      ( cvUndistortDepth_, &_cvmIRWorld );
+	//unprojectIR      ( cvUndistortDepth_, &_cvmIRWorld );
 	//transform from IR coordinate to RGB coordinate
-	transformIR2RGB  ( _cvmIRWorld, &_cvmRGBWorld );
+	//transformIR2RGB  ( _cvmIRWorld, &_cvmRGBWorld );
 	//project RGB coordinate to image to register the depth with rgb image
-	projectRGB       ( _cvmRGBWorld,&(*pcvAligned_) );
+	//projectRGB       ( _cvmRGBWorld,&(*pcvAligned_) );
 	return;
 }
 void VideoSourceKinect::unprojectIR ( const cv::Mat& cvmDepth_, cv::Mat* pcvmIRWorld_)
@@ -504,7 +514,39 @@ void VideoSourceKinect::fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pc
 	return;
 }
 
+void VideoSourceKinect::setResolution(ushort uResolutionLevel_){
+	 _uResolution = uResolutionLevel_;
+	_cContext.StopGeneratingAll();
+	XnStatus nRetVal = XN_STATUS_OK;
+	XnMapOutputMode sModeVGA; 
+	sModeVGA.nFPS = 30; 
+	switch(_uResolution){
+	case 3:
+		_uPyrHeight = 1;
+		sModeVGA.nXRes = 80; 
+		sModeVGA.nYRes = 60; 
+	case 2:
+		_uPyrHeight = 2;
+		sModeVGA.nXRes = 160; 
+		sModeVGA.nYRes = 120; 
+		break;
+	case 1:
+		_uPyrHeight = 3;
+		sModeVGA.nXRes = 320; 
+		sModeVGA.nYRes = 240; 
+		break;
+	case 0:
+		_uPyrHeight = 4;
+		sModeVGA.nXRes = 640; 
+		sModeVGA.nYRes = 480; 
+		break;
+	}
 
+	nRetVal = _cImgGen.SetMapOutputMode(sModeVGA); 	CHECK_RC(nRetVal, "Depth SetMapOutputMode XRes for 240, YRes for 320 and FPS for 30"); 
+	nRetVal = _cDepthGen.SetMapOutputMode(sModeVGA);CHECK_RC(nRetVal, "Depth SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30"); 
+	nRetVal = _cDepthGen.StartGenerating();			CHECK_RC(nRetVal, "Start generating Depth fail");
+	nRetVal = _cContext.StartGeneratingAll();       CHECK_RC ( nRetVal, "Start generating data: " );
+}
 
 } //namespace kinect
 } //namespace btl

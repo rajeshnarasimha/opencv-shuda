@@ -5,6 +5,9 @@ find_package( OpenCV REQUIRED )
 
 find_package( CUDA )
 include(FindCUDA)
+
+#find_package(Boost 1.51.0 REQUIRED COMPONENTS system filesystem serialization date_time)
+
 if( UNIX )
     message(STATUS "platform: UNIX")
     include_directories ( ${EIGEN_INCLUDE_DIRS} )
@@ -22,6 +25,7 @@ elseif( WIN32 )
     include_directories ( $ENV{YAML-CPP_INCLUDE_DIR} )
     include_directories ( $ENV{GLEW_INCLUDE_DIR} )
 	include_directories ( $ENV{CUDA_INC_PATH} )
+	include_directories ( $ENV{CUDALIB} )
 
 	link_directories ( $ENV{FREEGLUT_LIB_DIR} )
 endif()
@@ -66,10 +70,10 @@ endif()
 #install 
 install( TARGETS BtlRgbd  DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
 install( TARGETS CudaLib   DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
-install( FILES ${HEADERS} ${CUDAHEADERS} DESTINATION "${PROJECT_SOURCE_DIR}/include")
+#install( FILES ${HEADERS} ${CUDAHEADERS} DESTINATION "${PROJECT_SOURCE_DIR}/include")
 
 add_executable( TestBtlRgbd ${TESTERS} )
-target_link_libraries( TestBtlRgbd ${OpenCV_LIBS} freeglut BtlRgbd CudaLib)#
+target_link_libraries( TestBtlRgbd ${OpenCV_LIBS} freeglut BtlRgbd CudaLib ) #${Boost_DATE_TIME_LIBRARY})#
 
 include("kinect_liveview/CMakeLists.txt")
 include("kinect_fusion/CMakeLists.txt")

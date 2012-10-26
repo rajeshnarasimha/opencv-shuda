@@ -23,19 +23,19 @@ public:
 	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
 
 	//constructor
-    VideoSourceKinect();
+    VideoSourceKinect(ushort uResolution_);
     virtual ~VideoSourceKinect();
 
 	void getNextFrame(tp_frame eFrameType_);
-	void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
+	/*void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
 	{
 		_uPyrHeight = uPyrHeight_>4? 4:uPyrHeight_;
 		getNextFrame(eFrameType_);
 		return;
-	}
+	}*/
     // 1. need to call getNextFrame() before hand
     // 2. RGB color channel (rather than BGR as used by cv::imread())
- 
+	void setResolution(ushort uLevel_);
 	//opencv convention
 	void centroid( Eigen::Vector3d* peivCentroid_ ) const 
 	{
@@ -72,6 +72,7 @@ public:
 	float _fSigmaSpace; //degree of blur for the bilateral filter
 	float _fSigmaDisparity; 
 	unsigned int _uPyrHeight;//the height of pyramid
+	ushort _uResolution;//0 640x480; 1 320x240; 2 160x120 3 80x60
 	//cameras
 	boost::scoped_ptr<SCamera> _pRGBCamera;
 	boost::scoped_ptr<SCamera> _pIRCamera;
@@ -101,12 +102,12 @@ private:
 
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
 	//in the format of the RGB image
-	cv::Mat		     _cvmAlignedRawDepth;//640*480
+	//cv::Mat		     _cvmAlignedRawDepth;//640*480
 	cv::gpu::GpuMat _cvgmAlignedRawDepth;
 	// temporary variables allocated in constructor and released in destructor
 	// refreshed for every frame
-	cv::Mat _cvmIRWorld; //XYZ w.r.t. IR camera reference system
-	cv::Mat _cvmRGBWorld;//XYZ w.r.t. RGB camera but indexed in IR image
+	//cv::Mat _cvmIRWorld; //XYZ w.r.t. IR camera reference system
+	//cv::Mat _cvmRGBWorld;//XYZ w.r.t. RGB camera but indexed in IR image
 	//temporary file but will be faster to be allocated only once.
 	cv::gpu::GpuMat _cvgmIRWorld;
 	cv::gpu::GpuMat _cvgmRGBWorld;
@@ -119,7 +120,6 @@ private:
 	// initialized in constructor after load of the _cCalibKinect.
 	float _aR[9];	// Relative rotation transpose
 	float _aRT[3]; // aRT =_aR * T, the relative translation
-
 };
 
 } //namespace kinect

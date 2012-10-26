@@ -76,6 +76,44 @@ Eigen::Matrix< T, Eigen::Dynamic, 1 >& operator << ( Eigen::Matrix< T, Eigen::Dy
 }
 
 template < class T >
+Eigen::Matrix< T, Eigen::Dynamic, 1 >& operator << ( Eigen::Matrix< T, Eigen::Dynamic, 1 >& eiVec_, const cv::Mat& cvmVec_ )
+{
+	if ( cvmVec_.empty() ){
+		eiVec_.resize ( 0, 0 );
+	}
+	else{
+		eiVec_.resize ( cvmVec_.rows, 1 );
+	}
+
+	const T* p = (const T*)cvmVec_.data;
+	for ( int r = 0; r < cvmVec_.rows; r++ ){
+		eiVec_ ( r, 0 ) = *p;
+		p ++;
+	}
+
+	return eiVec_;
+}
+
+template < class T >
+Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic >& operator << ( Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic >& eiMat_, const cv::Mat& cvmMat_ )
+{
+	if ( cvmMat_.empty() ){
+		eiMat_.resize ( 0, 0 );
+	}
+	else{
+		eiMat_.resize ( cvmMat_.rows, cvmMat_.cols );
+	}
+
+	for ( int r = 0; r < cvmMat_.rows; r++ ){
+		for ( int c = 0; c < cvmMat_.cols; c++ ){
+			eiMat_ ( r, c ) = cvmMat_.template at< T > ( r , c );
+		}
+	}
+
+	return eiMat_;
+}
+
+template < class T >
 const std::vector< T >&  operator >> ( const std::vector< T >& vVec_, Eigen::Matrix< T, Eigen::Dynamic, 1 >& eiVec_ )
 {
     eiVec_ << vVec_;

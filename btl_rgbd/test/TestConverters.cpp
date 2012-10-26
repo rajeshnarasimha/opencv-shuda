@@ -635,7 +635,33 @@ void tryEigen()
 	//tryDataOrderEigenMaxtrix();
 	//tryEigenData();
 }
+void tryConverter(){
+	using namespace btl::utility;
+	cv::Mat cvmVec;
+	cvmVec.create(3,1,CV_64FC1);
+	cvmVec.at<double>(0,0) = 1.0;
+	cvmVec.at<double>(1,0) = 2.0;
+	cvmVec.at<double>(2,0) = 3.0;
+	PRINT(cvmVec);
+	Eigen::VectorXd eivVec;
+	Eigen::Vector3d eivVec2;
+	eivVec << cvmVec;
+	eivVec2 = eivVec;
+	PRINT(eivVec2);
 
+	cv::Mat cvmMat;
+	cvmMat.create(2,2,CV_64FC1);
+	cvmMat.at<double>(0,0) = 1.0;
+	cvmMat.at<double>(1,0) = 2.0;
+	cvmMat.at<double>(0,1) = 3.0;
+	cvmMat.at<double>(1,1) = 4.0;
+	PRINT( cvmMat );
+	Eigen::MatrixXd eimMat;
+	eimMat << cvmMat;
+	Eigen::Matrix2d eimMat2;
+	eimMat2 = eimMat;
+	PRINT( eimMat2 );
+}
 int main()
 {
 	try
@@ -643,8 +669,9 @@ int main()
 		//test();
 		//cudaTestTry();
 		//tryCpp();
-		tryCV();
+		//tryCV();
 		//tryEigen();
+		tryConverter();
 	}
 	catch ( std::runtime_error e )
 	{
