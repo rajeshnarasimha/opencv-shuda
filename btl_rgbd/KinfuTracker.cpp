@@ -34,7 +34,7 @@
 #include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
-#include "Model.h"
+#include "KinfuTracker.h"
 #include "cuda/CudaLib.h"
 #include "cuda/Volume.h"
 #include "cuda/pcl/internal.h"
@@ -43,28 +43,28 @@
 namespace btl{ namespace geometry
 {
 
-CModel::CModel()
+CKinfuTracker::CKinfuTracker()
 {
-	_fVolumeSizeM = 4.f; //3m
+	_fVolumeSizeM = 3.f; //3m
 	_fVoxelSizeM = _fVolumeSizeM/VOLUME_RESOL;
-	_fTruncateDistanceM = _fVoxelSizeM*6;
+	_fTruncateDistanceM = _fVoxelSizeM*4;
 	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
 	//_cvgmYZxXVolContentCV.setTo(0);
 }
-CModel::~CModel(void)
+CKinfuTracker::~CKinfuTracker(void)
 {
 	//if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
-void CModel::reset(){
+void CKinfuTracker::reset(){
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
 }
-void CModel::unpack_tsdf (short2 value, float& tsdf, int& weight)
+void CKinfuTracker::unpack_tsdf (short2 value, float& tsdf, int& weight)
 {
     weight = value.y;
     tsdf =  (value.x) / 30000;//32767;   //*/ * INV_DIV;
 }
-void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
+void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
 	Eigen::Vector3d eivCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
 	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
 	btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmShrPtrPyrDepths[0],0,
@@ -87,7 +87,7 @@ void CModel::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFram
 	}*/
 	//_cvgmYZxXVolContentCV.download(cvmTest);
 }
-void CModel::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const {
+void CKinfuTracker::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const {
 	Eigen::Matrix3f eimcmRwCur = cCurrentFrame_._eimRw.cast<float>();
 	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (eimcmRwCur);
@@ -118,11 +118,11 @@ void CModel::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinec
 	//pVirtualFrame_->constructPyramid(_fSigmaSpace, _fSigmaDisparity);
 }
 
-void CModel::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
+void CKinfuTracker::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
 	_pGL = pGL_;
 	if(_pGL) _pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
 }
-void CModel::gpuRenderVoxelInWorldCVGL(){
+void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
 	cudaGraphicsMapResources(1, &_pResourceVBO, 0);

@@ -3,20 +3,20 @@
 
 namespace btl{ namespace geometry
 {
-#define RESOL 512//256//128  
-#define LEVEL 262144//65536//16384 //VOLUME_RESOL * VOLUME_RESOL 
-#define TOTAL 134217728//16777216//2097152//VOLUME_LEVEL * VOLUME_RESOL 
-class CModel
+#define RESOL 256//128 // 512//
+#define LEVEL 65536//16384 //VOLUME_RESOL * VOLUME_RESOL //262144//
+#define TOTAL 16777216//2097152//VOLUME_LEVEL * VOLUME_RESOL //134217728//
+class CKinfuTracker
 {
 //type
 public:
-	typedef boost::shared_ptr<CModel> tp_shared_ptr;
+	typedef boost::shared_ptr<CKinfuTracker> tp_shared_ptr;
 	enum {VOLUME_RESOL = RESOL, VOLUME_LEVEL = LEVEL, VOXEL_TOTAL = TOTAL};
 private:
 	//methods
 public:
-	CModel();
-	~CModel();
+	CKinfuTracker();
+	~CKinfuTracker();
 	void gpuRenderVoxelInWorldCVGL();
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
