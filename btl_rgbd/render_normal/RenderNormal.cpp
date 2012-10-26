@@ -193,8 +193,8 @@ void display ( void )
 	_pGL->errorDetectorGL();
 	if(/*_bContinuous &&*/ _bCaptureCurrentFrame) 
 	{
-		_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-		for (ushort u=0;u<4;u++){
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+		for (ushort u=0;u<_pKinect->_uPyrHeight;u++){
 			_pKinect->_pFrame->gpuDetectPlane(u);
 			_pKinect->_pFrame->gpuTransformToWorldCVCV(u);
 		}//for each pyramid level
@@ -215,7 +215,7 @@ void display ( void )
     // render objects
     _pGL->renderAxisGL();
 	//_pGL->renderVoxelGL(2.f);
-	//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_usPyrLevel);
+	//_pModel->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame,_pGL->_usPyrHeight);
 	//_pModel->gpuRenderVoxelInWorldCVGL();
 	//render all planes in the first frame
 	
@@ -227,10 +227,10 @@ void display ( void )
 	//_pMPMV->renderGivenPlaneInAllViewWorldCVGL(_pGL.get(),_usColorIdx,3,_usPlaneNO);
 	//
 
-	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usPyrLevel);
-	//_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel);
-	_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usPyrLevel);
-	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,_usColorIdx,_bRenderPlane );
+	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
+	//_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	_pKinect->_pFrame->renderPlanesInWorld(_pGL.get(),0,_pGL->_usLevel);
+	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,_usColorIdx,_bRenderPlane );
 
 	//_pMPMV->renderAllCamrea(_pGL.get(),true,_bRenderDepth,_usViewNO,.05f);
 	/*
@@ -244,8 +244,8 @@ void display ( void )
 	Eigen::Matrix4d eimModelViewGL;
 	_pKinect->_pFrame->setView(&eimModelViewGL);
 	glLoadMatrixd(eimModelViewGL.data());
-	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),true,4.2f,_pGL->_usPyrLevel);
-	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel);
+	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),true,4.2f,_pGL->_usLevel);
+	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
     */
     glutSwapBuffers();
     glutPostRedisplay();
@@ -274,11 +274,11 @@ void init ( ){
     glEnable     ( GL_CULL_FACE );
     glShadeModel ( GL_FLAT );
     glPixelStorei( GL_UNPACK_ALIGNMENT, 1);
-	_pGL->_usPyrLevel=2;
-	_pKinect->getNextPyramid(4,btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pGL->_usLevel=0;
+	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 	_pKinect->_pFrame->_bGPURender = _bRenderDepth;
 	_pKinect->_pFrame->_bRenderPlane = true;
-	for (ushort u=0;u<4;u++){
+	for (ushort u=0;u<_pKinect->_uPyrHeight;u++){
 		_pKinect->_pFrame->gpuDetectPlane(u);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(u);
 	}//for each pyramid level
@@ -308,9 +308,9 @@ int main ( int argc, char** argv ){
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
 		
-		_pGL.reset( new btl::gl_util::CGLUtil(btl::utility::BTL_CV) );
+		_pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
-		_pKinect.reset( new btl::kinect::VideoSourceKinect() );
+		_pKinect.reset( new btl::kinect::VideoSourceKinect(1) );
 		
 		init();
 		_pGL->constructVBOsPBOs();

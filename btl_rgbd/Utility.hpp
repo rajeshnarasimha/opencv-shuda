@@ -91,16 +91,22 @@ void normalEstimationGL( const T* pDepth_, const cv::Mat& cvmRGB_,
 	return;
 }*/
 template< class T >
-T norm3( const T* pPtCur_, const T* pPtRef_, const double* pRwRef_/*col major*/, const double* pTwRef_ ){
-	//C = R*W + T
-	T tC0 = pRwRef_[0]*pPtRef_[0] + pRwRef_[3]*pPtRef_[1] + pRwRef_[6]*pPtRef_[2] + pTwRef_[0];
-	T tC1 = pRwRef_[1]*pPtRef_[0] + pRwRef_[4]*pPtRef_[1] + pRwRef_[7]*pPtRef_[2] + pTwRef_[1];
-	T tC2 = pRwRef_[2]*pPtRef_[0] + pRwRef_[5]*pPtRef_[1] + pRwRef_[8]*pPtRef_[2] + pTwRef_[2];
-
-	T tTmp0 = pPtCur_[0]-tC0;
-	T tTmp1 = pPtCur_[1]-tC1;
-	T tTmp2 = pPtCur_[2]-tC2;
+T norm3( const T* pPtCur_, const T* pPtRef_ ){
+	T tTmp0 = pPtCur_[0]-pPtRef_[0];
+	T tTmp1 = pPtCur_[1]-pPtRef_[1];
+	T tTmp2 = pPtCur_[2]-pPtRef_[2];
 	return std::sqrt(tTmp0*tTmp0 + tTmp1*tTmp1 + tTmp2*tTmp2);
+}
+
+template< class T >
+T norm3( const T* pPtCurCam_, const T* pPtRefWor_, const double* pCurRw_/*col major*/, const double* pCurTw_ ){
+	//C = CurRw*W + T
+	T tRefCam[3];
+	tRefCam[0] = pCurRw_[0]*pPtRefWor_[0] + pCurRw_[3]*pPtRefWor_[1] + pCurRw_[6]*pPtRefWor_[2] + pCurTw_[0];
+	tRefCam[1] = pCurRw_[1]*pPtRefWor_[0] + pCurRw_[4]*pPtRefWor_[1] + pCurRw_[7]*pPtRefWor_[2] + pCurTw_[1];
+	tRefCam[2] = pCurRw_[2]*pPtRefWor_[0] + pCurRw_[5]*pPtRefWor_[1] + pCurRw_[8]*pPtRefWor_[2] + pCurTw_[2];
+
+	return norm3< T >( pPtCurCam_,tRefCam);
 }
 template< class T >
 void normalEstimationGLPCL( const T* pDepth_, const cv::Mat& cvmRGB_, int nKNearest_, std::vector<const unsigned char*>* vColor_, std::vector<Eigen::Vector3d>* vPt_, std::vector<Eigen::Vector3d>* vNormal_ )

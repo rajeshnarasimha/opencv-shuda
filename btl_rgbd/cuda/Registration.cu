@@ -40,11 +40,11 @@ struct SDeviceICPRegistration
     cv::gpu::DevMem2D_<float3> _cvgmVMapLocalCur;
     cv::gpu::DevMem2D_<float3> _cvgmNMapLocalCur;
 
-    pcl::device::Mat33  _mRwRef;
-    float3 _vTwRef;
+    pcl::device::Mat33  _mRwPrev;
+    float3 _vTwPrev;
 
-    cv::gpu::DevMem2D_<float3> _cvgmVMapWorldRef;
-	cv::gpu::DevMem2D_<float3> _cvgmNMapWorldRef;
+    cv::gpu::DevMem2D_<float3> _cvgmVMapWorldPrev;
+	cv::gpu::DevMem2D_<float3> _cvgmNMapWorldPrev;
 
     float _fDistThres;
     float _fSinAngleThres;
@@ -60,7 +60,7 @@ struct SDeviceICPRegistration
 		//transform the current vetex to reference camera coodinate system
 		float3 f3PtLocalCur = _cvgmVMapLocalCur.ptr(nY_)[nX_]; if (isnan (f3PtLocalCur.x)) return false; //retrieve vertex from current frame
 		float3 f3PtWorldCur = _mRwCurTrans * (f3PtLocalCur - _vTwCur); //transform it to World
-		float3 f3PtCur_LocalPrev = _mRwRef * f3PtWorldCur + _vTwRef; 
+		float3 f3PtCur_LocalPrev = _mRwPrev * f3PtWorldCur + _vTwPrev; 
 		//projection onto reference image
 		int2 n2Ref;        
 		n2Ref.x = __float2int_rn (f3PtCur_LocalPrev.x * _sCamIntr.fx / f3PtCur_LocalPrev.z + _sCamIntr.cx);  
@@ -68,9 +68,9 @@ struct SDeviceICPRegistration
 		//if projected out of the frame, return false
 		if (n2Ref.x < 0 || n2Ref.y < 0 || n2Ref.x >= _nCols || n2Ref.y >= _nRows || f3PtCur_LocalPrev.z < 0) return false;
 		//retrieve corresponding reference normal
-		const float3& f3NlWorldRef = _cvgmNMapWorldRef.ptr(n2Ref.y)[n2Ref.x];	if (isnan (f3NlWorldRef.x))  return false;
+		const float3& f3NlWorldRef = _cvgmNMapWorldPrev.ptr(n2Ref.y)[n2Ref.x];	if (isnan (f3NlWorldRef.x))  return false;
 		//retrieve corresponding reference vertex
-		const float3& f3PtWorldRef = _cvgmVMapWorldRef.ptr (n2Ref.y)[n2Ref.x];  if (isnan (f3PtWorldRef.x))  return false;
+		const float3& f3PtWorldRef = _cvgmVMapWorldPrev.ptr (n2Ref.y)[n2Ref.x];  if (isnan (f3PtWorldRef.x))  return false;
 		//check distance
 		float fDist = norm (f3PtWorldRef - f3PtWorldCur); 
 		if (fDist > _fDistThres)  return (false);
@@ -172,8 +172,8 @@ __global__ void kernelTransformEstimator ( STranformReduction sTR ) {
 void registrationICP(
 const Intr& sCamIntr_, float fDistThres_, float fSinAngleThres_,
 const pcl::device::Mat33& RwCurTrans_, const float3& TwCur_, 
-const pcl::device::Mat33& RwRef_,      const float3& TwRef_, 
-cv::gpu::GpuMat& cvgmVMapWorldRef_, cv::gpu::GpuMat& cvgmNMapWorldRef_, 
+const pcl::device::Mat33& RwPrev_,      const float3& TwPrev_, 
+cv::gpu::GpuMat& cvgmVMapWorldPrev_, cv::gpu::GpuMat& cvgmNMapWorldPrev_, 
 cv::gpu::GpuMat* pVMapLocalCur_,  cv::gpu::GpuMat* pNMapLocalCur_,
 cv::gpu::GpuMat* pcvgmSumBuf_){
 
@@ -187,11 +187,11 @@ cv::gpu::GpuMat* pcvgmSumBuf_){
     sICP._cvgmVMapLocalCur = *pVMapLocalCur_;
     sICP._cvgmNMapLocalCur = *pNMapLocalCur_;
 
-    sICP._mRwRef = RwRef_;
-    sICP._vTwRef = TwRef_;
+    sICP._mRwPrev = RwPrev_;
+    sICP._vTwPrev = TwPrev_;
 
-    sICP._cvgmVMapWorldRef = cvgmVMapWorldRef_;
-	sICP._cvgmNMapWorldRef = cvgmNMapWorldRef_;
+    sICP._cvgmVMapWorldPrev = cvgmVMapWorldPrev_;
+	sICP._cvgmNMapWorldPrev = cvgmNMapWorldPrev_;
 
     sICP._fDistThres = fDistThres_;
     sICP._fSinAngleThres = fSinAngleThres_;
@@ -202,8 +202,8 @@ cv::gpu::GpuMat* pcvgmSumBuf_){
 
 	dim3 block (SDeviceICPRegistration::CTA_SIZE_X, SDeviceICPRegistration::CTA_SIZE_Y);
     dim3 grid (1, 1, 1);
-	grid.x = cv::gpu::divUp (cvgmVMapWorldRef_.cols, block.x);
-	grid.y = cv::gpu::divUp (cvgmVMapWorldRef_.rows, block.y);
+	grid.x = cv::gpu::divUp (cvgmVMapWorldPrev_.cols, block.x);
+	grid.y = cv::gpu::divUp (cvgmVMapWorldPrev_.rows, block.y);
 		
 	cv::gpu::GpuMat cvgmBuf(STranformReduction::TOTAL, grid.x * grid.y,CV_64FC1);
 	sICP._cvgmBuf = cvgmBuf;

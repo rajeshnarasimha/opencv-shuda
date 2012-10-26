@@ -24,7 +24,7 @@ elseif( WIN32 )
     include_directories ( $ENV{YAML-CPP_INCLUDE_DIR} )
     include_directories ( $ENV{GLEW_INCLUDE_DIR} )
 	include_directories ( $ENV{CUDA_INC_PATH} )
-	include_directories ( "C:/csxsl/src/opencv-shuda/btl_rgbd/include" )
+	include_directories ( "C:/csxsl/src/opencv-shuda/btl_rgbd/" )
     
     link_directories ( "C:/csxsl/src/opencv-shuda/btl_rgbd/lib" )
 	link_directories ( $ENV{OPEN_NI_LIB_DIR}  )

@@ -26,7 +26,7 @@ public:
 	enum tp_cluster { NORMAL_CLUSTER, DISTANCE_CLUSTER};
 
 public:
-    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_ );
+    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_ );
 	CKeyFrame(CKeyFrame::tp_ptr pFrame_);
     ~CKeyFrame() {}
 	// detect the correspondences 
@@ -84,6 +84,7 @@ public:
 	void gpuDetectPlane (const short uPyrLevel_);
 	void transformPlaneObjsToWorldCVCV(const ushort usPyrLevel_);
 	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
+	void gpuTransformToWorldCVCV();
 	void updateMVInv();
 	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
 	void setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_);
@@ -91,6 +92,8 @@ public:
 	void gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_);
 	void applyClassifier(btl::gl_util::CGLUtil::tp_ptr pGL_, float fThreshold_, const unsigned short usPyrLevel_);
 	void gpuBoundaryDetector(float fThreshold_, const unsigned short usPyrLevel_);
+	void exportYML(const std::string& strPath_, const std::string& strYMLName_);
+	void importYML(const std::string& strPath_, const std::string& strYMLName_);
 private:
 	//surf keyframe matching
     void selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_,
@@ -168,6 +171,9 @@ private:
 	cv::gpu::GpuMat _cvgmDescriptors;
 	//plane correspondences
 	std::vector<SPlaneCorrespondence> _vPlaneCorrespondences;
+
+	ushort _uPyrHeight;
+	ushort _uResolution;
 	
 };//end of class
 

@@ -5,7 +5,7 @@ project (RenderNormal)
 find_package(OpenCV REQUIRED)
 find_package( CUDA )
 include(FindCUDA)
-find_package(Boost 1.40.0 REQUIRED COMPONENTS system filesystem serialization)
+find_package(Boost 1.51.0 REQUIRED COMPONENTS system filesystem serialization date_time)
 
 if( UNIX )
     include_directories ( "/space/csxsl/src/opencv-shuda/btl_rgbd/include" )
@@ -40,7 +40,7 @@ elseif( WIN32 )
 	set(CUDALIB  optimized CudaLib  debug CudaLibd)
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
 	set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64
-        ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SERIALIZATION_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SERIALIZATION_LIBRARY} ${Boost_DATE_TIME_LIBRARY}
         freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)#
     endif()
 

@@ -11,7 +11,7 @@ struct SCamera
 	enum tp_camera {CAMERA_RGB, CAMERA_IR};
 
 	//constructor
-	SCamera(btl::kinect::SCamera::tp_camera eT_ = CAMERA_RGB);
+	SCamera(btl::kinect::SCamera::tp_camera eT_ = CAMERA_RGB,ushort uResolution_ = 0);//0 480x640
 	//methods
 
 	//rendering
@@ -23,13 +23,14 @@ struct SCamera
 	void generateMapXY4Undistort();
 
 	//camera parameters
+	ushort _uResolution;
 	float _fFx, _fFy, _u, _v; //_dFxIR, _dFyIR IR camera focal length
 	unsigned short _sWidth, _sHeight;
 	cv::Mat _cvmDistCoeffs;
 	//rendering
 	//GLuint _uTexture;
-	cv::Mat          _cvmMapX; //for undistortion
-	cv::Mat			 _cvmMapY; //useless just for calling cv::remap
+	//cv::Mat          _cvmMapX; //for undistortion
+	//cv::Mat			 _cvmMapY; //useless just for calling cv::remap
 	cv::gpu::GpuMat  _cvgmMapX;
 	cv::gpu::GpuMat  _cvgmMapY;
 	//type

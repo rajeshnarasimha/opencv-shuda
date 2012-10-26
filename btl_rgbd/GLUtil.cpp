@@ -26,8 +26,8 @@
 namespace btl{	namespace gl_util
 {
 	
-CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/)
-:_eConvention(eConvention_){
+CGLUtil::CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/)
+:_uResolution(uResolution_),_usPyrHeight(uPyrLevel_),_usLevel(0),_eConvention(eConvention_){
 	_dZoom = 1.;
 	_dZoomLast = 1.;
 	_dScale = .1;
@@ -53,7 +53,6 @@ CGLUtil::CGLUtil(btl::utility::tp_coordinate_convention eConvention_ /*= btl::ut
 	_bRenderNormal = false;
 	_bEnableLighting = false;
 	_fSize = 0.2f;
-	_usPyrLevel=0;
 }
 void CGLUtil::mouseClick ( int nButton_, int nState_, int nX_, int nY_ )
 {
@@ -184,8 +183,8 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 		glutPostRedisplay();
 		break;
 	case '9':
-		_usPyrLevel = ++_usPyrLevel%4;
-		//PRINT(_usPyrLevel);
+		_usLevel = ++_usLevel%_usPyrHeight;
+		//PRINT(_usPyrHeight);
 		break;
 	case '0'://reset camera location
 		_dXAngle = 0.;
@@ -208,7 +207,7 @@ void CGLUtil::viewerGL()
 	if( btl::utility::BTL_GL == _eConvention )
 		glRotated ( _dXAngle, 0, 1 ,0 );                         // 3. rotate horizontally
 	else if( btl::utility::BTL_CV == _eConvention )						//mouse x-movement is the rotation around y-axis
-		glRotated ( _dXAngle, 0,-1 ,0 );                        
+		glRotated ( _dXAngle, 0,-1 ,0 ); 
 	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
 	glTranslated(-_aCentroid[0],-_aCentroid[1],-_aCentroid[2] ); // 1. translate the world origin to align with object centroid
 
@@ -273,7 +272,7 @@ void CGLUtil::init()
 	glNewList(_uNormal, GL_COMPILE);
 	glDisable(GL_LIGHTING);
 	glBegin(GL_LINES);
-	glColor3d(1.,0.,0.);
+	glColor3d(1.,1.,1.);//
 	glVertex3d(0.,0.,0.);
 	glVertex3d(0.,0.,0.016);
 	glEnd();
@@ -292,7 +291,7 @@ void CGLUtil::init()
 	glEndList();
 
 	// light
-	GLfloat mat_diffuse[] = { 1.0, 0.0, 0.0, 1.0};
+	GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
 
 	GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
@@ -369,15 +368,15 @@ void CGLUtil::releasePBO( GLuint uPBO_,cudaGraphicsResource *pResourcePixelBO_ )
 	glDeleteBuffers(1, &uPBO_);
 }//releaseVBO()
 void CGLUtil::constructVBOsPBOs(){
-	for (ushort u=0; u<4; u++){
-		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auPtVBO[u], &_apResourcePtVBO[u] );
-		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(float),&_auNlVBO[u], &_apResourceNlVBO[u] );
-		createVBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBVBO[u],&_apResourceRGBVBO[u]);
-		createPBO( btl::kinect::__aKinectW[u], btl::kinect::__aKinectH[u],3,sizeof(uchar),&_auRGBPixelBO[u],&_apResourceRGBPxielBO[u],&_auTexture[u]);
+	for (ushort u=0; u<_usPyrHeight; u++){
+		createVBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(float),&_auPtVBO[u], &_apResourcePtVBO[u] );
+		createVBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(float),&_auNlVBO[u], &_apResourceNlVBO[u] );
+		createVBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(uchar),&_auRGBVBO[u],&_apResourceRGBVBO[u]);
+		createPBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(uchar),&_auRGBPixelBO[u],&_apResourceRGBPxielBO[u],&_auTexture[u]);
 	}//for each pyramid level
 }//constructVBOsPBOs()
 void CGLUtil::destroyVBOsPBOs(){
-	for (ushort u=0; u<4; u++){
+	for (ushort u=0; u<_usPyrHeight; u++){
 		releaseVBO( _auPtVBO[u], _apResourcePtVBO[u] );
 		releaseVBO( _auNlVBO[u], _apResourceNlVBO[u] );
 		releaseVBO( _auRGBVBO[u],_apResourceRGBVBO[u]);
@@ -385,12 +384,13 @@ void CGLUtil::destroyVBOsPBOs(){
 	}//for each pyramid level
 }
 void CGLUtil::gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_){
+	if (usPyrLevel_>=_usPyrHeight) return;
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
 	cudaGraphicsMapResources(1, &_apResourcePtVBO[usPyrLevel_], 0);
 	size_t nSize; 
 	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourcePtVBO[usPyrLevel_] );
-	cv::gpu::GpuMat cvgmPts(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_32FC3,pDev);
+	cv::gpu::GpuMat cvgmPts(btl::kinect::__aKinectH[_uResolution+usPyrLevel_],btl::kinect::__aKinectW[_uResolution+usPyrLevel_],CV_32FC3,pDev);
 	cudaGraphicsUnmapResources(1, &_apResourcePtVBO[usPyrLevel_], 0);
 	cvgmPts_.copyTo(cvgmPts);
 	// render from the vbo
@@ -402,12 +402,13 @@ void CGLUtil::gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort us
 	//glDisableClientState(GL_VERTEX_ARRAY);
 }
 void CGLUtil::gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_){
+	if (usPyrLevel_>=_usPyrHeight) return;
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
 	cudaGraphicsMapResources(1, &_apResourceNlVBO[usPyrLevel_], 0);
 	size_t nSize; 
 	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourceNlVBO[usPyrLevel_] );
-	cv::gpu::GpuMat cvgmNls(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_32FC3,pDev);
+	cv::gpu::GpuMat cvgmNls(btl::kinect::__aKinectH[_uResolution+usPyrLevel_],btl::kinect::__aKinectW[_uResolution+usPyrLevel_],CV_32FC3,pDev);
 	cudaGraphicsUnmapResources(1, &_apResourceNlVBO[usPyrLevel_], 0);
 	cvgmNls_.copyTo(cvgmNls);
 	// render from the vbo
@@ -419,12 +420,13 @@ void CGLUtil::gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort us
 	//glDisableClientState(GL_NORMAL_ARRAY);
 }
 void CGLUtil::gpuMapRGBResources(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_){
+	if (usPyrLevel_>=_usPyrHeight) return;
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
 	cudaGraphicsMapResources(1, &_apResourceRGBVBO[usPyrLevel_], 0);
 	size_t nSize; 
 	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourceRGBVBO[usPyrLevel_] );
-	cv::gpu::GpuMat cvgmRGBs(btl::kinect::__aKinectH[usPyrLevel_],btl::kinect::__aKinectW[usPyrLevel_],CV_8UC3,pDev);
+	cv::gpu::GpuMat cvgmRGBs(btl::kinect::__aKinectH[_uResolution+usPyrLevel_],btl::kinect::__aKinectW[_uResolution+usPyrLevel_],CV_8UC3,pDev);
 	cudaGraphicsUnmapResources(1, &_apResourceRGBVBO[usPyrLevel_], 0);
 	cvgmRGBs_.copyTo(cvgmRGBs);
 	// render from the vbo
@@ -434,21 +436,21 @@ void CGLUtil::gpuMapRGBResources(const cv::gpu::GpuMat& cvgmRGBs_, const ushort 
 }
 void CGLUtil::gpuMapRgb2PixelBufferObj(const cv::gpu::GpuMat& cvgmRGB_, const ushort usPyrLevel_ ){
 	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
-
+	if (usPyrLevel_>=_usPyrHeight) return;
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
 	cudaSafeCall( cudaGraphicsMapResources(1, &_apResourceRGBPxielBO[usPyrLevel_], 0)); 
 	size_t nSize; 
 	cudaSafeCall( cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize , _apResourceRGBPxielBO[usPyrLevel_]));
-	cv::gpu::GpuMat cvgmRGBA( btl::kinect::__aKinectH[usPyrLevel_], btl::kinect::__aKinectW[usPyrLevel_], CV_8UC3, pDev);
+	cv::gpu::GpuMat cvgmRGBA( btl::kinect::__aKinectH[_uResolution+usPyrLevel_], btl::kinect::__aKinectW[_uResolution+usPyrLevel_], CV_8UC3, pDev);
 	//btl::device::rgb2RGBA(cvgmRGB_,0, &cvgmRGBA);
 	cvgmRGB_.copyTo(cvgmRGBA);
 	cudaSafeCall( cudaGraphicsUnmapResources(1, &_apResourceRGBPxielBO[usPyrLevel_], 0) );
 	//texture mapping
 	glBindTexture( GL_TEXTURE_2D, _auTexture[usPyrLevel_]);
 	glBindBuffer ( GL_PIXEL_UNPACK_BUFFER_ARB, _auRGBPixelBO[usPyrLevel_]);
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, btl::kinect::__aKinectW[usPyrLevel_], btl::kinect::__aKinectH[usPyrLevel_], 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	//glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, btl::kinect::__aKinectW[usPyrLevel_], btl::kinect::__aKinectH[usPyrLevel_], GL_RGBA, GL_FLOAT, 0);
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, btl::kinect::__aKinectW[_uResolution+usPyrLevel_], btl::kinect::__aKinectH[_uResolution+usPyrLevel_], 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	//glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, btl::kinect::__aKinectW[_uResolution+usPyrLevel_], btl::kinect::__aKinectH[_uResolution+usPyrLevel_], GL_RGBA, GL_FLOAT, 0);
 	errorDetectorGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);

@@ -17,7 +17,7 @@ public:
 	typedef boost::shared_ptr<CGLUtil> tp_shared_ptr;
 	typedef CGLUtil* tp_ptr;
 public:
-	CGLUtil(btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL);
+	CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL);
 	void clearColorDepth();
 	void init();
 	//to initialize for the interoperation with opengl
@@ -69,7 +69,9 @@ public:
 	bool _bEnableLighting;
 	bool _bDisplayCamera;
 	bool _bRenderReference;
-	unsigned short _usPyrLevel;
+	unsigned short _usPyrHeight;
+	ushort _usLevel;
+	ushort _uResolution;
 	//Cuda OpenGl interoperability
 	GLuint _auPtVBO[4];
 	cudaGraphicsResource* _apResourcePtVBO[4];
