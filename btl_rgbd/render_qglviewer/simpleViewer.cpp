@@ -121,7 +121,7 @@ void Viewer::init()
   }
   _pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
   _pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
-  _pKinect.reset( new btl::kinect::VideoSourceKinect(1) );
+  _pKinect.reset( new btl::kinect::VideoSourceKinect(1,true) );
 
   _pGL->constructVBOsPBOs();
 

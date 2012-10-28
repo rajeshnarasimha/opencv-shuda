@@ -178,6 +178,9 @@ void init ( ){
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
+	std::string strFileName =  /*boost::lexical_cast<std::string> ( _nRFIdx ) + */"1.yml";
+	_pKinect->_pFrame->exportYML(strPath,strFileName);
 	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
 	
 	_pGL->init();
@@ -201,9 +204,9 @@ int main ( int argc, char** argv ){
 
 		glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
-		_pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_GL) );
+		_pGL.reset( new btl::gl_util::CGLUtil(0,4,btl::utility::BTL_GL) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(1));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,true));
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

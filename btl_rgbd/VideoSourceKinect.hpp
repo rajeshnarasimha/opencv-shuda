@@ -23,7 +23,7 @@ public:
 	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
 
 	//constructor
-    VideoSourceKinect(ushort uResolution_);
+    VideoSourceKinect(ushort uResolution_, bool bUseNIRegistration_);
     virtual ~VideoSourceKinect();
 
 	void getNextFrame(tp_frame eFrameType_);
@@ -63,10 +63,12 @@ private:
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
 	void gpuBuildPyramidCVm( );
+	void gpuBuildPyramidUseNICVm();
 	//for debug
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 public:
+	bool _bUseNIRegistration;
 	//parameters
 	float _fThresholdDepthInMeter; //threshold for filtering depth
 	float _fSigmaSpace; //degree of blur for the bilateral filter
