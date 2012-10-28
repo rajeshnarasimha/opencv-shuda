@@ -7,6 +7,7 @@ namespace btl { namespace device
 
 void cudaTestFloat3( const cv::gpu::GpuMat& cvgmIn_, cv::gpu::GpuMat* pcvgmOut_ );
 void cudaDepth2Disparity( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pcvgmDisparity_ );
+void cudaDepth2Disparity2( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pcvgmDisparity_ );
 void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat* pcvgmDepth_ );
 void cudaUnprojectIRCVCV(const cv::gpu::GpuMat& cvgmDepth_ , 
 	const float& dFxIR_, const float& dFyIR_, const float& uIR_, const float& vIR_, 

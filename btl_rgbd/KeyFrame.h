@@ -94,6 +94,7 @@ public:
 	void gpuBoundaryDetector(float fThreshold_, const unsigned short usPyrLevel_);
 	void exportYML(const std::string& strPath_, const std::string& strYMLName_);
 	void importYML(const std::string& strPath_, const std::string& strYMLName_);
+	ushort pyrHeight() {return _uPyrHeight;}
 private:
 	//surf keyframe matching
     void selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_,

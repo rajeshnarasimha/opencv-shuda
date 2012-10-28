@@ -19,7 +19,7 @@ __global__ void kernelTestFloat3(const cv::gpu::DevMem2D_<float3> cvgmIn_, cv::g
 {
 	const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
-
+	if (nX >= cvgmIn_.cols && nY >= cvgmIn_.rows) return;
 	const float3& in = cvgmIn_.ptr(nY)[nX];
 	float3& out  = cvgmOut_.ptr(nY)[nX];
 	out.x = out.y = out.z = (in.x + in.y + in.z)/3;
@@ -39,7 +39,7 @@ void cudaTestFloat3( const cv::gpu::GpuMat& cvgmIn_, cv::gpu::GpuMat* pcvgmOut_ 
 __global__ void kernelInverse(const cv::gpu::DevMem2Df cvgmIn_, cv::gpu::DevMem2Df cvgmOut_){
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
-
+	if (nX >= cvgmIn_.cols && nY >= cvgmIn_.rows) return;
 	if(fabsf(cvgmIn_.ptr(nY)[nX]) > 0.f )
 		cvgmOut_.ptr(nY)[nX] = 1.f/cvgmIn_.ptr(nY)[nX];
 	else
@@ -56,6 +56,29 @@ void cudaDepth2Disparity( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pc
 	kernelInverse<<<grid,block>>>( cvgmDepth_,*pcvgmDisparity_ );
 	cudaSafeCall ( cudaGetLastError () );
 }//cudaDepth2Disparity
+
+__global__ void kernelInverse2(const cv::gpu::DevMem2Df cvgmIn_, cv::gpu::DevMem2Df cvgmOut_){
+    const int nX = blockDim.x * blockIdx.x + threadIdx.x;
+    const int nY = blockDim.y * blockIdx.y + threadIdx.y;
+	if (nX >= cvgmIn_.cols && nY >= cvgmIn_.rows) return;
+	if(fabsf(cvgmIn_.ptr(nY)[nX]) > 0.f )
+		cvgmOut_.ptr(nY)[nX] = 1000.f/cvgmIn_.ptr(nY)[nX];
+	else
+		cvgmOut_.ptr(nY)[nX] = pcl::device::numeric_limits<float>::quiet_NaN();
+}//kernelInverse
+
+void cudaDepth2Disparity2( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pcvgmDisparity_ ){
+	//convert the depth from mm to m
+	//not necessary as pcvgmDisparity has been allocated in VideoSourceKinect()
+	//pcvgmDisparity_->create(cvgmDepth_.size(),CV_32F);
+	//define grid and block
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmDepth_.cols, block.x), cv::gpu::divUp(cvgmDepth_.rows, block.y));
+	//run kernel
+	kernelInverse2<<<grid,block>>>( cvgmDepth_,*pcvgmDisparity_ );
+	cudaSafeCall ( cudaGetLastError () );
+}//cudaDepth2Disparity
+
 
 void cudaDisparity2Depth( const cv::gpu::GpuMat& cvgmDisparity_, cv::gpu::GpuMat* pcvgmDepth_ ){
 	pcvgmDepth_->create(cvgmDisparity_.size(),CV_32F);

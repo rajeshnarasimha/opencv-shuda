@@ -49,7 +49,8 @@ namespace btl{ namespace kinect
 {
 
 
-VideoSourceKinect::VideoSourceKinect (ushort uResolution_)
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_, bool bUseNIRegistration_)
+:_bUseNIRegistration(bUseNIRegistration_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
@@ -71,8 +72,10 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_)
 	setResolution(uResolution_);
     
 	//register the depth generator with the image generator
-    //nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );
-	//CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
+	if (_bUseNIRegistration){
+		nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );	CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
+	}
+    
 	PRINTSTR("Kinect connected");
 
 	//allocate
@@ -204,7 +207,10 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 	cvmRGB.copyTo(_cvmRGB);
 	cvmDep.convertTo(_cvmDepth,CV_32FC1);
 	//mail capturing fuction
-	gpuBuildPyramidCVm( );
+	if (_bUseNIRegistration)
+		gpuBuildPyramidUseNICVm();
+	else
+		gpuBuildPyramidCVm( );
 
     /*switch( eFrameType_ ){
 		case CPU_PYRAMID_CV:
@@ -240,7 +246,70 @@ void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eCon
 		fastNormalEstimation(*_pFrame->_acvmShrPtrPyrPts[i],&*_pFrame->_acvmShrPtrPyrNls[i]);
 	}*/
 }
+void VideoSourceKinect::gpuBuildPyramidUseNICVm( ){
+	_cvgmRGB.upload(_cvmRGB);
+	_cvgmDepth.upload(_cvmDepth);
+	_pFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
+	cv::gpu::remap(_cvgmRGB, *_pFrame->_acvgmShrPtrPyrRGBs[0], _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
+	
+	_cvgmUndistDepth.setTo(std::numeric_limits<float>::quiet_NaN());//clear(_cvgmUndistDepth)
+	cv::gpu::remap(_cvgmDepth, _cvgmUndistDepth, _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
+	//bilateral filtering (comments off the following three lines to get raw depth map image of kinect)
+	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
+	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
+	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+	//get pts and nls
+	btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_pFrame->_acvgmShrPtrPyrPts[0] );
+	btl::device::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[0],&*_pFrame->_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
+	//generate black and white
+	cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[0],*_pFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
 
+	//down-sampling
+	for( unsigned int i=1; i<_uPyrHeight; i++ )	{
+		_pFrame->_acvgmShrPtrPyrRGBs[i]->setTo(0);
+		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);
+		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
+		_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]->setTo(std::numeric_limits<float>::quiet_NaN());
+		btl::device::cudaPyrDown( *_pFrame->_acvgmShrPtrPyrDisparity[i-1],_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]);
+		btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[i]);
+		btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[i],&*_pFrame->_acvgmShrPtrPyrDepths[i]);
+		btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_pFrame->_acvgmShrPtrPyrPts[i] );
+		btl::device::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[i],&*_pFrame->_acvgmShrPtrPyrNls[i]);
+	}	
+
+	for( unsigned int i=0; i<_uPyrHeight; i++ )	{
+		_pFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pFrame->_acvmShrPtrPyrRGBs[i]);
+		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
+		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
+		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
+	}
+#if !USE_PBO
+#endif
+	//scale the depth map
+	{
+		btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+		//for testing scaleDepthCVmCVm();
+		//cv::Mat cvmTest,cvmTestScaled;
+		//_pFrame->_acvgmShrPtrPyrDepths[i]->download(cvmTest);
+		//btl::device::scaleDepthCVmCVm(i,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[i]);
+		//_pFrame->_acvgmShrPtrPyrDepths[i]->download(cvmTestScaled);
+		//const float* pD = (const float*)cvmTest.data;
+		//const float* pDS= (const float*)cvmTestScaled.data;
+		//int nStep = 1<<i;
+		//for (int r=0;r<cvmTest.rows;r++)
+		//for (int c=0;c<cvmTest.cols;c++){
+		//	float fRatio = *pDS++ / *pD++;
+		//	float fTanX= (c*nStep-_pRGBCamera->_u)/_pRGBCamera->_fFx;
+		//	float fTanY= (r*nStep-_pRGBCamera->_v)/_pRGBCamera->_fFy;
+		//	float fSec = std::sqrt(fTanX*fTanX+fTanY*fTanY+1);
+		//	if (fRatio==fRatio){
+		//		BTL_ASSERT(std::fabs(fSec-fRatio)<0.00001,"scaleDepthCVmCVm() error");
+		//	}
+		//}
+	}
+
+	return;
+}
 void VideoSourceKinect::gpuBuildPyramidCVm( ){
 	_cvgmRGB.upload(_cvmRGB);
 	_cvgmDepth.upload(_cvmDepth);

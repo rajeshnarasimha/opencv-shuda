@@ -33,7 +33,7 @@ __device__ __forceinline__ float getMaxTime (const float3& volume_max, const flo
 struct RayCaster
 {
     enum { CTA_SIZE_X = 32, CTA_SIZE_Y = 16 };
-	enum { VOLUME_X = 512 };
+	enum { VOLUME_X = 256 };//512
 
     Mat33 Rcurr;
     float3 tcurr;
@@ -135,7 +135,7 @@ struct RayCaster
 
 		float3 ray_start = tcurr; //is the camera center in world
 		float3 ray_camera = get_ray_next (x, y);
-		float3 ray_next = Rcurr * ray_camera + tcurr; //transform the point to the world
+		float3 ray_next = Rcurr * ray_camera + tcurr; //transform the point from local to the world
 		float3 ray_dir = normalized (ray_next - ray_start); //get ray direction in the world
 
         //ensure that it isn't a degenerate case
@@ -145,7 +145,7 @@ struct RayCaster
 
         // computer time when entry and exit volume
         float time_start_volume = getMinTime (volume_size, ray_start, ray_dir);
-        float time_exit_volume = getMaxTime (volume_size, ray_start, ray_dir);
+        float time_exit_volume  = getMaxTime (volume_size, ray_start, ray_dir);
 
         const float min_dist = 0.f;         //in meters
         time_start_volume = fmax (time_start_volume, min_dist);
@@ -273,7 +273,7 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
   sRC.cell_size.y = fVolumeSize_ / cvgmYZxXVolume_.rows;
   sRC.cell_size.z = fVolumeSize_ / cvgmYZxXVolume_.rows;
   
-  sRC.time_step = fTrancDist_*0.5;
+  sRC.time_step = fTrancDist_*0.5f;
   sRC.time_step_fine = sRC.cell_size.x * 2.f;
 
 
@@ -312,7 +312,7 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
   sRC.cell_size.y = fVolumeSize_ / cvgmYZxXVolume_.rows;
   sRC.cell_size.z = fVolumeSize_ / cvgmYZxXVolume_.rows;
   
-  sRC.time_step = fTrancDist_*0.8;
+  sRC.time_step = fTrancDist_*0.8f;
   sRC.time_step_fine = sRC.cell_size.x * 2.f;
 
   sRC.cols = pcvgmVMapWorld_->cols;
