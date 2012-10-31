@@ -434,6 +434,9 @@ void tryCVMat()
 	*(float*)cvmInit.data = 10;
 	PRINT(cvmInit);
 	PRINT(cvmData);
+	cv::Mat cvmTest(2,2,CV_16SC2);
+	cvmTest.setTo(std::numeric_limits<short>::max());
+	PRINT(cvmTest);
 }
 void tryCVOperator()
 {
@@ -530,10 +533,10 @@ void tryCVFloodfill(){
 void tryCV()
 {
 	PRINTSTR("try opencv.");
-	tryCVFloodfill();
+	//tryCVFloodfill();
 	//tryCVMatPtr2UserAllocatedData();
 	//tryCVPryDown();
-	//tryCVMat();
+	tryCVMat();
 	//tryCVOperator();
 	//tryCVMatSetTo();
 	//tryCVTypeSelect();
@@ -667,11 +670,11 @@ int main()
 	try
 	{
 		//test();
-		//cudaTestTry();
+		cudaTestTry();
 		//tryCpp();
-		//tryCV();
+		tryCV();
 		//tryEigen();
-		tryConverter();
+		//tryConverter();
 	}
 	catch ( std::runtime_error e )
 	{

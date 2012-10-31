@@ -73,8 +73,9 @@ struct SVolumn{
 		Tmp.z = fVoxelCenter.z - _aCW[2];
 		float fSignedDistance = fDepth - sqrt(Tmp.x*Tmp.x + Tmp.y*Tmp.y+ Tmp.z*Tmp.z); //- outside + inside
 		float fTrancDistInv = 1.0f / _fTruncDistanceM;
-		float fTSDF;
+		/*float fTSDF;
 		if(fSignedDistance > 0 ){
+
 				fTSDF = fmin ( 1.0f, fSignedDistance * fTrancDistInv ); 
 		}
 		else{
@@ -95,8 +96,47 @@ struct SVolumn{
 			fTSDFNew = fTSDF;
 			nWeightNew = 1;
 		}
-		pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);
+		pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);*/
 
+
+		float fTSDF = fSignedDistance * fTrancDistInv;
+		//read an unpack tsdf value and store into the volumes
+		short2& sValue = _cvgmYZxXVolume.ptr(nY)[nX];
+		float fTSDFNew,fTSDFPrev;
+		int nWeightNew,nWeightPrev;
+		if(fTSDF > 0.f ){
+			if (fTSDF > 1.f){
+				sValue.x = pcl::device::numeric_limits<short>::max();
+			}
+			else{ // 0.f < fTSDF <= 1.f
+				if(abs(sValue.x) < 30000 ){
+					pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
+					fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
+					nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+				}else{
+					fTSDFNew = fTSDF;
+					nWeightNew = 1;
+				}
+				pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);	
+			}
+		}
+		else{
+			if (fTSDF <-1.f) {
+				sValue.x = pcl::device::numeric_limits<short>::min();
+			}
+			else{
+				if(abs(sValue.x) < 30000 ){
+					pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
+					fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
+					nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+				}else{
+					fTSDFNew = fTSDF;
+					nWeightNew = 1;
+				}
+				pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);	
+			}
+		}// truncated and normalize the Signed Distance to [-1,1]
+		
 		return;
 	}//kernelIntegrateFrame2VolumeCVmCVm()
 };
@@ -165,6 +205,89 @@ void thresholdVolumeCVGL(const cv::gpu::GpuMat& cvgmYZxXVolume_, const float fTh
 	cudaSafeCall ( cudaGetLastError () );
 }//thresholdVolume()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct SCross{
+	ushort _usV;
+	cv::gpu::DevMem2D_<short2> _cvgmYZxXVolume;
+	cv::gpu::DevMem2D_<uchar3> _cvgmCross;
+	ushort _usType; // cross-section intersept with X, Y, or Z axis
+
+	__device__ __forceinline__ void operator () () {
+		int nX = threadIdx.x + blockIdx.x * blockDim.x; // for each y*z z0,z1,...
+		int nY = threadIdx.y + blockIdx.y * blockDim.y; 
+		if (nX >= _cvgmYZxXVolume.cols && nY >= _cvgmYZxXVolume.rows) return;
+		
+		//calc grid idx
+		int3 n3Grid;
+		n3Grid.x = nY;
+		n3Grid.y = nX/_cvgmYZxXVolume.rows;
+		n3Grid.z = nX%_cvgmYZxXVolume.rows;
+
+		int Axis,XX,YY;
+		switch(_usType){
+			case 1: //intercepting X
+				Axis = n3Grid.x;
+				XX = n3Grid.y;
+				YY = n3Grid.z;
+				break;
+			case 2: //intercepting Y
+				Axis = n3Grid.y;
+				XX = n3Grid.x;
+				YY = n3Grid.z;
+				break;
+			case 3: //intercepting Z
+				Axis = n3Grid.z;
+				XX = n3Grid.x;
+				YY = n3Grid.y;
+				break;
+		}//switch
+
+		if( Axis == _usV ){
+			// get truncated signed distance value and weight
+			short2& sValue = _cvgmYZxXVolume.ptr(nY)[nX];
+			float fTSDF;
+			int nWeight;
+			pcl::device::unpack_tsdf(sValue,fTSDF,nWeight);
+			uchar3& pixel = _cvgmCross.ptr(YY)[XX];  
+			if( fTSDF > 0.f  )
+			{
+				if (fTSDF > 1.f){
+					pixel.x = 0;
+					pixel.y = (uchar)255;
+					pixel.z = 0;
+				}
+				else{
+					pixel.x = pixel.y = pixel.z = uchar(abs(fTSDF)*255 );
+				}
+			}
+			else{
+				if (fTSDF < -1.f){
+					pixel.x = (uchar)255;
+					pixel.y = 0;
+					pixel.z = 0;
+				}
+				else{
+					pixel.x = pixel.y = pixel.z = uchar(abs(fTSDF)*255 );
+				}
+			}
+		}
+	}//kernelIntegrateFrame2VolumeCVmCVm()
+};
+
+__global__ void kernelExportVolume2CrossSection( SCross sSC_ ){
+	sSC_();
+}
+void exportVolume2CrossSectionX(const cv::gpu::GpuMat& cvgmYZxXVolContentCV_, ushort usV_, ushort usType_, cv::gpu::GpuMat* pcvgmCross_){
+	SCross sSC;
+	sSC._usV = usV_;
+	sSC._usType = usType_;
+	sSC._cvgmCross = *pcvgmCross_;
+	sSC._cvgmYZxXVolume = cvgmYZxXVolContentCV_;
+
+	dim3 block(64, 16);
+    dim3 grid(cv::gpu::divUp(cvgmYZxXVolContentCV_.cols, block.x), cv::gpu::divUp(cvgmYZxXVolContentCV_.rows, block.y));
+	kernelExportVolume2CrossSection<<<grid,block>>>( sSC );
+	cudaSafeCall ( cudaGetLastError () );
+}//exportVolume2CrossSectionX()
 
 }//device
 }//btl

@@ -60,6 +60,7 @@ public:
 	void gpuMapRGBResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
 	void gpuMapRgb2PixelBufferObj(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_ );
 	void errorDetectorGL() const;
+	void getRTFromWorld2CamCV(Eigen::Matrix3d* pRw_, Eigen::Vector3d* pTw_) const;
 
 public:
 	Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.

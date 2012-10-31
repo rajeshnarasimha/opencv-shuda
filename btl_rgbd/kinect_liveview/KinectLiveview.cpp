@@ -103,6 +103,7 @@ void mouseMotion ( int nX_, int nY_ )
 	_pGL->mouseMotion( nX_,nY_ );
 	return;
 }
+
 void display ( void )
 {
 	//load data from video source and model
@@ -119,7 +120,12 @@ void display ( void )
     // load the matrix to set camera pose
 	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+	Eigen::Matrix3d R;
+	Eigen::Vector3d T;
+	_pGL->getRTFromWorld2CamCV(&R,&T);
+	PRINT(R);
+	PRINT(T);
+
     // render objects
     _pGL->renderAxisGL();
 	_pGL->renderPatternGL(.1f,20,20);

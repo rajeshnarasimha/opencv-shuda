@@ -16,6 +16,7 @@
 #include <opencv2/gpu/gpumat.hpp>
 #include <vector>
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 #include "cuda/cv/common.hpp"
 #include "OtherUtil.hpp"
@@ -592,5 +593,28 @@ void CGLUtil::errorDetectorGL() const
 		}
 	}
 }
+void CGLUtil::getRTFromWorld2CamCV(Eigen::Matrix3d* pRw_, Eigen::Vector3d* pTw_) const{
+	int nDepth;
+	glGetIntegerv(GL_MODELVIEW_STACK_DEPTH,&nDepth);
+	//PRINT(nDepth);
+	Eigen::Affine3d Total = Eigen::Affine3d::Identity();
+	Eigen::Affine3d M;
+	for (int i=0; i < nDepth; i++){
+		glGetDoublev(GL_MODELVIEW_MATRIX,M.matrix().data());
+		//PRINT(M.matrix());
+		Total = Total*M;
+	}
+	//negate row no. 1 and 2, to switch from GL to CV convention
+	for (int r = 1; r < 3; r++)
+		for	(int c = 0; c < 4; c++){
+			Total(r,c) = -Total(r,c);
+		}
+	*pRw_ = Total.rotation();
+	*pTw_ = Total.translation();
+		//PRINT(*pRw_);
+		//PRINT(*pTw_);
+	return;
+}
+
 }//gl_util
 }//btl
