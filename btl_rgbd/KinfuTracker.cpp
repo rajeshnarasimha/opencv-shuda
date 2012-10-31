@@ -47,14 +47,29 @@ CKinfuTracker::CKinfuTracker()
 {
 	_fVolumeSizeM = 3.f; //3m
 	_fVoxelSizeM = _fVolumeSizeM/VOLUME_RESOL;
-	_fTruncateDistanceM = _fVoxelSizeM*4;
+	_fTruncateDistanceM = _fVoxelSizeM*12;
 	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
-	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
+	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());//set EACH channel to max().
 	//_cvgmYZxXVolContentCV.setTo(0);
 }
 CKinfuTracker::~CKinfuTracker(void)
 {
+	releaseVBOPBO();
 	//if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
+}
+
+void CKinfuTracker::releaseVBOPBO()
+{
+	//release VBO
+	cudaSafeCall( cudaGraphicsUnregisterResource( _pResourceVBO ) );
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );
+	glDeleteBuffers( 1, &_uVBO );
+
+	//release PBO
+	// unregister this buffer object with CUDA
+	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
+	cudaSafeCall( cudaGraphicsUnregisterResource( _pResourcePBO ) );
+	glDeleteBuffers(1, &_uPBO);
 }
 void CKinfuTracker::reset(){
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
@@ -65,6 +80,7 @@ void CKinfuTracker::unpack_tsdf (short2 value, float& tsdf, int& weight)
     tsdf =  (value.x) / 30000;//32767;   //*/ * INV_DIV;
 }
 void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
+	//Note: the point cloud int cFrame_ must be transformed into world before calling it
 	Eigen::Vector3d eivCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
 	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
 	btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmShrPtrPyrDepths[0],0,
@@ -87,21 +103,18 @@ void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame
 	}*/
 	//_cvgmYZxXVolContentCV.download(cvmTest);
 }
-void CKinfuTracker::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const {
-	Eigen::Matrix3f eimcmRwCur = cCurrentFrame_._eimRw.cast<float>();
+void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_ ) const {
+	Eigen::Matrix3f eimcmRwCur = pVirtualFrame_->_eimRw.cast<float>();
 	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (eimcmRwCur);
 	//Cw = -Rw'*Tw
-	Eigen::Vector3f eivCwCur = Eigen::Vector3d( - cCurrentFrame_._eimRw.transpose() * cCurrentFrame_._eivTw ).cast<float>();
+	Eigen::Vector3f eivCwCur = Eigen::Vector3d( - pVirtualFrame_->_eimRw.transpose() * pVirtualFrame_->_eivTw ).cast<float>();
 	float3& devCwCur = pcl::device::device_cast<float3> (eivCwCur);
-	//btl::device::raycast(pcl::device::Intr(cCurrentFrame_._pRGBCamera->_fFx,cCurrentFrame_._pRGBCamera->_fFy,cCurrentFrame_._pRGBCamera->_u,cCurrentFrame_._pRGBCamera->_v)(0),
+	//btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
 	//	devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
-	btl::device::raycast(pcl::device::Intr(cCurrentFrame_._pRGBCamera->_fFx,cCurrentFrame_._pRGBCamera->_fFy,cCurrentFrame_._pRGBCamera->_u,cCurrentFrame_._pRGBCamera->_v)(0),
+	btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
 		devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[0],&*pVirtualFrame_->_acvgmShrPtrPyrNls[0],&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
-	//assign rotation and translation 
-	pVirtualFrame_->_eimRw = cCurrentFrame_._eimRw;
-	pVirtualFrame_->_eivTw = cCurrentFrame_._eivTw;
-	pVirtualFrame_->updateMVInv();
+
 	//down-sampling
 	pVirtualFrame_->_acvgmShrPtrPyrPts[0]->download(*pVirtualFrame_->_acvmShrPtrPyrPts[0]);
 	pVirtualFrame_->_acvgmShrPtrPyrNls[0]->download(*pVirtualFrame_->_acvmShrPtrPyrNls[0]);
@@ -120,7 +133,10 @@ void CKinfuTracker::gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl
 
 void CKinfuTracker::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
 	_pGL = pGL_;
-	if(_pGL) _pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
+	if(_pGL){
+		_pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
+		_pGL->createPBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(uchar),&_uPBO,&_pResourcePBO,&_uTexture);
+	}
 }
 void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 	// map OpenGL buffer object for writing from CUDA
@@ -130,6 +146,10 @@ void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 	cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _pResourceVBO );
 	cv::gpu::GpuMat cvgmYZxZVolCentersGL(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,CV_32FC3,pDev);
 	cvgmYZxZVolCentersGL.setTo(std::numeric_limits<float>::quiet_NaN());
+
+
+	cv::gpu::GpuMat cvgmYZxZVolColor(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,CV_8UC3,pDev);
+	cvgmYZxZVolColor.setTo(std::numeric_limits<uchar>::quiet_NaN());
 	
 	// execute the kernel
 	//download the voxel centers lies between the -threshold and +threshold
@@ -146,5 +166,16 @@ void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 	glDrawArrays(GL_POINTS, 0, VOXEL_TOTAL );
 	glDisableClientState(GL_VERTEX_ARRAY);
 }//gpuRenderVoxelInWorldCVGL()
+
+void CKinfuTracker::gpuExportVolume(const std::string& strPath_, ushort usNo_, ushort usV_, ushort usAxis_) const{
+	cv::gpu::GpuMat cvgmCross(VOLUME_RESOL,VOLUME_RESOL,CV_8UC3);
+	btl::device::exportVolume2CrossSectionX(_cvgmYZxXVolContentCV,usV_,usAxis_,&cvgmCross);
+	cv::Mat cvmCross(VOLUME_RESOL,VOLUME_RESOL,CV_8UC3);
+	cvgmCross.download(cvmCross);
+	std::string strVariableName = strPath_ + "cross"+  boost::lexical_cast<std::string> ( usNo_ ) + boost::lexical_cast<std::string> ( usAxis_ ) + "X" + boost::lexical_cast<std::string> ( usV_ ) + ".bmp";
+	cv::imwrite(strVariableName.c_str(),cvmCross);
+	return;
+}
+
 }//geometry
 }//btl

@@ -202,6 +202,8 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
     _cImgGen.GetMetaData ( _cImgMD );
     _cDepthGen.GetMetaData( _cDepthMD );
 
+	_pFrame->initRT();
+
 	cv::Mat cvmRGB(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_8UC3, (unsigned char*)_cImgMD.WritableRGB24Data());
 	cv::Mat cvmDep(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
 	cvmRGB.copyTo(_cvmRGB);

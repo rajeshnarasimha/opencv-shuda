@@ -95,6 +95,9 @@ public:
 	void exportYML(const std::string& strPath_, const std::string& strYMLName_);
 	void importYML(const std::string& strPath_, const std::string& strYMLName_);
 	ushort pyrHeight() {return _uPyrHeight;}
+	void initRT();
+	void assignRT(const CKeyFrame& cFrame_ );
+	void assignRTfromGL(const btl::gl_util::CGLUtil* pGL_ );
 private:
 	//surf keyframe matching
     void selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_,

@@ -12,8 +12,10 @@ class CKinfuTracker
 public:
 	typedef boost::shared_ptr<CKinfuTracker> tp_shared_ptr;
 	enum {VOLUME_RESOL = RESOL, VOLUME_LEVEL = LEVEL, VOXEL_TOTAL = TOTAL};
+	enum {_X = 1, _Y = 2, _Z = 3};
+
 private:
-	//methods
+	void releaseVBOPBO();//methods
 public:
 	CKinfuTracker();
 	~CKinfuTracker();
@@ -21,8 +23,10 @@ public:
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
 	void unpack_tsdf (short2 value, float& tsdf, int& weight);
-	void gpuRaycast(const btl::kinect::CKeyFrame& cCurrentFrame_, btl::kinect::CKeyFrame* pVirtualFrame_ ) const;
+	void gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_ ) const;
 	void reset();
+	void gpuExportVolume(const std::string& strPath_,ushort usNo_, ushort usV_, ushort usAxis_) const;
+
 public:
 
 	//data
@@ -46,6 +50,9 @@ public:
 	btl::gl_util::CGLUtil::tp_ptr _pGL;
 	GLuint _uVBO;
 	cudaGraphicsResource* _pResourceVBO;
+	GLuint _uPBO;
+	cudaGraphicsResource* _pResourcePBO;
+	GLuint _uTexture;
 };
 
 

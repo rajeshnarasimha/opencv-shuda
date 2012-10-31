@@ -112,6 +112,13 @@ void btl::kinect::CKeyFrame::setRT(double dXA_, double dYA_, double dZA_, double
 	updateMVInv();
 }
 
+void btl::kinect::CKeyFrame::initRT(){
+	_eimRw << 1, 0, 0,
+		      0, 1, 0,
+			  0, 0, 1;
+	_eivTw << -1.5,-1.5,0.3; 
+}
+
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
 	//host
 	_acvmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrPts[sLevel_]);
@@ -247,16 +254,16 @@ void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sRe
 	return;
 
 }//establishPlaneCorrespondences()
-double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
+double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
 	// - The reference frame must contain a calibrated Rw and Tw. 
 	// - The point cloud in the reference frame must be transformed into the world coordinate system.
 	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
 	// - The point cloud in the current frame must be in the camera coordinate system.
-	BTL_ASSERT(sReferenceKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
+	BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
 	//matching from current to reference
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
 	cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
-	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sReferenceKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
+	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sPrevKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
 	std::sort( _vMatches.begin(), _vMatches.end() );
 	if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
@@ -264,16 +271,16 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sReferenceKF_, const un
 	//calculate the R and T
 	//search for pairs of correspondences with depth data available.
 	const float*const  _pCurrentPts   = (const float*)              _acvmShrPtrPyrPts[sLevel_]->data;
-	const float*const  _pReferencePts = (const float*)sReferenceKF_._acvmShrPtrPyrPts[sLevel_]->data;
+	const float*const  _pReferencePts = (const float*)sPrevKF_._acvmShrPtrPyrPts[sLevel_]->data;
 	std::vector< int > _vDepthIdxCur, _vDepthIdxRef, _vSelectedPairs;
 	for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++ ) {
 		int nKeyPointIdxCur = cit->queryIdx;
 		int nKeyPointIdxRef = cit->trainIdx;
 
-		int nXCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.x );
-		int nYCur = cvRound ( 			    _vKeyPoints[ nKeyPointIdxCur ].pt.y );
-		int nXRef = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdxRef ].pt.x );
-		int nYRef = cvRound ( sReferenceKF_._vKeyPoints[ nKeyPointIdxRef ].pt.y );
+		int nXCur = cvRound ( 		   _vKeyPoints[ nKeyPointIdxCur ].pt.x );
+		int nYCur = cvRound ( 		   _vKeyPoints[ nKeyPointIdxCur ].pt.y );
+		int nXRef = cvRound ( sPrevKF_._vKeyPoints[ nKeyPointIdxRef ].pt.x );
+		int nYRef = cvRound ( sPrevKF_._vKeyPoints[ nKeyPointIdxRef ].pt.y );
 
 		int nDepthIdxCur = nYCur * __aKinectW[_uResolution] * 3 + nXCur * 3;
 		int nDepthIdxRef = nYRef * __aKinectW[_uResolution] * 3 + nXRef * 3;
@@ -1123,4 +1130,19 @@ void btl::kinect::CKeyFrame::gpuBoundaryDetector(float fThreshold_, const unsign
 {
 	btl::device::boundaryDetector(fThreshold_,*_acvgmShrPtrPyrPts[usLevel_],*_acvgmShrPtrPyrNls[usLevel_],&*_acvgmShrPtrPyrRGBs[usLevel_]);
 	_acvgmShrPtrPyrRGBs[usLevel_]->download(*_acvmShrPtrPyrRGBs[usLevel_]);
+}
+
+void btl::kinect::CKeyFrame::assignRT(const CKeyFrame& cFrame_ ){
+	//assign rotation and translation 
+	_eimRw = cFrame_._eimRw;
+	_eivTw = cFrame_._eivTw;
+	updateMVInv();
+}
+
+void btl::kinect::CKeyFrame::assignRTfromGL(const btl::gl_util::CGLUtil* pGL_ ){
+	if (pGL_){
+		//assign rotation and translation 
+		pGL_->getRTFromWorld2CamCV(&_eimRw,&_eivTw);
+	}
+	updateMVInv();
 }

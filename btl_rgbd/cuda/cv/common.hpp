@@ -4,7 +4,7 @@
 #define __OPENCV_GPU_COMMON_HPP__
 
 #include <cuda_runtime.h>
-#include "opencv2/core/devmem2d.hpp"
+#include "opencv2/gpu/devmem2d.hpp"
 
 #ifndef CV_PI
     #define CV_PI   3.1415926535897932384626433832795
