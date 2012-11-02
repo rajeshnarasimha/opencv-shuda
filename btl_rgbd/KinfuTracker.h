@@ -23,7 +23,7 @@ public:
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
 	void unpack_tsdf (short2 value, float& tsdf, int& weight);
-	void gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_ ) const;
+	void gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_=std::string("")) const;
 	void reset();
 	void gpuExportVolume(const std::string& strPath_,ushort usNo_, ushort usV_, ushort usAxis_) const;
 

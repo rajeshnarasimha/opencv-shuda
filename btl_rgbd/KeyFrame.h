@@ -96,7 +96,7 @@ public:
 	void importYML(const std::string& strPath_, const std::string& strYMLName_);
 	ushort pyrHeight() {return _uPyrHeight;}
 	void initRT();
-	void assignRT(const CKeyFrame& cFrame_ );
+	void setRTTo(const CKeyFrame& cFrame_ );
 	void assignRTfromGL(const btl::gl_util::CGLUtil* pGL_ );
 private:
 	//surf keyframe matching

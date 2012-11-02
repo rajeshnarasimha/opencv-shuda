@@ -105,36 +105,30 @@ struct SVolumn{
 		float fTSDFNew,fTSDFPrev;
 		int nWeightNew,nWeightPrev;
 		if(fTSDF > 0.f ){
-			if (fTSDF > 1.f){
-				sValue.x = pcl::device::numeric_limits<short>::max();
+			fTSDF = fmin ( 1.f, fTSDF );
+			
+			if(abs(sValue.x) < 30000 ){
+				pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
+				fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
+				nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+			}else{
+				fTSDFNew = fTSDF;
+				nWeightNew = 1;
 			}
-			else{ // 0.f < fTSDF <= 1.f
-				if(abs(sValue.x) < 30000 ){
-					pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
-					fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
-					nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
-				}else{
-					fTSDFNew = fTSDF;
-					nWeightNew = 1;
-				}
-				pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);	
-			}
+			pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);	
 		}
-		else{
-			if (fTSDF <-1.f) {
-				sValue.x = pcl::device::numeric_limits<short>::min();
+		else{//if (fTSDF < = 0.f)
+			fTSDF = fmax ( -1.f, fTSDF );
+			
+			if(abs(sValue.x) < 30000 ){
+				pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
+				fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
+				nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
+			}else{
+				fTSDFNew = fTSDF;
+				nWeightNew = 1;
 			}
-			else{
-				if(abs(sValue.x) < 30000 ){
-					pcl::device::unpack_tsdf(sValue,fTSDFPrev,nWeightPrev);
-					fTSDFNew = (fTSDFPrev*nWeightPrev + fTSDF*1.f)/(1.f+nWeightPrev);
-					nWeightNew = min(STSDF::MAX_WEIGHT,nWeightPrev+1);
-				}else{
-					fTSDFNew = fTSDF;
-					nWeightNew = 1;
-				}
-				pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);	
-			}
+			pcl::device::pack_tsdf( fTSDFNew,nWeightNew,sValue);	
 		}// truncated and normalize the Signed Distance to [-1,1]
 		
 		return;

@@ -58,13 +58,14 @@ bool _bPrevStatus = true;
 bool _bRenderReference = true;
 bool _bCapture = false;
 bool _bRenderPlane = false;
-int _nN = 1;
 int _nView = 0;
 unsigned short _usColorIdx=0;
 ushort _usViewNO = 0;
 ushort _usPlaneNO = 0;
 ushort _uResolution = 1;
 ushort _uPyrHeight = 3;
+std::string _strPath("");
+int _nN = 1;
 void printVolume(){
 	std::string strPath("C:\\csxsl\\src\\opencv-shuda\\output\\");
 	for (int i = 0; i< 256; i++ ){
@@ -172,6 +173,15 @@ void normalKeys ( unsigned char key, int x, int y ){
 		printVolume();
 		glutPostRedisplay();
 		break;
+	case '3':
+		_strPath = "C:\\csxsl\\src\\opencv-shuda\\output\\" + boost::lexical_cast<std::string> ( _nN ) + ".bmp";
+		_nN ++;
+		
+		break;
+	case '4':
+		_pVirtualFrame->setView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
+		break;
 	case '8':
 			//use current keyframe as a reference
 			_bRenderReference =! _bRenderReference;
@@ -186,7 +196,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 	case '0':
 		_usViewNO = ++_usViewNO % _vShrPtrsKF.size(); 
 		(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
-
+		_pGL->setInitialPos();
 		glutPostRedisplay();
 		break;
     }
@@ -217,44 +227,14 @@ void display ( void ) {
 
 // ( second frame )
 	unsigned short uInliers;
-    if ( false && _bCapture && _nKFCounter < _nReserved ) {
-		// assign the rgb and depth to the current frame.
-		btl::kinect::CKeyFrame::tp_shared_ptr& pReferenceKF = _aShrPtrKFs[_nRFIdx];
-		btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nKFCounter];
-		//attach surf features to planes
-		_pKinect->_pFrame->extractSurfFeatures();
-		//track camera motion
-		_pKinect->_pFrame->calcRT ( *pReferenceKF,0,.5,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
-		_pKinect->_pFrame->gpuICP ( pReferenceKF.get(), false ); //refine the R,T with w.r.t. last key frame
-		/*for (short sIt = 0; sIt< 3; sIt++){
-			_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
-			_pKinect->_pFrame->gpuICP ( _pVirtualFrame.get(), false ); //refine R,T w.r.t. the virtual frame
-		}//iterate 3 times */
-		
-		//transform pts and nls to the world
-		for (ushort usI=0;usI<4;usI++){
-			_pKinect->_pFrame->gpuTransformToWorldCVCV(usI);
-		}
-		//transform detected planes to the world
-		_pKinect->_pFrame->transformPlaneObjsToWorldCVCV(3);
-		//integrate current frame into the global volume
-		_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
-		//_pMPMV->integrateFrameIntoPlanesWorldCVCV(pCurrentKF.get());
-		//save current frame and make it as the reference frame
-		_pKinect->_pFrame->copyTo(&*pCurrentKF);
-		_vShrPtrsKF.push_back( &pCurrentKF );
-		_nKFCounter++;_nRFIdx++;
-		std::cout << "new key frame added" << std::flush;
-		_bCapture = false;
-    }//if step by step tracking 
-	else if ( _bCapture && _nRFIdx < _nReserved){
+	if ( _bCapture && _nRFIdx < _nReserved){
 		// assign the rgb and depth to the current frame.
 		//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
 		//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + ".yml";
 		//_pKinect->_pFrame->exportYML(strPath,strFileName);
 
 		// assign the rgb and depth to the current frame.
-		btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];//_aShrPtrKFs[_nReserved]
+		btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
 		
 		//attach surf features to planes
 		_pKinect->_pFrame->extractSurfFeatures();
@@ -265,11 +245,10 @@ void display ( void ) {
 			PRINTSTR("Surf calibration.");
 			_pGL->timerStop();
 			_pKinect->_pFrame->gpuICP ( pPrevKF.get(), false );//refine the R,T with w.r.t. last key frame
-			//_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame );
-			//for (short sIt = 0; sIt< 3; sIt++){
-			//	_pTracker->gpuRaycast( *_pKinect->_pFrame, &*_pVirtualFrame ); //get virtual frame
-			//	_pKinect->_pFrame->gpuICP ( _pVirtualFrame.get(), false );//refine R,T w.r.t. the virtual frame
-			//}//iterate 3 times 
+			_pVirtualFrame->setRTTo(*_pKinect->_pFrame);
+			_pTracker->gpuRaycast( &*_pVirtualFrame ); //get virtual frame
+			_pVirtualFrame->gpuICP ( pPrevKF.get(), false );//refine R,T w.r.t. the virtual frame
+			_pKinect->_pFrame->setRTTo(*_pVirtualFrame);
 			PRINTSTR("ICP tracking.");
 			_pGL->timerStop();
 			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pPrevKF.get(),M_PI_4/24.,0.15) ){
@@ -357,13 +336,12 @@ void display ( void ) {
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	_pVirtualFrame->assignRTfromGL(_pGL.get());
-
-
-	_pTracker->gpuRaycast(&*_pVirtualFrame ); //get virtual frame
+	_pTracker->gpuRaycast(&*_pVirtualFrame, std::string("") ); //get virtual frame
 	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
 	//std::string strFileName =  /*boost::lexical_cast<std::string> ( _nRFIdx ) + */"1.yml";
 	//_pVirtualFrame->exportYML(strPath,strFileName);
-	_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	//_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	_pVirtualFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	//_pVirtualFrame->setView(&_pGL->_eimModelViewGL);
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();

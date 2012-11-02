@@ -16,7 +16,7 @@ namespace btl{  namespace device
 using namespace pcl::device;
 __device__ __forceinline__ float getMinTime (const float3& volume_max, const float3& origin, const float3& dir) {
     float txmin = ( (dir.x > 0 ? 0.f : volume_max.x) - origin.x) / dir.x;
-    float tymin = ( (dir.y > 0 ? 0.f : volume_max.y) - origin.y) / dir.y;
+    float tymin = ( (dir.y > 0 ? 0.f : volume_max.y) - origin.y) / dir.y; 
     float tzmin = ( (dir.z > 0 ? 0.f : volume_max.z) - origin.z) / dir.z;
     return fmax ( fmax (txmin, tymin), tzmin);
 	//return (- origin.z)/dir.z;
@@ -53,7 +53,8 @@ struct RayCaster
     mutable cv::gpu::DevMem2D_<float3> _cvgmNMapWorld;
     mutable cv::gpu::DevMem2D_<float3> _cvgmVMapWorld;
 	mutable cv::gpu::DevMem2D_<float> _cvgmDepth;
-
+	//mutable cv::gpu::DevMem2D_<uchar> _cvgmDebug;
+	
 	//get the pixel 3D coordinate in the local
     __device__ __forceinline__ float3 get_ray_next (int x, int y) const {
 		float3 ray_next;
@@ -63,7 +64,7 @@ struct RayCaster
 		return ray_next;
     }
 
-    __device__ __forceinline__ bool checkInds (const int3& g) const {
+    __device__ __forceinline__ bool isInside (const int3& g) const {
 		return (g.x >= 0 && g.y >= 0 && g.z >= 0 && g.x < VOLUME_X && g.y < VOLUME_X && g.z <VOLUME_X);
     }
 
@@ -131,6 +132,7 @@ struct RayCaster
 
         float3& f3V = _cvgmVMapWorld.ptr (y)[x];	f3V.x = f3V.y = f3V.z = numeric_limits<float>::quiet_NaN ();
         float3& f3N = _cvgmNMapWorld.ptr (y)[x];	f3N.x = f3N.y = f3N.z = numeric_limits<float>::quiet_NaN ();
+		//uchar& ucDebug = _cvgmDebug.ptr (y)[x]; ucDebug = 0;
 		_cvgmDepth.ptr (y)[x] = numeric_limits<float>::quiet_NaN ();
 
 		float3 ray_start = tcurr; //is the camera center in world
@@ -148,8 +150,8 @@ struct RayCaster
         float time_exit_volume  = getMaxTime (volume_size, ray_start, ray_dir);
 
         const float min_dist = 0.f;         //in meters
-        time_start_volume = 0.f;//fmax (time_start_volume, min_dist);
-        if (time_start_volume >= time_exit_volume) return;
+        time_start_volume = fmax (time_start_volume, min_dist);
+		if (time_start_volume >= time_exit_volume) {return;}
 
         float time_curr = time_start_volume;
         int3 g = getVoxel (ray_start + ray_dir * time_curr);
@@ -160,16 +162,17 @@ struct RayCaster
         float tsdf = readTsdf (g.x, g.y, g.z);
 
         //infinite loop guard
-        const float max_time = 3 * (volume_size.x + volume_size.y + volume_size.z);
+        const float max_time = time_exit_volume; //3 * (volume_size.x + volume_size.y + volume_size.z);
 
         for (; time_curr < max_time; time_curr += time_step)
         {
-          int3 g = getVoxel (  ray_start + ray_dir * (time_curr + time_step)  );        if (!checkInds (g))   break;
+			int3 g = getVoxel (  ray_start + ray_dir * (time_curr + time_step)  );        if (!isInside (g))   { return;}
           float tsdf_prev = tsdf;
-          tsdf = readTsdf (g.x, g.y, g.z);    if (tsdf_prev < 0.f && tsdf > 0.f) continue;
+		  tsdf = readTsdf (g.x, g.y, g.z);    if (tsdf_prev < 0.f && tsdf > 0.f) {continue;}
 
           if (tsdf_prev > 0.f && tsdf < 0.f)           //zero crossing
           {
+			  //ucDebug = 255; 
 			  /*			  //do a finer search{
 			  float tsdf_finer = tsdf_prev;
 			  float time_finer_prev = 0;
@@ -296,7 +299,7 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCurrTrans_, const float3& CwCurr_, 
 		float fTrancDist_, const float& fVolumeSize_,
-		const cv::gpu::GpuMat& cvgmYZxXVolume_,  cv::gpu::GpuMat* pcvgmVMapWorld_, cv::gpu::GpuMat* pcvgmNMapWorld_,cv::gpu::GpuMat* pcvgmDepth_ )
+		const cv::gpu::GpuMat& cvgmYZxXVolume_,  cv::gpu::GpuMat* pcvgmVMapWorld_, cv::gpu::GpuMat* pcvgmNMapWorld_,cv::gpu::GpuMat* pcvgmDepth_, cv::Mat* pcvmDebug_ = NULL )
 {
   btl::device::RayCaster sRC;
 
@@ -325,11 +328,19 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
   sRC._cvgmNMapWorld = *pcvgmNMapWorld_;
   sRC._cvgmDepth     = *pcvgmDepth_;
 
+  //cv::gpu::GpuMat cvgmDebug(sRC.rows,sRC.cols,CV_8UC1);
+  //sRC._cvgmDebug = cvgmDebug;
+
   dim3 block (RayCaster::CTA_SIZE_X, RayCaster::CTA_SIZE_Y);
   dim3 grid (cv::gpu::divUp (sRC.cols, block.x), cv::gpu::divUp (sRC.rows, block.y));
 
+  cv::Mat cvmDebug;
+  
+
   rayCastKernel<<<grid, block>>>(sRC);
   cudaSafeCall (cudaGetLastError ());
+  //if(pcvmDebug_)
+  //	  cvgmDebug.download(*pcvmDebug_);
   //cudaSafeCall(cudaDeviceSynchronize());
 }//raycast()
 }
