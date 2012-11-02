@@ -188,33 +188,13 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 		//PRINT(_usPyrHeight);
 		break;
 	case '0'://reset camera location
-		_dXAngle = 0.;
-		_dYAngle = 0.;
-		_dZoom = 1.;
+		setInitialPos();
 		break;
 	}
 
 	return;
 }
-void CGLUtil::viewerGL()
-{
-	// load the matrix to set camera pose
-	//glLoadMatrixd( _adModelViewGL );
-	glLoadMatrixd(_eimModelViewGL.data());
-	glTranslated( _aCentroid[0], _aCentroid[1], _aCentroid[2] ); // 5. translate back to the original camera pose
-	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
-	_dZoom = _dZoom > 10? 10: _dZoom;
-	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
-	if( btl::utility::BTL_GL == _eConvention )
-		glRotated ( _dXAngle, 0, 1 ,0 );                         // 3. rotate horizontally
-	else if( btl::utility::BTL_CV == _eConvention )						//mouse x-movement is the rotation around y-axis
-		glRotated ( _dXAngle, 0,-1 ,0 ); 
-	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
-	glTranslated(-_aCentroid[0],-_aCentroid[1],-_aCentroid[2] ); // 1. translate the world origin to align with object centroid
 
-	// light position in 3d
-	glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
-}
 
 void CGLUtil::renderAxisGL() const
 {
@@ -593,26 +573,53 @@ void CGLUtil::errorDetectorGL() const
 		}
 	}
 }
+
+void CGLUtil::viewerGL()
+{
+	// load the matrix to set camera pose
+	//glLoadMatrixd( _adModelViewGL );
+	glLoadMatrixd(_eimModelViewGL.data());
+
+	glTranslated( _aCentroid[0], _aCentroid[1], _aCentroid[2] ); // 5. translate back to the original camera pose
+	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
+	_dZoom = _dZoom > 10? 10: _dZoom;
+	glScaled( _dZoom, _dZoom, _dZoom );                          // 4. zoom in/out
+	if( btl::utility::BTL_GL == _eConvention )
+		glRotated ( _dXAngle, 0, 1 ,0 );                         // 3. rotate horizontally
+	else if( btl::utility::BTL_CV == _eConvention )						//mouse x-movement is the rotation around y-axis
+		glRotated ( _dXAngle, 0,-1 ,0 ); 
+	glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
+	glTranslated(-_aCentroid[0],-_aCentroid[1],-_aCentroid[2] ); // 1. translate the world origin to align with object centroid
+
+	// light position in 3d
+	glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
+}
+
+void CGLUtil::setInitialPos(){
+	_dXAngle = 0.;
+	_dYAngle = 0.;
+	_dZoom = 1.;
+}
+
 void CGLUtil::getRTFromWorld2CamCV(Eigen::Matrix3d* pRw_, Eigen::Vector3d* pTw_) const{
-	int nDepth;
-	glGetIntegerv(GL_MODELVIEW_STACK_DEPTH,&nDepth);
-	//PRINT(nDepth);
-	Eigen::Affine3d Total = Eigen::Affine3d::Identity();
+	//only the matrix in the top of the modelview matrix stack works
 	Eigen::Affine3d M;
-	for (int i=0; i < nDepth; i++){
-		glGetDoublev(GL_MODELVIEW_MATRIX,M.matrix().data());
-		//PRINT(M.matrix());
-		Total = Total*M;
-	}
+	glGetDoublev(GL_MODELVIEW_MATRIX,M.matrix().data());
+
+	Eigen::Matrix3d S;
+	*pTw_ = M.translation();
+	M.computeRotationScaling(pRw_,&S);
+	*pTw_ = (*pTw_)/S(0,0);
 	//negate row no. 1 and 2, to switch from GL to CV convention
-	for (int r = 1; r < 3; r++)
-		for	(int c = 0; c < 4; c++){
-			Total(r,c) = -Total(r,c);
+	for (int r = 1; r < 3; r++){
+		for	(int c = 0; c < 3; c++){
+			(*pRw_)(r,c) = -(*pRw_)(r,c);
 		}
-	*pRw_ = Total.rotation();
-	*pTw_ = Total.translation();
-		//PRINT(*pRw_);
-		//PRINT(*pTw_);
+		(*pTw_)(r) = -(*pTw_)(r); 
+	}
+	//PRINT(S);
+	//PRINT(*pRw_);
+	//PRINT(*pTw_);
 	return;
 }
 

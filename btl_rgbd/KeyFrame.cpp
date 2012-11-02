@@ -1132,7 +1132,7 @@ void btl::kinect::CKeyFrame::gpuBoundaryDetector(float fThreshold_, const unsign
 	_acvgmShrPtrPyrRGBs[usLevel_]->download(*_acvmShrPtrPyrRGBs[usLevel_]);
 }
 
-void btl::kinect::CKeyFrame::assignRT(const CKeyFrame& cFrame_ ){
+void btl::kinect::CKeyFrame::setRTTo(const CKeyFrame& cFrame_ ){
 	//assign rotation and translation 
 	_eimRw = cFrame_._eimRw;
 	_eivTw = cFrame_._eivTw;

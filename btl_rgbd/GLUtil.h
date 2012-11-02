@@ -23,7 +23,6 @@ public:
 	//to initialize for the interoperation with opengl
 	void setCudaDeviceForGLInteroperation();
 
-	void viewerGL();
 	void renderVoxelGL( const float fSize_) const;
 	void renderAxisGL() const;
 	void renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const;
@@ -60,6 +59,8 @@ public:
 	void gpuMapRGBResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
 	void gpuMapRgb2PixelBufferObj(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_ );
 	void errorDetectorGL() const;
+	void viewerGL();
+	void setInitialPos();
 	void getRTFromWorld2CamCV(Eigen::Matrix3d* pRw_, Eigen::Vector3d* pTw_) const;
 
 public:
