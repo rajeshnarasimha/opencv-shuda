@@ -33,58 +33,43 @@
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
-#include "PlaneWorld.h"
 #include "KinfuTracker.h"
-#define _nReserved 50
+#define _nReserved 5
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-btl::geometry::CMultiPlanesMultiViewsInWorld::tp_shared_ptr _pMPMV;
 btl::geometry::CKinfuTracker::tp_shared_ptr _pTracker;
 btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
-btl::kinect::CKeyFrame::tp_shared_ptr _pDisplayFrame;
 unsigned short _nWidth, _nHeight;
 
 btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
-btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrRenderFrms[3];
 
 std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
-std::vector< int > _vRFIdx;
-int _nKFCounter = 1; //key frame counter
 int _nRFIdx = 0; //reference frame counter
 
 bool _bContinuous = true;
-bool _bPrevStatus = true;
-bool _bRenderReference = true;
 bool _bCapture = false;
-bool _bRenderPlane = false;
 int _nView = 0;
-unsigned short _usColorIdx=0;
 ushort _usViewNO = 0;
-ushort _usPlaneNO = 0;
-ushort _uResolution = 1;
+ushort _uResolution = 0;
 ushort _uPyrHeight = 3;
 std::string _strPath("");
 int _nN = 1;
+
 void printVolume(){
 	std::string strPath("C:\\csxsl\\src\\opencv-shuda\\output\\");
 	for (int i = 0; i< 256; i++ ){
 		_pTracker->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CKinfuTracker::_X);
-	}
-	for (int i = 0; i< 256; i++ ){
 		_pTracker->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CKinfuTracker::_Y);
-	}
-	for (int i = 0; i< 256; i++ )
-	{
 		_pTracker->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CKinfuTracker::_Z);
 	}
 	return;
 }
 void init ( ){
 	for(int i=0; i <_nReserved; i++){ 
-		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),1,3));	
+		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight));	
 	}
-	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),1,3));	
+	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight));	
 
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
@@ -104,7 +89,8 @@ void init ( ){
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFIdx];
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 	_pKinect->_pFrame->copyTo(&*p1stKF);
-	p1stKF->extractSurfFeatures();
+	//p1stKF->extractSurfFeatures();
+	p1stKF->extractOrbFeatures();
 	p1stKF->gpuTransformToWorldCVCV();
 
 	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\output\\");
@@ -122,14 +108,9 @@ void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
 	switch ( key ) {
 	case GLUT_KEY_F6: //display camera
-		_usColorIdx++;
-		for(unsigned int i=0; i < _nKFCounter; i++)	{
-			_aShrPtrKFs[i]->_nColorIdx = _usColorIdx;
-		}
 		glutPostRedisplay();
 		break;
 	case GLUT_KEY_F3:
-		_bRenderReference = !_bRenderReference;
 		glutPostRedisplay();
 		break;
 	}
@@ -165,32 +146,23 @@ void normalKeys ( unsigned char key, int x, int y ){
 		glutPostRedisplay();
 		break;
 	case '1':
-		_usViewNO = ++_usViewNO % _nKFCounter; 
-		(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
 		glutPostRedisplay();
 		break;
 	case '2':
+		//export volume debug images
 		printVolume();
 		glutPostRedisplay();
 		break;
 	case '3':
+		//export RayCast debug image
 		_strPath = "C:\\csxsl\\src\\opencv-shuda\\output\\" + boost::lexical_cast<std::string> ( _nN ) + ".bmp";
 		_nN ++;
-		
 		break;
 	case '4':
 		_pVirtualFrame->setView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 		break;
 	case '8':
-			//use current keyframe as a reference
-			_bRenderReference =! _bRenderReference;
-			for(unsigned int i=0; i < _nKFCounter; i++)	{
-				/*for (unsigned short u=0; u<4; u++)
-				{
-					_aShrPtrKFs[i]->gpuDetectPlane(u);
-				}*/
-			}
 			glutPostRedisplay();
 			break;
 	case '0':
@@ -222,8 +194,8 @@ void display ( void ) {
 
 // update frame
     _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);//the current frame must be in camera coordinate
-	PRINTSTR("Contruct pyramid.");
-	_pGL->timerStop();
+	//PRINTSTR("Contruct pyramid.");
+	//_pGL->timerStop();
 
 // ( second frame )
 	unsigned short uInliers;
@@ -237,46 +209,47 @@ void display ( void ) {
 		btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
 		
 		//attach surf features to planes
-		_pKinect->_pFrame->extractSurfFeatures();
+		_pKinect->_pFrame->extractOrbFeatures();
 		//track camera motion
-		double dError = _pKinect->_pFrame->calcRT ( *pPrevKF,0,.5,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
-		if (dError < 0.2) 
+		_pKinect->_pFrame->setRTTo(*pPrevKF);
+		double dError = _pKinect->_pFrame->calcRTOrb ( *pPrevKF,0,.2,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
+		if (/*dError < 0.2 &&*/ uInliers > 300) 
 		{
-			PRINTSTR("Surf calibration.");
-			_pGL->timerStop();
+			//PRINTSTR("Surf calibration.");
+			//_pGL->timerStop();
 			_pKinect->_pFrame->gpuICP ( pPrevKF.get(), false );//refine the R,T with w.r.t. last key frame
-			_pVirtualFrame->setRTTo(*_pKinect->_pFrame);
-			_pTracker->gpuRaycast( &*_pVirtualFrame ); //get virtual frame
-			_pVirtualFrame->gpuICP ( pPrevKF.get(), false );//refine R,T w.r.t. the virtual frame
-			_pKinect->_pFrame->setRTTo(*_pVirtualFrame);
-			PRINTSTR("ICP tracking.");
-			_pGL->timerStop();
-			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pPrevKF.get(),M_PI_4/24.,0.15) ){
+			
+			//PRINTSTR("ICP tracking.");
+			//_pGL->timerStop();
+			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pPrevKF.get(),M_PI_4/45.,0.02) ){
+				_pVirtualFrame->setRTTo( *_pKinect->_pFrame );
+				_pTracker->gpuRaycast( &*_pVirtualFrame ); //get virtual frame
+				_pVirtualFrame->gpuICP ( pPrevKF.get(), false );//refine R,T w.r.t. the virtual frame
+				_pKinect->_pFrame->setRTTo( *_pVirtualFrame );
 				_pKinect->_pFrame->gpuTransformToWorldCVCV();
 				//ingrate current frame into the global volume
 				//Note: the point cloud int cFrame_ must be transformed into world before calling it
 				_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
-				PRINTSTR("Volume integration.");
-				_pGL->timerStop();
+				//PRINTSTR("Volume integration.");
+
 				//_nRFIdx++;
 				btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nRFIdx];
 				_pKinect->_pFrame->copyTo(&*pCurrentKF);//store current frame into buffer
-				_vShrPtrsKF.push_back(&pCurrentKF);
+				//_vShrPtrsKF.push_back(&pCurrentKF);
 				//save current frame and make it as the reference frame
 				std::cout << "new key frame added" << std::flush;
+				_pGL->timerStop();
 			}//if moving far enough new keyframe will be added
 			
 		}//if(dError < 0.5)
 		//_bCapture = false;
-	}//if(_bCapture && _nKFCounter < _nReserved)
-	else if( _nKFCounter == _nReserved )	{
-		std::cout << "two many key frames to hold" << std::flush;  
-	}
+	}//if( _bCapture )
+	
 	//_pGL->timerStop();
 ////////////////////////////////////////////////////////////////////
 // render 1st viewport
     glMatrixMode ( GL_MODELVIEW );
-    glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
+   /* glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
     glScissor  ( 0, _nHeight/2, _nWidth/2, _nHeight/2 );
     // after set the intrinsics and extrinsics
     _pGL->viewerGL();
@@ -294,7 +267,6 @@ void display ( void ) {
 			(**cit)->renderCameraInWorldCVCV(_pGL.get(),false,.05f,_pGL->_usLevel);
 		(**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usLevel, _usColorIdx, false );
 	}
-	//if(_bRenderPlane) _pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usPyrLevel, _usColorIdx, false );
 	//_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
 
 	if(_pGL->_bRenderReference) {
@@ -304,7 +276,7 @@ void display ( void ) {
 		_pGL->renderVoxelGL(3.f);
 		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
-
+	*/
 ////////////////////////////////////////////////////////////////////
 // render 2nd viewport
     glViewport ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
@@ -318,16 +290,31 @@ void display ( void ) {
 #endif
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
 
-////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
 // render 3rd viewport
+
+	// render 3nd viewport
+	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
+	glScissor  ( 0, 0, _nWidth/2, _nHeight/2 );
+	glLoadIdentity();
+	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
+#if USE_PBO
+	_pGL->gpuMapRgb2PixelBufferObj(*pPrevKF->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
+#else
+	_pKinect->_pRGBCamera->LoadTexture(*pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
+#endif
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
+
+/*
 	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
 	glScissor  ( 0, 0, _nWidth/2, _nHeight/2 );
 	_pGL->viewerGL();
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	_pTracker->gpuRenderVoxelInWorldCVGL();
+	_pTracker->gpuRenderVoxelInWorldCVGL();*/
 
-
+	
 ////////////////////////////////////////////////////////////////////
 // render 4th viewport
 	glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
@@ -391,11 +378,11 @@ int main ( int argc, char** argv ) {
 
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,true));
-		_pTracker.reset( new btl::geometry::CKinfuTracker() );
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true));
+		_pTracker.reset( new btl::geometry::CKinfuTracker(512) );
 		init();
-		_pTracker->gpuCreateVBO(_pGL.get());
 		_pGL->constructVBOsPBOs();
+		//_pTracker->gpuCreateVBO(_pGL.get());
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();
 
