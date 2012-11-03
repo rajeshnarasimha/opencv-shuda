@@ -50,13 +50,13 @@ boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrPyrDispar
 boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrPyr32FC1Tmp[4];
 
 boost::shared_ptr<cv::gpu::SURF_GPU> btl::kinect::CKeyFrame::_pSurf;
+boost::shared_ptr<cv::gpu::ORB_GPU>  btl::kinect::CKeyFrame::_pOrb;
 
 btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_ )
 :_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_){
 	allocate();
 }
 btl::kinect::CKeyFrame::CKeyFrame( CKeyFrame::tp_ptr pFrame_ )
-:_uPyrHeight(4)
 {
 	_pRGBCamera = pFrame_->_pRGBCamera;
 	_uResolution = pFrame_->_uResolution;
@@ -205,14 +205,7 @@ void btl::kinect::CKeyFrame::importYML(const std::string& strPath_, const std::s
 	cFSRead.release();
 }
 
-void btl::kinect::CKeyFrame::extractSurfFeatures ()  {
-	(*_pSurf)(*_acvgmShrPtrPyrBWs[0], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
-	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
-	//from current to reference
-	//_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
-	
-	return;
-}
+
 
 void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sReferenceKF_) {
 	CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
@@ -254,6 +247,22 @@ void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sRe
 	return;
 
 }//establishPlaneCorrespondences()
+
+void btl::kinect::CKeyFrame::extractSurfFeatures ()  {
+	(*_pSurf)(*_acvgmShrPtrPyrBWs[0], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
+	_pSurf->downloadKeypoints(_cvgmKeyPoints, _vKeyPoints);
+	//from current to reference
+	//_cvgmKeyPoints.copyTo(sReferenceKF_._cvgmKeyPoints); _cvgmDescriptors.copyTo(sReferenceKF_._cvgmDescriptors);
+
+	return;
+}
+
+void btl::kinect::CKeyFrame::extractOrbFeatures ()  {
+	(*_pOrb)(*_acvgmShrPtrPyrBWs[0], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
+	_pOrb->downloadKeyPoints(_cvgmKeyPoints, _vKeyPoints);
+	return;
+}
+
 double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
 	// - The reference frame must contain a calibrated Rw and Tw. 
 	// - The point cloud in the reference frame must be transformed into the world coordinate system.
@@ -418,7 +427,138 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
     return dErrorBest;
 }// calcRT
 
+double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
+	// - The reference frame must contain a calibrated Rw and Tw. 
+	// - The point cloud in the reference frame must be transformed into the world coordinate system.
+	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
+	// - The point cloud in the current frame must be in the camera coordinate system.
+	BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
+	//matching from current to reference
+	cv::gpu::BruteForceMatcher_GPU< cv::HammingLUT > cBruteMatcher;
+	cBruteMatcher.match(_cvgmDescriptors, sPrevKF_._cvgmDescriptors, _vMatches);  
+	PRINT(_vMatches.size());
+	//std::sort( _vMatches.begin(), _vMatches.end() );
+	//if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
+	//CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
+	//calculate the R and T
+	//search for pairs of correspondences with depth data available.
+	const float*const  _pCurrPts = (const float*)         _acvmShrPtrPyrPts[sLevel_]->data;
+	const float*const  _pPrevPts = (const float*)sPrevKF_._acvmShrPtrPyrPts[sLevel_]->data;
+	std::vector< int > _vDepthIdxCur, _vDepthIdxRef, _vSelectedPairs;
+	for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++ ) {
+		int nKeyPointIdxCur = cit->queryIdx;
+		int nKeyPointIdxRef = cit->trainIdx;
 
+		int nXCur = cvRound ( 		   _vKeyPoints[ nKeyPointIdxCur ].pt.x );
+		int nYCur = cvRound ( 		   _vKeyPoints[ nKeyPointIdxCur ].pt.y );
+		int nXRef = cvRound ( sPrevKF_._vKeyPoints[ nKeyPointIdxRef ].pt.x );
+		int nYRef = cvRound ( sPrevKF_._vKeyPoints[ nKeyPointIdxRef ].pt.y );
+
+		int nDepthIdxCur = nYCur * __aKinectW[_uResolution] * 3 + nXCur * 3;
+		int nDepthIdxRef = nYRef * __aKinectW[_uResolution] * 3 + nXRef * 3;
+
+		if ( !boost::math::isnan<float>( _pCurrPts[ nDepthIdxCur + 2 ] ) && !boost::math::isnan<float> (_pPrevPts[ nDepthIdxRef + 2 ]  ) ){
+			float fDist = btl::utility::norm3<float>( _pCurrPts + nDepthIdxCur, _pPrevPts + nDepthIdxRef, _eimRw.data(), _eivTw.data() );
+			if(  fDist < dDistanceThreshold_ ) {
+				_vDepthIdxCur  .push_back ( nDepthIdxCur );
+				_vDepthIdxRef  .push_back ( nDepthIdxRef );
+				_vSelectedPairs.push_back ( nKeyPointIdxCur );
+				_vSelectedPairs.push_back ( nKeyPointIdxRef );
+			}//if(  fDist < dDistanceThreshold_ ) 
+		}//if ( !boost::math::isnan<float>( _pCurrPts[ nDepthIdxCur + 2 ] ) && !boost::math::isnan<float> (_pPrevPts[ nDepthIdxRef + 2 ]  ) )
+	}//for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++ )
+            
+    int nSize = _vDepthIdxCur.size(); 
+	*pInliers_ = nSize;
+	PRINT(nSize);
+	//if nSize smaller than a threshould, quit
+    Eigen::MatrixXd eimCurCam ( 3, nSize ), eimRefWorld ( 3, nSize );
+    std::vector< int >::const_iterator cit_Cur = _vDepthIdxCur.begin();
+    std::vector< int >::const_iterator cit_Ref = _vDepthIdxRef.begin();
+
+    for ( int i = 0 ; cit_Cur != _vDepthIdxCur.end(); cit_Cur++, cit_Ref++ ){
+        eimCurCam ( 0, i ) = _pCurrPts[ *cit_Cur     ];
+        eimCurCam ( 1, i ) = _pCurrPts[ *cit_Cur + 1 ];
+        eimCurCam ( 2, i ) = _pCurrPts[ *cit_Cur + 2 ];
+        eimRefWorld ( 0, i ) = _pPrevPts[ *cit_Ref     ];
+        eimRefWorld ( 1, i ) = _pPrevPts[ *cit_Ref + 1 ];
+        eimRefWorld ( 2, i ) = _pPrevPts[ *cit_Ref + 2 ];
+        i++;
+    }
+    double dS2;
+    double dErrorBest = btl::utility::absoluteOrientation < double > ( eimRefWorld, eimCurCam , false, &_eimRw, &_eivTw, &dS2 ); // eimB_ = R * eimA_ + T;
+
+	//PRINT ( dErrorBest );
+	//PRINT ( _eimR );
+	//PRINT ( _eivT );
+	double dThreshold = dErrorBest;
+        
+    /*
+    if ( nSize > 30 ) {
+                            
+            // random generator
+            boost::mt19937 rng;
+            boost::uniform_real<> gen ( 0, 1 );
+            boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
+            double dError;
+            Eigen::Matrix3d eimR;
+            Eigen::Vector3d eivT;
+            double dS;
+            std::vector< int > vVoterIdx;
+            Eigen::Matrix3d eimRBest;
+            Eigen::Vector3d eivTBest;
+            std::vector< int > vVoterIdxBest;
+            int nMax = 0;
+            std::vector < int > vRndIdx;
+            Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
+            
+            for ( int n = 0; n < 500; n++ ) {
+                select5Rand (  eimRefWorld, eimCurCam, dice, &eimYTmp, &eimXTmp );
+                dError = btl::utility::absoluteOrientation < double > ( eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
+            
+                if ( dError > dThreshold ) {
+                    continue;
+                }
+            
+                //voting
+                int nVotes = voting ( eimRefWorld, eimCurCam, eimR, eivT, dThreshold, &vVoterIdx );
+                if ( nVotes > eimCurCam.cols() *.75 ) {
+                    nMax = nVotes;
+                    eimRBest = eimR;
+                    eivTBest = eivT;
+                    vVoterIdxBest = vVoterIdx;
+                    break;
+                }
+            
+                if ( nVotes > nMax ){
+                    nMax = nVotes;
+                    eimRBest = eimR;
+                    eivTBest = eivT;
+                    vVoterIdxBest = vVoterIdx;
+                }
+            }
+            
+            if ( nMax <= 6 ){
+            	std::cout << "try increase the threshould" << std::endl;
+                return dErrorBest;
+            }
+            
+            Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
+            Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
+            selectInlier ( eimRefWorld, eimCurCam, vVoterIdxBest, &eimYInlier, &eimXInlier );
+            dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &dS2 );
+            
+            PRINT ( nMax );
+            PRINT ( dErrorBest );
+            //PRINT ( _eimR );
+            //PRINT ( _eivT );
+            *pInliers_ = (unsigned short)nMax;
+        }//if*/
+    
+	//apply new pose
+	updateMVInv();
+    return dErrorBest;
+}// calcRT
 
 void btl::kinect::CKeyFrame::render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const {
 	//////////////////////////////////

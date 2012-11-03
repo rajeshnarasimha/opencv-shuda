@@ -210,9 +210,9 @@ int main ( int argc, char** argv ){
 
 		glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
-		_pGL.reset( new btl::gl_util::CGLUtil(0,4,btl::utility::BTL_GL) );
+		_pGL.reset( new btl::gl_util::CGLUtil(0,3,btl::utility::BTL_GL) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,true));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,3,true));
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

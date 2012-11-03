@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
     }
 
 
-	ORB_GPU orb;
+	ORB_GPU orb(100,1.2,8,10,1,2,0,11);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
@@ -64,12 +64,12 @@ int main(int argc, char* argv[])
     sort (matches.begin(), matches.end(), sort_pred);
     vector<DMatch> closest;
 
-    int nSize = matches.size()>300?300:matches.size();
+    int nSize = matches.size();//>300?300:matches.size();
     cout << "matched point pairs: " << nSize << endl;
 	for( int i=0;i < nSize;i++)
     {
         closest.push_back( matches[i] );
-        cout << matches[i].distance << endl;
+        //cout << matches[i].distance << endl;
     }
     // drawing the results
     Mat img_matches;

@@ -43,18 +43,21 @@
 namespace btl{ namespace geometry
 {
 
-CKinfuTracker::CKinfuTracker()
+CKinfuTracker::CKinfuTracker(ushort usResolution_)
+:_uResolution(usResolution_)
 {
+	_uVolumeLevel = _uResolution*_uResolution;
+	_uVolumeTotal = _uVolumeLevel*_uResolution;
 	_fVolumeSizeM = 3.f; //3m
-	_fVoxelSizeM = _fVolumeSizeM/VOLUME_RESOL;
-	_fTruncateDistanceM = _fVoxelSizeM*12;
-	_cvgmYZxXVolContentCV.create(VOLUME_RESOL,VOLUME_LEVEL,CV_16SC2);//y*z,x
+	_fVoxelSizeM = _fVolumeSizeM/_uResolution;
+	_fTruncateDistanceM = _fVoxelSizeM*6;
+	_cvgmYZxXVolContentCV.create(_uResolution,_uVolumeLevel,CV_16SC2);//y*z,x
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());//set EACH channel to max().
 	//_cvgmYZxXVolContentCV.setTo(0);
 }
 CKinfuTracker::~CKinfuTracker(void)
 {
-	releaseVBOPBO();
+	//releaseVBOPBO();
 	//if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
 
@@ -68,8 +71,8 @@ void CKinfuTracker::releaseVBOPBO()
 	//release PBO
 	// unregister this buffer object with CUDA
 	//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
-	cudaSafeCall( cudaGraphicsUnregisterResource( _pResourcePBO ) );
-	glDeleteBuffers(1, &_uPBO);
+	//cudaSafeCall( cudaGraphicsUnregisterResource( _pResourcePBO ) );
+	//glDeleteBuffers(1, &_uPBO);
 }
 void CKinfuTracker::reset(){
 	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
@@ -88,20 +91,6 @@ void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame
 		cFrame_._eimRw.data(),cFrame_._eivTw.data(), eivCw.data(),//camera parameters
 		cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,//
 		&_cvgmYZxXVolContentCV);
-	/*{
-		//test2	
-		cv::Mat cvmTest;
-		_cvgmYZxXVolContentCV.download(cvmTest);
-		short2* pData = (short2*) cvmTest.data;
-		for (int r=0; r<cvmTest.rows; r++)
-			for (int c=0; c<cvmTest.cols; c++){
-				float fTSDF; int nWeight;
-				unpack_tsdf(*pData++,fTSDF,nWeight);
-				if(fabs(fTSDF)<0.8&&nWeight>0)
-					PRINT(fTSDF);
-			}
-	}*/
-	//_cvgmYZxXVolContentCV.download(cvmTest);
 }
 void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_ ) const {
 	Eigen::Matrix3f eimcmRwCur = pVirtualFrame_->_eimRw.cast<float>();
@@ -119,8 +108,7 @@ void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::stri
 		cv::imwrite(strPathFileName_,cvmDebug);
 		strPathFileName_ = "";
 	} 
-	else
-	{
+	else{
 		btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
 			devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[0],&*pVirtualFrame_->_acvgmShrPtrPyrNls[0],&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
 	}
@@ -134,18 +122,14 @@ void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::stri
 		pVirtualFrame_->_acvgmShrPtrPyrPts[s]->download(*pVirtualFrame_->_acvmShrPtrPyrPts[s]);
 		pVirtualFrame_->_acvgmShrPtrPyrNls[s]->download(*pVirtualFrame_->_acvmShrPtrPyrNls[s]);
 	}//for each pyramid level
-	////construct the pyramid
-	//float _fThresholdDepthInMeter = 0.1f;
-	//float _fSigmaSpace = 3;
-	//float _fSigmaDisparity = 1.f/.6f - 1.f/(.6f+_fThresholdDepthInMeter);
-	//pVirtualFrame_->constructPyramid(_fSigmaSpace, _fSigmaDisparity);
+	return;
 }
 
 void CKinfuTracker::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
 	_pGL = pGL_;
 	if(_pGL){
 		_pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
-		_pGL->createPBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(uchar),&_uPBO,&_pResourcePBO,&_uTexture);
+	//	_pGL->createPBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(uchar),&_uPBO,&_pResourcePBO,&_uTexture);
 	}
 }
 void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
@@ -158,8 +142,8 @@ void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 	cvgmYZxZVolCentersGL.setTo(std::numeric_limits<float>::quiet_NaN());
 
 
-	cv::gpu::GpuMat cvgmYZxZVolColor(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,CV_8UC3,pDev);
-	cvgmYZxZVolColor.setTo(std::numeric_limits<uchar>::quiet_NaN());
+	//cv::gpu::GpuMat cvgmYZxZVolColor(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,CV_8UC3,pDev);
+	//cvgmYZxZVolColor.setTo(std::numeric_limits<uchar>::quiet_NaN());
 	
 	// execute the kernel
 	//download the voxel centers lies between the -threshold and +threshold
@@ -173,14 +157,14 @@ void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glColor3f(1.0, 0.0, 0.0);
-	glDrawArrays(GL_POINTS, 0, VOXEL_TOTAL );
+	glDrawArrays(GL_POINTS, 0, _uVolumeTotal );
 	glDisableClientState(GL_VERTEX_ARRAY);
 }//gpuRenderVoxelInWorldCVGL()
 
 void CKinfuTracker::gpuExportVolume(const std::string& strPath_, ushort usNo_, ushort usV_, ushort usAxis_) const{
-	cv::gpu::GpuMat cvgmCross(VOLUME_RESOL,VOLUME_RESOL,CV_8UC3);
+	cv::gpu::GpuMat cvgmCross(_uResolution,_uResolution,CV_8UC3);
 	btl::device::exportVolume2CrossSectionX(_cvgmYZxXVolContentCV,usV_,usAxis_,&cvgmCross);
-	cv::Mat cvmCross(VOLUME_RESOL,VOLUME_RESOL,CV_8UC3);
+	cv::Mat cvmCross(_uResolution,_uResolution,CV_8UC3);
 	cvgmCross.download(cvmCross);
 	std::string strVariableName = strPath_ + "cross"+  boost::lexical_cast<std::string> ( usNo_ ) + boost::lexical_cast<std::string> ( usAxis_ ) + "X" + boost::lexical_cast<std::string> ( usV_ ) + ".bmp";
 	cv::imwrite(strVariableName.c_str(),cvmCross);

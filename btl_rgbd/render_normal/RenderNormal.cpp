@@ -310,7 +310,7 @@ int main ( int argc, char** argv ){
 		
 		_pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
-		_pKinect.reset( new btl::kinect::VideoSourceKinect(1,true) );
+		_pKinect.reset( new btl::kinect::VideoSourceKinect(1,3,true) );
 		
 		init();
 		_pGL->constructVBOsPBOs();

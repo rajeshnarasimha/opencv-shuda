@@ -216,7 +216,7 @@ int main ( int argc, char** argv ){
         glutDisplayFunc ( display );
 		_pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(1,true));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(1,3,true));
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

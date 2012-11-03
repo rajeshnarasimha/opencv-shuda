@@ -49,7 +49,7 @@ namespace btl{ namespace kinect
 {
 
 
-VideoSourceKinect::VideoSourceKinect (ushort uResolution_, bool bUseNIRegistration_)
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_)
 :_bUseNIRegistration(bUseNIRegistration_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
@@ -70,6 +70,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, bool bUseNIRegistrati
 	nRetVal = _cDepthGen.Create(_cContext);			CHECK_RC(nRetVal, "Create depth generator"); 
 	// set as the highest resolution 0 480x640
 	setResolution(uResolution_);
+	_uPyrHeight = uPyrHeight_;
     
 	//register the depth generator with the image generator
 	if (_bUseNIRegistration){
@@ -118,6 +119,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, bool bUseNIRegistrati
 	btl::kinect::CKeyFrame::_sNormalHist.init(2);
 	btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
+	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
 
 	std::cout << " Done. " << std::endl;
 }
@@ -593,21 +595,17 @@ void VideoSourceKinect::setResolution(ushort uResolutionLevel_){
 	sModeVGA.nFPS = 30; 
 	switch(_uResolution){
 	case 3:
-		_uPyrHeight = 1;
 		sModeVGA.nXRes = 80; 
 		sModeVGA.nYRes = 60; 
 	case 2:
-		_uPyrHeight = 2;
 		sModeVGA.nXRes = 160; 
 		sModeVGA.nYRes = 120; 
 		break;
 	case 1:
-		_uPyrHeight = 3;
 		sModeVGA.nXRes = 320; 
 		sModeVGA.nYRes = 240; 
 		break;
 	case 0:
-		_uPyrHeight = 4;
 		sModeVGA.nXRes = 640; 
 		sModeVGA.nYRes = 480; 
 		break;

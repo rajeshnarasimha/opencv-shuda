@@ -23,7 +23,7 @@ public:
 	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
 
 	//constructor
-    VideoSourceKinect(ushort uResolution_, bool bUseNIRegistration_);
+    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_);
     virtual ~VideoSourceKinect();
 
 	void getNextFrame(tp_frame eFrameType_);

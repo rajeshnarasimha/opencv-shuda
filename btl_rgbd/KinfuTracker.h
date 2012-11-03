@@ -17,7 +17,7 @@ public:
 private:
 	void releaseVBOPBO();//methods
 public:
-	CKinfuTracker();
+	CKinfuTracker(ushort _usResolution);
 	~CKinfuTracker();
 	void gpuRenderVoxelInWorldCVGL();
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
@@ -39,6 +39,9 @@ public:
 	//physical size of the volume
 	float _fVolumeSizeM;//in meter
 	float _fVoxelSizeM; //in meter
+	unsigned int _uResolution;
+	unsigned int _uVolumeLevel;
+	unsigned int _uVolumeTotal;
 	//truncated distance in meter
 	//must be larger than 2*voxelsize 
 	float _fTruncateDistanceM;
