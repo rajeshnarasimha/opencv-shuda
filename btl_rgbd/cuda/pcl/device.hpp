@@ -69,7 +69,7 @@ namespace pcl
     //////////////////////////////////////////////////////////////////////////////////////
     /// for old format
 	//Tsdf fixed point divisor (if old format is enabled)
-	const int DIVISOR =  30000; //32767;     // SHRT_MAX;
+	const int DIVISOR =  32767;     // SHRT_MAX; //30000; //
 
 	//should be multiple of 32
 	//enum { VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512 };

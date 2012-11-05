@@ -6,7 +6,6 @@
 #include <opencv2/gpu/gpu.hpp>
 #include <opencv2/gpu/devmem2d.hpp>
 #include "cv/common.hpp"
-#include "pcl/device.hpp"
 #include "pcl/limits.hpp"
 #include "pcl/device.hpp"
 #include "pcl/vector_math.hpp"
@@ -335,7 +334,6 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
   dim3 grid (cv::gpu::divUp (sRC.cols, block.x), cv::gpu::divUp (sRC.rows, block.y));
 
   cv::Mat cvmDebug;
-  
 
   rayCastKernel<<<grid, block>>>(sRC);
   cudaSafeCall (cudaGetLastError ());
@@ -343,5 +341,5 @@ void raycast (const pcl::device::Intr& sCamIntr_, const pcl::device::Mat33& RwCu
   //	  cvgmDebug.download(*pcvmDebug_);
   //cudaSafeCall(cudaDeviceSynchronize());
 }//raycast()
-}
-}
+}//device
+}//btl
