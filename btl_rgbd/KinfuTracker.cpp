@@ -36,8 +36,8 @@
 #include "KeyFrame.h"
 #include "KinfuTracker.h"
 #include "cuda/CudaLib.h"
-#include "cuda/Volume.h"
 #include "cuda/pcl/internal.h"
+#include "cuda/Volume.h"
 #include "cuda/RayCaster.h"
 
 namespace btl{ namespace geometry
@@ -51,9 +51,12 @@ CKinfuTracker::CKinfuTracker(ushort usResolution_)
 	_fVolumeSizeM = 3.f; //3m
 	_fVoxelSizeM = _fVolumeSizeM/_uResolution;
 	_fTruncateDistanceM = _fVoxelSizeM*6;
-	_cvgmYZxXVolContentCV.create(_uResolution,_uVolumeLevel,CV_16SC2);//y*z,x
-	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());//set EACH channel to max().
+	//_cvgmYZxXVolContentCV.create(_uResolution,_uVolumeLevel,CV_16SC2);//x,y*z,
+	//_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
 	//_cvgmYZxXVolContentCV.setTo(0);
+
+	_cvgmYZxXVolContentCV.create(_uVolumeLevel,_uResolution,CV_16SC2);//y*z,x
+	reset();
 }
 CKinfuTracker::~CKinfuTracker(void)
 {
@@ -75,22 +78,35 @@ void CKinfuTracker::releaseVBOPBO()
 	//glDeleteBuffers(1, &_uPBO);
 }
 void CKinfuTracker::reset(){
-	_cvgmYZxXVolContentCV.setTo(std::numeric_limits<short>::max());
+	
+	pcl::device::initVolume (&_cvgmYZxXVolContentCV);
 }
-void CKinfuTracker::unpack_tsdf (short2 value, float& tsdf, int& weight)
-{
-    weight = value.y;
-    tsdf =  (value.x) / 30000;//32767;   //*/ * INV_DIV;
-}
+
 void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
 	//Note: the point cloud int cFrame_ must be transformed into world before calling it
-	Eigen::Vector3d eivCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
-	BTL_ASSERT( btl::utility::BTL_CV == cFrame_._eConvention, "the frame depth data must be captured in cv-convention");
-	btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmShrPtrPyrDepths[0],0,
+	Eigen::Matrix3d eimRw = cFrame_._eimRw.transpose();//device cast do the transpose implicitly because eimcmRwCur is col major by default.
+	Eigen::Matrix3f eimfRw = eimRw.cast<float>();
+	pcl::device::Mat33& devRw = pcl::device::device_cast<pcl::device::Mat33> (eimfRw);
+	Eigen::Vector3d eivCw = - eimRw *cFrame_._eivTw ; //get camera center in world coordinate
+	Eigen::Vector3f eivfCw = eivCw.cast<float>();
+	float3& devCw = pcl::device::device_cast<float3> (eivfCw);
+
+	//switch to Shuda integrateFrame2VolumeCVCV 
+	//1. uncomment the following lines
+	//2. uncomment the reset function
+	//btl::device::integrateFrame2VolumeCVCV(*cFrame_._acvgmShrPtrPyrDepths[0],0,
+	//	_fVoxelSizeM,_fTruncateDistanceM, 
+	//	devRw, devCw,//camera parameters,
+	//	cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,//
+	//	&_cvgmYZxXVolContentCV);
+
+	pcl::device::integrateTsdfVolume(*cFrame_._acvgmShrPtrPyrDepths[0],0,
 		_fVoxelSizeM,_fTruncateDistanceM, 
-		cFrame_._eimRw.data(),cFrame_._eivTw.data(), eivCw.data(),//camera parameters
+		devRw, devCw,//camera parameters,
 		cFrame_._pRGBCamera->_fFx,cFrame_._pRGBCamera->_fFy,cFrame_._pRGBCamera->_u,cFrame_._pRGBCamera->_v,//
 		&_cvgmYZxXVolContentCV);
+
+	return;
 }
 void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_ ) const {
 	Eigen::Matrix3f eimcmRwCur = pVirtualFrame_->_eimRw.cast<float>();
@@ -99,8 +115,6 @@ void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::stri
 	//Cw = -Rw'*Tw
 	Eigen::Vector3f eivCwCur = Eigen::Vector3d( - pVirtualFrame_->_eimRw.transpose() * pVirtualFrame_->_eivTw ).cast<float>();
 	float3& devCwCur = pcl::device::device_cast<float3> (eivCwCur);
-	//btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
-	//	devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
 	if (strPathFileName_.length()>=1){
 		cv::Mat cvmDebug(240,320,CV_8UC1);
 		btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
@@ -109,8 +123,10 @@ void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::stri
 		strPathFileName_ = "";
 	} 
 	else{
-		btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
-			devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[0],&*pVirtualFrame_->_acvgmShrPtrPyrNls[0],&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);
+		/*btl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
+			devRwCurTrans,devCwCur,_fTruncateDistanceM,_fVolumeSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[0],&*pVirtualFrame_->_acvgmShrPtrPyrNls[0],&*pVirtualFrame_->_acvgmShrPtrPyrDepths[0]);*/
+		pcl::device::raycast(pcl::device::Intr(pVirtualFrame_->_pRGBCamera->_fFx,pVirtualFrame_->_pRGBCamera->_fFy,pVirtualFrame_->_pRGBCamera->_u,pVirtualFrame_->_pRGBCamera->_v)(0),
+			devRwCurTrans,devCwCur,_fVolumeSizeM, _fTruncateDistanceM,_fVoxelSizeM, _cvgmYZxXVolContentCV,&*pVirtualFrame_->_acvgmShrPtrPyrPts[0],&*pVirtualFrame_->_acvgmShrPtrPyrNls[0]);
 	}
 	
 	//down-sampling

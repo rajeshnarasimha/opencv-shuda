@@ -379,7 +379,7 @@ int main ( int argc, char** argv ) {
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true));
-		_pTracker.reset( new btl::geometry::CKinfuTracker(512) );
+		_pTracker.reset( new btl::geometry::CKinfuTracker(64) );
 		init();
 		_pGL->constructVBOsPBOs();
 		//_pTracker->gpuCreateVBO(_pGL.get());

@@ -3,15 +3,12 @@
 
 namespace btl{ namespace geometry
 {
-#define RESOL 256//128 // 512//
-#define LEVEL 65536//16384 //VOLUME_RESOL * VOLUME_RESOL //262144//
-#define TOTAL 16777216//2097152//VOLUME_LEVEL * VOLUME_RESOL //134217728//
+
 class CKinfuTracker
 {
 //type
 public:
 	typedef boost::shared_ptr<CKinfuTracker> tp_shared_ptr;
-	enum {VOLUME_RESOL = RESOL, VOLUME_LEVEL = LEVEL, VOXEL_TOTAL = TOTAL};
 	enum {_X = 1, _Y = 2, _Z = 3};
 
 private:
@@ -22,7 +19,6 @@ public:
 	void gpuRenderVoxelInWorldCVGL();
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
-	void unpack_tsdf (short2 value, float& tsdf, int& weight);
 	void gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_=std::string("")) const;
 	void reset();
 	void gpuExportVolume(const std::string& strPath_,ushort usNo_, ushort usV_, ushort usAxis_) const;
