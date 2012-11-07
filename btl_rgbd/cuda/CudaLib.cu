@@ -541,8 +541,8 @@ void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float 
 	cudaSafeCall ( cudaGetLastError () );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-__constant__ double _aRwTrans[9];//row major 
-__constant__ double _aTw[3]; 
+__constant__ float _aRwTrans[9];//row major 
+__constant__ float _aTw[3]; 
 __global__ void kernelTransformLocalToWorldCVCV(cv::gpu::DevMem2D_<float3> cvgmPts_, cv::gpu::DevMem2D_<float3> cvgmNls_){ 
 	int nX = threadIdx.x + blockIdx.x * blockDim.x;
     int nY = threadIdx.y + blockIdx.y * blockDim.y;
@@ -567,10 +567,10 @@ __global__ void kernelTransformLocalToWorldCVCV(cv::gpu::DevMem2D_<float3> cvgmP
 	NlTmp.z = _aRwTrans[6]*Nl.x + _aRwTrans[7]*Nl.y + _aRwTrans[8]*Nl.z;
 	Nl = NlTmp;
 }//kernelTransformLocalToWorld()
-void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_){
-	size_t sN1 = sizeof(double) * 9;
+void transformLocalToWorldCVCV(const float* pRw_/*col major*/, const float* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_){
+	size_t sN1 = sizeof(float) * 9;
 	cudaSafeCall( cudaMemcpyToSymbol(_aRwTrans, pRw_, sN1) );
-	size_t sN2 = sizeof(double) * 3;
+	size_t sN2 = sizeof(float) * 3;
 	cudaSafeCall( cudaMemcpyToSymbol(_aTw, pTw_, sN2) );
 	dim3 block(32, 8);
     dim3 grid(cv::gpu::divUp(pcvgmPts_->cols, block.x), cv::gpu::divUp(pcvgmPts_->rows, block.y));

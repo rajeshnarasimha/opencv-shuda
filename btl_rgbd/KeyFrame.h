@@ -26,7 +26,7 @@ public:
 	enum tp_cluster { NORMAL_CLUSTER, DISTANCE_CLUSTER};
 
 public:
-    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_ );
+    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, float fCwX_, float fCwY_, float fCwZ_ );
 	CKeyFrame(CKeyFrame::tp_ptr pFrame_);
     ~CKeyFrame() {}
 	// detect the correspondences 
@@ -42,9 +42,8 @@ public:
 	void associatePlanes(btl::kinect::CKeyFrame& sReferenceFrame_,const ushort usLevel_);
 	bool isMovedwrtReferencInRadiusM(const CKeyFrame* const pRefFrame_, double dRotAngleThreshold_, double dTranslationThreshold_);
 
-
 	// set the opengl modelview matrix to align with the current view
-	void setView(Eigen::Matrix4d* pModelViewGL_) const {
+	void setView(Eigen::Matrix4f* pModelViewGL_) const {
 		if (_eConvention == btl::utility::BTL_CV) {
 			*pModelViewGL_ = btl::utility::setModelViewGLfromRTCV ( _eimRw, _eivTw );
 			return;
@@ -52,31 +51,15 @@ public:
 			pModelViewGL_->setIdentity();
 		}
 	}
-	void setView2(double* aModelViewGL_) const {
-		if (_eConvention == btl::utility::BTL_CV) {
-			Eigen::Matrix4d eimTmp;
-			eimTmp = btl::utility::setModelViewGLfromRTCV ( _eimRw, _eivTw );
-			eimTmp.transposeInPlace();
-			memcpy(aModelViewGL_,eimTmp.data(),sizeof(double)*16);
-			return;
-		}else if(btl::utility::BTL_GL == _eConvention ){
-			cv::Mat cvmTmp(4,4,CV_64FC1,aModelViewGL_);
-			cv::setIdentity(cvmTmp);
-		}
-	}
+
 	// render the camera location in the GL world
 	void renderCameraInWorldCVCV( btl::gl_util::CGLUtil::tp_ptr pGL_, bool bRenderCamera_, const double& dSize_,const unsigned short uLevel_ );
 	// render the depth in the GL world 
 	void render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const;
 	void render3DPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_,int nColorIdx_, bool bRenderPlanes_);
-	void renderPlanesInWorld(btl::gl_util::CGLUtil::tp_ptr pGL_, int nColorIdx_, const unsigned short usPyrLevel_) const;
-	void renderPlanesInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_) const;
-	void renderPlaneObjsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const unsigned short uLevel_) const;
-	void renderASinglePlaneObjInLocalCVGL(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
-	void renderASinglePlaneObjInWorldCVCV(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
 	void gpuRender3DPtsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usColorIdx_, const unsigned short uLevel_, const bool bRenderPlane_) const;
 
-	inline void loadGLMVIn() const{	glMultMatrixd ( _eimGLMVInv.data() );}
+	inline void loadGLMVIn() const{	glMultMatrixf ( _eimGLMVInv.data() );}
 
 	// copy the content to another keyframe at 
 	void copyTo( CKeyFrame* pKF_, const short sLevel_ );
@@ -85,17 +68,25 @@ public:
 	void detectPlane (const short uPyrLevel_);
 	void gpuDetectPlane (const short uPyrLevel_);
 	void transformPlaneObjsToWorldCVCV(const ushort usPyrLevel_);
+	void renderPlanesInWorld(btl::gl_util::CGLUtil::tp_ptr pGL_, int nColorIdx_, const unsigned short usPyrLevel_) const;
+	void renderPlanesInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_) const;
+	void renderPlaneObjsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const unsigned short uLevel_) const;
+	void renderASinglePlaneObjInLocalCVGL(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
+	void renderASinglePlaneObjInWorldCVCV(const float*const pPt_, const float*const pNl_, const std::vector<unsigned int>& vIdx_, const unsigned char* pColor_) const;
+
 	void gpuTransformToWorldCVCV(const ushort usPyrLevel_);
 	void gpuTransformToWorldCVCV();
 	void updateMVInv();
 	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
-	void setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_);
+	void setRT(float fXA_, float fYA_, float fZA_, float fCwX_,float fCwY_,float fCwZ_);
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_);
 	void applyClassifier(btl::gl_util::CGLUtil::tp_ptr pGL_, float fThreshold_, const unsigned short usPyrLevel_);
 	void gpuBoundaryDetector(float fThreshold_, const unsigned short usPyrLevel_);
 	void exportYML(const std::string& strPath_, const std::string& strYMLName_);
 	void importYML(const std::string& strPath_, const std::string& strYMLName_);
+	void exportPCL(const std::string& strPath_, const std::string& strYMLName_);
+
 	ushort pyrHeight() {return _uPyrHeight;}
 	void initRT();
 	void setRTTo(const CKeyFrame& cFrame_ );
@@ -148,10 +139,11 @@ public:
 	//X_c = R_w * X_w + T_w 
 	//where _w defined in world reference system
 	//      _c defined in camera reference system (local reference system) 
-	Eigen::Matrix3d _eimRw; 
-	Eigen::Vector3d _eivTw; 
+	Eigen::Matrix3f _eimRw; 
+	Eigen::Vector3f _eivTw; 
+	Eigen::Vector3f _eivInitCw;
 	//GL ModelView Matrix
-	Eigen::Matrix4d _eimGLMVInv;
+	Eigen::Matrix4f _eimGLMVInv;
 	//render context
 	//btl::gl_util::CGLUtil::tp_ptr _pGL;
 	bool _bIsReferenceFrame;

@@ -195,7 +195,7 @@ btl::geometry::CMultiPlanesMultiViewsInWorld::CMultiPlanesMultiViewsInWorld( btl
 	}//for each plane obj
 }//CMultiPlanesMultiViewsInWorld()
 void btl::geometry::CMultiPlanesMultiViewsInWorld::fuse(CMultiPlanesSingleViewInWorld::tp_ptr pMPSV_, const ushort usPyrLevel_){
-	btl::utility::COptimCamPose cOpt;
+	/*btl::utility::COptimCamPose cOpt;
 	ushort usPlaneCounts = pMPSV_->_vPtrSPSV.size();
 	cOpt._cvmPlaneCur.create(4,usPlaneCounts);
 	cOpt._cvmPlaneRef.create(4,usPlaneCounts);
@@ -219,7 +219,7 @@ void btl::geometry::CMultiPlanesMultiViewsInWorld::fuse(CMultiPlanesSingleViewIn
 	PRINT(cOpt._cvmPlaneWeight);
 	cOpt.Go();
 	cOpt.getRT(&pMPSV_->_pFrame->_eimRw,&pMPSV_->_pFrame->_eivTw);
-	pMPSV_->_pFrame->applyRelativePose(*_vShrPtrMPSV[0]->_pFrame);
+	pMPSV_->_pFrame->applyRelativePose(*_vShrPtrMPSV[0]->_pFrame);*/
 }//fuse()
 void btl::geometry::CMultiPlanesMultiViewsInWorld::integrateFrameIntoPlanesWorldCVCV( btl::kinect::CKeyFrame::tp_ptr pFrame_ ) {
 	//store key frame

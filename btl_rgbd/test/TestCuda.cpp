@@ -21,7 +21,7 @@ void tryCudaFloat3()
 	float* pDepth = (float*) cvmDepth.data;
 	// fill the arrays 'a' and 'b' on the CPU
 	for (int i=0; i<N; i++) {
-		*pDepth++ = i;
+		*pDepth++ = float(i);
 	}
 	PRINT(cvmDepth);
 	cv::gpu::GpuMat cvgmDepth, cvgmOut; cvgmDepth.upload(cvmDepth);
@@ -42,7 +42,7 @@ void testCudaDisparity()
 	float* pDepth = (float*) cvmDepth.data;
     // fill the arrays 'a' and 'b' on the CPU
     for (int i=0; i<N; i++) {
-        *pDepth++ = i;
+        *pDepth++ = float(i);
     }
 
 	cv::gpu::GpuMat cvgmDepth,cvgmDisparity,cvgmResult;

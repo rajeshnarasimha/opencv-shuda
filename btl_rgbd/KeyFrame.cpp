@@ -15,6 +15,7 @@
 #include <boost/lexical_cast.hpp>
 //stl
 #include <vector>
+#include <iostream>
 #include <fstream>
 #include <list>
 #include <math.h>
@@ -26,6 +27,9 @@
 #include <opencv2/imgproc/imgproc_c.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/gpu/gpu.hpp>
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
 
 #include "OtherUtil.hpp"
 #include "Converters.hpp"
@@ -52,9 +56,11 @@ boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrPyr32FC1T
 boost::shared_ptr<cv::gpu::SURF_GPU> btl::kinect::CKeyFrame::_pSurf;
 boost::shared_ptr<cv::gpu::ORB_GPU>  btl::kinect::CKeyFrame::_pOrb;
 
-btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_ )
+btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, float fCwX_, float fCwY_, float fCwZ_ )
 :_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_){
 	allocate();
+	_eivInitCw << fCwX_, fCwY_, fCwZ_; 
+	initRT();
 }
 btl::kinect::CKeyFrame::CKeyFrame( CKeyFrame::tp_ptr pFrame_ )
 {
@@ -90,7 +96,8 @@ void btl::kinect::CKeyFrame::allocate(){
 	}
 
 	_eConvention = btl::utility::BTL_CV;
-	setRT(0,0,0,1.5,1.5,-0.3);
+	//setRT(0,0,0,.5,.5,-0.1);
+	
 
 	_bIsReferenceFrame = false;
 	_bRenderPlane = false;
@@ -101,22 +108,23 @@ void btl::kinect::CKeyFrame::allocate(){
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 4 ); // 4
 }
 
-void btl::kinect::CKeyFrame::setRT(double dXA_, double dYA_, double dZA_, double dXC_,double dYC_,double dZC_){
-	cv::Mat_<double> cvmR,cvmRVec(3,1);
-	cvmRVec << dXA_,dYA_,dZA_;
+void btl::kinect::CKeyFrame::setRT(float fXA_, float fYA_, float fZA_, float fCwX_,float fCwY_,float fCwZ_){
+	cv::Mat_<float> cvmR,cvmRVec(3,1);
+	cvmRVec << fXA_,fYA_,fZA_;
 	cv::Rodrigues(cvmRVec,cvmR);
 	using namespace btl::utility;
 	_eimRw << cvmR;
-	Eigen::Vector3d eivC(dXC_,dYC_,dZC_); //camera location in the world cv-convention
+	Eigen::Vector3f eivC(fCwX_,fCwY_,fCwZ_); //camera location in the world cv-convention
 	_eivTw = -_eimRw*eivC;
 	updateMVInv();
 }
 
 void btl::kinect::CKeyFrame::initRT(){
-	_eimRw << 1, 0, 0,
-		      0, 1, 0,
-			  0, 0, 1;
-	_eivTw << -1.5,-1.5,0.3; 
+	_eimRw << 1.f, 0.f, 0.f,
+		      0.f, 1.f, 0.f,
+			  0.f, 0.f, 1.f;
+	_eivTw = -_eivInitCw; 
+	updateMVInv();
 }
 
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
@@ -153,7 +161,40 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	pKF_->_eivTw = _eivTw;
 	pKF_->updateMVInv();
 }
+void btl::kinect::CKeyFrame::exportPCL(const std::string& strPath_, const std::string& strYMLName_){
+	pcl::PointCloud<pcl::PointXYZ>  cloudVertecies;
+	pcl::PointCloud<pcl::Normal>	cloudNormals;
 
+	int nPyrLevel = 2;
+	// Fill in the cloud data
+	cloudVertecies.width    = _acvmShrPtrPyrPts[nPyrLevel ]->cols;
+	cloudVertecies.height   = _acvmShrPtrPyrNls[nPyrLevel ]->rows;
+	cloudVertecies.is_dense = false;
+	cloudVertecies.points.resize (cloudVertecies.width * cloudVertecies.height);
+	const float* pPts = (const float* )_acvmShrPtrPyrPts[nPyrLevel ]->data;// points
+	// 
+	cloudNormals.width    = _acvmShrPtrPyrPts[nPyrLevel ]->cols;
+	cloudNormals.height   = _acvmShrPtrPyrPts[nPyrLevel ]->rows;
+	cloudNormals.is_dense = false;
+	cloudNormals.points.resize (cloudNormals.width * cloudNormals.height);
+	const float* pNls = (const float* )_acvmShrPtrPyrNls[nPyrLevel ]->data;// normal
+	for (size_t i = 0; i < cloudVertecies.points.size (); ++i)
+	{
+		cloudVertecies.points[i].x = *pPts++;
+		cloudVertecies.points[i].y = *pPts++;
+		cloudVertecies.points[i].z = *pPts++;
+
+		cloudNormals.points[i].normal[0] = *pNls++;
+		cloudNormals.points[i].normal[1] = *pNls++;
+		cloudNormals.points[i].normal[2] = *pNls++;
+	}
+
+	pcl::io::savePCDFileASCII ("point.pcd", cloudVertecies);
+	pcl::io::savePCDFileASCII ("normal.pcd",cloudNormals);
+	std::cerr << "Saved " << cloudVertecies.points.size () << " data points to test_pcd.pcd." << std::endl;
+
+	return;
+}
 void btl::kinect::CKeyFrame::exportYML(const std::string& strPath_, const std::string& strYMLName_){
 	using namespace btl::utility;
 
@@ -186,8 +227,8 @@ void btl::kinect::CKeyFrame::importYML(const std::string& strPath_, const std::s
 
 	cFSRead["uPyrHeight"] >> _uPyrHeight;
 	cFSRead["uResolution"] >> _uResolution;
-	cv::Mat cvmRw; Eigen::MatrixXd eimMat;
-	cv::Mat cvmTw; Eigen::VectorXd eimVec;
+	cv::Mat cvmRw; Eigen::MatrixXf eimMat;
+	cv::Mat cvmTw; Eigen::VectorXf eimVec;
 	cFSRead["eimRw"] >> cvmRw;
 	cFSRead["eivTw"] >> cvmTw;
 	_eimRw = (eimMat << cvmRw);
@@ -208,6 +249,7 @@ void btl::kinect::CKeyFrame::importYML(const std::string& strPath_, const std::s
 
 
 void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sReferenceKF_) {
+/*
 	CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
 	//calculate the R and T
 	Eigen::Matrix3d eimRNew;
@@ -244,7 +286,7 @@ void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sRe
 			;
 		} 
 	}
-	return;
+	return;*/
 
 }//establishPlaneCorrespondences()
 
@@ -339,7 +381,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
                 
     int nSize = _vDepthIdxCur.size(); 
 	PRINT(nSize);
-    Eigen::MatrixXd eimCurCam ( 3, nSize ), eimRefWorld ( 3, nSize );
+    Eigen::MatrixXf eimCurCam ( 3, nSize ), eimRefWorld ( 3, nSize );
     std::vector< int >::const_iterator cit_Cur = _vDepthIdxCur.begin();
     std::vector< int >::const_iterator cit_Ref = _vDepthIdxRef.begin();
 
@@ -352,13 +394,13 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
         eimRefWorld ( 2, i ) = _pReferencePts[ *cit_Ref + 2 ];
         i++;
     }
-    double dS2;
-    double dErrorBest = btl::utility::absoluteOrientation < double > ( eimRefWorld, eimCurCam , false, &_eimRw, &_eivTw, &dS2 ); // eimB_ = R * eimA_ + T;
+    float dS2;
+    float fErrorBest = btl::utility::absoluteOrientation < float > ( eimRefWorld, eimCurCam , false, &_eimRw, &_eivTw, &dS2 ); // eimB_ = R * eimA_ + T;
 
-	//PRINT ( dErrorBest );
+	//PRINT ( fErrorBest );
 	//PRINT ( _eimR );
 	//PRINT ( _eivT );
-	double dThreshold = dErrorBest;
+	double dThreshold = fErrorBest;
         
     /*
     if ( nSize > 30 ) {
@@ -407,16 +449,16 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
             
             if ( nMax <= 6 ){
             	std::cout << "try increase the threshould" << std::endl;
-                return dErrorBest;
+                return fErrorBest;
             }
             
             Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
             Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
             selectInlier ( eimRefWorld, eimCurCam, vVoterIdxBest, &eimYInlier, &eimXInlier );
-            dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &dS2 );
+            fErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &fS2 );
             
             PRINT ( nMax );
-            PRINT ( dErrorBest );
+            PRINT ( fErrorBest );
             //PRINT ( _eimR );
             //PRINT ( _eivT );
             *pInliers_ = (unsigned short)nMax;
@@ -424,7 +466,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
     
 	//apply new pose
 	updateMVInv();
-    return dErrorBest;
+    return fErrorBest;
 }// calcRT
 
 double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
@@ -472,7 +514,7 @@ double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsi
 	*pInliers_ = nSize;
 	PRINT(nSize);
 	//if nSize smaller than a threshould, quit
-    Eigen::MatrixXd eimCurCam ( 3, nSize ), eimRefWorld ( 3, nSize );
+    Eigen::MatrixXf eimCurCam ( 3, nSize ), eimRefWorld ( 3, nSize );
     std::vector< int >::const_iterator cit_Cur = _vDepthIdxCur.begin();
     std::vector< int >::const_iterator cit_Ref = _vDepthIdxRef.begin();
 
@@ -485,13 +527,13 @@ double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsi
         eimRefWorld ( 2, i ) = _pPrevPts[ *cit_Ref + 2 ];
         i++;
     }
-    double dS2;
-    double dErrorBest = btl::utility::absoluteOrientation < double > ( eimRefWorld, eimCurCam , false, &_eimRw, &_eivTw, &dS2 ); // eimB_ = R * eimA_ + T;
+    float fS2;
+    float dErrorBest = btl::utility::absoluteOrientation < float > ( eimRefWorld, eimCurCam , false, &_eimRw, &_eivTw, &fS2 ); // eimB_ = R * eimA_ + T;
 
 	//PRINT ( dErrorBest );
 	//PRINT ( _eimR );
 	//PRINT ( _eivT );
-	double dThreshold = dErrorBest;
+	float dThreshold = dErrorBest;
         
     /*
     if ( nSize > 30 ) {
@@ -546,7 +588,7 @@ double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsi
             Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
             Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
             selectInlier ( eimRefWorld, eimCurCam, vVoterIdxBest, &eimYInlier, &eimXInlier );
-            dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &dS2 );
+            dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &fS2 );
             
             PRINT ( nMax );
             PRINT ( dErrorBest );
@@ -701,7 +743,7 @@ void btl::kinect::CKeyFrame::renderPlanesInLocalGL(btl::gl_util::CGLUtil::tp_ptr
 	float dX, dY, dZ;
 	const float* pPt = (const float*)_acvmShrPtrPyrPts[uLevel_]->data;
 	const float* pNl = (const float*)_acvmShrPtrPyrNls[uLevel_]->data;
-	const unsigned char* pColor/* = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data*/;
+	/*const unsigned char* pColor = (const unsigned char*)_pVS->_vcvmPyrRGBs[_uPyrHeight-1]->data;*/
 	const float* pLabel;
 	//if(NORMAL_CLUSTER ==_eClusterType){
 	//	//pLabel = (const short*)_pModel->_acvmShrPtrNormalClusters[pGL_->_usLevel]->data;
@@ -734,7 +776,7 @@ void btl::kinect::CKeyFrame::renderPlaneObjsInLocalCVGL(btl::gl_util::CGLUtil::t
 	//////////////////////////////////
 	const float* pNl = (const float*) _acvmShrPtrPyrNls[uLevel_]->data;
 	const float* pPt = (const float*) _acvmShrPtrPyrPts[uLevel_]->data;
-	const unsigned char* pColor; short sColor = 0;
+	/*const unsigned char* pColor; */short sColor = 0;
 	// Generate the data
 	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
 	else                            	{glDisable(GL_LIGHTING);}
@@ -1030,22 +1072,22 @@ void btl::kinect::CKeyFrame::applyRelativePose( const CKeyFrame& sReferenceKF_ )
 }
 
 void btl::kinect::CKeyFrame::updateMVInv(){
-	Eigen::Matrix4d mGLM1;	setView( &mGLM1 );
+	Eigen::Matrix4f mGLM1;	setView( &mGLM1 );
 	_eimGLMVInv = mGLM1.inverse().eval();
 }
 
 bool btl::kinect::CKeyFrame::isMovedwrtReferencInRadiusM(const CKeyFrame* const pRefFrame_, double dRotAngleThreshold_, double dTranslationThreshold_){
 	using namespace btl::utility; //for operator <<
 	//rotation angle
-	cv::Mat_<double> cvmRRef,cvmRCur;
+	cv::Mat_<float> cvmRRef,cvmRCur;
 	cvmRRef << pRefFrame_->_eimRw;
 	cvmRCur << _eimRw;
-	cv::Mat_<double> cvmRVecRef,cvmRVecCur;
+	cv::Mat_<float> cvmRVecRef,cvmRVecCur;
 	cv::Rodrigues(cvmRRef,cvmRVecRef);
 	cv::Rodrigues(cvmRCur,cvmRVecCur);
 	cvmRVecCur -= cvmRVecRef;
 	//get translation vector
-	Eigen::Vector3d eivCRef,eivCCur;
+	Eigen::Vector3f eivCRef,eivCCur;
 	eivCRef = - pRefFrame_->_eimRw * pRefFrame_->_eivTw;
 	eivCCur = -             _eimRw *             _eivTw;
 	eivCCur -= eivCRef;
@@ -1063,20 +1105,20 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pPrevFrameWorld_,bool bUseP
 	const float fDistThreshold = 0.10f; //meters
 	const float fSinAngleThres_ = sin (20.f * 3.14159254f / 180.f);
 	//get R,T of reference 
-	Eigen::Matrix3f eimrmRwPrev = pPrevFrameWorld_->_eimRw.cast<float>();   eimrmRwPrev.transposeInPlace(); //because by default eimrmRwPrev is colume major
-	Eigen::Vector3f eivTwPrev = pPrevFrameWorld_->_eivTw.cast<float>();
+	Eigen::Matrix3f eimrmRwPrev = pPrevFrameWorld_->_eimRw.transpose();//because by default eimrmRwPrev is colume major
+	Eigen::Vector3f eivTwPrev = pPrevFrameWorld_->_eivTw;
 	pcl::device::Mat33&  devRwPrev = pcl::device::device_cast<pcl::device::Mat33> (eimrmRwPrev);
 	float3& devTwPrev = pcl::device::device_cast<float3> (eivTwPrev);
 	//get R,T of current frame
 	Eigen::Matrix3f eimrmRwCur;
 	Eigen::Vector3f eivTwCur;
 	if (bUsePrevRTAsInitial_) {
-		eimrmRwCur = pPrevFrameWorld_->_eimRw.cast<float>();   //because by default eimrmRwPrev is colume major
-		eivTwCur = pPrevFrameWorld_->_eivTw.cast<float>();
+		eimrmRwCur = eimrmRwPrev;   
+		eivTwCur = eivTwPrev;
 	}//if use referece R and T as inital R and T for ICP, 
 	else{
-		eimrmRwCur = _eimRw.cast<float>();   //because by default eimrmRwPrev is colume major
-		eivTwCur = _eivTw.cast<float>();
+		eimrmRwCur = _eimRw;//.transpose();   //because by default eimrmRwPrev is colume major
+		eivTwCur = _eivTw;
 	}//other wise just use, the R & T have been updated by calcRT() using appearance-based approach 
 
 	//from low resolution to high
@@ -1142,8 +1184,8 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pPrevFrameWorld_,bool bUseP
 			eimrmRwCur = eimRinv.transpose();
 		}//for each iteration
 	}//for each pyramid level
-	_eivTw = eivTwCur.cast<double>();
-	_eimRw = eimrmRwCur.cast<double>();
+	_eimRw = eimrmRwCur;
+	_eivTw = eivTwCur;
 
 	return;
 }

@@ -26,6 +26,7 @@ elseif( WIN32 )
     include_directories ( $ENV{GLEW_INCLUDE_DIR} )
 	include_directories ( $ENV{CUDA_INC_PATH} )
 	include_directories ( $ENV{CUDALIB} )
+	include_directories ( $ENV{PCL_INC} )
 
 	link_directories ( $ENV{FREEGLUT_LIB_DIR} )
 endif()

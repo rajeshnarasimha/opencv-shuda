@@ -49,7 +49,7 @@ namespace btl{ namespace kinect
 {
 
 
-VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_)
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_)
 :_bUseNIRegistration(bUseNIRegistration_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
@@ -104,7 +104,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 
 	importYML();
 	PRINTSTR("data holder constructed...");
-	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight));
+	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,fCwX_, fCwY_, fCwZ_));
 
 	//other
 	//definition of parameters

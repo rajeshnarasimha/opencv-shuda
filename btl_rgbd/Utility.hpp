@@ -99,7 +99,7 @@ T norm3( const T* pPtCur_, const T* pPtRef_ ){
 }
 
 template< class T >
-T norm3( const T* pPtCurCam_, const T* pPtRefWor_, const double* pCurRw_/*col major*/, const double* pCurTw_ ){
+T norm3( const T* pPtCurCam_, const T* pPtRefWor_, const T* pCurRw_/*col major*/, const T* pCurTw_ ){
 	//C = CurRw*W + T
 	T tRefCam[3];
 	tRefCam[0] = pCurRw_[0]*pPtRefWor_[0] + pCurRw_[3]*pPtRefWor_[1] + pCurRw_[6]*pPtRefWor_[2] + pCurTw_[0];
