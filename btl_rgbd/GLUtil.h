@@ -62,7 +62,8 @@ public:
 	void viewerGL();
 	void setInitialPos();
 	void getRTFromWorld2CamCV(Eigen::Matrix3f* pRw_, Eigen::Vector3f* pTw_) const;
-
+	//
+	void drawString(const char *str, int x, int y, float color[4], void *font) const;
 public:
 	Eigen::Matrix4f _eimModelViewGL; //model view transformation matrix in GL convention.
 	//double _adModelViewGL[16];

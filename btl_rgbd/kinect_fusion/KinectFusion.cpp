@@ -338,7 +338,28 @@ void display ( void ) {
 		_pGL->renderVoxelGL(3.f);
 		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
-    glutSwapBuffers();
+	float aColor[4] = {1.f,0.f,0.f,1.f};
+
+	_pGL->drawString("Test", 1, 1, aColor, GLUT_BITMAP_8_BY_13);
+/*
+	stringstream ss;
+	ss << "FBO: ";
+	if(fboUsed)
+		ss << "on" << ends;
+	else
+		ss << "off" << ends;
+
+	drawString(ss.str().c_str(), 1, screenHeight-TEXT_HEIGHT, color, font);
+	ss.str(""); // clear buffer
+
+	ss << std::fixed << std::setprecision(3);
+	ss << "Render-To-Texture Time: " << renderToTextureTime << " ms" << ends;
+	drawString(ss.str().c_str(), 1, screenHeight-(2*TEXT_HEIGHT), color, font);
+	ss.str("");
+	ss << std::resetiosflags(std::ios_base::fixed | std::ios_base::floatfield);
+*/
+	
+	glutSwapBuffers();
     if ( _bContinuous ) {
         glutPostRedisplay();
     }
