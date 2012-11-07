@@ -625,5 +625,43 @@ void CGLUtil::getRTFromWorld2CamCV(Eigen::Matrix3f* pRw_, Eigen::Vector3f* pTw_)
 	return;
 }
 
+void CGLUtil::drawString(const char *str, int x, int y, float color[4], void *font) const
+{
+	// backup current model-view matrix
+	glPushMatrix();                     // save current modelview matrix
+	glLoadIdentity();                   // reset modelview matrix
+
+	// set to 2D orthogonal projection
+	glMatrixMode(GL_PROJECTION);        // switch to projection matrix
+	glPushMatrix();                     // save current projection matrix
+	glLoadIdentity();                   // reset projection matrix
+	gluOrtho2D(0, 1280, 0, 960);  // set to orthogonal projection
+
+	glPushAttrib(GL_LIGHTING_BIT | GL_CURRENT_BIT); // lighting and color mask
+	glDisable(GL_LIGHTING);     // need to disable lighting for proper text color
+	glDisable(GL_TEXTURE_2D);
+
+	glColor4fv(color);          // set text color
+	glRasterPos2i(x, y);        // place text position
+
+	// loop all characters in the string
+	while(*str)
+	{
+		glutBitmapCharacter(font, *str);
+		++str;
+	}
+
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_LIGHTING);
+	glPopAttrib();
+
+	// restore projection matrix
+	glPopMatrix();                   // restore to previous projection matrix
+
+	// restore modelview matrix
+	glMatrixMode(GL_MODELVIEW);      // switch to modelview matrix
+	glPopMatrix();                   // restore to previous modelview matrix
+}
+
 }//gl_util
 }//btl
