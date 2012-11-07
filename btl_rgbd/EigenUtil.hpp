@@ -82,8 +82,8 @@ void projectWorld2Camera ( const Eigen::Matrix< T, 3, 1 >& vPt_, const Eigen::Ma
 	( *pVec_ ) ( 1 ) = short ( mK_ ( 1, 1 ) * vPt_ ( 1 ) / vPt_ ( 2 ) + mK_ ( 1, 2 ) + 0.5 );
 }
 
-template< class T >
-T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bEstimateScale_, Eigen::Matrix< T, 3, 3>* pR_, Eigen::Matrix< T , 3, 1 >* pT_, double* pdScale_ ){
+template< class T > /*Eigen::Matrix<float,-1,-1,0,-1,-1> = Eigen::MatrixXf*/
+T absoluteOrientation ( Eigen::Matrix<T,-1,-1,0,-1,-1> & eimA_, Eigen::Matrix<T,-1,-1,0,-1,-1>&  eimB_, bool bEstimateScale_, Eigen::Matrix< T, 3, 3>* pR_, Eigen::Matrix< T , 3, 1 >* pT_, T* pdScale_ ){
 	// A is Ref B is Cur
 	// eimB_ = R * eimA_ + T;
 	// main references: http://www.mathworks.com/matlabcentral/fileexchange/22422-absolute-orientation
@@ -92,7 +92,8 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 	CHECK ( 	eimA_.cols() == eimB_.cols(), " absoluteOrientation() requires the columns of input matrix A_ and B_ are equal. " );
 
 	//Compute the centroid of each point set
-	Eigen::Vector3d eivCentroidA(0,0,0), eivCentroidB(0,0,0);
+	
+	Eigen::Matrix<T,3,1,0,3,1> eivCentroidA(0,0,0), eivCentroidB(0,0,0); //Matrix<float,3,1,0,3,1> = Vector3f
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
 		eivCentroidA += eimA_.col ( nC );
 		eivCentroidB += eimB_.col ( nC );
@@ -103,7 +104,8 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 	//PRINT( eivCentroidB );
 
 	//Remove the centroid
-	Eigen::MatrixXd An ( 3, eimA_.cols() ), Bn ( 3, eimA_.cols() );
+	/*Eigen::MatrixXd */
+	Eigen::Matrix<T,-1,-1,0,-1,-1> An ( 3, eimA_.cols() ), Bn ( 3, eimA_.cols() );
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
 		An.col ( nC ) = eimA_.col ( nC ) - eivCentroidA;
 		Bn.col ( nC ) = eimB_.col ( nC ) - eivCentroidB;
@@ -113,11 +115,12 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 	//PRINT( Bn );
 
 	//Compute the quaternions
-	Eigen::Matrix4d M; M.setZero();
-	Eigen::Matrix4d Ma, Mb;
+	Eigen::Matrix<T,4,4> M; M.setZero();
+	Eigen::Matrix<T,4,4> Ma, Mb;
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
 		//pure imaginary Shortcuts
-		Eigen::Vector4d a(0,0,0,0), b(0,0,0,0);
+		/*Eigen::Vector4d*/
+		Eigen::Matrix<T,4,1,0,4,1> a(0,0,0,0), b(0,0,0,0);
 		a ( 1 ) = An ( 0, nC );
 		a ( 2 ) = An ( 1, nC );
 		a ( 3 ) = An ( 2, nC );
@@ -137,11 +140,11 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 		M += Ma.transpose() * Mb;
 	}
 
-	Eigen::EigenSolver <Eigen::Matrix4d> eigensolver ( M );
-	Eigen::Matrix< std::complex< double >, 4, 1 > v = eigensolver.eigenvalues();
+	Eigen::EigenSolver <Eigen::Matrix<T,4,4>> eigensolver ( M );
+	Eigen::Matrix< std::complex< T >, 4, 1 > v = eigensolver.eigenvalues();
 
 	//find the largest eigenvalue;
-	double dLargest = -1000000;
+	float dLargest = -1000000;
 	int n;
 
 	for ( int i = 0; i < 4; i++ ) {
@@ -154,7 +157,8 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 	//PRINT( dLargest );
 	//PRINT( n );
 
-	Eigen::Vector4d e;
+	/*Eigen::Vector4d*/
+	Eigen::Matrix<T,4,1,0,4,1> e;
 	e << eigensolver.eigenvectors().col ( n ) ( 0 ).real(),
 		eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
 		eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
@@ -162,7 +166,8 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 
 	//PRINT( e );
 
-	Eigen::Matrix4d M1, M2, R;
+	/*Eigen::Matrix4d*/
+	Eigen::Matrix<T,4,4>M1, M2, R;
 	//Compute the rotation matrix
 	M1 <<  e ( 0 ), -e ( 1 ), -e ( 2 ), -e ( 3 ),
 		e ( 1 ),  e ( 0 ),  e ( 3 ), -e ( 2 ),
@@ -177,7 +182,7 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 
 	//Compute the scale factor if necessary
 	if ( bEstimateScale_ ){
-		double a = 0, b = 0;
+		T a = 0, b = 0;
 		for ( int nC = 0; nC < eimA_.cols(); nC++ ) {
 			a += Bn.col ( nC ).transpose() * ( *pR_ ) * An.col ( nC );
 			b += Bn.col ( nC ).transpose() * Bn.col ( nC );
@@ -193,8 +198,9 @@ T absoluteOrientation ( Eigen::MatrixXd& eimA_, Eigen::MatrixXd&  eimB_, bool bE
 	( *pT_ ) = eivCentroidB - ( *pdScale_ ) * ( *pR_ ) * eivCentroidA;
 
 	//Compute the residual error
-	double dE = 0;
-	Eigen::Vector3d eivE;
+	T dE = 0;
+	/*Eigen::Vector3d*/
+	Eigen::Matrix<T,3,1> eivE;
 
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ) {
 		eivE = eimB_.col ( nC ) - ( ( *pdScale_ ) * ( *pR_ ) * eimA_.col ( nC ) + ( *pT_ ) );

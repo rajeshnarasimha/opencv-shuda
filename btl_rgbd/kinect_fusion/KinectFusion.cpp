@@ -54,6 +54,8 @@ ushort _usViewNO = 0;
 ushort _uResolution = 0;
 ushort _uPyrHeight = 3;
 std::string _strPath("");
+std::string _strPathName;
+std::string _strFileName;
 int _nN = 1;
 
 void printVolume(){
@@ -67,9 +69,9 @@ void printVolume(){
 }
 void init ( ){
 	for(int i=0; i <_nReserved; i++){ 
-		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight));	
+		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5,1.5,-0.3));	
 	}
-	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight));	
+	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5,1.5,-0.3));	
 
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
@@ -159,8 +161,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_nN ++;
 		break;
 	case '4':
-		_pVirtualFrame->setView(&_pGL->_eimModelViewGL);
-		_pGL->setInitialPos();
+		_pVirtualFrame->exportPCL(_strPathName,_strFileName);
 		break;
 	case '8':
 			glutPostRedisplay();
@@ -378,8 +379,8 @@ int main ( int argc, char** argv ) {
 
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true));
-		_pTracker.reset( new btl::geometry::CKinfuTracker(64) );
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5,1.5,-0.3));
+		_pTracker.reset( new btl::geometry::CKinfuTracker(256,3) );
 		init();
 		_pGL->constructVBOsPBOs();
 		//_pTracker->gpuCreateVBO(_pGL.get());

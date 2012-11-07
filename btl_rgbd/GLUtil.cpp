@@ -45,7 +45,7 @@ CGLUtil::CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordin
 	_nXMotion = 0;
 	_nYMotion = 0;
 
-	_aCentroid[0] = 2.f; _aCentroid[1] = 2.f; _aCentroid[2] = 1.f; 
+	_aCentroid[0] = 1.5f; _aCentroid[1] = 1.5f; _aCentroid[2] = 0.8f; 
 	_aLight[0] = 2.0f;
 	_aLight[1] = 1.7f;
 	_aLight[2] =-0.2f;
@@ -111,10 +111,11 @@ void CGLUtil::mouseMotion ( int nX_, int nY_ )
 		glDisable     ( GL_BLEND );
 		_nXMotion = nX_ - _nXRightDown;
 		_nYMotion = nY_ - _nYRightDown;
+
 		_dX  = _dXLast + _nXMotion;
 		_dY  = _dYLast + _nYMotion;
 		_dZoom = _dZoomLast + (_nXMotion + _nYMotion)/200.;
-		//PRINT(_dZoom);
+			//PRINT(_dZoom);
 	}
 
 	glutPostRedisplay();
@@ -190,6 +191,7 @@ void CGLUtil::normalKeys ( unsigned char key, int x, int y )
 	case '0'://reset camera location
 		setInitialPos();
 		break;
+
 	}
 
 	return;
@@ -268,7 +270,7 @@ void CGLUtil::init()
 	_uOctTree = glGenLists(3);
 	glNewList(_uOctTree, GL_COMPILE);
 	glDisable(GL_LIGHTING);
-	renderOctTree(0,0,0,2,1);
+	renderOctTree<float>(0,0,0,2,1);
 	glEndList();
 
 	// light
@@ -578,7 +580,7 @@ void CGLUtil::viewerGL()
 {
 	// load the matrix to set camera pose
 	//glLoadMatrixd( _adModelViewGL );
-	glLoadMatrixd(_eimModelViewGL.data());
+	glLoadMatrixf(_eimModelViewGL.data());
 
 	glTranslated( _aCentroid[0], _aCentroid[1], _aCentroid[2] ); // 5. translate back to the original camera pose
 	_dZoom = _dZoom < 0.1? 0.1: _dZoom;
@@ -601,12 +603,12 @@ void CGLUtil::setInitialPos(){
 	_dZoom = 1.;
 }
 
-void CGLUtil::getRTFromWorld2CamCV(Eigen::Matrix3d* pRw_, Eigen::Vector3d* pTw_) const{
+void CGLUtil::getRTFromWorld2CamCV(Eigen::Matrix3f* pRw_, Eigen::Vector3f* pTw_) const{
 	//only the matrix in the top of the modelview matrix stack works
-	Eigen::Affine3d M;
-	glGetDoublev(GL_MODELVIEW_MATRIX,M.matrix().data());
+	Eigen::Affine3f M;
+	glGetFloatv(GL_MODELVIEW_MATRIX,M.matrix().data());
 
-	Eigen::Matrix3d S;
+	Eigen::Matrix3f S;
 	*pTw_ = M.translation();
 	M.computeRotationScaling(pRw_,&S);
 	*pTw_ = (*pTw_)/S(0,0);

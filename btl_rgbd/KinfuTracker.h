@@ -14,7 +14,7 @@ public:
 private:
 	void releaseVBOPBO();//methods
 public:
-	CKinfuTracker(ushort _usResolution);
+	CKinfuTracker(ushort _usResolution,float fVolumeSizeM_);
 	~CKinfuTracker();
 	void gpuRenderVoxelInWorldCVGL();
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);

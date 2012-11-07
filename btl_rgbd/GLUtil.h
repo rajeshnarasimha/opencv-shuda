@@ -61,16 +61,17 @@ public:
 	void errorDetectorGL() const;
 	void viewerGL();
 	void setInitialPos();
-	void getRTFromWorld2CamCV(Eigen::Matrix3d* pRw_, Eigen::Vector3d* pTw_) const;
+	void getRTFromWorld2CamCV(Eigen::Matrix3f* pRw_, Eigen::Vector3f* pTw_) const;
 
 public:
-	Eigen::Matrix4d _eimModelViewGL; //model view transformation matrix in GL convention.
+	Eigen::Matrix4f _eimModelViewGL; //model view transformation matrix in GL convention.
 	//double _adModelViewGL[16];
 	float _fSize; //disk size
 	bool _bRenderNormal;
 	bool _bEnableLighting;
 	bool _bDisplayCamera;
 	bool _bRenderReference;
+	bool _bCtlDown;
 	unsigned short _usPyrHeight;
 	ushort _usLevel;
 	ushort _uResolution;

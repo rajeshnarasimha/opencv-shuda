@@ -78,8 +78,8 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _nDensity );
 		break;
 	case '0':
-		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
 		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
 		break;
 	case ']':
 		_pKinect->_fSigmaSpace += 1;
@@ -120,17 +120,17 @@ void display ( void )
     // load the matrix to set camera pose
 	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	Eigen::Matrix3d R;
-	Eigen::Vector3d T;
+	/*Eigen::Matrix3f R;
+	Eigen::Vector3f T;
 	_pGL->getRTFromWorld2CamCV(&R,&T);
 	PRINT(R);
-	PRINT(T);
+	PRINT(T);*/
 
     // render objects
     _pGL->renderAxisGL();
 	_pGL->renderPatternGL(.1f,20,20);
 	_pGL->renderPatternGL(1.f,10,10);
-	_pGL->renderVoxelGL(4.f);
+	_pGL->renderVoxelGL(1.f);
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
 	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
@@ -212,7 +212,7 @@ int main ( int argc, char** argv ){
         glutDisplayFunc ( display );
 		_pGL.reset( new btl::gl_util::CGLUtil(0,3,btl::utility::BTL_GL) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,3,true));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,3,false,1.5f,1.5f,-0.3f));
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

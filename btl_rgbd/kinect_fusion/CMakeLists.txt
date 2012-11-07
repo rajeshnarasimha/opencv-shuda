@@ -6,6 +6,13 @@ find_package( OpenCV )
 find_package( CUDA )
 include(FindCUDA)
 find_package(Boost 1.40.0 REQUIRED COMPONENTS system filesystem serialization)
+
+find_package(PCL 1.2 REQUIRED)
+
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 if( UNIX )
     include_directories ( "/space/csxsl/src/opencv-shuda/BtlRgbd" )
     link_directories ( "/space/csxsl/src/opencv-shuda/BtlRgbd" )
@@ -38,7 +45,7 @@ elseif( WIN32 )
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
         set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64
         ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SERIALIZATION_LIBRARY}
-        freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32)
+        freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32 ${PCL_LIBRARIES})
     endif()
 endif()
 

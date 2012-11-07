@@ -29,7 +29,7 @@ void cudaNormalHistogramCV(const cv::gpu::GpuMat& cvgmNls_, const unsigned short
 void cudaNormalSetRotationAxisCVGL(const cv::gpu::GpuMat& cvgmNlCVs_, cv::gpu::GpuMat* pcvgmAAs_ );
 //get scale depth
 void scaleDepthCVmCVm(unsigned short usPyrLevel_, const float fFx_, const float fFy_, const float u_, const float v_, cv::gpu::GpuMat* pcvgmDepth_);
-void transformLocalToWorldCVCV(const double* pRw_/*col major*/, const double* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_);
+void transformLocalToWorldCVCV(const float* pRw_/*col major*/, const float* pTw_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_);
 void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_, cv::gpu::GpuMat* pcvgmResults_);
 //resize the normal or vertex map to half of its size
 void resizeMap (bool bNormalize_, const cv::gpu::GpuMat& cvgmSrc_, cv::gpu::GpuMat* pcvgmDst_);

@@ -43,12 +43,11 @@
 namespace btl{ namespace geometry
 {
 
-CKinfuTracker::CKinfuTracker(ushort usResolution_)
-:_uResolution(usResolution_)
+CKinfuTracker::CKinfuTracker(ushort usResolution_,float fVolumeSizeM_)
+:_uResolution(usResolution_),_fVolumeSizeM(fVolumeSizeM_)
 {
 	_uVolumeLevel = _uResolution*_uResolution;
 	_uVolumeTotal = _uVolumeLevel*_uResolution;
-	_fVolumeSizeM = 3.f; //3m
 	_fVoxelSizeM = _fVolumeSizeM/_uResolution;
 	_fTruncateDistanceM = _fVoxelSizeM*6;
 	//_cvgmYZxXVolContentCV.create(_uResolution,_uVolumeLevel,CV_16SC2);//x,y*z,
@@ -84,11 +83,9 @@ void CKinfuTracker::reset(){
 
 void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
 	//Note: the point cloud int cFrame_ must be transformed into world before calling it
-	Eigen::Matrix3d eimRw = cFrame_._eimRw.transpose();//device cast do the transpose implicitly because eimcmRwCur is col major by default.
-	Eigen::Matrix3f eimfRw = eimRw.cast<float>();
+	Eigen::Matrix3f eimfRw = cFrame_._eimRw.transpose();//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	pcl::device::Mat33& devRw = pcl::device::device_cast<pcl::device::Mat33> (eimfRw);
-	Eigen::Vector3d eivCw = - eimRw *cFrame_._eivTw ; //get camera center in world coordinate
-	Eigen::Vector3f eivfCw = eivCw.cast<float>();
+	Eigen::Vector3f eivfCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
 	float3& devCw = pcl::device::device_cast<float3> (eivfCw);
 
 	//switch to Shuda integrateFrame2VolumeCVCV 
@@ -109,11 +106,9 @@ void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame
 	return;
 }
 void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_ ) const {
-	Eigen::Matrix3f eimcmRwCur = pVirtualFrame_->_eimRw.cast<float>();
-	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
-	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (eimcmRwCur);
+	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (pVirtualFrame_->_eimRw);	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	//Cw = -Rw'*Tw
-	Eigen::Vector3f eivCwCur = Eigen::Vector3d( - pVirtualFrame_->_eimRw.transpose() * pVirtualFrame_->_eivTw ).cast<float>();
+	Eigen::Vector3f eivCwCur = - pVirtualFrame_->_eimRw.transpose() * pVirtualFrame_->_eivTw ;
 	float3& devCwCur = pcl::device::device_cast<float3> (eivCwCur);
 	if (strPathFileName_.length()>=1){
 		cv::Mat cvmDebug(240,320,CV_8UC1);
