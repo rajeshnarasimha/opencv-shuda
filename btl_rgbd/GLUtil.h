@@ -17,7 +17,7 @@ public:
 	typedef boost::shared_ptr<CGLUtil> tp_shared_ptr;
 	typedef CGLUtil* tp_ptr;
 public:
-	CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL);
+	CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL,const Eigen::Vector3f& eivCentroid_ = Eigen::Vector3f(1.5f,1.5f,0.3f));
 	void clearColorDepth();
 	void init();
 	//to initialize for the interoperation with opengl
@@ -44,6 +44,9 @@ public:
 	void renderOctTree(const T& x, const T& y, const T& z, const T& dSize_, const unsigned short sLevel_ ) const;
 	template< typename T >
 	void renderVoxel( const T& x, const T& y, const T& z, const T& dSize_ ) const;
+	void renderTestPlane();
+	void renderTeapot();
+
 	void timerStart();
 	void timerStop();
 	//create vertex buffer
@@ -61,9 +64,11 @@ public:
 	void errorDetectorGL() const;
 	void viewerGL();
 	void setInitialPos();
-	void getRTFromWorld2CamCV(Eigen::Matrix3f* pRw_, Eigen::Vector3f* pTw_) const;
+	static void getRTFromWorld2CamCV(Eigen::Matrix3f* pRw_, Eigen::Vector3f* pTw_);
 	//
 	void drawString(const char *str, int x, int y, float color[4], void *font) const;
+	void initLights();
+	void setOrthogonal();
 public:
 	Eigen::Matrix4f _eimModelViewGL; //model view transformation matrix in GL convention.
 	//double _adModelViewGL[16];
@@ -94,6 +99,7 @@ private:
 	GLUquadricObj *_pQObj;
 
 	float _aCentroid[3];
+	Eigen::Vector3f _eivCentroid;
 	double _dZoom;
 	double _dZoomLast;
 	double _dScale;

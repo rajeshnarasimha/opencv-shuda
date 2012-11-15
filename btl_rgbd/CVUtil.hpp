@@ -111,6 +111,25 @@ void clearMat(const T& tValue_, cv::Mat* pcvmMat_)
 	return;
 }
 */
+//find the max and min out of a matrix, (  )
+template< class T>
+void findMatMaxMin ( const cv::Mat& cvMat_, T* pMax_, T* pMin_)
+{
+	const float* pFloat = (const float*)cvMat_.data;
+	*pMin_ = std::numeric_limits<T>::max();
+	*pMax_ = std::numeric_limits<T>::min();
+	for(int r = 0; r < cvMat_.rows; ++r){
+		for(int c = 0; c < cvMat_.cols; ++c)
+			{
+				if( *pFloat > *pMax_ )	*pMax_ = *pFloat;
+
+				if( *pFloat < *pMin_ )	*pMin_ = *pFloat;
+
+				pFloat++;
+			}
+		}
+	return;
+}
 //calculate the L1 norm of two matrices, ( the sum of abs differences between corresponding elements of matrices )
 template< class T>
 T matNormL1 ( const cv::Mat& cvMat1_, const cv::Mat& cvMat2_ )

@@ -50,7 +50,7 @@ namespace btl{ namespace kinect
 
 
 VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_)
-:_bUseNIRegistration(bUseNIRegistration_)
+:_bUseNIRegistration(bUseNIRegistration_),_uResolution(uResolution_),_uPyrHeight(uPyrHeight_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
@@ -58,27 +58,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
 	_cTDAll = _cT1 - _cT0 ;
 	PRINT( _cTDAll.total_milliseconds() );*/
-
-    std::cout << "  VideoSourceKinect: Opening Kinect..." << std::endl;
-
-    XnStatus nRetVal = XN_STATUS_OK;
-	//_cContext inizialization 
-	nRetVal = _cContext.Init();						CHECK_RC(nRetVal, "Initialize _cContext"); 
-	//RGB node creation 
-	nRetVal = _cImgGen.Create(_cContext);			CHECK_RC(nRetVal, "Create rgb generator fail"); 
-	//IR node creation 
-	nRetVal = _cDepthGen.Create(_cContext);			CHECK_RC(nRetVal, "Create depth generator"); 
-	// set as the highest resolution 0 480x640
-	setResolution(uResolution_);
-	_uPyrHeight = uPyrHeight_;
-    
-	//register the depth generator with the image generator
-	if (_bUseNIRegistration){
-		nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );	CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
-	}
-    
-	PRINTSTR("Kinect connected");
-
+	
 	//allocate
 	_cvmRGB			   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_8UC3 );
 	_cvmUndistRGB	   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_8UC3 );
@@ -126,6 +106,28 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 VideoSourceKinect::~VideoSourceKinect()
 {
     _cContext.Release();
+}
+
+void VideoSourceKinect::initKinect()
+{
+	std::cout << "  VideoSourceKinect: Opening Kinect..." << std::endl;
+
+	XnStatus nRetVal = XN_STATUS_OK;
+	//_cContext inizialization 
+	nRetVal = _cContext.Init();						CHECK_RC(nRetVal, "Initialize _cContext"); 
+	//RGB node creation 
+	nRetVal = _cImgGen.Create(_cContext);			CHECK_RC(nRetVal, "Create rgb generator fail"); 
+	//IR node creation 
+	nRetVal = _cDepthGen.Create(_cContext);			CHECK_RC(nRetVal, "Create depth generator"); 
+	// set as the highest resolution 0 480x640
+	setResolution(_uResolution);
+
+	//register the depth generator with the image generator
+	if (_bUseNIRegistration){
+		nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );	CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
+	}
+
+	PRINTSTR("Kinect connected");
 }
 void VideoSourceKinect::importYML()
 {

@@ -166,6 +166,9 @@ void btl::kinect::CKeyFrame::exportPCL(const std::string& strPath_, const std::s
 	pcl::PointCloud<pcl::Normal>	cloudNormals;
 
 	int nPyrLevel = 2;
+	_acvgmShrPtrPyrPts[nPyrLevel]->download( *_acvmShrPtrPyrPts[nPyrLevel] );
+	_acvgmShrPtrPyrNls[nPyrLevel]->download( *_acvmShrPtrPyrNls[nPyrLevel] );
+	_acvgmShrPtrPyrRGBs[nPyrLevel]->download(*_acvmShrPtrPyrRGBs[nPyrLevel] );
 	// Fill in the cloud data
 	cloudVertecies.width    = _acvmShrPtrPyrPts[nPyrLevel ]->cols;
 	cloudVertecies.height   = _acvmShrPtrPyrNls[nPyrLevel ]->rows;
@@ -219,6 +222,7 @@ void btl::kinect::CKeyFrame::exportYML(const std::string& strPath_, const std::s
 	
 	cFSWrite.release();
 }
+
 
 void btl::kinect::CKeyFrame::importYML(const std::string& strPath_, const std::string& strYMLName_){
 	using namespace btl::utility;
@@ -1321,10 +1325,7 @@ void btl::kinect::CKeyFrame::setRTTo(const CKeyFrame& cFrame_ ){
 	updateMVInv();
 }
 
-void btl::kinect::CKeyFrame::assignRTfromGL(const btl::gl_util::CGLUtil* pGL_ ){
-	if (pGL_){
-		//assign rotation and translation 
-		pGL_->getRTFromWorld2CamCV(&_eimRw,&_eivTw);
-	}
+void btl::kinect::CKeyFrame::assignRTfromGL(){
+	btl::gl_util::CGLUtil::getRTFromWorld2CamCV(&_eimRw,&_eivTw);
 	updateMVInv();
 }

@@ -779,5 +779,53 @@ void shapeClassifier(const float fThreshold_, const cv::gpu::GpuMat& cvgmPt_, co
 	cudaSafeCall ( cudaGetLastError () );
 }//boundaryDetector()
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__global__ void kernelConvertZValue2Depth(const cv::gpu::DevMem2D_<float> cvgmZValue_, const float fNear_,  const float fFar_, cv::gpu::DevMem2D_<float> cvgmDepth_){
+	using namespace pcl::device;
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX >= cvgmZValue_.cols || nY >= cvgmZValue_.rows)  return;
+
+	const float& fZ = cvgmZValue_.ptr(nY)[nX];
+	float& fDepth = cvgmDepth_.ptr(cvgmZValue_.rows-1-nY)[nX];
+	float fRange = fFar_ - fNear_;
+
+	/*if( abs(fZ-1.f) < 0.01f ) 
+		fDepth = pcl::device::numeric_limits<float>::quiet_NaN();
+	else*/
+		fDepth = 2*fFar_*fNear_*1000.f / (fFar_ + fNear_ - (fFar_ - fNear_)*(2*fZ -1));
+	//http://www.songho.ca/opengl/gl_projectionmatrix.html
+		//fDepth = (fZ*fRange + fNear_)*1000.f;
+
+
+	return;
+}//kernelConvertZValue2Depth()
+void cudaConvertZValue2Depth(const cv::gpu::GpuMat& cvgmZValue_, float fNear_, float fFar_, cv::gpu::GpuMat* pcvgmDepth_){
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmZValue_.cols, block.x), cv::gpu::divUp(cvgmZValue_.rows, block.y));
+	kernelConvertZValue2Depth<<<grid,block>>>(cvgmZValue_,fNear_,fFar_,*pcvgmDepth_);
+	cudaSafeCall ( cudaGetLastError () );
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__global__ void kernelConvertGL2CV(const cv::gpu::DevMem2D_<uchar3> cvgmRGB_, cv::gpu::DevMem2D_<uchar3> cvgmUndistRGB_){
+	using namespace pcl::device;
+	int nX = threadIdx.x + blockIdx.x * blockDim.x;
+    int nY = threadIdx.y + blockIdx.y * blockDim.y;
+    if (nX >= cvgmRGB_.cols || nY >= cvgmRGB_.rows)  return;
+
+	const uchar3& fZ = cvgmRGB_.ptr(nY)[nX];
+	cvgmUndistRGB_.ptr(cvgmRGB_.rows-1-nY)[nX] = fZ;
+
+	return;
+}//kernelConvertZValue2Depth()
+void cudaConvertGL2CV(const cv::gpu::GpuMat cvgmRGB_, cv::gpu::GpuMat* pcvgmUndistRGB_){
+
+	dim3 block(32, 8);
+    dim3 grid(cv::gpu::divUp(cvgmRGB_.cols, block.x), cv::gpu::divUp(cvgmRGB_.rows, block.y));
+	kernelConvertGL2CV<<<grid,block>>>(cvgmRGB_,*pcvgmUndistRGB_);
+	cudaSafeCall ( cudaGetLastError () );
+}
+
 }//device
 }//btl

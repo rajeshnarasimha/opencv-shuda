@@ -35,6 +35,8 @@ void checkNVMap(const cv::gpu::GpuMat& cvgmPts_, const cv::gpu::GpuMat& cvgmNls_
 void resizeMap (bool bNormalize_, const cv::gpu::GpuMat& cvgmSrc_, cv::gpu::GpuMat* pcvgmDst_);
 void rgb2RGBA(const cv::gpu::GpuMat& cvgmRGB_, const uchar uA_, cv::gpu::GpuMat* pcvgmRGBA_);
 void boundaryDetector(const float fThreshold, const cv::gpu::GpuMat& cvgmPt_, const cv::gpu::GpuMat& cvgmNl_, cv::gpu::GpuMat* cvgmRGB_);
+void cudaConvertZValue2Depth(const cv::gpu::GpuMat& cvgmZValue_, float fNear_, float fFar_, cv::gpu::GpuMat* pcvgmDepth_);
+void cudaConvertGL2CV(const cv::gpu::GpuMat cvgmRGB_, cv::gpu::GpuMat* pcvgmUndistRGB_);
 }//device
 }//btl
 #endif
