@@ -90,7 +90,7 @@ public:
 	ushort pyrHeight() {return _uPyrHeight;}
 	void initRT();
 	void setRTTo(const CKeyFrame& cFrame_ );
-	void assignRTfromGL(const btl::gl_util::CGLUtil* pGL_ );
+	void assignRTfromGL();
 private:
 	//surf keyframe matching
     void selectInlier ( const Eigen::MatrixXd& eimX_, const Eigen::MatrixXd& eimY_, const std::vector< int >& vVoterIdx_,

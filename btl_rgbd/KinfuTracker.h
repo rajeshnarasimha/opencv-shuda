@@ -4,18 +4,23 @@
 namespace btl{ namespace geometry
 {
 
-class CKinfuTracker
+class CCubicGrids
 {
 //type
 public:
-	typedef boost::shared_ptr<CKinfuTracker> tp_shared_ptr;
+	typedef boost::shared_ptr<CCubicGrids> tp_shared_ptr;
 	enum {_X = 1, _Y = 2, _Z = 3};
+
+	enum
+	{ 
+		DEFAULT_OCCUPIED_VOXEL_BUFFER_SIZE = 2 * 1000 * 1000      
+	};
 
 private:
 	void releaseVBOPBO();//methods
 public:
-	CKinfuTracker(ushort _usResolution,float fVolumeSizeM_);
-	~CKinfuTracker();
+	CCubicGrids(ushort _usResolution,float fVolumeSizeM_);
+	~CCubicGrids();
 	void gpuRenderVoxelInWorldCVGL();
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
@@ -23,6 +28,11 @@ public:
 	void reset();
 	void gpuExportVolume(const std::string& strPath_,ushort usNo_, ushort usV_, ushort usAxis_) const;
 
+	
+	void gpuMarchingCubes();
+	void gpuGetOccupiedVoxels();
+	void exportYML(const std::string& strPath_, const unsigned int uNo_ = 0 ) const;
+	void importYML(const std::string& strPath_) ;
 public:
 
 	//data
@@ -52,6 +62,10 @@ public:
 	GLuint _uPBO;
 	cudaGraphicsResource* _pResourcePBO;
 	GLuint _uTexture;
+
+
+	/** \brief Temporary buffer used by marching cubes (first row stores occuped voxes id, second number of vetexes, third poits offsets */
+	cv::gpu::GpuMat/*pcl::gpu::DeviceArray2D<int>*/ _cvgmOccupiedVoxelsBuffer;
 };
 
 

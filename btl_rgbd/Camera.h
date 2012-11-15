@@ -16,7 +16,7 @@ struct SCamera
 
 	//rendering
 	void LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTesture_ );
-	void setIntrinsics ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ );
+	void setGLProjectionMatrix ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ );
 	void renderCameraInGLLocal (const GLuint uTesture_, const cv::Mat& cvmImg_, float fPhysicalFocalLength_ = .02f, bool bRenderTexture_=true ) const;
 	void renderOnImage( int nX_, int nY_ );
 	void importYML();

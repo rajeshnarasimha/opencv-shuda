@@ -38,7 +38,7 @@
 
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
-btl::geometry::CKinfuTracker::tp_shared_ptr _pTracker;
+btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGrids;
 btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
 unsigned short _nWidth, _nHeight;
 
@@ -61,9 +61,9 @@ int _nN = 1;
 void printVolume(){
 	std::string strPath("C:\\csxsl\\src\\opencv-shuda\\output\\");
 	for (int i = 0; i< 256; i++ ){
-		_pTracker->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CKinfuTracker::_X);
-		_pTracker->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CKinfuTracker::_Y);
-		_pTracker->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CKinfuTracker::_Z);
+		_pCubicGrids->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CCubicGrids::_X);
+		_pCubicGrids->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CCubicGrids::_Y);
+		_pCubicGrids->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CCubicGrids::_Z);
 	}
 	return;
 }
@@ -99,7 +99,7 @@ void init ( ){
 	//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + ".yml";
 	//p1stKF->exportYML(strPath,strFileName);
 	//p1stKF->importYML(strPath,strFileName);
-	_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*p1stKF);
+	_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*p1stKF);
 	//printVolume();
 	// assign the rgb and depth to the current frame.
 	p1stKF->setView(&_pGL->_eimModelViewGL);
@@ -123,7 +123,7 @@ void normalKeys ( unsigned char key, int x, int y ){
         //reset
 		_nRFIdx = 0;
 		_vShrPtrsKF.clear();
-		_pTracker->reset();
+		_pCubicGrids->reset();
         init();
         glutPostRedisplay();
         break;
@@ -164,8 +164,8 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_pVirtualFrame->exportPCL(_strPathName,_strFileName);
 		break;
 	case '8':
-			glutPostRedisplay();
-			break;
+		glutPostRedisplay();
+		break;
 	case '0':
 		_usViewNO = ++_usViewNO % _vShrPtrsKF.size(); 
 		(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
@@ -224,13 +224,13 @@ void display ( void ) {
 			//_pGL->timerStop();
 			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pPrevKF.get(),M_PI_4/45.,0.02) ){
 				_pVirtualFrame->setRTTo( *_pKinect->_pFrame );
-				_pTracker->gpuRaycast( &*_pVirtualFrame ); //get virtual frame
+				_pCubicGrids->gpuRaycast( &*_pVirtualFrame ); //get virtual frame
 				_pVirtualFrame->gpuICP ( pPrevKF.get(), false );//refine R,T w.r.t. the virtual frame
 				_pKinect->_pFrame->setRTTo( *_pVirtualFrame );
 				_pKinect->_pFrame->gpuTransformToWorldCVCV();
 				//ingrate current frame into the global volume
 				//Note: the point cloud int cFrame_ must be transformed into world before calling it
-				_pTracker->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+				_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
 				//PRINTSTR("Volume integration.");
 
 				//_nRFIdx++;
@@ -249,8 +249,8 @@ void display ( void ) {
 	//_pGL->timerStop();
 ////////////////////////////////////////////////////////////////////
 // render 1st viewport
-    glMatrixMode ( GL_MODELVIEW );
-   /* glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
+   /* glMatrixMode ( GL_MODELVIEW );
+    glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
     glScissor  ( 0, _nHeight/2, _nWidth/2, _nHeight/2 );
     // after set the intrinsics and extrinsics
     _pGL->viewerGL();
@@ -282,22 +282,32 @@ void display ( void ) {
 // render 2nd viewport
     glViewport ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
     glScissor  ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
+
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.2f,30.f);
+
+	glMatrixMode ( GL_MODELVIEW );
     glLoadIdentity();
-    glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-#if USE_PBO
+
+	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+#if 1
 	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
 #else
 	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 #endif
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
-
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],0.2 );
+	
 ///////////////////////////////////////////////////////////////////
 // render 3rd viewport
-
+	
 	// render 3nd viewport
 	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
 	glScissor  ( 0, 0, _nWidth/2, _nHeight/2 );
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
+	glMatrixMode ( GL_MODELVIEW );
+	//_pGL->viewerGL();
 	glLoadIdentity();
+	//glClearColor(0, 0, 1, 0);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
 #if USE_PBO
@@ -305,7 +315,7 @@ void display ( void ) {
 #else
 	_pKinect->_pRGBCamera->LoadTexture(*pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 #endif
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel],0.2 );
 
 /*
 	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
@@ -313,20 +323,21 @@ void display ( void ) {
 	_pGL->viewerGL();
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	_pTracker->gpuRenderVoxelInWorldCVGL();*/
+	_pCubicGrids->gpuRenderVoxelInWorldCVGL();*/
 
-	
 ////////////////////////////////////////////////////////////////////
 // render 4th viewport
 	glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
 	glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
 	_pGL->viewerGL();
+	//glClearColor(1, 0, 0, 0);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	_pVirtualFrame->assignRTfromGL(_pGL.get());
-	_pTracker->gpuRaycast(&*_pVirtualFrame, std::string("") ); //get virtual frame
+	_pVirtualFrame->assignRTfromGL();
+	_pCubicGrids->gpuRaycast(&*_pVirtualFrame, std::string("") ); //get virtual frame
 	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
-	//std::string strFileName =  /*boost::lexical_cast<std::string> ( _nRFIdx ) + */"1.yml";
+	//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + "1.yml";
 	//_pVirtualFrame->exportYML(strPath,strFileName);
 	//_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
 	_pVirtualFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
@@ -367,11 +378,11 @@ void display ( void ) {
 
 void reshape ( int nWidth_, int nHeight_ ) {
     //cout << "reshape() " << endl;
-    _pKinect->_pRGBCamera->setIntrinsics ( 1, 0.01, 100 );
+    //_pKinect->_pRGBCamera->setGLProjectionMatrix ( 1, 0.01, 100 );
 
-    // setup blending
-    glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
-    glColor4f ( 1.0f, 1.0f, 1.0f, 0.5 );
+    //// setup blending
+    // glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
+    //glColor4f ( 1.0f, 1.0f, 1.0f, 0.5 );
 
     unsigned short nTemp = nWidth_ / 8; //make sure that _nWidth is divisible to 4
     _nWidth = nTemp * 8;
@@ -401,10 +412,11 @@ int main ( int argc, char** argv ) {
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5,1.5,-0.3));
-		_pTracker.reset( new btl::geometry::CKinfuTracker(256,3) );
+		_pKinect->initKinect();
+		_pCubicGrids.reset( new btl::geometry::CCubicGrids(256,3) );
 		init();
 		_pGL->constructVBOsPBOs();
-		//_pTracker->gpuCreateVBO(_pGL.get());
+		//_pCubicGrids->gpuCreateVBO(_pGL.get());
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();
 

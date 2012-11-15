@@ -162,7 +162,7 @@ void display ( void )
 }
 void reshape ( int nWidth_, int nHeight_ ){
 	//cout << "reshape() " << endl;
-    _pKinect->_pRGBCamera->setIntrinsics( 1, 0.01, 100 );
+    _pKinect->_pRGBCamera->setGLProjectionMatrix( 1, 0.01, 100 );
 
     // setup blending 
     glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
@@ -213,6 +213,7 @@ int main ( int argc, char** argv ){
 		_pGL.reset( new btl::gl_util::CGLUtil(0,3,btl::utility::BTL_GL) );
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,3,false,1.5f,1.5f,-0.3f));
+		_pKinect->initKinect();
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

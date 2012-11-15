@@ -1,5 +1,6 @@
 
 #define INFO
+#define DEFAULT_TRIANGLES_BUFFER_SIZE 
 //gl
 #include <gl/glew.h>
 #include <gl/freeglut.h>
@@ -23,6 +24,9 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/gpu/gpu.hpp>
+//pcl
+#include <pcl/gpu/containers/device_array.h>
+//eigen
 #include <Eigen/Core>
 //self
 #include "OtherUtil.hpp"
@@ -39,11 +43,12 @@
 #include "cuda/pcl/internal.h"
 #include "cuda/Volume.h"
 #include "cuda/RayCaster.h"
+#include "cuda/PclMarchingCubes.h"
 
 namespace btl{ namespace geometry
 {
 
-CKinfuTracker::CKinfuTracker(ushort usResolution_,float fVolumeSizeM_)
+CCubicGrids::CCubicGrids(ushort usResolution_,float fVolumeSizeM_)
 :_uResolution(usResolution_),_fVolumeSizeM(fVolumeSizeM_)
 {
 	_uVolumeLevel = _uResolution*_uResolution;
@@ -57,13 +62,13 @@ CKinfuTracker::CKinfuTracker(ushort usResolution_,float fVolumeSizeM_)
 	_cvgmYZxXVolContentCV.create(_uVolumeLevel,_uResolution,CV_16SC2);//y*z,x
 	reset();
 }
-CKinfuTracker::~CKinfuTracker(void)
+CCubicGrids::~CCubicGrids(void)
 {
 	//releaseVBOPBO();
 	//if(_pGL) _pGL->releaseVBO(_uVBO,_pResourceVBO);
 }
 
-void CKinfuTracker::releaseVBOPBO()
+void CCubicGrids::releaseVBOPBO()
 {
 	//release VBO
 	cudaSafeCall( cudaGraphicsUnregisterResource( _pResourceVBO ) );
@@ -76,12 +81,12 @@ void CKinfuTracker::releaseVBOPBO()
 	//cudaSafeCall( cudaGraphicsUnregisterResource( _pResourcePBO ) );
 	//glDeleteBuffers(1, &_uPBO);
 }
-void CKinfuTracker::reset(){
+void CCubicGrids::reset(){
 	
 	pcl::device::initVolume (&_cvgmYZxXVolContentCV);
 }
 
-void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
+void CCubicGrids::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
 	//Note: the point cloud int cFrame_ must be transformed into world before calling it
 	Eigen::Matrix3f eimfRw = cFrame_._eimRw.transpose();//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	pcl::device::Mat33& devRw = pcl::device::device_cast<pcl::device::Mat33> (eimfRw);
@@ -105,7 +110,7 @@ void CKinfuTracker::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame
 
 	return;
 }
-void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_ ) const {
+void CCubicGrids::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_ ) const {
 	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (pVirtualFrame_->_eimRw);	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	//Cw = -Rw'*Tw
 	Eigen::Vector3f eivCwCur = - pVirtualFrame_->_eimRw.transpose() * pVirtualFrame_->_eivTw ;
@@ -136,14 +141,14 @@ void CKinfuTracker::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::stri
 	return;
 }
 
-void CKinfuTracker::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
+void CCubicGrids::gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_){
 	_pGL = pGL_;
 	if(_pGL){
 		_pGL->createVBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(float),&_uVBO,&_pResourceVBO);
 	//	_pGL->createPBO(_cvgmYZxXVolContentCV.rows,_cvgmYZxXVolContentCV.cols,3,sizeof(uchar),&_uPBO,&_pResourcePBO,&_uTexture);
 	}
 }
-void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
+void CCubicGrids::gpuRenderVoxelInWorldCVGL(){
 	// map OpenGL buffer object for writing from CUDA
 	void *pDev;
 	cudaGraphicsMapResources(1, &_pResourceVBO, 0);
@@ -172,7 +177,7 @@ void CKinfuTracker::gpuRenderVoxelInWorldCVGL(){
 	glDisableClientState(GL_VERTEX_ARRAY);
 }//gpuRenderVoxelInWorldCVGL()
 
-void CKinfuTracker::gpuExportVolume(const std::string& strPath_, ushort usNo_, ushort usV_, ushort usAxis_) const{
+void CCubicGrids::gpuExportVolume(const std::string& strPath_, ushort usNo_, ushort usV_, ushort usAxis_) const{
 	cv::gpu::GpuMat cvgmCross(_uResolution,_uResolution,CV_8UC3);
 	btl::device::exportVolume2CrossSectionX(_cvgmYZxXVolContentCV,usV_,usAxis_,&cvgmCross);
 	cv::Mat cvmCross(_uResolution,_uResolution,CV_8UC3);
@@ -181,6 +186,37 @@ void CKinfuTracker::gpuExportVolume(const std::string& strPath_, ushort usNo_, u
 	cv::imwrite(strVariableName.c_str(),cvmCross);
 	return;
 }
+
+void CCubicGrids::exportYML(const std::string& strPath_, const unsigned int uNo_/*= 0*/) const{
+	std::string strPathFileName = strPath_ + "volume"+  boost::lexical_cast<std::string> ( uNo_ )  + ".yml";
+
+	cv::FileStorage cFSWrite( strPathFileName.c_str(), cv::FileStorage::WRITE );
+	cv::Mat	cvmVolume(_uVolumeLevel,_uResolution,CV_16SC2);
+	_cvgmYZxXVolContentCV.download(cvmVolume);
+	cFSWrite << "cvgmYZxXVolContentCV" << cvmVolume;
+	
+	return;
+}
+
+void CCubicGrids::importYML(const std::string& strPath_) {
+	cv::FileStorage cFSRead( strPath_.c_str(), cv::FileStorage::READ );
+	cv::Mat	cvmVolume(_uVolumeLevel,_uResolution,CV_16SC2);
+	cFSRead["cvgmYZxXVolContentCV"] >> cvmVolume;
+	_cvgmYZxXVolContentCV.upload(cvmVolume);
+	return;
+}
+
+void CCubicGrids::gpuGetOccupiedVoxels(){
+	_cvgmOccupiedVoxelsBuffer.create( 3, static_cast<int> ( DEFAULT_OCCUPIED_VOXEL_BUFFER_SIZE ), CV_32SC1);    //int
+	int active_voxels = pcl::device::getOccupiedVoxels(_cvgmYZxXVolContentCV, _cvgmOccupiedVoxelsBuffer);  
+	pcl::device::DeviceArray2D<int> occupied_voxels(3, active_voxels, _cvgmOccupiedVoxelsBuffer.ptr<int>(0), _cvgmOccupiedVoxelsBuffer.step );
+	//int total_vertexes = pcl::device::computeOffsetsAndTotalVertexes(occupied_voxels);
+}
+
+/*
+void CCubicGrids::gpuMarchingCubes(){
+
+}*/
 
 }//geometry
 }//btl

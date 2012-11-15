@@ -25,8 +25,9 @@ public:
 	//constructor
     VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_);
     virtual ~VideoSourceKinect();
+	void initKinect();
 
-	void getNextFrame(tp_frame eFrameType_);
+	virtual void getNextFrame(tp_frame eFrameType_);
 	/*void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
 	{
 		_uPyrHeight = uPyrHeight_>4? 4:uPyrHeight_;
@@ -50,7 +51,7 @@ public:
 		(*peivCentroid_)(1) = - _dYCentroid;
 		(*peivCentroid_)(2) = - _dZCentroid;
 	}
-private:
+protected:
 	void importYML();
 	// convert the depth map/ir camera to be aligned with the rgb camera
 	void alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_); //cv::Mat version
@@ -79,7 +80,7 @@ public:
 	boost::scoped_ptr<SCamera> _pRGBCamera;
 	boost::scoped_ptr<SCamera> _pIRCamera;
 	boost::scoped_ptr<CKeyFrame> _pFrame;
-private:
+protected:
 	//openni
     xn::Context        _cContext;
     xn::ImageGenerator _cImgGen;

@@ -254,7 +254,7 @@ void display ( void )
 }//display()
 
 void reshape ( int nWidth_, int nHeight_ ){
-    _pKinect->_pRGBCamera->setIntrinsics( 1, 0.01, 100 );
+    _pKinect->_pRGBCamera->setGLProjectionMatrix( 1, 0.01, 100 );
     // setup blending
     //glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
     //glColor4f ( 1.0f, 1.0f, 1.0f, 1.0f );

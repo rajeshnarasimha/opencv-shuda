@@ -13,6 +13,7 @@ using namespace btl::utility;
 #include <limits>
 #include "../Optim.hpp"
 #include "../cuda/pcl/internal.h"
+#include "Teapot.h"
 
 void testSCamera()
 {
@@ -631,9 +632,40 @@ void tryEigenRowMajorAssignment(){
 		PRINT(devRwRef.data[2].z);
 	}
 }
+void tryEigenAffine()
+{
+	Eigen::Matrix3f m; m = Eigen::AngleAxisf(30, -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(30, Eigen::Vector3f::UnitX());
+	Eigen::Vector3f v(1,2,3);
+	Eigen::Vector3f s(2,2,2);
+
+	Eigen::Affine3f eimTry; eimTry.setIdentity();
+	eimTry.translate(v);
+	eimTry.scale(s);
+	eimTry.rotate(m);
+	eimTry.translate(-v);
+	PRINT(eimTry.matrix()); 
+
+	// equivalent to the following code
+	Eigen::Affine3f eimTranslate;eimTranslate.setIdentity();
+	eimTranslate.translate(-v);
+	Eigen::Affine3f eimRotation; eimRotation.setIdentity();
+	eimRotation.rotate(m);
+	Eigen::Affine3f eimScale; eimScale.setIdentity();
+	eimScale.scale(s);
+	Eigen::Affine3f eimTranslateBack; eimTranslateBack.setIdentity();
+	eimTranslateBack.translate(v);
+
+	Eigen::Affine3f eimTotal = eimTranslateBack*eimScale*eimRotation*eimTranslate; //
+	PRINT(eimTotal.matrix());
+
+	//eular angle
+	//Eigen::Matrix3f r; r = Eigen::AngleAxisf(30, -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(30, Eigen::Vector3f::UnitX());
+}
 void tryEigen()
 {
-	 tryEigenRowMajorAssignment();
+	transformTeapot();
+	//tryEigenAffine();
+	//tryEigenRowMajorAssignment();
 	//testEigenExponentialMap();
 	//tryDataOrderEigenMaxtrix();
 	//tryEigenData();
@@ -670,10 +702,10 @@ int main()
 	try
 	{
 		//test();
-		cudaTestTry();
+		//cudaTestTry();
 		//tryCpp();
-		tryCV();
-		//tryEigen();
+		//tryCV();
+		tryEigen();
 		//tryConverter();
 	}
 	catch ( std::runtime_error e )

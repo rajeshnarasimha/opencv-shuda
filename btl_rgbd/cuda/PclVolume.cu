@@ -76,14 +76,14 @@ tsdf23 (const cv::gpu::DevMem2D_<float> depthScaled, cv::gpu::DevMem2D_<short2> 
     if (x >= VOLUME_X || y >= VOLUME_X)
     return;
 
-    float v_g_x = (x + 0.5f) * cell_size.x - tcurr.x;
+    float v_g_x = (x + 0.5f) * cell_size.x - tcurr.x; // vw - Cw: voxel center in the world and camera center in the world
     float v_g_y = (y + 0.5f) * cell_size.y - tcurr.y;
     float v_g_z = (0 + 0.5f) * cell_size.z - tcurr.z;
 
-    float v_g_part_norm = v_g_x * v_g_x + v_g_y * v_g_y;
+    float v_g_part_norm = v_g_x * v_g_x + v_g_y * v_g_y; // get the distance from the voxel to the camera center
 
-    float v_x = (Rcurr_inv.data[0].x * v_g_x + Rcurr_inv.data[0].y * v_g_y + Rcurr_inv.data[0].z * v_g_z) * intr.fx;
-    float v_y = (Rcurr_inv.data[1].x * v_g_x + Rcurr_inv.data[1].y * v_g_y + Rcurr_inv.data[1].z * v_g_z) * intr.fy;
+    float v_x = (Rcurr_inv.data[0].x * v_g_x + Rcurr_inv.data[0].y * v_g_y + Rcurr_inv.data[0].z * v_g_z) * intr.fx; //vc = Rw( vw - Cw ); voxel center in camera coordinate
+    float v_y = (Rcurr_inv.data[1].x * v_g_x + Rcurr_inv.data[1].y * v_g_y + Rcurr_inv.data[1].z * v_g_z) * intr.fy; //p = K*vc; project the vc onto the image
     float v_z = (Rcurr_inv.data[2].x * v_g_x + Rcurr_inv.data[2].y * v_g_y + Rcurr_inv.data[2].z * v_g_z);
 
     float z_scaled = 0;
@@ -164,37 +164,6 @@ void integrateTsdfVolume(cv::gpu::GpuMat& cvgmDepthScaled_, const unsigned short
 	cudaSafeCall ( cudaGetLastError () );
 	cudaSafeCall (cudaDeviceSynchronize ());
 }
-/*
-
-void integrateTsdfVolume(cv::gpu::GpuMat& cvgmDepthScaled_, const unsigned short usPyrLevel_, 
-		const float fVoxelSize_, const float fTruncDistanceM_, 
-		const pcl::device::Mat33& Rw_, const float3& Cw_, 
-		const float fFx_, const float fFy_, const float u_, const float v_, 
-		cv::gpu::GpuMat* pcvgmVolume_)
-{
-	Tsdf tsdf;
-	float3 cell_size;
-	cell_size.x = cell_size.y = cell_size.z = fVoxelSize_;
-	tsdf.cell_size = cell_size;
-	tsdf.depthScaled = cvgmDepthScaled_;
-	tsdf.volume = *pcvgmVolume_;
-	tsdf.intr = pcl::device::Intr(fFx_,fFy_,u_,v_)(usPyrLevel_);
-	tsdf.Rcurr_inv = Rw_;
-	tsdf.tcurr = Cw_;
-	tsdf.tranc_dist = fTruncDistanceM_;// both the depthScaled and TruncDistance are measured in Meter rather than in mm;
-	tsdf.VOLUME_X = pcvgmVolume_->cols; // 512 or 256 or 128;
-
-	dim3 block (16, 16);
-	dim3 grid (cv::gpu::divUp (tsdf.VOLUME_X, block.x), cv::gpu::divUp (tsdf.VOLUME_X, block.y));
-
-	integrateTsdfKernel<<<grid, block>>>( tsdf );    
-
-	cudaSafeCall ( cudaGetLastError () );
-	cudaSafeCall (cudaDeviceSynchronize ());
-}
-*/
-
-
 
 }//device
 }//pcl

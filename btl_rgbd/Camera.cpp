@@ -65,7 +65,7 @@ void btl::kinect::SCamera::importYML()
 
 	return;
 }
-void btl::kinect::SCamera::setIntrinsics ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ )
+void btl::kinect::SCamera::setGLProjectionMatrix ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ )
 {
 //    glutReshapeWindow( int ( dWidth ), int ( dHeight ) );
     glMatrixMode ( GL_PROJECTION );
@@ -82,11 +82,11 @@ void btl::kinect::SCamera::setIntrinsics ( unsigned int nScaleViewport_, const d
     dRight  =   ( _sWidth  - _u ) / f;
 
     glLoadIdentity(); //use the same style as page 130, opengl programming guide
-    glFrustum ( dLeft * dNear_, dRight * dNear_, dBottom * dNear_, dTop * dNear_, dNear_, dFar_ );
-    glMatrixMode ( GL_VIEWPORT );
+    glFrustum ( dLeft * dNear_, dRight * dNear_, dBottom * dNear_, dTop * dNear_, dNear_, dFar_ );// the corners of the near clipping plane in GL system
+    /*glMatrixMode ( GL_VIEWPORT );
 
     if ( nScaleViewport_ == 2 )  { glViewport ( 0, - ( GLsizei ) _sHeight, ( GLsizei ) _sWidth * nScaleViewport_, ( GLsizei ) _sHeight * nScaleViewport_ ); }
-    else if ( nScaleViewport_ == 1 )   { glViewport ( 0, 0, ( GLsizei ) _sWidth, ( GLsizei ) _sHeight ); }
+    else if ( nScaleViewport_ == 1 )   { glViewport ( 0, 0, ( GLsizei ) _sWidth, ( GLsizei ) _sHeight ); }*/
 
     return;
 }
@@ -126,7 +126,6 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const 
 	if (bLightIsOn){
 		glDisable(GL_LIGHTING);
 	}
-
 
     const double f = ( _fFx + _fFy ) / 2.;
 
