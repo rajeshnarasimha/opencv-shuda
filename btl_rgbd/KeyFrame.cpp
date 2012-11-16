@@ -473,12 +473,13 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
     return fErrorBest;
 }// calcRT
 
-double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
+double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const double dDistanceThreshold_, unsigned short* pInliers_) {
 	// - The reference frame must contain a calibrated Rw and Tw. 
 	// - The point cloud in the reference frame must be transformed into the world coordinate system.
 	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
 	// - The point cloud in the current frame must be in the camera coordinate system.
 	BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
+	const unsigned short sLevel_ = 0;
 	//matching from current to reference
 	cv::gpu::BruteForceMatcher_GPU< cv::HammingLUT > cBruteMatcher;
 	cBruteMatcher.match(_cvgmDescriptors, sPrevKF_._cvgmDescriptors, _vMatches);  
@@ -538,70 +539,7 @@ double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const unsi
 	//PRINT ( _eimR );
 	//PRINT ( _eivT );
 	float dThreshold = dErrorBest;
-        
-    /*
-    if ( nSize > 30 ) {
-                            
-            // random generator
-            boost::mt19937 rng;
-            boost::uniform_real<> gen ( 0, 1 );
-            boost::variate_generator< boost::mt19937&, boost::uniform_real<> > dice ( rng, gen );
-            double dError;
-            Eigen::Matrix3d eimR;
-            Eigen::Vector3d eivT;
-            double dS;
-            std::vector< int > vVoterIdx;
-            Eigen::Matrix3d eimRBest;
-            Eigen::Vector3d eivTBest;
-            std::vector< int > vVoterIdxBest;
-            int nMax = 0;
-            std::vector < int > vRndIdx;
-            Eigen::MatrixXd eimXTmp ( 3, 5 ), eimYTmp ( 3, 5 );
-            
-            for ( int n = 0; n < 500; n++ ) {
-                select5Rand (  eimRefWorld, eimCurCam, dice, &eimYTmp, &eimXTmp );
-                dError = btl::utility::absoluteOrientation < double > ( eimYTmp, eimXTmp, false, &eimR, &eivT, &dS );
-            
-                if ( dError > dThreshold ) {
-                    continue;
-                }
-            
-                //voting
-                int nVotes = voting ( eimRefWorld, eimCurCam, eimR, eivT, dThreshold, &vVoterIdx );
-                if ( nVotes > eimCurCam.cols() *.75 ) {
-                    nMax = nVotes;
-                    eimRBest = eimR;
-                    eivTBest = eivT;
-                    vVoterIdxBest = vVoterIdx;
-                    break;
-                }
-            
-                if ( nVotes > nMax ){
-                    nMax = nVotes;
-                    eimRBest = eimR;
-                    eivTBest = eivT;
-                    vVoterIdxBest = vVoterIdx;
-                }
-            }
-            
-            if ( nMax <= 6 ){
-            	std::cout << "try increase the threshould" << std::endl;
-                return dErrorBest;
-            }
-            
-            Eigen::MatrixXd eimXInlier ( 3, vVoterIdxBest.size() );
-            Eigen::MatrixXd eimYInlier ( 3, vVoterIdxBest.size() );
-            selectInlier ( eimRefWorld, eimCurCam, vVoterIdxBest, &eimYInlier, &eimXInlier );
-            dErrorBest = btl::utility::absoluteOrientation < double > (  eimYInlier , eimXInlier , false, &eimRNew, &eivTNew, &fS2 );
-            
-            PRINT ( nMax );
-            PRINT ( dErrorBest );
-            //PRINT ( _eimR );
-            //PRINT ( _eivT );
-            *pInliers_ = (unsigned short)nMax;
-        }//if*/
-    
-	//apply new pose
+
 	updateMVInv();
     return dErrorBest;
 }// calcRT

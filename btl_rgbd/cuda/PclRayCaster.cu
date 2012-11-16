@@ -248,7 +248,7 @@ rayCastKernel (const RayCaster rc) {
 }
 
 
-
+//get VMap and NMap in world
 void raycast (const pcl::device::Intr& intr, const pcl::device::Mat33& RwInv_, const float3& Cw_, 
                       const float fVolumeSizeM_, const float fTruncDistanceM_, const float& fVoxelSize_,
                       const cv::gpu::GpuMat& cvgmVolume_, cv::gpu::GpuMat* pVMap_, cv::gpu::GpuMat* pNMap_)

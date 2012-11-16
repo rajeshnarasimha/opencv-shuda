@@ -34,7 +34,7 @@ public:
 	//calculate the R and T relative to Reference Frame.
 	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_);
 	void extractOrbFeatures ();
-	double calcRTOrb ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_);
+	double calcRTOrb ( const CKeyFrame& sPrevKF_, const double dDistanceThreshold_, unsigned short* pInliers_);
 	void gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseReferenceRTAsInitial);
 
 	//accumulate the relative R T to the global RT

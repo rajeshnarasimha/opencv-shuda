@@ -788,7 +788,6 @@ __global__ void kernelConvertZValue2Depth(const cv::gpu::DevMem2D_<float> cvgmZV
 
 	const float& fZ = cvgmZValue_.ptr(nY)[nX];
 	float& fDepth = cvgmDepth_.ptr(cvgmZValue_.rows-1-nY)[nX];
-	float fRange = fFar_ - fNear_;
 
 	/*if( abs(fZ-1.f) < 0.01f ) 
 		fDepth = pcl::device::numeric_limits<float>::quiet_NaN();

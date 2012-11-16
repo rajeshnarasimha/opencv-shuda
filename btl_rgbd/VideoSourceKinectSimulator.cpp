@@ -61,14 +61,23 @@ void VideoSourceKinectSimulator::exportRawDepth() const{
 	cFSWrite.release();
 }
 void VideoSourceKinectSimulator::captureScreen(){
+	//view port # 1.
 	glReadBuffer(GL_FRONT);
 	glReadPixels(0, __aKinectH[_uResolution], __aKinectW[_uResolution], __aKinectH[_uResolution], GL_RGB,	   GL_UNSIGNED_BYTE, _cvmUndistRGB.data);
 	glDrawBuffer(GL_BACK);
+	_cvgmUndistRGB.upload(_cvmUndistRGB);
+	cv::gpu::cvtColor(_cvgmUndistRGB,_cvgmUndistRGB,CV_RGB2BGR);
+	btl::device::cudaConvertGL2CV(_cvgmUndistRGB,&_cvgmRGB);
+	_cvgmRGB.download(_cvmUndistRGB);
 	cv::imwrite(std::string("1.bmp"),_cvmUndistRGB);
-
+	//view port # 4.
 	glReadBuffer(GL_FRONT);
 	glReadPixels(__aKinectW[_uResolution],0, __aKinectW[_uResolution], __aKinectH[_uResolution], GL_RGB,	   GL_UNSIGNED_BYTE, _cvmUndistRGB.data);
 	glDrawBuffer(GL_BACK);
+	_cvgmUndistRGB.upload(_cvmUndistRGB);
+	cv::gpu::cvtColor(_cvgmUndistRGB,_cvgmUndistRGB,CV_RGB2BGR);
+	btl::device::cudaConvertGL2CV(_cvgmUndistRGB,&_cvgmRGB);
+	_cvgmRGB.download(_cvmUndistRGB);
 	cv::imwrite(std::string("2.bmp"),_cvmUndistRGB);
 }
 void VideoSourceKinectSimulator::getNextFrame( tp_frame eFrameType_ )
@@ -78,7 +87,7 @@ void VideoSourceKinectSimulator::getNextFrame( tp_frame eFrameType_ )
 	//capture color and depth
 	glReadBuffer(GL_FRONT);
 	glReadPixels(0, __aKinectH[_uResolution], __aKinectW[_uResolution], __aKinectH[_uResolution], GL_DEPTH_COMPONENT, GL_FLOAT, _cvmDepth.data);
-	glReadPixels(0, __aKinectH[_uResolution], __aKinectW[_uResolution], __aKinectH[_uResolution], GL_RGB,	   GL_UNSIGNED_BYTE, _cvmRGB.data);
+	glReadPixels(0, __aKinectH[_uResolution], __aKinectW[_uResolution], __aKinectH[_uResolution], GL_RGB, GL_UNSIGNED_BYTE, _cvmRGB.data);
 	//glReadPixels(0, 0, screenWidth, screenHeight, GL_DEPTH_COMPONENT24, GL_UNSIGNED_INT, _pZBuffer); //doesnt work
 	// render to the framebuffer //////////////////////////
 	glDrawBuffer(GL_BACK);
