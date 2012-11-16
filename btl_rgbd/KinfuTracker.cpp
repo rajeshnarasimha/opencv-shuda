@@ -26,8 +26,10 @@
 #include <opencv2/gpu/gpu.hpp>
 //pcl
 #include <pcl/gpu/containers/device_array.h>
+#include <pcl/point_types.h>
 //eigen
 #include <Eigen/Core>
+
 //self
 #include "OtherUtil.hpp"
 #include "Converters.hpp"
@@ -43,7 +45,8 @@
 #include "cuda/pcl/internal.h"
 #include "cuda/Volume.h"
 #include "cuda/RayCaster.h"
-#include "cuda/PclMarchingCubes.h"
+//#include "cuda/PclMarchingCubes.h"
+#include "MarchingCubs.h"
 
 namespace btl{ namespace geometry
 {
@@ -87,7 +90,7 @@ void CCubicGrids::reset(){
 }
 
 void CCubicGrids::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_){
-	//Note: the point cloud int cFrame_ must be transformed into world before calling it
+	//Note: the point cloud int cFrame_ must be transformed into world before calling it, i.e. it integrate a VMap NMap in world to the volume in world
 	Eigen::Matrix3f eimfRw = cFrame_._eimRw.transpose();//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	pcl::device::Mat33& devRw = pcl::device::device_cast<pcl::device::Mat33> (eimfRw);
 	Eigen::Vector3f eivfCw = - cFrame_._eimRw.transpose() *cFrame_._eivTw ; //get camera center in world coordinate
@@ -111,6 +114,7 @@ void CCubicGrids::gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& 
 	return;
 }
 void CCubicGrids::gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_ ) const {
+	//get VMap and NMap in world
 	pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (pVirtualFrame_->_eimRw);	//device cast do the transpose implicitly because eimcmRwCur is col major by default.
 	//Cw = -Rw'*Tw
 	Eigen::Vector3f eivCwCur = - pVirtualFrame_->_eimRw.transpose() * pVirtualFrame_->_eivTw ;
@@ -207,10 +211,19 @@ void CCubicGrids::importYML(const std::string& strPath_) {
 }
 
 void CCubicGrids::gpuGetOccupiedVoxels(){
+/*
 	_cvgmOccupiedVoxelsBuffer.create( 3, static_cast<int> ( DEFAULT_OCCUPIED_VOXEL_BUFFER_SIZE ), CV_32SC1);    //int
 	int active_voxels = pcl::device::getOccupiedVoxels(_cvgmYZxXVolContentCV, _cvgmOccupiedVoxelsBuffer);  
 	pcl::device::DeviceArray2D<int> occupied_voxels(3, active_voxels, _cvgmOccupiedVoxelsBuffer.ptr<int>(0), _cvgmOccupiedVoxelsBuffer.step );
-	//int total_vertexes = pcl::device::computeOffsetsAndTotalVertexes(occupied_voxels);
+	//int total_vertexes = pcl::device::computeOffsetsAndTotalVertexes(occupied_voxels);*/
+	pcl::gpu::MarchingCubes::Ptr marching_cubes_;
+	pcl::device::DeviceArray<pcl::PointXYZ> triangles_buffer_device_;
+
+	marching_cubes_ = pcl::gpu::MarchingCubes::Ptr( new pcl::gpu::MarchingCubes() );
+
+	pcl::device::DeviceArray<pcl::PointXYZ> triangles_device = marching_cubes_->run(_cvgmYZxXVolContentCV, _fVolumeSizeM,triangles_buffer_device_);    
+	//mesh_ptr_ = convertToMesh(triangles_device);
+
 }
 
 /*

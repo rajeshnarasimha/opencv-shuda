@@ -702,10 +702,10 @@ int main()
 	try
 	{
 		//test();
-		//cudaTestTry();
+		cudaTestTry();
 		//tryCpp();
 		//tryCV();
-		tryEigen();
+		//tryEigen();
 		//tryConverter();
 	}
 	catch ( std::runtime_error e )

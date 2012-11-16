@@ -39,13 +39,12 @@
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGrids;
-btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame;
+btl::kinect::CKeyFrame::tp_shared_ptr _pPrevFrameWorld, _pVirtualFrameWorld;
 unsigned short _nWidth, _nHeight;
 
-btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
-
-std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
-int _nRFIdx = 0; //reference frame counter
+//btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
+//std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* > _vShrPtrsKF;
+//int _nRFIdx = 0; //reference frame counter
 
 bool _bContinuous = true;
 bool _bCapture = false;
@@ -53,26 +52,32 @@ int _nView = 0;
 ushort _usViewNO = 0;
 ushort _uResolution = 0;
 ushort _uPyrHeight = 3;
+
 std::string _strPath("");
 std::string _strPathName;
 std::string _strFileName;
 int _nN = 1;
 
+std::vector<Eigen::Matrix4f> _veimPoses;
+
 void printVolume(){
+/*
 	std::string strPath("C:\\csxsl\\src\\opencv-shuda\\output\\");
 	for (int i = 0; i< 256; i++ ){
 		_pCubicGrids->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CCubicGrids::_X);
 		_pCubicGrids->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CCubicGrids::_Y);
 		_pCubicGrids->gpuExportVolume(strPath,_nRFIdx,i,btl::geometry::CCubicGrids::_Z);
 	}
-	return;
+	return;*/
 }
 void init ( ){
-	for(int i=0; i <_nReserved; i++){ 
+	/*for(int i=0; i <_nReserved; i++){ 
 		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5,1.5,-0.3));	
-	}
-	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5,1.5,-0.3));	
-
+	}*/
+	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5,1.5,-0.3));	
+	_pPrevFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5,1.5,-0.3));	
+	_veimPoses.clear();
+	_veimPoses.reserve(1000);
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
@@ -88,22 +93,21 @@ void init ( ){
 	_pGL->init();
 
 	// store a frame and detect feature points for tracking.
-	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFIdx];
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	_pKinect->_pFrame->copyTo(&*p1stKF);
-	//p1stKF->extractSurfFeatures();
-	p1stKF->extractOrbFeatures();
-	p1stKF->gpuTransformToWorldCVCV();
+	_pKinect->_pFrame->copyTo(&*_pPrevFrameWorld);
+	//_pPrevFrameWorld->extractSurfFeatures();
+	_pPrevFrameWorld->extractOrbFeatures();
+	_pPrevFrameWorld->gpuTransformToWorldCVCV();
 
 	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\output\\");
 	//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + ".yml";
 	//p1stKF->exportYML(strPath,strFileName);
 	//p1stKF->importYML(strPath,strFileName);
-	_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*p1stKF);
+	_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
 	//printVolume();
 	// assign the rgb and depth to the current frame.
-	p1stKF->setView(&_pGL->_eimModelViewGL);
-	_vShrPtrsKF.push_back( &p1stKF );
+	_pPrevFrameWorld->setView(&_pGL->_eimModelViewGL);
+	_veimPoses.push_back(_pGL->_eimModelViewGL);
 	return;
 }
 void specialKeys( int key, int x, int y ){
@@ -121,8 +125,6 @@ void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
     case 'r':
         //reset
-		_nRFIdx = 0;
-		_vShrPtrsKF.clear();
 		_pCubicGrids->reset();
         init();
         glutPostRedisplay();
@@ -141,10 +143,7 @@ void normalKeys ( unsigned char key, int x, int y ){
         break;
 	case 'd':
 		//remove last key frame
-		if(_nRFIdx >0 ) {
-			_nRFIdx--;
-			_vShrPtrsKF.pop_back();
-		}
+		
 		glutPostRedisplay();
 		break;
 	case '1':
@@ -161,14 +160,14 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_nN ++;
 		break;
 	case '4':
-		_pVirtualFrame->exportPCL(_strPathName,_strFileName);
+		_pPrevFrameWorld->exportPCL(_strPathName,_strFileName);
 		break;
 	case '8':
 		glutPostRedisplay();
 		break;
 	case '0':
-		_usViewNO = ++_usViewNO % _vShrPtrsKF.size(); 
-		(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
+		_usViewNO = ++_usViewNO % _veimPoses.size(); 
+		_pGL->_eimModelViewGL = _veimPoses[_usViewNO];
 		_pGL->setInitialPos();
 		glutPostRedisplay();
 		break;
@@ -195,47 +194,53 @@ void display ( void ) {
 
 // update frame
     _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);//the current frame must be in camera coordinate
-	//PRINTSTR("Contruct pyramid.");
-	//_pGL->timerStop();
+	PRINTSTR("Contruct pyramid.");
+	_pGL->timerStop();
 
 // ( second frame )
 	unsigned short uInliers;
-	if ( _bCapture && _nRFIdx < _nReserved){
+	if ( _bCapture ){
 		// assign the rgb and depth to the current frame.
 		//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
 		//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + ".yml";
 		//_pKinect->_pFrame->exportYML(strPath,strFileName);
 
 		// assign the rgb and depth to the current frame.
-		btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
+		_pKinect->_pFrame->setRTTo(*_pPrevFrameWorld);
 		
+/*
 		//attach surf features to planes
 		_pKinect->_pFrame->extractOrbFeatures();
 		//track camera motion
-		_pKinect->_pFrame->setRTTo(*pPrevKF);
-		double dError = _pKinect->_pFrame->calcRTOrb ( *pPrevKF,0,.2,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
-		if (/*dError < 0.2 &&*/ uInliers > 300) 
+		double dError = _pKinect->_pFrame->calcRTOrb ( *_pPrevFrameWorld,.2,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
+		if (/ *dError < 0.2 &&* / uInliers > 300) 
+*/
 		{
 			//PRINTSTR("Surf calibration.");
 			//_pGL->timerStop();
-			_pKinect->_pFrame->gpuICP ( pPrevKF.get(), false );//refine the R,T with w.r.t. last key frame
+			_pKinect->_pFrame->gpuICP ( _pPrevFrameWorld.get(), false );//refine the R,T with w.r.t. last key frame
 			
-			//PRINTSTR("ICP tracking.");
-			//_pGL->timerStop();
-			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( pPrevKF.get(),M_PI_4/45.,0.02) ){
-				_pVirtualFrame->setRTTo( *_pKinect->_pFrame );
-				_pCubicGrids->gpuRaycast( &*_pVirtualFrame ); //get virtual frame
-				_pVirtualFrame->gpuICP ( pPrevKF.get(), false );//refine R,T w.r.t. the virtual frame
-				_pKinect->_pFrame->setRTTo( *_pVirtualFrame );
+			PRINTSTR("ICP tracking.");
+			_pGL->timerStop();
+			if( _pKinect->_pFrame->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){
 				_pKinect->_pFrame->gpuTransformToWorldCVCV();
+				_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
+				//refresh prev frame in world as the ray casted virtual frame
+				_pPrevFrameWorld->setRTTo( *_pKinect->_pFrame );
+				_pCubicGrids->gpuRaycast( &*_pPrevFrameWorld ); //get virtual frame
+				//store R t pose
+				Eigen::Matrix4f eimPose;
+				_pKinect->_pFrame->setView(&eimPose);
+				_veimPoses.push_back(eimPose);
+
+				//_pPrevFrameWorld->gpuICP ( pPrevKFWorld.get(), false );//refine R,T w.r.t. the virtual frame
+				//_pKinect->_pFrame->setRTTo( *_pPrevFrameWorld );
+				//_pKinect->_pFrame->gpuTransformToWorldCVCV();
 				//ingrate current frame into the global volume
 				//Note: the point cloud int cFrame_ must be transformed into world before calling it
-				_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pKinect->_pFrame);
 				//PRINTSTR("Volume integration.");
 
 				//_nRFIdx++;
-				btl::kinect::CKeyFrame::tp_shared_ptr& pCurrentKF = _aShrPtrKFs[_nRFIdx];
-				_pKinect->_pFrame->copyTo(&*pCurrentKF);//store current frame into buffer
 				//_vShrPtrsKF.push_back(&pCurrentKF);
 				//save current frame and make it as the reference frame
 				std::cout << "new key frame added" << std::flush;
@@ -309,13 +314,14 @@ void display ( void ) {
 	glLoadIdentity();
 	//glClearColor(0, 0, 1, 0);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
+	/*btl::kinect::CKeyFrame::tp_shared_ptr& pPrevKF = _aShrPtrKFs[_nRFIdx];
 #if USE_PBO
 	_pGL->gpuMapRgb2PixelBufferObj(*pPrevKF->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
 #else
 	_pKinect->_pRGBCamera->LoadTexture(*pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 #endif
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel],0.2 );
+*/
 
 /*
 	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
@@ -334,14 +340,14 @@ void display ( void ) {
 	//glClearColor(1, 0, 0, 0);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	_pVirtualFrame->assignRTfromGL();
-	_pCubicGrids->gpuRaycast(&*_pVirtualFrame, std::string("") ); //get virtual frame
+	_pVirtualFrameWorld->assignRTfromGL();
+	_pCubicGrids->gpuRaycast(&*_pVirtualFrameWorld); //get virtual frame
 	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
 	//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + "1.yml";
-	//_pVirtualFrame->exportYML(strPath,strFileName);
-	//_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
-	_pVirtualFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
-	//_pVirtualFrame->setView(&_pGL->_eimModelViewGL);
+	//_pPrevFrameWorld->exportYML(strPath,strFileName);
+	//_pPrevFrameWorld->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	_pVirtualFrameWorld->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	//_pPrevFrameWorld->setView(&_pGL->_eimModelViewGL);
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
@@ -413,7 +419,7 @@ int main ( int argc, char** argv ) {
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5,1.5,-0.3));
 		_pKinect->initKinect();
-		_pCubicGrids.reset( new btl::geometry::CCubicGrids(256,3) );
+		_pCubicGrids.reset( new btl::geometry::CCubicGrids(512,3) );
 		init();
 		_pGL->constructVBOsPBOs();
 		//_pCubicGrids->gpuCreateVBO(_pGL.get());

@@ -40,7 +40,7 @@
 btl::kinect::VideoSourceKinectSimulator::tp_shared_ptr _pKinectSimulator;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGrids;
-btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrame, _pVirtualFrame2;
+btl::kinect::CKeyFrame::tp_shared_ptr _pPrevFrameWorld, _pVirtualFrame2;
 unsigned short _nWidth, _nHeight;
 
 btl::kinect::CKeyFrame::tp_shared_ptr _aShrPtrKFs[_nReserved];
@@ -73,7 +73,7 @@ void init ( ){
 	for(int i=0; i <_nReserved; i++){ 
 		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
 	}
-	_pVirtualFrame.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
+	_pPrevFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
 	_pVirtualFrame2.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
@@ -133,7 +133,9 @@ void normalKeys ( unsigned char key, int x, int y ){
         break;
     case 'n':
         //next step
+		PRINTSTR("CubicGrid import started.")
 		_pCubicGrids->importYML(std::string("volume1.yml"));
+		PRINTSTR("CubicGrid import done.")
         glutPostRedisplay();
         break;
     case 's':
@@ -171,7 +173,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		_nN ++;
 		break;
 	case '4':
-		_pVirtualFrame->exportPCL(_strPathName,_strFileName);
+		_pPrevFrameWorld->exportPCL(_strPathName,_strFileName);
 		break;
 	case '8':
 			glutPostRedisplay();
@@ -216,23 +218,21 @@ void display ( void ) {
 	_pGL->renderTeapot();
 	//_pGL->renderTestPlane();
 	_pKinectSimulator->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);//the current frame must be in camera coordinate
-	_pKinectSimulator->_pFrame->copyTo(&*_pVirtualFrame);
+	_pKinectSimulator->_pFrame->copyTo(&*_pPrevFrameWorld);
 /*
-	if (_bCapture)
-	{
-		_pVirtualFrame->exportPCL(std::string(""),std::string(""));
+	if (_bCapture){
+		_pPrevFrameWorld->exportPCL(std::string(""),std::string(""));
 		_pKinectSimulator->exportRawDepth();
 	}
-	PRINT(_pVirtualFrame->_eimRw);
-	PRINT(_pVirtualFrame->_eivTw);
-	PRINT(-_pVirtualFrame->_eimRw.transpose()*_pVirtualFrame->_eivTw);
+	PRINT(_pPrevFrameWorld->_eimRw);
+	PRINT(_pPrevFrameWorld->_eivTw);
+	PRINT(-_pPrevFrameWorld->_eimRw.transpose()*_pPrevFrameWorld->_eivTw);
 */
-	_pVirtualFrame->assignRTfromGL();
-	_pVirtualFrame->gpuTransformToWorldCVCV();
+	_pPrevFrameWorld->assignRTfromGL();
+	_pPrevFrameWorld->gpuTransformToWorldCVCV();
 	if (_bCapture)
 	{
-		cv::imwrite(std::string("1.bmp"),*_pKinectSimulator->_pFrame->_acvmShrPtrPyrBWs[0]);
-		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pVirtualFrame);
+		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
 	}
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
@@ -252,9 +252,9 @@ void display ( void ) {
 	_pGL->viewerGL();
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	
-	//_pVirtualFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
-	_pVirtualFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
-	//_pVirtualFrame->exportPCL(std::string(""),std::string(""));
+	//_pPrevFrameWorld->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	_pPrevFrameWorld->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	//_pPrevFrameWorld->exportPCL(std::string(""),std::string(""));
 	// render objects
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
@@ -278,7 +278,7 @@ void display ( void ) {
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	_pGL->renderTeapot();
-	_pGL->renderTestPlane();
+	//_pGL->renderTestPlane();
 	//_pKinectSimulator->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
 
 	// render objects
@@ -301,7 +301,7 @@ void display ( void ) {
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	_pVirtualFrame2->assignRTfromGL();
 	_pCubicGrids->gpuRaycast( &*_pVirtualFrame2 );
-
+	_pCubicGrids->gpuGetOccupiedVoxels();
 	_pVirtualFrame2->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
 	if(_pGL->_bRenderReference) {
 		_pGL->renderAxisGL();
@@ -387,7 +387,7 @@ int main ( int argc, char** argv ) {
 		//_pKinectSimulator->initKinect();
 
 		_pKinectSimulator.reset(new btl::kinect::VideoSourceKinectSimulator(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f));
-		_pCubicGrids.reset( new btl::geometry::CCubicGrids(512,3) );
+		_pCubicGrids.reset( new btl::geometry::CCubicGrids(64,3) );
 		init();
 		_pGL->constructVBOsPBOs();
 		//_pCubicGrids->gpuCreateVBO(_pGL.get());
@@ -397,7 +397,7 @@ int main ( int argc, char** argv ) {
 	catch ( btl::utility::CError& e )	{
 		if ( std::string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) )	{
 			std::cerr << "Error Info: " << *mi << std::endl;
-		}
+		}	
 	}
 	catch ( std::runtime_error& e )	{
 		PRINTSTR( e.what() );

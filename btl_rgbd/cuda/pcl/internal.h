@@ -45,7 +45,7 @@ namespace pcl
   namespace device
   {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+	  typedef float4 PointType;
     /** \brief Camera intrinsics structure
       */ 
     struct Intr
@@ -81,7 +81,12 @@ namespace pcl
 		return (*reinterpret_cast<D*>(matx.data ()));
 	}
 
-  }
-}
+
+
+	
+
+
+  }//device
+}//pcl
 
 #endif /* PCL_KINFU_INTERNAL_HPP_ */
