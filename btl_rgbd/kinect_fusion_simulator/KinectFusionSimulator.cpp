@@ -34,7 +34,7 @@
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "VideoSourceKinectSimulator.hpp"
-#include "KinfuTracker.h"
+#include "CubicGrids.h"
 #define _nReserved 5
 
 btl::kinect::VideoSourceKinectSimulator::tp_shared_ptr _pKinectSimulator;

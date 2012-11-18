@@ -31,7 +31,7 @@
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
-#include "KinfuTracker.h"
+#include "CubicGrids.h"
 #include "PlaneWorld.h"
 #include "GLUtil.h"
 

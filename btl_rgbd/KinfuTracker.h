@@ -1,77 +1,54 @@
-#ifndef BTL_GEOMETRY_MODEL
-#define BTL_GEOMETRY_MODEL
+#ifndef BTL_GEOMETRY_KINFU_TRACKER
+#define BTL_GEOMETRY_KINFU_TRACKER
 
 namespace btl{ namespace geometry
 {
 
-class CCubicGrids
-{
-//type
-public:
-	typedef boost::shared_ptr<CCubicGrids> tp_shared_ptr;
-	enum {_X = 1, _Y = 2, _Z = 3};
+	class CKinFuTracker
+	{
+	public:
+		//type
+		typedef boost::shared_ptr<CKinFuTracker> tp_shared_ptr;
 
-	enum
-	{ 
-		DEFAULT_OCCUPIED_VOXEL_BUFFER_SIZE = 2 * 1000 * 1000      
-	};
-
-private:
-	void releaseVBOPBO();//methods
-public:
-	CCubicGrids(ushort _usResolution,float fVolumeSizeM_);
-	~CCubicGrids();
-	void gpuRenderVoxelInWorldCVGL();
-	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
-	void gpuIntegrateFrameIntoVolumeCVCV(const btl::kinect::CKeyFrame& cFrame_);
-	void gpuRaycast(btl::kinect::CKeyFrame* pVirtualFrame_, std::string& strPathFileName_=std::string("")) const;
-	void reset();
-	void gpuExportVolume(const std::string& strPath_,ushort usNo_, ushort usV_, ushort usAxis_) const;
-
-	
-	void gpuMarchingCubes();
-	void gpuGetOccupiedVoxels();
-	void exportYML(const std::string& strPath_, const unsigned int uNo_ = 0 ) const;
-	void importYML(const std::string& strPath_) ;
-public:
-
-	//data
-	Eigen::Vector3d _eivAvgNormal;
-	double _dAvgPosition;
-	std::vector<unsigned int> _vVolumIdx;
-//volume data
-	//the center of the volume defines the origin of the world coordinate
-	//and follows the right-hand cv-convention
-	//physical size of the volume
-	float _fVolumeSizeM;//in meter
-	float _fVoxelSizeM; //in meter
-	unsigned int _uResolution;
-	unsigned int _uVolumeLevel;
-	unsigned int _uVolumeTotal;
-	//truncated distance in meter
-	//must be larger than 2*voxelsize 
-	float _fTruncateDistanceM;
-	//host
-	cv::Mat _cvmYZxXVolContent; //y*z,x,CV_32FC1,x-first
-	//device
-	cv::gpu::GpuMat _cvgmYZxXVolContentCV;
-	//render context
-	btl::gl_util::CGLUtil::tp_ptr _pGL;
-	GLuint _uVBO;
-	cudaGraphicsResource* _pResourceVBO;
-	GLuint _uPBO;
-	cudaGraphicsResource* _pResourcePBO;
-	GLuint _uTexture;
+		enum{ICP, ORBICP, ORB, SURF, SURFICP};
+	public:
+		//both pKeyFrame_ and pCubicGrids_ must be allocated before hand
+		CKinFuTracker(btl::kinect::CKeyFrame::tp_ptr pKeyFrame_,CCubicGrids::tp_shared_ptr pCubicGrids_ /*ushort usVolumeResolution_,float fVolumeSizeM_*/ );
+		~CKinFuTracker(){;}
+		void setMethod(int nMethod_){ _nMethod = nMethod_;}
+		void init(btl::kinect::CKeyFrame::tp_ptr pKeyFrame_);
+		void track( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
+		void setNextView( Eigen::Matrix4f* pSystemPose_ );
+		btl::kinect::CKeyFrame::tp_ptr prevFrame() const{ return _pPrevFrameWorld.get();}
+	protected:
+		//ICP approach
+		void initICP(btl::kinect::CKeyFrame::tp_ptr pKeyFrame_);
+		void trackICP(btl::kinect::CKeyFrame::tp_ptr pCurFrame_);
+		//ORB + ICP approach
+		void initORBICP(btl::kinect::CKeyFrame::tp_ptr pKeyFrame_);
+		void trackORBICP(btl::kinect::CKeyFrame::tp_ptr pCurFrame_);
+		//ORB 
+		void initORB( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
+		void trackORB( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
+		//SURF
+		void initSURF( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
+		void trackSURF( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
+		//SURF + ICP
+		void initSURFICP( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
+		void trackSURFICP( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
 
 
-	/** \brief Temporary buffer used by marching cubes (first row stores occuped voxes id, second number of vetexes, third poits offsets */
-	cv::gpu::GpuMat/*pcl::gpu::DeviceArray2D<int>*/ _cvgmOccupiedVoxelsBuffer;
-};
+		CCubicGrids::tp_shared_ptr _pCubicGrids;
+		btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrameWorld;
 
-
-
+		btl::kinect::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
+		Eigen::Matrix4f _eimCurPose;
+		unsigned int _uViewNO;
+		std::vector<Eigen::Matrix4f> _veimPoses;
+		int _nMethod;
+	};//CKinFuTracker
 
 }//geometry
 }//btl
-#endif
 
+#endif
