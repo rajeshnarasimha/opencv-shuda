@@ -22,6 +22,7 @@ class CKeyFrame {
 	//type
 public:
 	typedef boost::shared_ptr< CKeyFrame > tp_shared_ptr;
+	typedef boost::scoped_ptr< CKeyFrame > tp_scoped_ptr;
 	typedef CKeyFrame* tp_ptr;
 	enum tp_cluster { NORMAL_CLUSTER, DISTANCE_CLUSTER};
 
@@ -62,8 +63,9 @@ public:
 	inline void loadGLMVIn() const{	glMultMatrixf ( _eimGLMVInv.data() );}
 
 	// copy the content to another keyframe at 
-	void copyTo( CKeyFrame* pKF_, const short sLevel_ );
-	void copyTo( CKeyFrame* pKF_ );
+	void copyTo( CKeyFrame* pKF_, const short sLevel_ ) const;
+	void copyTo( CKeyFrame* pKF_ ) const;
+	void copyImageTo( CKeyFrame* pKF_ ) const;
 
 	void detectPlane (const short uPyrLevel_);
 	void gpuDetectPlane (const short uPyrLevel_);
@@ -107,7 +109,7 @@ private:
 	void establishPlaneCorrespondences( const CKeyFrame& sReferenceKF_);
 
 public:
-	btl::kinect::SCamera::tp_ptr _pRGBCamera;
+	btl::kinect::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
 	//host
 	boost::shared_ptr<cv::Mat> _acvmPyrDepths[4];
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function

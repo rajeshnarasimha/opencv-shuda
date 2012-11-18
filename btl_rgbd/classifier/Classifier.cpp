@@ -32,7 +32,8 @@
 #include "Histogram.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
-#include "KinfuTracker.h"
+//#include "KinfuTracker.h"
+#include "CubicGrids.h"
 #include "GLUtil.h"
 //camera calibration from a sequence of images
 #include "Camera.h"

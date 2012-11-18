@@ -67,6 +67,7 @@ btl::kinect::CKeyFrame::CKeyFrame( CKeyFrame::tp_ptr pFrame_ )
 	_pRGBCamera = pFrame_->_pRGBCamera;
 	_uResolution = pFrame_->_uResolution;
 	_uPyrHeight = pFrame_->_uPyrHeight;
+	_eivInitCw = pFrame_->_eivInitCw;
 	allocate();
 	pFrame_->copyTo(this);
 }
@@ -127,7 +128,7 @@ void btl::kinect::CKeyFrame::initRT(){
 	updateMVInv();
 }
 
-void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
+void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ) const{
 	//host
 	_acvmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrPts[sLevel_]);
 	_acvmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrNls[sLevel_]);
@@ -142,7 +143,7 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ){
 	pKF_->_eConvention = _eConvention;
 }
 
-void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
+void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) const{
 	for(int i=0; i<_uPyrHeight; i++) {
 		copyTo(pKF_,i);
 	}
@@ -161,6 +162,24 @@ void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_ ) {
 	pKF_->_eivTw = _eivTw;
 	pKF_->updateMVInv();
 }
+
+void btl::kinect::CKeyFrame::copyImageTo( CKeyFrame* pKF_ ) const{
+	for(ushort sLevel_=0; sLevel_<_uPyrHeight; sLevel_++) {
+		_acvmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrRGBs[sLevel_]);
+		_acvmShrPtrPyrBWs[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrBWs[sLevel_]);
+		//device
+		_acvgmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrRGBs[sLevel_]);
+		_acvgmShrPtrPyrBWs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrBWs[sLevel_]);
+	}
+	if( !_vKeyPoints.empty() ){
+		_cvgmKeyPoints.copyTo(pKF_->_cvgmKeyPoints);
+		_cvgmDescriptors.copyTo(pKF_->_cvgmDescriptors);
+		pKF_->_vKeyPoints.resize(_vKeyPoints.size());
+		std::copy( _vKeyPoints.begin(), _vKeyPoints.end(), pKF_->_vKeyPoints.begin() );
+	}
+}
+
+
 void btl::kinect::CKeyFrame::exportPCL(const std::string& strPath_, const std::string& strYMLName_){
 	pcl::PointCloud<pcl::PointXYZ>  cloudVertecies;
 	pcl::PointCloud<pcl::Normal>	cloudNormals;
