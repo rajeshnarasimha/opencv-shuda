@@ -14,6 +14,10 @@
 namespace btl{
 namespace kinect{
 
+
+
+
+
 //CCalibrateKinect is help to load camera parameters from 
 class VideoSourceKinect //: public CCalibrateKinect
 {
@@ -23,7 +27,7 @@ public:
 	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
 
 	//constructor
-    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_);
+    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_, bool bRecordSequence_ = false);
     virtual ~VideoSourceKinect();
 	void initKinect();
 
@@ -51,6 +55,13 @@ public:
 		(*peivCentroid_)(1) = - _dYCentroid;
 		(*peivCentroid_)(2) = - _dZCentroid;
 	}
+
+	void record(){
+		if (_bRecordSequence){
+			_pCyclicBuffer->Dump();
+		}
+	}
+
 protected:
 	void importYML();
 	// convert the depth map/ir camera to be aligned with the rgb camera
@@ -87,6 +98,8 @@ protected:
     xn::ImageMetaData  _cImgMD;
     xn::DepthGenerator _cDepthGen;
     xn::DepthMetaData  _cDepthMD;
+	//switch sequence record mode on/off
+	bool _bRecordSequence;
 
 	//rgb
     cv::Mat			_cvmRGB;
@@ -123,6 +136,17 @@ protected:
 	// initialized in constructor after load of the _cCalibKinect.
 	float _aR[9];	// Relative rotation transpose
 	float _aRT[3]; // aRT =_aR * T, the relative translation
+
+	// Create and initialize the cyclic buffer
+	CCyclicBuffer::tp_scoped_ptr _pCyclicBuffer;
+	XnMapOutputMode _sModeVGA; 
+	// To count missed frames
+	XnUInt64 nLastDepthTime;
+	XnUInt64 nLastImageTime;
+	XnUInt32 nMissedDepthFrames;
+	XnUInt32 nMissedImageFrames;
+	XnUInt32 nDepthFrames;
+	XnUInt32 nImageFrames;
 };
 
 } //namespace kinect

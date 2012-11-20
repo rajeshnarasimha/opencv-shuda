@@ -32,6 +32,7 @@
 #include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
+#include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
 #include "CubicGrids.h"
 #include "KinfuTracker.h"
@@ -117,7 +118,8 @@ void normalKeys ( unsigned char key, int x, int y ){
         break;
     case 's':
         //single step
-        _bContinuous = !_bContinuous;
+		_pKinect->record();
+        //_bContinuous = !_bContinuous;
         break;
     case 'c': 
 		//capture current view as a key frame
@@ -348,17 +350,16 @@ int main ( int argc, char** argv ) {
 
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f,true));
 		_pKinect->initKinect();
 		_pCubicGrids.reset( new btl::geometry::CCubicGrids(512,3) );
 		_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
-		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORBICP);
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);
 		init();
 		_pGL->constructVBOsPBOs();
 		//_pCubicGrids->gpuCreateVBO(_pGL.get());
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();
-
 	}
 	catch ( btl::utility::CError& e )	{
 		if ( std::string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) )	{
