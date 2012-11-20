@@ -16,14 +16,15 @@
 #include <opencv2/gpu/gpu.hpp>
 //boost
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/random.hpp>
 #include <boost/generator_iterator.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 //eigen
 #include <Eigen/Core>
 //openni
 #include <XnCppWrapper.h>
+#include "CyclicBuffer.h"
 //self
 #include "Camera.h"
 #include "Utility.hpp"
@@ -39,9 +40,10 @@
 #include <string>
 #include <limits>
 
-
-#define CHECK_RC(rc, what)	\
+#ifndef CHECK_RC_
+#define CHECK_RC_(rc, what)	\
 	BTL_ASSERT(rc == XN_STATUS_OK, (what + std::string(xnGetStatusString(rc))) )
+#endif
 
 using namespace btl::utility;
 
@@ -49,8 +51,8 @@ namespace btl{ namespace kinect
 {
 
 
-VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_)
-:_bUseNIRegistration(bUseNIRegistration_),_uResolution(uResolution_),_uPyrHeight(uPyrHeight_)
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_, bool bRecordSequence_/* = false*/)
+:_bUseNIRegistration(bUseNIRegistration_),_uResolution(uResolution_),_uPyrHeight(uPyrHeight_),_bRecordSequence(bRecordSequence_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
@@ -96,15 +98,19 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_dXCentroid = _dYCentroid = 0;
 	_dZCentroid = 1.0;
 	//initialize normal histogram
-	btl::kinect::CKeyFrame::_sNormalHist.init(2);
-	btl::kinect::CKeyFrame::_sDistanceHist.init(30);
+	//btl::kinect::CKeyFrame::_sNormalHist.init(2);
+	//btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
 	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
+
+	
 
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()
 {
+	_cImgGen.Release();
+	_cDepthGen.Release();
     _cContext.Release();
 }
 
@@ -114,18 +120,45 @@ void VideoSourceKinect::initKinect()
 
 	XnStatus nRetVal = XN_STATUS_OK;
 	//_cContext inizialization 
-	nRetVal = _cContext.Init();						CHECK_RC(nRetVal, "Initialize _cContext"); 
-	//RGB node creation 
-	nRetVal = _cImgGen.Create(_cContext);			CHECK_RC(nRetVal, "Create rgb generator fail"); 
-	//IR node creation 
-	nRetVal = _cDepthGen.Create(_cContext);			CHECK_RC(nRetVal, "Create depth generator"); 
-	// set as the highest resolution 0 480x640
+	nRetVal = _cContext.Init();						CHECK_RC_(nRetVal, "Initialize _cContext"); 
+	
 	setResolution(_uResolution);
-
+	//RGB node creation 
+	nRetVal = _cImgGen.Create(_cContext);			CHECK_RC_(nRetVal, "Create rgb generator fail"); 
+	//IR node creation 
+	nRetVal = _cDepthGen.Create(_cContext);			CHECK_RC_(nRetVal, "Create depth generator"); 
+	_cContext.StopGeneratingAll();
+	// set as the highest resolution 0 for 480x640 
 	//register the depth generator with the image generator
 	if (_bUseNIRegistration){
-		nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );	CHECK_RC ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
+		nRetVal = _cDepthGen.GetAlternativeViewPointCap().SetViewPoint ( _cImgGen );	CHECK_RC_ ( nRetVal, "Getting and setting AlternativeViewPoint failed: " ); 
+		// Set Hole Filter
+		_cDepthGen.SetIntProperty("HoleFilter", TRUE);
+		// Frame Sync
+		if ( false && _cDepthGen.IsCapabilitySupported(XN_CAPABILITY_FRAME_SYNC)){
+			if (_cDepthGen.GetFrameSyncCap().CanFrameSyncWith(_cImgGen)){
+				nRetVal = _cDepthGen.GetFrameSyncCap().FrameSyncWith(_cImgGen);			CHECK_RC_(nRetVal, "Frame sync");
+			}//if (_cDepthGen.GetFrameSyncCap().CanFrameSyncWith(_cImgGen))
+		}//if ( _cDepthGen.IsCapabilitySupported(XN_CAPABILITY_FRAME_SYNC))
+	}//if (_bUseNIRegistration)
+	nRetVal = _cImgGen.SetMapOutputMode(_sModeVGA); 	CHECK_RC_(nRetVal, "Depth SetMapOutputMode XRes for 240, YRes for 320 and FPS for 30"); 
+	nRetVal = _cDepthGen.SetMapOutputMode(_sModeVGA);	CHECK_RC_(nRetVal, "Depth SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30"); 
+	//nRetVal = _cDepthGen.StartGenerating();				CHECK_RC_(nRetVal, "Start generating Depth fail");
+	nRetVal = _cContext.StartGeneratingAll();			CHECK_RC_(nRetVal, "Start generating data: " );
+
+	if (_bRecordSequence)
+	{
+		_pCyclicBuffer.reset(new CCyclicBuffer(_cContext,_cDepthGen,_cImgGen));
+		_pCyclicBuffer->Initialize(".", 30);
+
+		nLastDepthTime = 0;
+		nLastImageTime = 0;
+		nMissedDepthFrames = 0;
+		nMissedImageFrames = 0;
+		nDepthFrames = 0;
+		nImageFrames = 0;
 	}
+
 
 	PRINTSTR("Kinect connected");
 }
@@ -200,11 +233,35 @@ void VideoSourceKinect::findRange(const cv::Mat& cvmMat_)
 }
 void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 {
-    XnStatus nRetVal = _cContext.WaitAndUpdateAll();
-    CHECK_RC ( nRetVal, "UpdateData failed: " );
+    XnStatus nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
 	// these two lines are required for getting a stable image and depth.
-    _cImgGen.GetMetaData ( _cImgMD );
-    _cDepthGen.GetMetaData( _cDepthMD );
+	_cImgGen.GetMetaData ( _cImgMD );
+	_cDepthGen.GetMetaData( _cDepthMD );
+
+	if(_bRecordSequence){
+		_pCyclicBuffer->Update(_cDepthMD, _cImgMD);
+		// Check for missed frames
+		//depth
+		++nDepthFrames;
+		XnUInt64 nTimestamp = _cDepthGen.GetTimestamp();
+		if (nLastDepthTime != 0 && nTimestamp - nLastDepthTime > 35000)	{
+			int missed = (int)(nTimestamp-nLastDepthTime)/32000 - 1;
+			printf("Missed depth: %llu -> %llu = %d > 35000 - %d frames\n",
+				nLastDepthTime, nTimestamp, XnUInt32(nTimestamp-nLastDepthTime), missed);
+			nMissedDepthFrames += missed;
+		}//if (nLastDepthTime != 0 && nTimestamp - nLastDepthTime > 35000)	
+		nLastDepthTime = nTimestamp;
+		//image
+		++nImageFrames;
+		nTimestamp = _cImgGen.GetTimestamp();
+		if (nLastImageTime != 0 && nTimestamp - nLastImageTime > 35000)	{
+			int missed = (int)(nTimestamp-nLastImageTime)/32000 - 1;
+			printf("Missed image: %llu -> %llu = %d > 35000 - %d frames\n",
+				nLastImageTime, nTimestamp, XnUInt32(nTimestamp-nLastImageTime), missed);
+			nMissedImageFrames += missed;
+		}//if (nLastImageTime != 0 && nTimestamp - nLastImageTime > 35000)
+		nLastImageTime = nTimestamp;
+	}//if(_bRecordSequence)
 
 	_pFrame->initRT();
 
@@ -212,11 +269,11 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 	cv::Mat cvmDep(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
 	cvmRGB.copyTo(_cvmRGB);
 	cvmDep.convertTo(_cvmDepth,CV_32FC1);
-	//mail capturing fuction
+	//mail capturing function
 	if (_bUseNIRegistration)
 		gpuBuildPyramidUseNICVm();
 	else
-		gpuBuildPyramidCVm( );
+		gpuBuildPyramidCVm();
 
     /*switch( eFrameType_ ){
 		case CPU_PYRAMID_CV:
@@ -591,32 +648,28 @@ void VideoSourceKinect::fastNormalEstimation(const cv::Mat& cvmPts_, cv::Mat* pc
 
 void VideoSourceKinect::setResolution(ushort uResolutionLevel_){
 	 _uResolution = uResolutionLevel_;
-	_cContext.StopGeneratingAll();
 	XnStatus nRetVal = XN_STATUS_OK;
-	XnMapOutputMode sModeVGA; 
-	sModeVGA.nFPS = 30; 
+	
+	_sModeVGA.nFPS = 30; 
 	switch(_uResolution){
 	case 3:
-		sModeVGA.nXRes = 80; 
-		sModeVGA.nYRes = 60; 
+		_sModeVGA.nXRes = 80; 
+		_sModeVGA.nYRes = 60; 
 	case 2:
-		sModeVGA.nXRes = 160; 
-		sModeVGA.nYRes = 120; 
+		_sModeVGA.nXRes = 160; 
+		_sModeVGA.nYRes = 120; 
 		break;
 	case 1:
-		sModeVGA.nXRes = 320; 
-		sModeVGA.nYRes = 240; 
+		_sModeVGA.nXRes = 320; 
+		_sModeVGA.nYRes = 240; 
 		break;
 	case 0:
-		sModeVGA.nXRes = 640; 
-		sModeVGA.nYRes = 480; 
+		_sModeVGA.nXRes = 640; 
+		_sModeVGA.nYRes = 480; 
 		break;
 	}
 
-	nRetVal = _cImgGen.SetMapOutputMode(sModeVGA); 	CHECK_RC(nRetVal, "Depth SetMapOutputMode XRes for 240, YRes for 320 and FPS for 30"); 
-	nRetVal = _cDepthGen.SetMapOutputMode(sModeVGA);CHECK_RC(nRetVal, "Depth SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30"); 
-	nRetVal = _cDepthGen.StartGenerating();			CHECK_RC(nRetVal, "Start generating Depth fail");
-	nRetVal = _cContext.StartGeneratingAll();       CHECK_RC ( nRetVal, "Start generating data: " );
+	return;
 }
 
 } //namespace kinect

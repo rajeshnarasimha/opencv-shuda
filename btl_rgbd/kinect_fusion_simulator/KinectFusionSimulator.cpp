@@ -32,6 +32,7 @@
 #include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
+#include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
 #include "VideoSourceKinectSimulator.hpp"
 #include "CubicGrids.h"

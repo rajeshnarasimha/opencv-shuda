@@ -31,6 +31,7 @@
 #include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
+#include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
 //#include "KinfuTracker.h"
 #include "CubicGrids.h"

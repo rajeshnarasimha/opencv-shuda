@@ -30,6 +30,7 @@
 #include "PlaneObj.h"
 #include "Histogram.h"
 #include "KeyFrame.h"
+#include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
 #include "CubicGrids.h"
 #include "PlaneWorld.h"
