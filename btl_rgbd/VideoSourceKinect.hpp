@@ -30,6 +30,7 @@ public:
     VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_, bool bRecordSequence_ = false);
     virtual ~VideoSourceKinect();
 	void initKinect();
+	void initRecorder(std::string& strPath_, ushort nTimeInSecond_);
 
 	virtual void getNextFrame(tp_frame eFrameType_);
 	/*void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
@@ -60,6 +61,10 @@ public:
 		if (_bRecordSequence){
 			_pCyclicBuffer->Dump();
 		}
+		else{
+			PRINTSTR("Record functionality is not enabled.");
+		}
+
 	}
 
 protected:
@@ -141,12 +146,12 @@ protected:
 	CCyclicBuffer::tp_scoped_ptr _pCyclicBuffer;
 	XnMapOutputMode _sModeVGA; 
 	// To count missed frames
-	XnUInt64 nLastDepthTime;
-	XnUInt64 nLastImageTime;
-	XnUInt32 nMissedDepthFrames;
-	XnUInt32 nMissedImageFrames;
-	XnUInt32 nDepthFrames;
-	XnUInt32 nImageFrames;
+	XnUInt64 _nLastDepthTime;
+	XnUInt64 _nLastImageTime;
+	XnUInt32 _nMissedDepthFrames;
+	XnUInt32 _nMissedImageFrames;
+	XnUInt32 _nDepthFrames;
+	XnUInt32 _nImageFrames;
 };
 
 } //namespace kinect

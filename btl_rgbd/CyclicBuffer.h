@@ -35,8 +35,9 @@ public:
 		  m_nBufferCount = 0;
 	  }
 	  // Initialization - set outdir and time of each recording
-	  void Initialize(XnChar* strDirName, XnUInt32 nSeconds)
+	  void Initialize( const char* cDirName_, XnUInt32 nSeconds)
 	  {
+		  const XnChar* strDirName = (const XnChar*) cDirName_;
 		  xnOSStrCopy(m_strDirName, strDirName, XN_FILE_MAX_PATH);
 		  m_nBufferSize = nSeconds*30;
 		  m_pFrames = XN_NEW_ARR(SingleFrame, m_nBufferSize);

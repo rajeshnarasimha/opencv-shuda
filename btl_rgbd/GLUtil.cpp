@@ -256,7 +256,7 @@ namespace btl{	namespace gl_util
 		size_t nSize; 
 		cudaSafeCall( cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize , _apResourceRGBPxielBO[usPyrLevel_]));
 		cv::gpu::GpuMat cvgmRGBA( btl::kinect::__aKinectH[_uResolution+usPyrLevel_], btl::kinect::__aKinectW[_uResolution+usPyrLevel_], CV_8UC3, pDev);
-		//btl::device::rgb2RGBA(cvgmRGB_,0, &cvgmRGBA);
+		//btl::nDeviceNO_::rgb2RGBA(cvgmRGB_,0, &cvgmRGBA);
 		cvgmRGB_.copyTo(cvgmRGBA);
 		cudaSafeCall( cudaGraphicsUnmapResources(1, &_apResourceRGBPxielBO[usPyrLevel_], 0) );
 		//texture mapping
@@ -566,7 +566,7 @@ namespace btl{	namespace gl_util
 		glPushMatrix();
 		glTranslatef(1.5,1.5,1.5);
 		glRotatef(180.f, 0.f,0.f,1.f);
-		glScalef(0.15,0.15,0.15);
+		glScalef(0.15f,0.15f,0.15f);
 		if (_bEnableLighting){
 			glEnable(GL_LIGHTING);
 		}
@@ -579,8 +579,8 @@ namespace btl{	namespace gl_util
 
 	void CGLUtil::renderTestPlane(){
 		glPushMatrix();
-		glTranslatef(1.5,1.5,0.3);
-		glScalef(0.15,0.15,0.15);
+		glTranslatef(1.5f,1.5f,0.3f);
+		glScalef(0.15f,0.15f,0.15f);
 		glColor3f(1.f,0.f,0.f);
 		glBegin(GL_QUADS);
 		glVertex3f(-1.f, -1.f, 0.f);
@@ -670,7 +670,7 @@ namespace btl{	namespace gl_util
 		cudaSafeCall( cudaChooseDevice( &nDev, &sProp ) );
 		// tell CUDA which nDev we will be using for graphic interop
 		// from the programming guide:  Interoperability with OpenGL
-		//     requires that the CUDA device be specified by
+		//     requires that the CUDA nDeviceNO_ be specified by
 		//     cudaGLSetGLDevice() before any other runtime calls.
 		cudaSafeCall( cudaGLSetGLDevice( nDev ) );
 
@@ -727,10 +727,10 @@ namespace btl{	namespace gl_util
 		//rotation
 		Eigen::Matrix3f m;
 		if( btl::utility::BTL_GL == _eConvention ){
-			m = Eigen::AngleAxisf(_dXAngle*M_PI/180., Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(_dYAngle*M_PI/180., Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
+			m = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
 		}//mouse x-movement is the rotation around y-axis
 		else if( btl::utility::BTL_CV == _eConvention )	{
-			m = Eigen::AngleAxisf(_dXAngle*M_PI/180., -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(_dYAngle*M_PI/180., Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
+			m = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
 		}
 		//translation
 		_dZoom = _dZoom < 0.1? 0.1: _dZoom;
@@ -768,9 +768,55 @@ namespace btl{	namespace gl_util
 		// light position in 3d
 		glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
 	}
+	void CGLUtil::initCuda() const {
+		setDevice(0);
+		printShortCudaDeviceInfo(0);
+	}
 
+	void CGLUtil::setDevice(int nDeviceNO_) const
+	{
+		cudaSafeCall( cudaSetDevice( nDeviceNO_ ) );
+	}
 
+	int CGLUtil::getCudaEnabledDeviceCount() const
+	{
+		int count;
+		cudaError_t error = cudaGetDeviceCount( &count );
 
+		if (error == cudaErrorInsufficientDriver)
+			return -1;
+
+		if (error == cudaErrorNoDevice)
+			return 0;
+
+		cudaSafeCall(error);
+		return count;  
+	}
+
+	void CGLUtil::printShortCudaDeviceInfo(int nDeviceNO_) const
+	{
+		int nDeviceCount = getCudaEnabledDeviceCount();
+		bool valid = (nDeviceNO_ >= 0) && (nDeviceNO_ < nDeviceCount);
+
+		int beg = valid ? nDeviceNO_   : 0;
+		int end = valid ? nDeviceNO_+1 : nDeviceCount;
+
+		int driverVersion = 0, runtimeVersion = 0;
+		cudaSafeCall( cudaDriverGetVersion(&driverVersion) );
+		cudaSafeCall( cudaRuntimeGetVersion(&runtimeVersion) );
+
+		for(int dev = beg; dev < end; ++dev)
+		{                
+			cudaDeviceProp prop;
+			cudaSafeCall( cudaGetDeviceProperties(&prop, dev) );
+
+			const char *arch_str = prop.major < 2 ? " (pre-Fermi)" : "";
+			printf("Device %d:  \"%s\"  %.0fMb", dev, prop.name, (float)prop.totalGlobalMem/1048576.0f);                
+			printf(", sm_%d%d%s, %d cores", prop.major, prop.minor, arch_str, /*convertSMVer2Cores(prop.major, prop.minor) **/ prop.multiProcessorCount);                
+			printf(", Driver/Runtime ver.%d.%d/%d.%d\n", driverVersion/1000, driverVersion%100, runtimeVersion/1000, runtimeVersion%100);
+		}
+		fflush(stdout);
+	}
 
 
 

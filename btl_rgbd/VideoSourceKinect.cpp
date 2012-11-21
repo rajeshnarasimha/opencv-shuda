@@ -62,6 +62,8 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	PRINT( _cTDAll.total_milliseconds() );*/
 	
 	//allocate
+
+	PRINTSTR("Allocate buffers...")
 	_cvmRGB			   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_8UC3 );
 	_cvmUndistRGB	   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_8UC3 );
 	_cvmDepth		   .create( __aKinectH[_uResolution], __aKinectW[_uResolution], CV_32FC1);
@@ -85,7 +87,6 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_pIRCamera .reset(new SCamera(btl::kinect::SCamera::CAMERA_IR, _uResolution));
 
 	importYML();
-	PRINTSTR("data holder constructed...");
 	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,fCwX_, fCwY_, fCwZ_));
 
 	//other
@@ -103,8 +104,6 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
 	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
 
-	
-
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()
@@ -116,7 +115,7 @@ VideoSourceKinect::~VideoSourceKinect()
 
 void VideoSourceKinect::initKinect()
 {
-	std::cout << "  VideoSourceKinect: Opening Kinect..." << std::endl;
+	PRINTSTR("Initialize RGBD camera...");
 
 	XnStatus nRetVal = XN_STATUS_OK;
 	//_cContext inizialization 
@@ -143,25 +142,27 @@ void VideoSourceKinect::initKinect()
 	}//if (_bUseNIRegistration)
 	nRetVal = _cImgGen.SetMapOutputMode(_sModeVGA); 	CHECK_RC_(nRetVal, "Depth SetMapOutputMode XRes for 240, YRes for 320 and FPS for 30"); 
 	nRetVal = _cDepthGen.SetMapOutputMode(_sModeVGA);	CHECK_RC_(nRetVal, "Depth SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30"); 
-	//nRetVal = _cDepthGen.StartGenerating();				CHECK_RC_(nRetVal, "Start generating Depth fail");
+	//nRetVal = _cDepthGen.StartGenerating();			CHECK_RC_(nRetVal, "Start generating Depth fail");
 	nRetVal = _cContext.StartGeneratingAll();			CHECK_RC_(nRetVal, "Start generating data: " );
+	PRINTSTR(" Done.");
 
-	if (_bRecordSequence)
-	{
-		_pCyclicBuffer.reset(new CCyclicBuffer(_cContext,_cDepthGen,_cImgGen));
-		_pCyclicBuffer->Initialize(".", 30);
-
-		nLastDepthTime = 0;
-		nLastImageTime = 0;
-		nMissedDepthFrames = 0;
-		nMissedImageFrames = 0;
-		nDepthFrames = 0;
-		nImageFrames = 0;
-	}
-
-
-	PRINTSTR("Kinect connected");
+	return;
 }
+void VideoSourceKinect::initRecorder(std::string& strPath_, ushort nTimeInSecond_){
+	_bRecordSequence = true;
+	PRINTSTR("Initialize RGBD data recorder...");
+	_pCyclicBuffer.reset(new CCyclicBuffer(_cContext,_cDepthGen,_cImgGen));
+	_pCyclicBuffer->Initialize(strPath_.c_str(), nTimeInSecond_);
+
+	_nLastDepthTime = 0;
+	_nLastImageTime = 0;
+	_nMissedDepthFrames = 0;
+	_nMissedImageFrames = 0;
+	_nDepthFrames = 0;
+	_nImageFrames = 0;
+	PRINTSTR(" Done.");
+}
+
 void VideoSourceKinect::importYML()
 {
 	//_pRGBCamera->importYML();
@@ -242,25 +243,25 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 		_pCyclicBuffer->Update(_cDepthMD, _cImgMD);
 		// Check for missed frames
 		//depth
-		++nDepthFrames;
+		++_nDepthFrames;
 		XnUInt64 nTimestamp = _cDepthGen.GetTimestamp();
-		if (nLastDepthTime != 0 && nTimestamp - nLastDepthTime > 35000)	{
-			int missed = (int)(nTimestamp-nLastDepthTime)/32000 - 1;
+		if (_nLastDepthTime != 0 && nTimestamp - _nLastDepthTime > 35000)	{
+			int missed = (int)(nTimestamp-_nLastDepthTime)/32000 - 1;
 			printf("Missed depth: %llu -> %llu = %d > 35000 - %d frames\n",
-				nLastDepthTime, nTimestamp, XnUInt32(nTimestamp-nLastDepthTime), missed);
-			nMissedDepthFrames += missed;
-		}//if (nLastDepthTime != 0 && nTimestamp - nLastDepthTime > 35000)	
-		nLastDepthTime = nTimestamp;
+				_nLastDepthTime, nTimestamp, XnUInt32(nTimestamp-_nLastDepthTime), missed);
+			_nMissedDepthFrames += missed;
+		}//if (_nLastDepthTime != 0 && nTimestamp - _nLastDepthTime > 35000)	
+		_nLastDepthTime = nTimestamp;
 		//image
-		++nImageFrames;
+		++_nImageFrames;
 		nTimestamp = _cImgGen.GetTimestamp();
-		if (nLastImageTime != 0 && nTimestamp - nLastImageTime > 35000)	{
-			int missed = (int)(nTimestamp-nLastImageTime)/32000 - 1;
+		if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)	{
+			int missed = (int)(nTimestamp-_nLastImageTime)/32000 - 1;
 			printf("Missed image: %llu -> %llu = %d > 35000 - %d frames\n",
-				nLastImageTime, nTimestamp, XnUInt32(nTimestamp-nLastImageTime), missed);
-			nMissedImageFrames += missed;
-		}//if (nLastImageTime != 0 && nTimestamp - nLastImageTime > 35000)
-		nLastImageTime = nTimestamp;
+				_nLastImageTime, nTimestamp, XnUInt32(nTimestamp-_nLastImageTime), missed);
+			_nMissedImageFrames += missed;
+		}//if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)
+		_nLastImageTime = nTimestamp;
 	}//if(_bRecordSequence)
 
 	_pFrame->initRT();
