@@ -111,7 +111,7 @@ void display ( void )
 	//if( _bCapture )	
 	{
 		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
+		_pKinect->_pFrame->gpuTransformToWorldCVCV();
 	}
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -121,17 +121,11 @@ void display ( void )
     // load the matrix to set camera pose
 	_pGL->viewerGL();	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	/*Eigen::Matrix3f R;
-	Eigen::Vector3f T;
-	_pGL->getRTFromWorld2CamCV(&R,&T);
-	PRINT(R);
-	PRINT(T);*/
-
-    // render objects
+	// render objects
     _pGL->renderAxisGL();
 	_pGL->renderPatternGL(.1f,20,20);
 	_pGL->renderPatternGL(1.f,10,10);
-	_pGL->renderVoxelGL(1.f);
+	_pGL->renderVoxelGL(3.f);
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
 	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
@@ -144,19 +138,12 @@ void display ( void )
 	glViewport (_nWidth/2, 0, _nWidth/2, _nHeight);
 	glScissor  (_nWidth/2, 0, _nWidth/2, _nHeight);
 	glLoadIdentity();
-	//gluLookAt ( _eivCamera(0), _eivCamera(1), _eivCamera(2),  _eivCenter(0), _eivCenter(1), _eivCenter(2), _eivUp(0), _eivUp(1), _eivUp(2) );
-    //glScaled( _dZoom, _dZoom, _dZoom );    
-    //glRotated ( _dYAngle, 0, 1 ,0 );
-    //glR	//if(_bRenderVolume) _pModel->gpuRenderVoxelInWorldCVGL();
-	//_pKinect->_pFrame->renderCameraInWorldCVGL(_pGL.get(),0,_pGL->_bDisplayCamera,true,true,_pGL->_fSize,_pGL->_uLevel);otated ( _dXAngle, 1, 0 ,0 );
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render objects
     _pGL->renderAxisGL();
-	//render3DPts();
 	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
-
     glutSwapBuffers();
 	glutPostRedisplay();
 	return;
@@ -185,12 +172,13 @@ void init ( ){
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-	std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
-	std::string strFileName =  /*boost::lexical_cast<std::string> ( _nRFIdx ) + */"1.yml";
-	_pKinect->_pFrame->exportYML(strPath,strFileName);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
+	/*std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
+	std::string strFileName =  / *boost::lexical_cast<std::string> ( _nRFIdx ) + * /"1.yml";
+	_pKinect->_pFrame->exportYML(strPath,strFileName);*/
+	_pKinect->_pFrame->gpuTransformToWorldCVCV();
 	
 	_pGL->init();
+	_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
 }
 
 int main ( int argc, char** argv ){
@@ -212,6 +200,7 @@ int main ( int argc, char** argv ){
 		glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
 		_pGL.reset( new btl::gl_util::CGLUtil(0,3,btl::utility::BTL_GL) );
+		_pGL->initCuda();
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,3,false,1.5f,1.5f,-0.3f));
 		_pKinect->initKinect();

@@ -183,10 +183,11 @@ void display ( void ) {
 // ( second frame )
 	if ( _bCapture ){
 		_pTracker->track(&*_pKinect->_pFrame);
+		PRINTSTR("trackICP done.");
+		_pGL->timerStop();
 	}//if( _bCapture )
 	
-	PRINTSTR("trackICP done.");
-	_pGL->timerStop();
+	
 ////////////////////////////////////////////////////////////////////
 // render 1st viewport
    /* glMatrixMode ( GL_MODELVIEW );
@@ -349,9 +350,11 @@ int main ( int argc, char** argv ) {
         glutDisplayFunc ( display );
 
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
+		_pGL->initCuda();
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f,true));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f,false));
 		_pKinect->initKinect();
+		_pKinect->initRecorder(std::string("."),30);
 		_pCubicGrids.reset( new btl::geometry::CCubicGrids(512,3) );
 		_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
 		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);

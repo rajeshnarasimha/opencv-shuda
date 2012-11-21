@@ -3725,8 +3725,8 @@ GLushort teapotIndices[] = {
 
 void transformTeapot(){
 	Eigen::Vector3f c(1.5f, 1.5f, 0.3f);
-	Eigen::Matrix3f r; r = Eigen::AngleAxisf(M_PI,Eigen::Vector3f::UnitZ());
-	Eigen::Matrix3f s; s = Eigen::Matrix3f::Identity()*0.03;
+	Eigen::Matrix3f r; r = Eigen::AngleAxisf((float)M_PI,Eigen::Vector3f::UnitZ());
+	Eigen::Matrix3f s; s = Eigen::Matrix3f::Identity()*0.03f;
 	for(int i=0; i<3260; i++){
 		Eigen::Vector3f v(teapotVertices+i*3);
 		v = r*s*v + c;
