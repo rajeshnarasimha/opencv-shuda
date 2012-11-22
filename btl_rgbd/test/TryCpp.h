@@ -1,0 +1,12 @@
+void tryStdVectorResize();
+void tryStdVectorConstructor();
+void tryStdVectorEnum();
+void tryStdVector();
+void tryStdLimits();
+void tryStdList();
+void tryCppSizeof();
+void tryCppTypeDef();
+void tryCppBitwiseShift();
+void tryCppLongDouble();
+void tryCppOperator();
+void tryCpp();

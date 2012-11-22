@@ -108,6 +108,7 @@ void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
     case 'r':
         //reset
+		_pKinect->initPlayer(std::string("20121121-153156.oni"),false);
 		_pCubicGrids->reset();
         init();
         glutPostRedisplay();
@@ -167,6 +168,7 @@ void mouseMotion ( int nX_, int nY_ ){
 }
 
 
+
 #define TIMER
 //timer
 boost::posix_time::ptime _cT0, _cT1;
@@ -181,12 +183,11 @@ void display ( void ) {
 	_pGL->timerStop();
 
 // ( second frame )
-	if ( _bCapture ){
+	if ( _bCapture && !_pKinect->isPlayStop() ){
 		_pTracker->track(&*_pKinect->_pFrame);
 		PRINTSTR("trackICP done.");
 		_pGL->timerStop();
 	}//if( _bCapture )
-	
 	
 ////////////////////////////////////////////////////////////////////
 // render 1st viewport
@@ -352,9 +353,10 @@ int main ( int argc, char** argv ) {
 		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
 		_pGL->initCuda();
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f,false));
-		_pKinect->initKinect();
-		_pKinect->initRecorder(std::string("."),30);
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f));
+		//_pKinect->initKinect();
+		//_pKinect->initRecorder(std::string("."),30);
+		_pKinect->initPlayer(std::string("20121121-153156.oni"),false);
 		_pCubicGrids.reset( new btl::geometry::CCubicGrids(512,3) );
 		_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
 		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);

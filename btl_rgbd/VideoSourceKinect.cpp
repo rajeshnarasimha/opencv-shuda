@@ -50,9 +50,9 @@ using namespace btl::utility;
 namespace btl{ namespace kinect
 {
 
-
-VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_, bool bRecordSequence_/* = false*/)
-:_bUseNIRegistration(bUseNIRegistration_),_uResolution(uResolution_),_uPyrHeight(uPyrHeight_),_bRecordSequence(bRecordSequence_)
+bool VideoSourceKinect::_bIsPlayingStop = false;
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_ )
+:_bUseNIRegistration(bUseNIRegistration_),_uResolution(uResolution_),_uPyrHeight(uPyrHeight_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
 	boost::posix_time::time_duration _cTDAll;
@@ -103,7 +103,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	//btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
 	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
-
+	_bIsPlayingStop = false;
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()
@@ -111,6 +111,10 @@ VideoSourceKinect::~VideoSourceKinect()
 	_cImgGen.Release();
 	_cDepthGen.Release();
     _cContext.Release();
+	if (_bPlayerIsOn){
+		_cPlayer.UnregisterFromEndOfFileReached(_handle);
+		_cPlayer.Release();
+	}
 }
 
 void VideoSourceKinect::initKinect()
@@ -162,6 +166,38 @@ void VideoSourceKinect::initRecorder(std::string& strPath_, ushort nTimeInSecond
 	_nImageFrames = 0;
 	PRINTSTR(" Done.");
 }
+void VideoSourceKinect::initPlayer(std::string& strPathFileName_, bool bRepeat_){
+	PRINTSTR("Initialize Player recorder...");
+	//when you need to replay the file, call this function
+	_bPlayerIsOn = true; _bRecordSequence = false; _bIsPlayingStop = false;
+	XnStatus nRetVal = _cContext.Init(); CHECK_RC_(nRetVal, "Initialize _cContext");
+	nRetVal = _cContext.OpenFileRecording(strPathFileName_.c_str(), _cPlayer ); CHECK_RC_(nRetVal, "Open oni file");
+	_cPlayer.SetRepeat(bRepeat_);
+	_cPlayer.RegisterToEndOfFileReached(VideoSourceKinect::playEndCallback, NULL, _handle);
+	//locate relevant production node from the context
+	xn::NodeInfoList list;
+	nRetVal = _cContext.EnumerateExistingNodes(list);
+	if (nRetVal == XN_STATUS_OK)
+	{
+		for (xn::NodeInfoList::Iterator it = list.Begin(); it != list.End(); ++it)
+		{
+			switch ((*it).GetDescription().Type)
+			{
+			case XN_NODE_TYPE_DEPTH:
+				(*it).GetInstance(_cDepthGen);
+				break;
+			case XN_NODE_TYPE_IMAGE:
+				(*it).GetInstance(_cImgGen);
+				break;
+			case XN_NODE_TYPE_PLAYER:
+				(*it).GetInstance(_cPlayer);
+			}
+		}
+	}//if (nRetVal == XN_STATUS_OK)
+
+	PRINTSTR(" Done.");
+	return;
+}//initPlayer()
 
 void VideoSourceKinect::importYML()
 {
@@ -234,6 +270,8 @@ void VideoSourceKinect::findRange(const cv::Mat& cvmMat_)
 }
 void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 {
+	if(_bPlayerIsOn && _bIsPlayingStop) return;
+
     XnStatus nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
 	// these two lines are required for getting a stable image and depth.
 	_cImgGen.GetMetaData ( _cImgMD );
