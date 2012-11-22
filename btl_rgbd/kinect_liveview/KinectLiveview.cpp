@@ -82,6 +82,14 @@ void normalKeys ( unsigned char key, int x, int y )
 		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 		break;
+	case 's':
+		//single step
+		_pKinect->record();
+		break;
+	case 'r':
+		//replay
+		_pKinect->initPlayer(std::string("20121121-153156.oni"),false);
+		break;
 	case ']':
 		_pKinect->_fSigmaSpace += 1;
 		PRINT( _pKinect->_fSigmaSpace );
@@ -108,7 +116,7 @@ void mouseMotion ( int nX_, int nY_ )
 void display ( void )
 {
 	//load data from video source and model
-	//if( _bCapture )	
+	if( !_pKinect->isPlayStop() )	
 	{
 		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV();
@@ -203,7 +211,9 @@ int main ( int argc, char** argv ){
 		_pGL->initCuda();
 		_pGL->setCudaDeviceForGLInteroperation();
 		_pKinect.reset(new btl::kinect::VideoSourceKinect(0,3,false,1.5f,1.5f,-0.3f));
-		_pKinect->initKinect();
+		//_pKinect->initKinect();
+		//_pKinect->initRecorder(std::string("."),30);
+		_pKinect->initPlayer(std::string("20121121-153156.oni"),false);
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

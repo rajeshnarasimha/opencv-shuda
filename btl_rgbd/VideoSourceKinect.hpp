@@ -27,10 +27,12 @@ public:
 	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
 
 	//constructor
-    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_, bool bRecordSequence_ = false);
+    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_);
     virtual ~VideoSourceKinect();
 	void initKinect();
 	void initRecorder(std::string& strPath_, ushort nTimeInSecond_);
+	void initPlayer(std::string& strPathFileName_,bool bRepeat_);
+	bool isPlayStop(){ return VideoSourceKinect::_bIsPlayingStop; }
 
 	virtual void getNextFrame(tp_frame eFrameType_);
 	/*void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
@@ -64,7 +66,6 @@ public:
 		else{
 			PRINTSTR("Record functionality is not enabled.");
 		}
-
 	}
 
 protected:
@@ -84,8 +85,11 @@ protected:
 	//for debug
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
+	//in playing back mode, when a sequence is finished, this function is called
+	static void playEndCallback(xn::ProductionNode& node, void* pCookie_){ 
+		VideoSourceKinect::_bIsPlayingStop = true;
+	}
 public:
-	bool _bUseNIRegistration;
 	//parameters
 	float _fThresholdDepthInMeter; //threshold for filtering depth
 	float _fSigmaSpace; //degree of blur for the bilateral filter
@@ -103,8 +107,10 @@ protected:
     xn::ImageMetaData  _cImgMD;
     xn::DepthGenerator _cDepthGen;
     xn::DepthMetaData  _cDepthMD;
+	xn::Player		   _cPlayer;
 	//switch sequence record mode on/off
 	bool _bRecordSequence;
+	bool _bPlayerIsOn;
 
 	//rgb
     cv::Mat			_cvmRGB;
@@ -118,7 +124,6 @@ protected:
 	cv::gpu::GpuMat _cvgmUndistDepth;
 	//rgb pyramid
 	//depth pyramid (need to be initially allocated in constructor)
-	//gpu
 	
 
 	//X,Y,Z coordinate of depth w.r.t. RGB camera reference system
@@ -145,14 +150,19 @@ protected:
 	// Create and initialize the cyclic buffer
 	CCyclicBuffer::tp_scoped_ptr _pCyclicBuffer;
 	XnMapOutputMode _sModeVGA; 
-	// To count missed frames
+	// To count missed frames for recorder
 	XnUInt64 _nLastDepthTime;
 	XnUInt64 _nLastImageTime;
 	XnUInt32 _nMissedDepthFrames;
 	XnUInt32 _nMissedImageFrames;
 	XnUInt32 _nDepthFrames;
 	XnUInt32 _nImageFrames;
-};
+	//controlling flag
+	bool _bUseNIRegistration;
+	static bool _bIsPlayingStop;
+	XnCallbackHandle _handle;
+
+};//class VideoSourceKinect
 
 } //namespace kinect
 } //namespace btl
