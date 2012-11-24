@@ -118,6 +118,7 @@ namespace btl{	namespace gl_util
 	void CGLUtil::drawString(const char *str, int x, int y, float color[4], void *font) const
 	{
 		// backup current model-view matrix
+		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();                     // save current modelview matrix
 		glLoadIdentity();                   // reset modelview matrix
 
@@ -125,7 +126,7 @@ namespace btl{	namespace gl_util
 		glMatrixMode(GL_PROJECTION);        // switch to projection matrix
 		glPushMatrix();                     // save current projection matrix
 		glLoadIdentity();                   // reset projection matrix
-		gluOrtho2D(0, 1280, 0, 960);  // set to orthogonal projection
+		gluOrtho2D(0, 1280, 0, 480);  // set to orthogonal projection
 
 		glPushAttrib(GL_LIGHTING_BIT | GL_CURRENT_BIT); // lighting and color mask
 		glDisable(GL_LIGHTING);     // need to disable lighting for proper text color
@@ -141,8 +142,8 @@ namespace btl{	namespace gl_util
 			++str;
 		}
 
-		glEnable(GL_TEXTURE_2D);
-		glEnable(GL_LIGHTING);
+		//glEnable(GL_TEXTURE_2D);
+		//glEnable(GL_LIGHTING);
 		glPopAttrib();
 
 		// restore projection matrix
@@ -272,9 +273,6 @@ namespace btl{	namespace gl_util
 
 	void CGLUtil::init()
 	{
-		//transformTeapot();
-		//cv::Mat cvmTemp(4,4,CV_64FC1,(void*)_adModelViewGL);
-		//cv::setIdentity(cvmTemp);
 		_eimModelViewGL.setIdentity();
 		//disk list
 		_uDisk = glGenLists(1);
@@ -308,20 +306,9 @@ namespace btl{	namespace gl_util
 		glEndList();
 		glEnable(GL_RESCALE_NORMAL);
 
-		/*
-		// light
-		GLfloat mat_diffuse[] = { 1.0, 1.0, 1.0, 1.0};
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
-
-		GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
-		glLightfv (GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-
-		glEnable(GL_LIGHT0);*/
-
+		//init the global light
 		initLights();
 
-		//glEnable(GL_BLEND);
-		//glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 	}//init();
 
 	void CGLUtil::initLights()
@@ -467,10 +454,12 @@ namespace btl{	namespace gl_util
 			break;
 		case '9':
 			_usLevel = ++_usLevel%_usPyrHeight;
+			glutPostRedisplay();
 			//PRINT(_usPyrHeight);
 			break;
 		case '0'://reset camera location
 			setInitialPos();
+			glutPostRedisplay();
 			break;
 
 		}
@@ -494,6 +483,7 @@ namespace btl{	namespace gl_util
 	}//releaseVBO()
 	void CGLUtil::renderPatternGL(const float fSize_, const unsigned short usRows_, const unsigned short usCols_ ) const
 	{
+		if(!_bRenderReference) return;
 		GLboolean bLightIsOn;
 		glGetBooleanv(GL_LIGHTING,&bLightIsOn);
 		if (bLightIsOn){
@@ -529,6 +519,7 @@ namespace btl{	namespace gl_util
 
 	void CGLUtil::renderAxisGL() const
 	{
+		if (!_bRenderReference) return;
 		glDisable(GL_LIGHTING);
 
 		glPushMatrix();
@@ -593,7 +584,7 @@ namespace btl{	namespace gl_util
 
 	void CGLUtil::renderVoxelGL( const float fSize_) const
 	{
-
+		if(!_bRenderReference) return;
 		// x axis
 		glColor3f ( 1.f, .0f, .0f );
 		//top
@@ -661,7 +652,7 @@ namespace btl{	namespace gl_util
 		glEnd();*/
 	}
 
-	void CGLUtil::setCudaDeviceForGLInteroperation(){
+	void CGLUtil::setCudaDeviceForGLInteroperation() {
 		cudaDeviceProp  sProp;
 		memset( &sProp, 0, sizeof( cudaDeviceProp ) );
 		sProp.major = 1;
@@ -768,17 +759,13 @@ namespace btl{	namespace gl_util
 		// light position in 3d
 		glLightfv(GL_LIGHT0, GL_POSITION, _aLight);
 	}
-	void CGLUtil::initCuda() const {
-		setDevice(0);
-		printShortCudaDeviceInfo(0);
+
+	void CGLUtil::initCuda() {
+		cudaSafeCall( cudaSetDevice( 0 ) );
+		CGLUtil::printShortCudaDeviceInfo(0);
 	}
 
-	void CGLUtil::setDevice(int nDeviceNO_) const
-	{
-		cudaSafeCall( cudaSetDevice( nDeviceNO_ ) );
-	}
-
-	int CGLUtil::getCudaEnabledDeviceCount() const
+	int CGLUtil::getCudaEnabledDeviceCount() 
 	{
 		int count;
 		cudaError_t error = cudaGetDeviceCount( &count );
@@ -793,7 +780,7 @@ namespace btl{	namespace gl_util
 		return count;  
 	}
 
-	void CGLUtil::printShortCudaDeviceInfo(int nDeviceNO_) const
+	void CGLUtil::printShortCudaDeviceInfo(int nDeviceNO_) 
 	{
 		int nDeviceCount = getCudaEnabledDeviceCount();
 		bool valid = (nDeviceNO_ >= 0) && (nDeviceNO_ < nDeviceCount);
@@ -817,9 +804,6 @@ namespace btl{	namespace gl_util
 		}
 		fflush(stdout);
 	}
-
-
-
 
 }//gl_util
 }//btl

@@ -22,10 +22,10 @@ public:
 	typedef boost::shared_ptr<VideoSourceKinectSimulator> tp_shared_ptr;
 
 	//constructor
-    VideoSourceKinectSimulator(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_);
+    VideoSourceKinectSimulator(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,const Eigen::Vector3f& eivCw_);
     virtual ~VideoSourceKinectSimulator();
 
-	virtual void getNextFrame(tp_frame eFrameType_);
+	virtual void getNextFrame(tp_frame eFrameType_, int* pnRecordingStatus_);
 	void processZBuffer(const cv::Mat& cvmDepth_, cv::Mat* pcvmDepthImg_ ) const;
 	void setSensorDepthRange() const;
 	void exportRawDepth() const;

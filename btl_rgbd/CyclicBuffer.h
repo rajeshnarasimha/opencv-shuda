@@ -26,22 +26,28 @@ class CCyclicBuffer
 {
 public:
 	typedef boost::scoped_ptr< CCyclicBuffer > tp_scoped_ptr;
+	
 	// Creation - set the OpenNI objects
 	CCyclicBuffer(xn::Context& context, xn::DepthGenerator& depthGenerator, xn::ImageGenerator& imageGenerator) :
-	  m_context(context), m_depthGenerator(depthGenerator), m_imageGenerator(imageGenerator), m_pFrames(NULL)
-	  {
-		  m_nNextWrite = 0;
-		  m_nBufferSize = 0;
-		  m_nBufferCount = 0;
-	  }
-	  // Initialization - set outdir and time of each recording
-	  void Initialize( const char* cDirName_, XnUInt32 nSeconds)
-	  {
-		  const XnChar* strDirName = (const XnChar*) cDirName_;
-		  xnOSStrCopy(m_strDirName, strDirName, XN_FILE_MAX_PATH);
-		  m_nBufferSize = nSeconds*30;
-		  m_pFrames = XN_NEW_ARR(SingleFrame, m_nBufferSize);
-	  }
+	m_context(context), m_depthGenerator(depthGenerator), m_imageGenerator(imageGenerator), m_pFrames(NULL)
+	{
+		m_nNextWrite = 0;
+		m_nBufferSize = 0;
+		m_nBufferCount = 0;
+	}
+	// Initialization - set outdir and time of each recording
+	void Initialize( const char* cDirName_, XnUInt32 nSeconds)
+	{
+		const XnChar* strDirName = (const XnChar*) cDirName_;
+		xnOSStrCopy(m_strDirName, strDirName, XN_FILE_MAX_PATH);
+		m_nBufferSize = nSeconds*30;
+		m_pFrames = XN_NEW_ARR(SingleFrame, m_nBufferSize);
+	}
+
+	void restart(){
+		m_nNextWrite = 0;
+	}
+
 	  // Save new data from OpenNI
 	void Update(const xn::DepthMetaData& DepthMD_, const xn::ImageMetaData& ImageMD_)
 	{
@@ -62,64 +68,88 @@ public:
 			m_nNextWrite = 0;
 		}
 	}
+	float getTimeLeft() const{
+		return (m_nBufferSize - m_nNextWrite)/30.f;
+	}
+	void Update(const xn::DepthMetaData& DepthMD_, const xn::ImageMetaData& ImageMD_, float* pfTimeLeft_)
+	{
+		// Make sure buffer pointers are good
+		if (m_nNextWrite == m_nBufferSize) { *pfTimeLeft_ = 0.f; return; }
 
-	  // Save the current state of the buffer to a file
-	  XnStatus Dump()
-	  {
-		  xn::MockDepthGenerator mockDepth;
-		  xn::MockImageGenerator mockImage;
+		// Save latest depth frame
+		m_pFrames[m_nNextWrite].depthFrame.CopyFrom(DepthMD_);
+		// Save latest image frame
+		m_pFrames[m_nNextWrite].imageFrame.CopyFrom(ImageMD_);
+		m_nNextWrite++;
+		//compute the left in buffer
+		*pfTimeLeft_ = getTimeLeft();
+		return;
+	}
 
-		  xn::EnumerationErrors errors;
-		  XnStatus rc;
+	// Save the current state of the buffer to a file
+	XnStatus Dump(const std::string& strFileName_)
+	{
+		xn::MockDepthGenerator mockDepth;
+		xn::MockImageGenerator mockImage;
 
-		  // Create recorder
-		  rc = m_context.CreateAnyProductionTree(XN_NODE_TYPE_RECORDER, NULL, m_recorder, &errors);
-		  CHECK_RC_ERR(rc, "Create recorder", errors);
+		xn::EnumerationErrors errors;
+		XnStatus rc;
 
-		  // Create name of new file
-		  time_t rawtime;
-		  struct tm *timeinfo;
-		  time(&rawtime);
-		  timeinfo = localtime(&rawtime);
-		  XnChar strFileName[XN_FILE_MAX_PATH];
-		  sprintf(strFileName, "%s/%04d%02d%02d-%02d%02d%02d.oni", m_strDirName,
-			  timeinfo->tm_year+1900, timeinfo->tm_mon+1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+		// Create recorder
+		rc = m_context.CreateAnyProductionTree(XN_NODE_TYPE_RECORDER, NULL, m_recorder, &errors);	CHECK_RC_ERR(rc, "Create recorder", errors);
 
-		  m_recorder.SetDestination(XN_RECORD_MEDIUM_FILE, strFileName);
-		  printf("Creating file %s\n", strFileName);
+		/*// Create name of new file
+		time_t rawtime;
+		struct tm *timeinfo;
+		time(&rawtime);
+		timeinfo = localtime(&rawtime);
+		XnChar strFileName[XN_FILE_MAX_PATH];
+		sprintf(strFileName, "%s/%04d%02d%02d-%02d%02d%02d.oni", m_strDirName,
+			timeinfo->tm_year+1900, timeinfo->tm_mon+1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+		*/
 
-			// Create mock nodes based on the depth generator, to save depth
-			rc = m_context.CreateMockNodeBasedOn(m_depthGenerator, NULL, mockDepth);		  CHECK_RC(rc, "Create depth node");
-			rc = m_recorder.AddNodeToRecording(mockDepth, XN_CODEC_16Z_EMB_TABLES);			  CHECK_RC(rc, "Add depth node");
-			// Create mock nodes based on the image generator, to save image
-			rc = m_context.CreateMockNodeBasedOn(m_imageGenerator, NULL, mockImage);		  CHECK_RC(rc, "Create image node");
-			rc = m_recorder.AddNodeToRecording(mockImage, XN_CODEC_JPEG);					  CHECK_RC(rc, "Add image node");
+		m_recorder.SetDestination(XN_RECORD_MEDIUM_FILE, strFileName_.c_str());
+		printf("Creating file %s\n", strFileName_.c_str());
 
-		  // Write frames from next index (which will be next to be written, and so the first available)
-		  // this is only if a full loop was done, and this frame has meaningful data
-		  if (m_nNextWrite < m_nBufferCount)
-		  {
-			  // Not first loop, right till end
-			  for (XnUInt32 i = m_nNextWrite; i < m_nBufferSize; ++i)
-			  {
-				  mockDepth.SetData(m_pFrames[i].depthFrame);
-				  mockImage.SetData(m_pFrames[i].imageFrame);
-				  m_recorder.Record();
-			  }
-		  }
-		  // Write frames from the beginning of the buffer to the last on written
-		  for (XnUInt32 i = 0; i < m_nNextWrite; ++i)
-		  {
-			  mockDepth.SetData(m_pFrames[i].depthFrame);
-			  mockImage.SetData(m_pFrames[i].imageFrame);
-			  m_recorder.Record();
-		  }
+		// Create mock nodes based on the depth generator, to save depth
+		rc = m_context.CreateMockNodeBasedOn(m_depthGenerator, NULL, mockDepth);		  CHECK_RC(rc, "Create depth node");
+		rc = m_recorder.AddNodeToRecording(mockDepth, XN_CODEC_16Z_EMB_TABLES);			  CHECK_RC(rc, "Add depth node");
+		// Create mock nodes based on the image generator, to save image
+		rc = m_context.CreateMockNodeBasedOn(m_imageGenerator, NULL, mockImage);		  CHECK_RC(rc, "Create image node");
+		rc = m_recorder.AddNodeToRecording(mockImage, XN_CODEC_JPEG);					  CHECK_RC(rc, "Add image node");
+		//dump from 0 to m_nNextWrite;
+		for (XnUInt32 i = 0; i < m_nNextWrite; ++i)
+		{
+			mockDepth.SetData(m_pFrames[i].depthFrame);
+			mockImage.SetData(m_pFrames[i].imageFrame);
+			m_recorder.Record();
+		}
+	/*
+		// Write frames from next index (which will be next to be written, and so the first available)
+		// this is only if a full loop was done, and this frame has meaningful data
+		if (m_nNextWrite < m_nBufferCount)
+		{
+			// Not first loop, right till end
+			for (XnUInt32 i = m_nNextWrite; i < m_nBufferSize; ++i)
+			{
+				mockDepth.SetData(m_pFrames[i].depthFrame);
+				mockImage.SetData(m_pFrames[i].imageFrame);
+				m_recorder.Record();
+			}
+		}
+		// Write frames from the beginning of the buffer to the last on written
+		for (XnUInt32 i = 0; i < m_nNextWrite; ++i)
+		{
+			mockDepth.SetData(m_pFrames[i].depthFrame);
+			mockImage.SetData(m_pFrames[i].imageFrame);
+			m_recorder.Record();
+		}*/
 
-		  // Close recorder
-		  m_recorder.Release();
+		// Close recorder
+		m_recorder.Release();
 
-		  return XN_STATUS_OK;
-	  }//Dump
+		return XN_STATUS_OK;
+	}//Dump
 
 protected:
 	struct SingleFrame

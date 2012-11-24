@@ -21,7 +21,8 @@ public:
 	void clearColorDepth();
 	void init();
 	//to initialize for the interoperation with opengl
-	void setCudaDeviceForGLInteroperation();
+	static void setCudaDeviceForGLInteroperation();
+	static void initCuda();
 
 	void renderVoxelGL( const float fSize_) const;
 	void renderAxisGL() const;
@@ -69,10 +70,8 @@ public:
 	void drawString(const char *str, int x, int y, float color[4], void *font) const;
 	void initLights();
 	void setOrthogonal();
-	void setDevice(int nDeviceNO_) const;
-	void printShortCudaDeviceInfo(int nDeviceNO_) const;
-	int getCudaEnabledDeviceCount() const;
-	void initCuda() const;
+	static void printShortCudaDeviceInfo(int nDeviceNO_) ;
+	static int getCudaEnabledDeviceCount() ;
 public:
 	Eigen::Matrix4f _eimModelViewGL; //model view transformation matrix in GL convention.
 	//double _adModelViewGL[16];

@@ -47,8 +47,6 @@ unsigned short _nWidth, _nHeight;
 
 bool _bContinuous = true;
 bool _bCapture = false;
-ushort _uResolution = 0;
-ushort _uPyrHeight = 3;
 
 std::string _strPath("");
 std::string _strPathName;
@@ -56,6 +54,76 @@ std::string _strFileName;
 int _nN = 1;
 
 std::vector<Eigen::Matrix4f> _veimPoses;
+
+
+ushort _uResolution = 0;
+ushort _uPyrHeight = 3;
+Eigen::Vector3f _eivCw(1.5f,1.5f,-0.3f);
+bool _bUseNIRegistration = true;
+ushort _uCubicGridResolution = 512;
+float _fVolumeSize = 3.f;
+int _nMode = 3;//btl::kinect::VideoSourceKinect::PLAYING_BACK
+std::string _oniFileName("x.oni"); // the openni file 
+bool _bRepeat = false;// repeatedly play the sequence 
+int _nRecordingTimeInSecond = 30;
+float _fTimeLeft = _nRecordingTimeInSecond;
+int _nStatus = 3;//1 restart; 2 //recording continue 3://pause 4://dump
+bool _bDisplayImage = false;
+bool _bLightOn = false;
+bool _bRenderReference = false;
+std::string _strTrackingMethod("ICP");
+
+void loadFromYml(){
+#if __linux__
+	cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
+#else if _WIN32 || _WIN64
+	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\btl_rgbd\\kinect_fusion\\KinectFusion.yml", cv::FileStorage::READ );
+#endif
+	cFSRead["uResolution"] >> _uResolution;
+	cFSRead["uPyrHeight"] >> _uPyrHeight;
+	cFSRead["bUseNIRegistration"] >> _bUseNIRegistration;
+	cFSRead["uCubicGridResolution"] >> _uCubicGridResolution;
+	cFSRead["fVolumeSize"] >> _fVolumeSize;
+	//rendering
+	cFSRead["bDisplayImage"] >> _bDisplayImage;
+	cFSRead["bLightOn"] >> _bLightOn;
+	cFSRead["bRenderReference"] >> _bRenderReference;
+	cFSRead["nMode"] >> _nMode;//1 kinect; 2 recorder; 3 player
+	cFSRead["oniFile"] >> _oniFileName;
+	cFSRead["bRepeat"] >> _bRepeat;
+	cFSRead["nRecordingTimeInSecond"] >> _nRecordingTimeInSecond;
+	cFSRead["nStatus"] >> _nStatus;
+	cFSRead["Tracking_Method"] >> _strTrackingMethod;
+	cFSRead.release();
+}
+
+void saveToYml(){
+#if __linux__
+	cv::FileStorage cFSWrite( "/space/csxsl/src/opencv-shuda/Data/KinectFusion.yml", cv::FileStorage::WRITE );
+#else if _WIN32 || _WIN64
+	cv::FileStorage cFSWrite ( "C:\\csxsl\\src\\opencv-shuda\\btl_rgbd\\kinect_fusion\\KinectFusion.yml", cv::FileStorage::WRITE );
+#endif
+
+	cFSWrite << "uResolution" << _uResolution;
+	cFSWrite << "uPyrHeight" << _uPyrHeight;
+
+	cFSWrite << "bUseNIRegistration" << _bUseNIRegistration;
+	cFSWrite << "uCubicGridResolution" << _uCubicGridResolution;
+	cFSWrite << "fVolumeSize" << _fVolumeSize;
+	//rendering
+	cFSWrite << "bDisplayImage" << _pGL->_bDisplayCamera;
+	cFSWrite << "bLightOn"  << _pGL->_bEnableLighting;
+	cFSWrite << "bRenderReference" << _pGL->_bRenderReference;
+	cFSWrite << "nMode" <<  _nMode;//1 kinect; 2 recorder; 3 player
+	cFSWrite << "oniFile" << _oniFileName;
+	cFSWrite << "bRepeat" << _bRepeat;
+	cFSWrite << "nRecordingTimeInSecond" << _nRecordingTimeInSecond;
+	cFSWrite << "nStatus" << _nStatus;
+	cFSWrite << "Tracking_Method" << _strTrackingMethod;
+
+	cFSWrite.release();
+}
+
 
 void printVolume(){
 /*
@@ -68,10 +136,17 @@ void printVolume(){
 	return;*/
 }
 void init ( ){
-	
-	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
-
+	//load parameters from script
+	loadFromYml();
+	//initialize rendering environment
+	_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_GL) );
+	_pGL->constructVBOsPBOs();
+	_pGL->_bDisplayCamera = _bDisplayImage;
+	_pGL->_bEnableLighting = _bLightOn;
+	_pGL->_bRenderReference = _bRenderReference;
+	_pGL->init();
 	_pGL->clearColorDepth();
+	//setup opengl flags
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
 	glEnable 	 ( GL_SCISSOR_TEST );
@@ -80,17 +155,46 @@ void init ( ){
 	glShadeModel ( GL_FLAT );
 	glEnable ( GL_LINE_SMOOTH );
 	glEnable ( GL_POINT_SMOOTH );
-
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
-
-	_pGL->init();
-
+	//initialize rgbd camera
+	_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,_bUseNIRegistration,_eivCw));
+	switch(_nMode)
+	{
+	case btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING: //the simple capturing mode of the rgbd camera
+		_pKinect->initKinect();
+		break;
+	case btl::kinect::VideoSourceKinect::PLAYING_BACK: //replay from files
+		_pKinect->initPlayer(_oniFileName,_bRepeat);
+		break;
+	default://only simply capturing and playing back mode are allowed for efficiency requirements
+		_nMode = btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING;
+		_pKinect->initKinect();
+		break;
+	}
 	// store a frame and detect feature points for tracking.
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+	//initialize the cubic grids
+	_pCubicGrids.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
+	//initialize the tracker
+	_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
+	if (!_strTrackingMethod.compare("ICP")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORBICP);
+	}
+	else if(!_strTrackingMethod.compare("SURF")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::SURF);
+	}
+	else if(!_strTrackingMethod.compare("ORB")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORB);
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORBICP);
+	}
 	_pTracker->init(_pKinect->_pFrame.get());
-
-	//printVolume();
-	_pTracker->setNextView(&_pGL->_eimModelViewGL);
+	_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 	return;
 }
 void specialKeys( int key, int x, int y ){
@@ -106,11 +210,25 @@ void specialKeys( int key, int x, int y ){
 }
 void normalKeys ( unsigned char key, int x, int y ){
     switch ( key ) {
+	case 27:
+		saveToYml();
+		exit ( 0 );
+		break;
+	case 'R':
+		init();
+		glutPostRedisplay();
+		break;
     case 'r':
+		if (_nMode == btl::kinect::VideoSourceKinect::PLAYING_BACK)	{
+			_pKinect->initPlayer(_oniFileName,_bRepeat);
+			_nStatus = btl::kinect::VideoSourceKinect::CONTINUE;
+		}
         //reset
-		_pKinect->initPlayer(std::string("20121121-153156.oni"),false);
-		_pCubicGrids->reset();
-        init();
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+		_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+		//initialize the tracker
+		_pTracker->init(_pKinect->_pFrame.get());
+		_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
         glutPostRedisplay();
         break;
     case 'n':
@@ -118,9 +236,6 @@ void normalKeys ( unsigned char key, int x, int y ){
         glutPostRedisplay();
         break;
     case 's':
-        //single step
-		_pKinect->record();
-        //_bContinuous = !_bContinuous;
         break;
     case 'c': 
 		//capture current view as a key frame
@@ -128,7 +243,6 @@ void normalKeys ( unsigned char key, int x, int y ){
         break;
 	case 'd':
 		//remove last key frame
-		
 		glutPostRedisplay();
 		break;
 	case '1':
@@ -178,12 +292,12 @@ void display ( void ) {
 	_pGL->timerStart();
 
 // update frame
-    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);//the current frame must be in camera coordinate
+    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);//the current frame must be in camera coordinate
 	PRINTSTR("Contruct pyramid.");
 	_pGL->timerStop();
 
 // ( second frame )
-	if ( _bCapture && !_pKinect->isPlayStop() ){
+	if ( _bCapture ){
 		_pTracker->track(&*_pKinect->_pFrame);
 		PRINTSTR("trackICP done.");
 		_pGL->timerStop();
@@ -350,18 +464,11 @@ int main ( int argc, char** argv ) {
         glutReshapeFunc ( reshape );
         glutDisplayFunc ( display );
 
-		_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_CV) );
-		_pGL->initCuda();
-		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f));
-		//_pKinect->initKinect();
-		//_pKinect->initRecorder(std::string("."),30);
-		_pKinect->initPlayer(std::string("20121121-153156.oni"),false);
-		_pCubicGrids.reset( new btl::geometry::CCubicGrids(512,3) );
-		_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
-		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);
+		btl::gl_util::CGLUtil::initCuda();
+		btl::gl_util::CGLUtil::setCudaDeviceForGLInteroperation();
+
 		init();
-		_pGL->constructVBOsPBOs();
+		
 		//_pCubicGrids->gpuCreateVBO(_pGL.get());
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();

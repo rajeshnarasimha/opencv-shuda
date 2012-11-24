@@ -93,6 +93,7 @@ void btl::kinect::SCamera::setGLProjectionMatrix ( unsigned int nScaleViewport_,
 
 void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTexture_ )
 {
+	glDeleteTextures( 1, puTexture_ );
 	glGenTextures ( 1, puTexture_ );
 	glBindTexture ( GL_TEXTURE_2D, *puTexture_ );
 	glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );

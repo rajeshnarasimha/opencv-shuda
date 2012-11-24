@@ -25,25 +25,23 @@ public:
 	//type
 	typedef boost::shared_ptr<VideoSourceKinect> tp_shared_ptr;
 	enum tp_frame {  CPU_PYRAMID_CV, GPU_PYRAMID_CV, CPU_PYRAMID_GL, GPU_PYRAMID_GL };
-
+	enum tp_mode { SIMPLE_CAPTURING = 1, RECORDING = 2, PLAYING_BACK = 3};
+	enum tp_status { CONTINUE=01, PAUSE=02, MASK1 =07, START_RECORDING=010, STOP_RECORDING=020, CONTINUE_RECORDING=030, DUMP_RECORDING=040, MASK_RECORDER = 070 };
 	//constructor
-    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_);
+    VideoSourceKinect(ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,const Eigen::Vector3f& eivCw_);
     virtual ~VideoSourceKinect();
 	void initKinect();
 	void initRecorder(std::string& strPath_, ushort nTimeInSecond_);
 	void initPlayer(std::string& strPathFileName_,bool bRepeat_);
-	bool isPlayStop(){ return VideoSourceKinect::_bIsPlayingStop; }
+	// 1. need to call getNextFrame() before hand
+	// 2. RGB color channel (rather than BGR as used by cv::imread())
+	virtual void getNextFrame(tp_frame eFrameType_, int* pnStatus_);
 
-	virtual void getNextFrame(tp_frame eFrameType_);
-	/*void getNextPyramid(const unsigned short& uPyrHeight_, tp_frame eFrameType_)
-	{
-		_uPyrHeight = uPyrHeight_>4? 4:uPyrHeight_;
-		getNextFrame(eFrameType_);
-		return;
-	}*/
-    // 1. need to call getNextFrame() before hand
-    // 2. RGB color channel (rather than BGR as used by cv::imread())
+	// 0 VGA
+	// 1 QVGA
 	void setResolution(ushort uLevel_);
+	void setDumpFileName( const std::string& strFileName_ ){_strDumpFileName = strFileName_;}
+
 	//opencv convention
 	void centroid( Eigen::Vector3d* peivCentroid_ ) const 
 	{
@@ -59,16 +57,11 @@ public:
 		(*peivCentroid_)(2) = - _dZCentroid;
 	}
 
-	void record(){
-		if (_bRecordSequence){
-			_pCyclicBuffer->Dump();
-		}
-		else{
-			PRINTSTR("Record functionality is not enabled.");
-		}
-	}
-
 protected:
+
+	void getNextFrameRecording(tp_frame eFrameType_, int* pnStatus_, float* pfTimeLeft_);
+	void getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_);
+
 	void importYML();
 	// convert the depth map/ir camera to be aligned with the rgb camera
 	void alignDepthWithRGB( const cv::Mat& cvUndistortDepth_ , cv::Mat* pcvAligned_); //cv::Mat version
@@ -87,7 +80,7 @@ protected:
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
 	//in playing back mode, when a sequence is finished, this function is called
 	static void playEndCallback(xn::ProductionNode& node, void* pCookie_){ 
-		VideoSourceKinect::_bIsPlayingStop = true;
+		VideoSourceKinect::_bIsSequenceEnds = true;
 	}
 public:
 	//parameters
@@ -108,9 +101,6 @@ protected:
     xn::DepthGenerator _cDepthGen;
     xn::DepthMetaData  _cDepthMD;
 	xn::Player		   _cPlayer;
-	//switch sequence record mode on/off
-	bool _bRecordSequence;
-	bool _bPlayerIsOn;
 
 	//rgb
     cv::Mat			_cvmRGB;
@@ -159,9 +149,10 @@ protected:
 	XnUInt32 _nImageFrames;
 	//controlling flag
 	bool _bUseNIRegistration;
-	static bool _bIsPlayingStop;
+	static bool _bIsSequenceEnds;
 	XnCallbackHandle _handle;
-
+	std::string _strDumpFileName;
+	int _nMode; 
 };//class VideoSourceKinect
 
 } //namespace kinect

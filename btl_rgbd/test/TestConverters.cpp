@@ -541,13 +541,42 @@ void testConverter(){
 	eimMat2 = eimMat;
 	PRINT( eimMat2 );
 }
+
+void createScriptYml(){
+	using namespace btl::utility;
+
+	cv::FileStorage cFSWrite( "KinectLiveview.yml", cv::FileStorage::WRITE );
+	ushort uResolution = 0;
+	cFSWrite << "uResolution" << uResolution;
+	ushort uPyrHeight = 3;
+	cFSWrite << "uPyrHeight" << uPyrHeight;
+	bool bUseNIRegistration = true;
+	cFSWrite << "bUseNIRegistration" << bUseNIRegistration;
+	ushort uCubicGridResolution = 512;
+	cFSWrite << "uCubicGridResolution" << uCubicGridResolution;
+	float fVolumeSize = 3.f;
+	cFSWrite << "fVolumeSize" << fVolumeSize;
+	int nMode = 3; //1 kinect; 2 recorder; 3 player
+	cFSWrite << "nMode" << nMode;
+	std::string oniFileName("20121121-153156.oni"); // the openni file 
+	cFSWrite << "oniFile" << oniFileName;
+	bool bRepeat = false;// repeatedly play the sequence 
+	cFSWrite << "bRepeat" << bRepeat;
+	int nRecordingTimeInSecond = 30;
+	cFSWrite << "nRecordingTimeInSecond" << nRecordingTimeInSecond;
+
+	cFSWrite.release();
+}
+
+
 int main()
 {
 	try
 	{
+		createScriptYml();
 		//test();
 		//cudaTestTry();
-		tryCpp();
+		//tryCpp();
 		//tryCV();
 		//tryEigen();
 		//testConverter();

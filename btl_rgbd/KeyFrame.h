@@ -27,7 +27,7 @@ public:
 	enum tp_cluster { NORMAL_CLUSTER, DISTANCE_CLUSTER};
 
 public:
-    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, float fCwX_, float fCwY_, float fCwZ_ );
+    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_ );
 	CKeyFrame(CKeyFrame::tp_ptr pFrame_);
     ~CKeyFrame() {}
 	// detect the correspondences 
