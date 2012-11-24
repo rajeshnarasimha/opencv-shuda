@@ -56,6 +56,7 @@ int _nView = 0;
 ushort _usViewNO = 0;
 ushort _uResolution = 0;
 ushort _uPyrHeight = 3;
+Eigen::Vector3f _eivCw(1.5f,1.5f,-0.3f);
 std::string _strPath("");
 std::string _strPathName;
 std::string _strFileName;
@@ -72,10 +73,10 @@ void printVolume(){
 }
 void init ( ){
 	for(int i=0; i <_nReserved; i++){ 
-		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
+		_aShrPtrKFs[i].reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 	}
-	_pPrevFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
-	_pVirtualFrame2.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,1.5f,1.5f,-0.3f));	
+	_pPrevFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+	_pVirtualFrame2.reset(new btl::kinect::CKeyFrame(_pKinectSimulator->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 	_pGL->clearColorDepth();
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
@@ -218,7 +219,8 @@ void display ( void ) {
 	// render objects
 	_pGL->renderTeapot();
 	//_pGL->renderTestPlane();
-	_pKinectSimulator->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);//the current frame must be in camera coordinate
+	int nStatus;
+	_pKinectSimulator->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&nStatus);//the current frame must be in camera coordinate
 	_pKinectSimulator->_pFrame->copyTo(&*_pPrevFrameWorld);
 /*
 	if (_bCapture){
@@ -387,7 +389,7 @@ int main ( int argc, char** argv ) {
 		//_pKinectSimulator.reset(new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,true,1.5,1.5,-0.3));
 		//_pKinectSimulator->initKinect();
 
-		_pKinectSimulator.reset(new btl::kinect::VideoSourceKinectSimulator(_uResolution,_uPyrHeight,true,1.5f,1.5f,-0.3f));
+		_pKinectSimulator.reset(new btl::kinect::VideoSourceKinectSimulator(_uResolution,_uPyrHeight,true,_eivCw));
 		_pCubicGrids.reset( new btl::geometry::CCubicGrids(64,3) );
 		init();
 		_pGL->constructVBOsPBOs();

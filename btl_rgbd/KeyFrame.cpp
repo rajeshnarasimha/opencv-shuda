@@ -56,10 +56,10 @@ boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrPyr32FC1T
 boost::shared_ptr<cv::gpu::SURF_GPU> btl::kinect::CKeyFrame::_pSurf;
 boost::shared_ptr<cv::gpu::ORB_GPU>  btl::kinect::CKeyFrame::_pOrb;
 
-btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, float fCwX_, float fCwY_, float fCwZ_ )
-:_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_){
+btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_/*float fCwX_, float fCwY_, float fCwZ_*/ )
+:_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_),_eivInitCw(eivCw_){
 	allocate();
-	_eivInitCw << fCwX_, fCwY_, fCwZ_; 
+	//_eivInitCw << fCwX_, fCwY_, fCwZ_; 
 	initRT();
 }
 btl::kinect::CKeyFrame::CKeyFrame( CKeyFrame::tp_ptr pFrame_ )
@@ -340,7 +340,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
 	cBruteMatcher.matchSingle( this->_cvgmDescriptors,  sPrevKF_._cvgmDescriptors, cvgmTrainIdx, cvgmDistance);
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> >::matchDownload(cvgmTrainIdx, cvgmDistance, _vMatches);
 	std::sort( _vMatches.begin(), _vMatches.end() );
-	if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
+	if (_vMatches.size()> 100) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
 	//CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
 	//calculate the R and T
 	//search for pairs of correspondences with depth data available.
@@ -503,9 +503,9 @@ double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const doub
 	cv::gpu::BruteForceMatcher_GPU< cv::HammingLUT > cBruteMatcher;
 	cBruteMatcher.match(_cvgmDescriptors, sPrevKF_._cvgmDescriptors, _vMatches);  
 	PRINT(_vMatches.size());
-	//std::sort( _vMatches.begin(), _vMatches.end() );
-	//if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
-	//CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
+	std::sort( _vMatches.begin(), _vMatches.end() );
+	if (_vMatches.size()> 100) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
+	CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
 	//calculate the R and T
 	//search for pairs of correspondences with depth data available.
 	const float*const  _pCurrPts = (const float*)         _acvmShrPtrPyrPts[sLevel_]->data;
@@ -609,8 +609,8 @@ void btl::kinect::CKeyFrame::render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr 
 } 
 void btl::kinect::CKeyFrame::gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_){
 
-	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING);}
-	else                            	{glDisable(GL_LIGHTING);}
+	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING); /* glEnable(GL_TEXTURE_2D);*/}
+	else                            	{glDisable(GL_LIGHTING);/* glEnable(GL_TEXTURE_2D);*/}
 	glPointSize(0.1f*(usPyrLevel_+1)*20);
 	if (usPyrLevel_ >= _uPyrHeight) return;
 

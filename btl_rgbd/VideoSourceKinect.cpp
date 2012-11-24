@@ -50,8 +50,8 @@ using namespace btl::utility;
 namespace btl{ namespace kinect
 {
 
-bool VideoSourceKinect::_bIsPlayingStop = false;
-VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_ )
+bool VideoSourceKinect::_bIsSequenceEnds = false;
+VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,const Eigen::Vector3f& eivCw_/*float fCwX_, float fCwY_, float fCwZ_*/ )
 :_bUseNIRegistration(bUseNIRegistration_),_uResolution(uResolution_),_uPyrHeight(uPyrHeight_)
 {
 	/*boost::posix_time::ptime _cT0, _cT1;
@@ -60,7 +60,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_cT1 =  boost::posix_time::microsec_clock::local_time(); 
 	_cTDAll = _cT1 - _cT0 ;
 	PRINT( _cTDAll.total_milliseconds() );*/
-	
+	_nMode = SIMPLE_CAPTURING;
 	//allocate
 
 	PRINTSTR("Allocate buffers...")
@@ -87,7 +87,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_pIRCamera .reset(new SCamera(btl::kinect::SCamera::CAMERA_IR, _uResolution));
 
 	importYML();
-	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,fCwX_, fCwY_, fCwZ_));
+	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,eivCw_));
 
 	//other
 	//definition of parameters
@@ -103,7 +103,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	//btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
 	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
-	_bIsPlayingStop = false;
+	_bIsSequenceEnds = false;
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()
@@ -111,7 +111,7 @@ VideoSourceKinect::~VideoSourceKinect()
 	_cImgGen.Release();
 	_cDepthGen.Release();
     _cContext.Release();
-	if (_bPlayerIsOn){
+	if (_nMode == PLAYING_BACK){
 		_cPlayer.UnregisterFromEndOfFileReached(_handle);
 		_cPlayer.Release();
 	}
@@ -119,8 +119,8 @@ VideoSourceKinect::~VideoSourceKinect()
 
 void VideoSourceKinect::initKinect()
 {
+	_nMode = SIMPLE_CAPTURING;
 	PRINTSTR("Initialize RGBD camera...");
-
 	XnStatus nRetVal = XN_STATUS_OK;
 	//_cContext inizialization 
 	nRetVal = _cContext.Init();						CHECK_RC_(nRetVal, "Initialize _cContext"); 
@@ -138,9 +138,9 @@ void VideoSourceKinect::initKinect()
 		// Set Hole Filter
 		_cDepthGen.SetIntProperty("HoleFilter", TRUE);
 		// Frame Sync
-		if ( false && _cDepthGen.IsCapabilitySupported(XN_CAPABILITY_FRAME_SYNC)){
-			if (_cDepthGen.GetFrameSyncCap().CanFrameSyncWith(_cImgGen)){
-				nRetVal = _cDepthGen.GetFrameSyncCap().FrameSyncWith(_cImgGen);			CHECK_RC_(nRetVal, "Frame sync");
+		if ( true && _cImgGen.IsCapabilitySupported(XN_CAPABILITY_FRAME_SYNC)){
+			if (_cImgGen.GetFrameSyncCap().CanFrameSyncWith(_cImgGen)){
+				nRetVal = _cImgGen.GetFrameSyncCap().FrameSyncWith(_cDepthGen);			CHECK_RC_(nRetVal, "Frame sync");
 			}//if (_cDepthGen.GetFrameSyncCap().CanFrameSyncWith(_cImgGen))
 		}//if ( _cDepthGen.IsCapabilitySupported(XN_CAPABILITY_FRAME_SYNC))
 	}//if (_bUseNIRegistration)
@@ -153,10 +153,11 @@ void VideoSourceKinect::initKinect()
 	return;
 }
 void VideoSourceKinect::initRecorder(std::string& strPath_, ushort nTimeInSecond_){
-	_bRecordSequence = true;
+	initKinect();
+	_nMode = RECORDING;
 	PRINTSTR("Initialize RGBD data recorder...");
 	_pCyclicBuffer.reset(new CCyclicBuffer(_cContext,_cDepthGen,_cImgGen));
-	_pCyclicBuffer->Initialize(strPath_.c_str(), nTimeInSecond_);
+	_pCyclicBuffer->Initialize(".", nTimeInSecond_);//strPath_.c_str()
 
 	_nLastDepthTime = 0;
 	_nLastImageTime = 0;
@@ -167,9 +168,10 @@ void VideoSourceKinect::initRecorder(std::string& strPath_, ushort nTimeInSecond
 	PRINTSTR(" Done.");
 }
 void VideoSourceKinect::initPlayer(std::string& strPathFileName_, bool bRepeat_){
+	_nMode = PLAYING_BACK;
 	PRINTSTR("Initialize Player recorder...");
 	//when you need to replay the file, call this function
-	_bPlayerIsOn = true; _bRecordSequence = false; _bIsPlayingStop = false;
+	_bIsSequenceEnds = false;
 	XnStatus nRetVal = _cContext.Init(); CHECK_RC_(nRetVal, "Initialize _cContext");
 	nRetVal = _cContext.OpenFileRecording(strPathFileName_.c_str(), _cPlayer ); CHECK_RC_(nRetVal, "Open oni file");
 	_cPlayer.SetRepeat(bRepeat_);
@@ -268,39 +270,90 @@ void VideoSourceKinect::findRange(const cv::Mat& cvmMat_)
 	PRINT(fMin);
 	return;
 }
-void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
-{
-	if(_bPlayerIsOn && _bIsPlayingStop) return;
 
-    XnStatus nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+void VideoSourceKinect::getNextFrame(tp_frame eFrameType_, int* pnStatus_){
+	float fTimeLeft;
+	switch(_nMode){
+	case SIMPLE_CAPTURING:
+	case PLAYING_BACK:
+		getNextFrameNormal(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&*pnStatus_);
+		break;
+	case RECORDING://record the captured sequence from the camera
+		getNextFrameRecording(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&*pnStatus_,&fTimeLeft);
+		break;
+	default:
+		PRINTSTR("Illigal mode.");
+		_nMode = SIMPLE_CAPTURING;
+	}
+}
+
+void VideoSourceKinect::getNextFrameRecording(tp_frame eFrameType_, int* pnStatus_, float* pfTimeLeft_){
+	XnStatus nRetVal = 0;
+	switch (*pnStatus_&MASK1)
+	{
+	case PAUSE://restart
+		if (!_cImgMD.WritableRGB24Data()){
+			nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		}
+		//do nothing
+		break;
+	case CONTINUE:
+		nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		break;
+	default:
+		PRINTSTR("convert to the status of CONTINUE");
+		*pnStatus_ = (*pnStatus_&(~MASK1))|CONTINUE; //set status as continue
+		nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		break;
+	}
 	// these two lines are required for getting a stable image and depth.
 	_cImgGen.GetMetaData ( _cImgMD );
 	_cDepthGen.GetMetaData( _cDepthMD );
 
-	if(_bRecordSequence){
-		_pCyclicBuffer->Update(_cDepthMD, _cImgMD);
-		// Check for missed frames
-		//depth
-		++_nDepthFrames;
-		XnUInt64 nTimestamp = _cDepthGen.GetTimestamp();
-		if (_nLastDepthTime != 0 && nTimestamp - _nLastDepthTime > 35000)	{
-			int missed = (int)(nTimestamp-_nLastDepthTime)/32000 - 1;
-			printf("Missed depth: %llu -> %llu = %d > 35000 - %d frames\n",
-				_nLastDepthTime, nTimestamp, XnUInt32(nTimestamp-_nLastDepthTime), missed);
-			_nMissedDepthFrames += missed;
-		}//if (_nLastDepthTime != 0 && nTimestamp - _nLastDepthTime > 35000)	
-		_nLastDepthTime = nTimestamp;
-		//image
-		++_nImageFrames;
-		nTimestamp = _cImgGen.GetTimestamp();
-		if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)	{
-			int missed = (int)(nTimestamp-_nLastImageTime)/32000 - 1;
-			printf("Missed image: %llu -> %llu = %d > 35000 - %d frames\n",
-				_nLastImageTime, nTimestamp, XnUInt32(nTimestamp-_nLastImageTime), missed);
-			_nMissedImageFrames += missed;
-		}//if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)
-		_nLastImageTime = nTimestamp;
-	}//if(_bRecordSequence)
+	switch (*pnStatus_&MASK_RECORDER)
+	{
+	case START_RECORDING://restart
+		_pCyclicBuffer->restart();
+		_pCyclicBuffer->Update(_cDepthMD, _cImgMD, &*pfTimeLeft_);
+		*pnStatus_ = (*pnStatus_&(~MASK_RECORDER))|CONTINUE_RECORDING;
+		break;
+	case STOP_RECORDING://pause
+		*pfTimeLeft_ = _pCyclicBuffer->getTimeLeft();
+		break;
+		//do nothing
+	case CONTINUE_RECORDING://recording continue
+		_pCyclicBuffer->Update(_cDepthMD, _cImgMD, &*pfTimeLeft_);
+		break;
+	case DUMP_RECORDING://dump
+		_pCyclicBuffer->Dump(_strDumpFileName);
+		*pfTimeLeft_=0;
+		_pCyclicBuffer->restart();
+		*pnStatus_ = (*pnStatus_&(~MASK_RECORDER))|STOP_RECORDING;
+		break;
+	default:
+		*pnStatus_ = (*pnStatus_&(~MASK_RECORDER))|STOP_RECORDING;
+	}
+	// Check for missed frames
+	//depth
+	++_nDepthFrames;
+	XnUInt64 nTimestamp = _cDepthGen.GetTimestamp();
+	if (_nLastDepthTime != 0 && nTimestamp - _nLastDepthTime > 35000)	{
+		int missed = (int)(nTimestamp-_nLastDepthTime)/32000 - 1;
+		printf("Missed depth: %llu -> %llu = %d > 35000 - %d frames\n",
+			_nLastDepthTime, nTimestamp, XnUInt32(nTimestamp-_nLastDepthTime), missed);
+		_nMissedDepthFrames += missed;
+	}//if (_nLastDepthTime != 0 && nTimestamp - _nLastDepthTime > 35000)	
+	_nLastDepthTime = nTimestamp;
+	//image
+	++_nImageFrames;
+	nTimestamp = _cImgGen.GetTimestamp();
+	if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)	{
+		int missed = (int)(nTimestamp-_nLastImageTime)/32000 - 1;
+		printf("Missed image: %llu -> %llu = %d > 35000 - %d frames\n",
+			_nLastImageTime, nTimestamp, XnUInt32(nTimestamp-_nLastImageTime), missed);
+		_nMissedImageFrames += missed;
+	}//if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)
+	_nLastImageTime = nTimestamp;
 
 	_pFrame->initRT();
 
@@ -314,21 +367,46 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_)
 	else
 		gpuBuildPyramidCVm();
 
-    /*switch( eFrameType_ ){
-		case CPU_PYRAMID_CV:
-			buildPyramid( btl::utility::BTL_CV );
-			break;
-		case CPU_PYRAMID_GL:
-			buildPyramid( btl::utility::BTL_GL );
-			break;
-		case GPU_PYRAMID_CV:
-			gpuBuildPyramidCVm( );
-			break;
-    }*/
-
-	//cout << " getNextFrame() ends."<< endl;
     return;
 }
+
+void VideoSourceKinect::getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_)
+{
+	if(_bIsSequenceEnds) { *pnStatus_ = PAUSE; _bIsSequenceEnds = true; }
+	XnStatus nRetVal = 0;
+	switch (*pnStatus_&MASK1)
+	{
+	case PAUSE://restart
+		if (!_cImgMD.WritableRGB24Data()){
+			nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		}
+		//do nothing
+		break;
+	case CONTINUE:
+		nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		break;
+	default:
+		PRINTSTR("convert to the status of CONTINUE");
+		*pnStatus_ = (*pnStatus_&(~MASK1))|CONTINUE;
+		nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		break;
+	}
+	// these two lines are required for getting a stable image and depth.
+	_cImgGen.GetMetaData ( _cImgMD );
+	_cDepthGen.GetMetaData( _cDepthMD );
+	cv::Mat cvmRGB(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_8UC3, (unsigned char*)_cImgMD.WritableRGB24Data());
+	cv::Mat cvmDep(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
+	cvmRGB.copyTo(_cvmRGB);
+	cvmDep.convertTo(_cvmDepth,CV_32FC1);
+	//mail capturing function
+	if (_bUseNIRegistration)
+		gpuBuildPyramidUseNICVm();
+	else
+		gpuBuildPyramidCVm();
+	_pFrame->initRT();
+    return;
+}
+
 void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eConvention_ ){
 	/*_pFrame->_eConvention = eConvention_;
 	// not fullly understand the lense distortion model used by OpenNI.
@@ -385,30 +463,8 @@ void VideoSourceKinect::gpuBuildPyramidUseNICVm( ){
 		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
 		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
 	}
-#if !USE_PBO
-#endif
 	//scale the depth map
-	{
-		btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);
-		//for testing scaleDepthCVmCVm();
-		//cv::Mat cvmTest,cvmTestScaled;
-		//_pFrame->_acvgmShrPtrPyrDepths[i]->download(cvmTest);
-		//btl::device::scaleDepthCVmCVm(i,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[i]);
-		//_pFrame->_acvgmShrPtrPyrDepths[i]->download(cvmTestScaled);
-		//const float* pD = (const float*)cvmTest.data;
-		//const float* pDS= (const float*)cvmTestScaled.data;
-		//int nStep = 1<<i;
-		//for (int r=0;r<cvmTest.rows;r++)
-		//for (int c=0;c<cvmTest.cols;c++){
-		//	float fRatio = *pDS++ / *pD++;
-		//	float fTanX= (c*nStep-_pRGBCamera->_u)/_pRGBCamera->_fFx;
-		//	float fTanY= (r*nStep-_pRGBCamera->_v)/_pRGBCamera->_fFy;
-		//	float fSec = std::sqrt(fTanX*fTanX+fTanY*fTanY+1);
-		//	if (fRatio==fRatio){
-		//		BTL_ASSERT(std::fabs(fSec-fRatio)<0.00001,"scaleDepthCVmCVm() error");
-		//	}
-		//}
-	}
+	btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);
 
 	return;
 }

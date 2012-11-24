@@ -45,6 +45,7 @@ namespace btl{ namespace geometry
 	}
 
 	void CKinFuTracker::init(const btl::kinect::CKeyFrame::tp_ptr pKeyFrame_){
+		//Note: the point cloud of the pKeyFrame is located in camera coordinate system
 		switch(_nMethod)
 		{
 		case ICP:
@@ -110,6 +111,7 @@ namespace btl{ namespace geometry
 			//refresh prev frame in world as the ray casted virtual frame
 			_pPrevFrameWorld->setRTTo( *pCurFrame_ );
 			_pCubicGrids->gpuRaycast( &*_pPrevFrameWorld ); //get virtual frame
+			pCurFrame_->copyImageTo(&*_pPrevFrameWorld); //fill in the color info
 			//store R t pose
 			pCurFrame_->setView(&_eimCurPose);
 			_veimPoses.push_back(_eimCurPose);
@@ -150,7 +152,8 @@ namespace btl{ namespace geometry
 		pCurFrame_->extractOrbFeatures();
 		ushort uInliers;
 		double dError = pCurFrame_->calcRTOrb ( *_pPrevFrameWorld,.2,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
-		if ( uInliers > 300) {
+		PRINT(uInliers)
+		if ( uInliers > 120) {
 			pCurFrame_->gpuICP ( _pPrevFrameWorld.get(), false );//refine the R,T with w.r.t. previous key frame
 			if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
 				pCurFrame_->gpuTransformToWorldCVCV();
@@ -195,7 +198,7 @@ namespace btl{ namespace geometry
 		pCurFrame_->extractOrbFeatures();
 		ushort uInliers;
 		double dError = pCurFrame_->calcRTOrb ( *_pPrevFrameWorld, .2, &uInliers ); //roughly estimate R,T w.r.t. last key frame,
-		if ( uInliers > 300 && pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(), M_PI_4/45., 0.02 )) {//test if the current frame have been moving
+		if ( /*uInliers > 300 &&*/ pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(), M_PI_4/45., 0.02 )) {//test if the current frame have been moving
 			pCurFrame_->gpuTransformToWorldCVCV();
 			_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
 			//refresh prev frame in world as the ray casted virtual frame
@@ -237,7 +240,7 @@ namespace btl{ namespace geometry
 		pCurFrame_->extractSurfFeatures();
 		ushort uInliers;
 		double dError = pCurFrame_->calcRT ( *_pPrevFrameWorld,0,.2,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
-		if ( uInliers > 300 && pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02)) {//test if the current frame have been moving
+		if ( /*uInliers > 300 && */pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02)) {//test if the current frame have been moving
 
 			pCurFrame_->gpuTransformToWorldCVCV();
 			_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);

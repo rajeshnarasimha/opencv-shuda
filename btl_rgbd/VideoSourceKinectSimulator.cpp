@@ -47,8 +47,8 @@ namespace btl{ namespace kinect
 {
 
 
-VideoSourceKinectSimulator::VideoSourceKinectSimulator (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,float fCwX_, float fCwY_, float fCwZ_)
-:VideoSourceKinect(uResolution_, uPyrHeight_, bUseNIRegistration_,fCwX_, fCwY_, fCwZ_){
+VideoSourceKinectSimulator::VideoSourceKinectSimulator (ushort uResolution_, ushort uPyrHeight_, bool bUseNIRegistration_,const Eigen::Vector3f& eivCw_)
+:VideoSourceKinect(uResolution_, uPyrHeight_, bUseNIRegistration_,eivCw_){
 	_fNear = 0.3f;
 	_fFar = 4.f;
 }
@@ -81,7 +81,7 @@ void VideoSourceKinectSimulator::captureScreen(){
 	_cvgmRGB.download(_cvmUndistRGB);
 	cv::imwrite(std::string("2.bmp"),_cvmUndistRGB);
 }
-void VideoSourceKinectSimulator::getNextFrame( tp_frame eFrameType_ )
+void VideoSourceKinectSimulator::getNextFrame(tp_frame eFrameType_, int* pnRecordingStatus_)
 {
 	// must be called from the main display call back function of the glut 
 	//_pFrame->assignRTfromGL();
