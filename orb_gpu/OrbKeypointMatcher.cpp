@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
     }
 
 
-	ORB_GPU orb(100,1.2,8,10,1,2,0,11);
+	ORB_GPU orb(200,1.2,8,10,1,2,0,31);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
