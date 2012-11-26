@@ -36,7 +36,8 @@ namespace btl{ namespace geometry
 		//SURF + ICP
 		void initSURFICP( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
 		void trackSURFICP( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
-
+		//Brox optical flow
+		void initBroxOpticalFlow( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
 
 		CCubicGrids::tp_shared_ptr _pCubicGrids;
 		btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrameWorld;

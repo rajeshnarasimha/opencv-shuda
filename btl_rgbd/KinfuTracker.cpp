@@ -153,7 +153,7 @@ namespace btl{ namespace geometry
 		ushort uInliers;
 		double dError = pCurFrame_->calcRTOrb ( *_pPrevFrameWorld,.2,&uInliers ); //roughly estimate R,T w.r.t. last key frame,
 		PRINT(uInliers)
-		if ( uInliers > 120) {
+		if ( uInliers > 60) {
 			pCurFrame_->gpuICP ( _pPrevFrameWorld.get(), false );//refine the R,T with w.r.t. previous key frame
 			if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
 				pCurFrame_->gpuTransformToWorldCVCV();
@@ -296,6 +296,24 @@ namespace btl{ namespace geometry
 			}//if current frame moved
 		}
 		return;
+	}
+
+	void CKinFuTracker::initBroxOpticalFlow( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ )
+	{
+		//input key frame must be defined in local camera system
+		_pCubicGrids->reset();
+		_veimPoses.clear();
+		_veimPoses.reserve(1000);
+		//initialize pose
+		pKeyFrame_->setView(&_eimCurPose);
+		_veimPoses.push_back(_eimCurPose); // the first pose is initialize by the pKeyFrame_;
+		//copy pKeyFrame_ to _pPrevFrameWorld
+		_pPrevFrameWorld.reset(new btl::kinect::CKeyFrame(pKeyFrame_));	
+		_pPrevFrameWorld->gpuTransformToWorldCVCV();//transform from camera to world
+		//integrate the frame into the world
+		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
+		//extract ORB features
+		_pPrevFrameWorld->extractSurfFeatures();
 	}
 
 

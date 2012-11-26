@@ -144,7 +144,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		//save volume
 		_pCubicGrids->exportYML(std::string(""),1);
         //single step
-        //_bContinuous = !_bContinuous;
+        
         break;
     case 'c': 
 		//capture current view as a key frame
@@ -162,6 +162,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		glutPostRedisplay();
 		break;
 	case '1':
+		_bContinuous = !_bContinuous;
 		glutPostRedisplay();
 		break;
 	case '2':
