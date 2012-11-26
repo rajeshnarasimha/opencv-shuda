@@ -1062,7 +1062,7 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pPrevFrameWorld_,bool bUseP
 	// the current frame is still in camera coordinate
 
 	//define parameters
-	const short asICPIterations[] = {10, 5, 4, 4};
+	const short asICPIterations[] = {10, 5, 0, 4};
 	const float fDistThreshold = 0.10f; //meters
 	const float fSinAngleThres_ = sin (20.f * 3.14159254f / 180.f);
 	//get R,T of reference 

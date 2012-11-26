@@ -43,6 +43,7 @@ btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CKinFuTracker::tp_shared_ptr _pTracker;
 btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGrids;
 btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrameWorld;
+btl::kinect::CKeyFrame::tp_shared_ptr _pForDisplay;
 unsigned short _nWidth, _nHeight;
 
 bool _bContinuous = true;
@@ -174,6 +175,7 @@ void init ( ){
 	// store a frame and detect feature points for tracking.
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
 	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+	_pForDisplay.reset(new btl::kinect::CKeyFrame(_pKinect->_pFrame.get()));
 	//initialize the cubic grids
 	_pCubicGrids.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
 	//initialize the tracker
@@ -246,6 +248,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 		glutPostRedisplay();
 		break;
 	case '1':
+		_bContinuous = !_bContinuous;
 		glutPostRedisplay();
 		break;
 	case '2':
@@ -296,6 +299,8 @@ void display ( void ) {
 	PRINTSTR("Contruct pyramid.");
 	_pGL->timerStop();
 
+	_pKinect->_pFrame->copyTo(&*_pForDisplay);
+
 // ( second frame )
 	if ( _bCapture ){
 		_pTracker->track(&*_pKinect->_pFrame);
@@ -305,35 +310,38 @@ void display ( void ) {
 	
 ////////////////////////////////////////////////////////////////////
 // render 1st viewport
-   /* glMatrixMode ( GL_MODELVIEW );
+    glMatrixMode ( GL_MODELVIEW );
     glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
     glScissor  ( 0, _nHeight/2, _nWidth/2, _nHeight/2 );
     // after set the intrinsics and extrinsics
     _pGL->viewerGL();
+	//glLoadIdentity();
+	//glRotatef(180.f,1.f,0.f,0.f);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	
 	//_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
-	_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	_pForDisplay->gpuTransformToWorldCVCV();
+	_pForDisplay->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	
 	// render objects
-	ushort usViewIdxTmp = 0;
+	/*ushort usViewIdxTmp = 0;
 	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++,usViewIdxTmp++ ) {
 		if (usViewIdxTmp == _usViewNO)
 			(**cit)->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.1f,_pGL->_usLevel);
 		else
 			(**cit)->renderCameraInWorldCVCV(_pGL.get(),false,.05f,_pGL->_usLevel);
 		(**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usLevel, _usColorIdx, false );
-	}
+	}*/
 	//_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
 
-	if(_pGL->_bRenderReference) {
+	{
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
 		_pGL->renderVoxelGL(3.f);
-		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
-	*/
+	
 ////////////////////////////////////////////////////////////////////
 // render 2nd viewport
     glViewport ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
