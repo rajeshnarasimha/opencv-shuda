@@ -59,77 +59,161 @@
 #include "simpleViewer.h"
 
 using namespace std;
-Viewer::Viewer()
-{
+Viewer::Viewer(){
+	_uResolution = 0;
+	_uPyrHeight = 3;
+	_eivCw = Eigen::Vector3f(1.5f,1.5f,-0.3f);
+	_bUseNIRegistration = true;
+	_uCubicGridResolution = 512;
+	_fVolumeSize = 3.f;
+	_nMode = 3;//btl::kinect::VideoSourceKinect::PLAYING_BACK
+	_oniFileName = std::string("x.oni"); // the openni file 
+	_bRepeat = false;// repeatedly play the sequence 
+	_nRecordingTimeInSecond = 30;
+	_fTimeLeft = _nRecordingTimeInSecond;
+	_nStatus = 01;//1 restart; 2 //recording continue 3://pause 4://dump
+	_bDisplayImage = false;
+	_bLightOn = false;
+	_bRenderReference = false;
 }
 Viewer::~Viewer()
 {
 	_pGL->destroyVBOsPBOs();
 }
 // Draws a spiral
+void Viewer::drawLogo() const{
+	const float nbSteps = 200.0;
+
+	glBegin(GL_QUAD_STRIP);
+	for (int i=0; i<nbSteps; ++i)
+	{
+		const float ratio = i/nbSteps;
+		const float angle = 21.0*ratio;
+		const float c = cos(angle);
+		const float s = sin(angle);
+		const float r1 = 1.0 - 0.8f*ratio;
+		const float r2 = 0.8f - 0.8f*ratio;
+		const float alt = ratio - 0.5f;
+		const float nor = 0.5f;
+		const float up = sqrt(1.0-nor*nor);
+		glColor3f(1.0-ratio, 0.2f , ratio);
+		glNormal3f(nor*c, up, nor*s);
+		glVertex3f(r1*c, alt, r1*s);
+		glVertex3f(r2*c, alt+0.05f, r2*s);
+	}
+	glEnd();
+	return;
+}//drawLogo()
 void Viewer::draw()
 {
-  const float nbSteps = 200.0;
+	//load data from video source and model
+	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+	_pKinect->_pFrame->gpuTransformToWorldCVCV();
+	//set viewport
 
-  glBegin(GL_QUAD_STRIP);
-  for (int i=0; i<nbSteps; ++i)
-    {
-      const float ratio = i/nbSteps;
-      const float angle = 21.0*ratio;
-      const float c = cos(angle);
-      const float s = sin(angle);
-      const float r1 = 1.0 - 0.8f*ratio;
-      const float r2 = 0.8f - 0.8f*ratio;
-      const float alt = ratio - 0.5f;
-      const float nor = 0.5f;
-      const float up = sqrt(1.0-nor*nor);
-      glColor3f(1.0-ratio, 0.2f , ratio);
-      glNormal3f(nor*c, up, nor*s);
-      glVertex3f(r1*c, alt, r1*s);
-      glVertex3f(r2*c, alt+0.05f, r2*s);
-    }
-  glEnd();
+	glViewport (0, 0, width()/2, height());
+	glScissor  (0, 0, width()/2, height());
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.2f,30.f);
+	glMatrixMode ( GL_MODELVIEW );
+	// after set the intrinsics and extrinsics
+	// load the matrix to set camera pose
+	_pGL->viewerGL();	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// render objects
+	_pGL->renderAxisGL();
+	_pGL->renderPatternGL(.1f,20,20);
+	_pGL->renderPatternGL(1.f,10,10);
+	_pGL->renderVoxelGL(_fVolumeSize);
+	//_pGL->timerStart();
+	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
+	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_uLevel,0,false);
+	/*//show text
+	float aColor[4] = {0.f,1.f,0.f,1.f};
+	switch(_nMode){ 
+	case btl::kinect::VideoSourceKinect::RECORDING:
+		_pGL->drawString("Recorder", 5, height()-20, aColor, GLUT_BITMAP_8_BY_13);
+		if ( (_nStatus&btl::kinect::VideoSourceKinect::MASK_RECORDER) == btl::kinect::VideoSourceKinect::CONTINUE_RECORDING ){
+			float aColor[4] = {1.f,0.f,0.f,1.f};
+			_pGL->drawString("Recording...", 5, height()-40, aColor, GLUT_BITMAP_8_BY_13);
+		}
+		break;
+	case btl::kinect::VideoSourceKinect::PLAYING_BACK:
+		_pGL->drawString("Player", 5, height()-20, aColor, GLUT_BITMAP_8_BY_13);
+		break;
+	case btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING:
+		_pGL->drawString("Simple", 5, height()-20, aColor, GLUT_BITMAP_8_BY_13);
+		break;
+	}*/
+	//set viewport 2
+	glViewport (width()/2, 0, width()/2, height());
+	glScissor  (width()/2, 0, width()/2, height());
 
-  _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-  //_pKinect->_pFrame->gpuDetectPlane(u);
-  _pKinect->_pFrame->gpuTransformToWorldCVCV();
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
+	glMatrixMode ( GL_MODELVIEW );
+	glLoadIdentity();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glMatrixMode ( GL_MODELVIEW );
-  // after set the intrinsics and extrinsics
-  // load the matrix to set camera pose
-  //glLoadIdentity();
-  //glLoadMatrixd( _mGLMatrix.data() );
-  //_pGL->viewerGL();
+	_pGL->renderAxisGL();
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],0.2f );
 
-  _pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
-  _pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	update();
 }
 
 void Viewer::init()
 {
-  // Restore previous viewer state.
-  restoreStateFromFile();
-  resize(1280,960);
+	loadFromYml();
+	// Restore previous viewer state.
+	restoreStateFromFile();
+	resize(1280,480);
   
-  // Opens help window
-  help();
+	// Opens help window
+	help();
 
-  //
-  GLenum eError = glewInit(); 
-  if (GLEW_OK != eError){
-	  PRINTSTR("glewInit() error.");
-	  PRINT( glewGetErrorString(eError) );
-  }
-  _pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
-  _pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
-  _pKinect.reset( new btl::kinect::VideoSourceKinect(1,3,true,1.5f,1.5f,-0.3f) );
+	//
+	GLenum eError = glewInit(); 
+	if (GLEW_OK != eError){
+		PRINTSTR("glewInit() error.");
+		PRINT( glewGetErrorString(eError) );
+	}
+	_pGL.reset( new btl::gl_util::CGLUtil(_uResolution,_uPyrHeight,btl::utility::BTL_GL) );
+	_pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
+	_pGL->_bDisplayCamera = _bDisplayImage;
+	_pGL->_bEnableLighting = _bLightOn;
+	_pGL->_bRenderReference = _bRenderReference;
+	_pGL->clearColorDepth();
+	_pGL->init();
+	_pGL->constructVBOsPBOs();
+	//set opengl flags
+	glDepthFunc  ( GL_LESS );
+	glEnable     ( GL_DEPTH_TEST );
+	glEnable 	 ( GL_SCISSOR_TEST );
+	glEnable     ( GL_CULL_FACE );
+	glShadeModel ( GL_FLAT );
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-  _pGL->constructVBOsPBOs();
+	_pKinect.reset( new btl::kinect::VideoSourceKinect(_uResolution,_uPyrHeight,_bUseNIRegistration,_eivCw) );
+	switch(_nMode)
+	{
+	case btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING: //the simple capturing mode of the rgbd camera
+		_pKinect->initKinect();
+		break;
+	case btl::kinect::VideoSourceKinect::RECORDING: //record the captured sequence from the camera
+		_pKinect->setDumpFileName(_oniFileName);
+		_pKinect->initRecorder(_oniFileName,_nRecordingTimeInSecond);
+		break;
+	case btl::kinect::VideoSourceKinect::PLAYING_BACK: //replay from files
+		_pKinect->initPlayer(_oniFileName,_bRepeat);
+		break;
+	}
 
-  _pGL->_usLevel=2;
-  _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
-  _pKinect->_pFrame->gpuTransformToWorldCVCV();
-}
+	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+	_pKinect->_pFrame->gpuTransformToWorldCVCV();
+	_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+
+	return;
+}//init()
 
 QString Viewer::helpString() const
 {
@@ -157,10 +241,10 @@ void Viewer::resizeEvent( QResizeEvent * event )
 	int nWidth  = event->size().width();
 	
 	float fAsp  = nHeight/float(nWidth);
-	if( fabs(fAsp - 0.75f) > 0.0001f )//if the aspect ratio is not 3:4
+	if( fabs(fAsp - 0.375f) > 0.0001f )//if the aspect ratio is not 3:4
 	{
 		int nUnit = nHeight/3;
-		int nWidth= nUnit*4;
+		int nWidth= nUnit*8;
 		int nHeight = nUnit*3;
 		resize(nWidth,nHeight);
 		update();
@@ -185,3 +269,79 @@ void Viewer::resizeEvent( QResizeEvent * event )
 	//and event->oldsize()
 	QWidget::resizeEvent(event);
 }
+
+void Viewer::loadFromYml(){
+
+#if __linux__
+	cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
+#else if _WIN32 || _WIN64
+	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\btl_rgbd\\render_qglviewer\\RenderQGlviewer.yml", cv::FileStorage::READ );
+#endif
+	cFSRead["uResolution"] >> _uResolution;
+	cFSRead["uPyrHeight"] >> _uPyrHeight;
+	cFSRead["bUseNIRegistration"] >> _bUseNIRegistration;
+	cFSRead["uCubicGridResolution"] >> _uCubicGridResolution;
+	cFSRead["fVolumeSize"] >> _fVolumeSize;
+	//rendering
+	cFSRead["bDisplayImage"] >> _bDisplayImage;
+	cFSRead["bLightOn"] >> _bLightOn;
+	cFSRead["bRenderReference"] >> _bRenderReference;
+	cFSRead["nMode"] >> _nMode;//1 kinect; 2 recorder; 3 player
+	cFSRead["oniFile"] >> _oniFileName;
+	cFSRead["bRepeat"] >> _bRepeat;
+	cFSRead["nRecordingTimeInSecond"] >> _nRecordingTimeInSecond;
+	cFSRead["nStatus"] >> _nStatus;
+
+	cFSRead.release();
+}
+
+void Viewer::keyPressEvent(QKeyEvent *e)
+{
+	// Defines the Alt+R shortcut.
+	if (e->key() == Qt::Key_0) 
+	{
+		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
+		updateGL(); // Refresh display
+	}
+	else if (e->key() == Qt::Key_9) 
+	{
+		_pGL->_usLevel = ++_pGL->_usLevel%_pGL->_usPyrHeight;
+		updateGL();
+	}
+	QGLViewer::keyPressEvent(e);
+}
+
+void Viewer::mousePressEvent( QMouseEvent *e )
+{
+	if( e->button() == Qt::LeftButton ){
+		_pGL->_nXMotion = _pGL->_nYMotion = 0;
+		_pGL->_nXLeftDown    = e->pos().x();
+		_pGL->_nYLeftDown    = e->pos().y();
+	}
+	updateGL();
+}
+
+void Viewer::mouseReleaseEvent( QMouseEvent *e )
+{
+	if( e->button() == Qt::LeftButton ){
+		_pGL->_dXLastAngle = _pGL->_dXAngle;
+		_pGL->_dYLastAngle = _pGL->_dYAngle;
+	}
+	updateGL();
+}
+
+void Viewer::mouseMoveEvent( QMouseEvent *e ){
+	if( e->buttons() & Qt::LeftButton ){
+		glDisable     ( GL_BLEND );
+		_pGL->_nXMotion = e->pos().x() - _pGL->_nXLeftDown;
+		_pGL->_nYMotion = e->pos().y() - _pGL->_nYLeftDown;
+		_pGL->_dXAngle  = _pGL->_dXLastAngle + _pGL->_nXMotion;
+		_pGL->_dYAngle  = _pGL->_dYLastAngle + _pGL->_nYMotion;
+	}
+	updateGL();
+}
+
+
+
+

@@ -59,8 +59,8 @@ struct SDeviceICPRegistration
 		const float3& f3NlLocalCur = _cvgmNMapLocalCur.ptr(nY_)[nX_];	if (isnan (f3NlLocalCur.x)) return false;
 		//transform the current vetex to reference camera coodinate system
 		float3 f3PtLocalCur = _cvgmVMapLocalCur.ptr(nY_)[nX_]; if (isnan (f3PtLocalCur.x)) return false; //retrieve vertex from current frame
-		float3 f3PtWorldCur = _mRwCurTrans * (f3PtLocalCur - _vTwCur); //transform it to World
-		float3 f3PtCur_LocalPrev = _mRwPrev * f3PtWorldCur + _vTwPrev; 
+		float3 f3PtWorldCur = _mRwCurTrans * (f3PtLocalCur - _vTwCur); //transform LocalCur into World
+		float3 f3PtCur_LocalPrev = _mRwPrev * f3PtWorldCur + _vTwPrev; //transform WorldCur into Prev Local
 		//projection onto reference image
 		int2 n2Ref;        
 		n2Ref.x = __float2int_rn (f3PtCur_LocalPrev.x * _sCamIntr.fx / f3PtCur_LocalPrev.z + _sCamIntr.cx);  

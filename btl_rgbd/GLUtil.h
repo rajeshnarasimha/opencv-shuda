@@ -103,6 +103,7 @@ private:
 
 	float _aCentroid[3];
 	Eigen::Vector3f _eivCentroid;
+public:
 	double _dZoom;
 	double _dZoomLast;
 	double _dScale;
@@ -122,7 +123,7 @@ private:
 	int  _nXRightDown, _nYRightDown;
 	bool _bLButtonDown;
 	bool _bRButtonDown;
-
+private:
 	GLfloat _aLight[4];
 
 	btl::utility::tp_coordinate_convention _eConvention;

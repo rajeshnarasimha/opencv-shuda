@@ -74,9 +74,18 @@ int main(int argc, char** argv)
   viewer.setWindowTitle("Kinect");
 #endif
 
-  // Make the viewer window visible on screen.
-  viewer.show();
-
-  // Run main loop.
-  return application.exec();
+  try{
+	  // Make the viewer window visible on screen.
+	  viewer.show();
+	  // Run main loop.
+	  return application.exec();
+  }
+  catch ( btl::utility::CError& e )  {
+	  if ( std::string const* mi = boost::get_error_info< btl::utility::CErrorInfo > ( e ) ) {
+		  std::cerr << "Error Info: " << *mi << std::endl;
+	  }
+  }
+  catch ( std::runtime_error& e ){
+	  PRINTSTR( e.what() );
+  }
 }

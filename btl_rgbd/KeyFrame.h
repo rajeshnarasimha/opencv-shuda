@@ -37,6 +37,7 @@ public:
 	void extractOrbFeatures ();
 	double calcRTOrb ( const CKeyFrame& sPrevKF_, const double dDistanceThreshold_, unsigned short* pInliers_);
 	void gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseReferenceRTAsInitial);
+	double gpuCalcRTBroxOpticalFlow ( const CKeyFrame& sPrevFrameWorld_, const double dDistanceThreshold_, unsigned short* pInliers_);
 
 	//accumulate the relative R T to the global RT
 	void applyRelativePose( const CKeyFrame& sReferenceKF_ ); 
@@ -162,6 +163,7 @@ public:
 	btl::geometry::tp_plane_obj_list _vPlaneObjsDistanceNormal[4];
 	static boost::shared_ptr<cv::gpu::SURF_GPU> _pSurf;
 	static boost::shared_ptr<cv::gpu::ORB_GPU> _pOrb;
+	static boost::shared_ptr<cv::gpu::BroxOpticalFlow> _pBroxOpticalFlow;
 private:
 	//for surf matching
 	//host

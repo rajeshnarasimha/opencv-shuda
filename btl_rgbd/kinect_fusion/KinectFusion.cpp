@@ -306,7 +306,11 @@ void display ( void ) {
 		_pTracker->track(&*_pKinect->_pFrame);
 		PRINTSTR("trackICP done.");
 		_pGL->timerStop();
+
+		_pTracker->setNextView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
 	}//if( _bCapture )
+	
 	
 ////////////////////////////////////////////////////////////////////
 // render 1st viewport
@@ -314,14 +318,14 @@ void display ( void ) {
     glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
     glScissor  ( 0, _nHeight/2, _nWidth/2, _nHeight/2 );
     // after set the intrinsics and extrinsics
-    _pGL->viewerGL();
-	//glLoadIdentity();
-	//glRotatef(180.f,1.f,0.f,0.f);
+    //_pGL->viewerGL();
+	glLoadIdentity();
+	glRotatef(180.f,1.f,0.f,0.f);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	
 	//_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.05f,_pGL->_usLevel);
 	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
-	_pForDisplay->gpuTransformToWorldCVCV();
+	//_pForDisplay->gpuTransformToWorldCVCV();
 	_pForDisplay->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	
 	// render objects
@@ -405,7 +409,7 @@ void display ( void ) {
 	//_pPrevFrameWorld->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
 	_pVirtualFrameWorld->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	//_pPrevFrameWorld->setView(&_pGL->_eimModelViewGL);
-	if(_pGL->_bRenderReference) {
+	{
 		_pGL->renderAxisGL();
 		_pGL->renderPatternGL(.1f,20.f,20.f);
 		_pGL->renderPatternGL(1.f,10.f,10.f);
@@ -436,6 +440,7 @@ void display ( void ) {
 	glutSwapBuffers();
     if ( _bContinuous ) {
         glutPostRedisplay();
+		_bContinuous = false;
     }
 }
 
