@@ -312,8 +312,6 @@ namespace btl{ namespace geometry
 		_pPrevFrameWorld->gpuTransformToWorldCVCV();//transform from camera to world
 		//integrate the frame into the world
 		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
-		//extract ORB features
-		_pPrevFrameWorld->extractSurfFeatures();
 	}
 
 

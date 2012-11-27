@@ -55,6 +55,7 @@ boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_acvgmShrPtrPyr32FC1T
 
 boost::shared_ptr<cv::gpu::SURF_GPU> btl::kinect::CKeyFrame::_pSurf;
 boost::shared_ptr<cv::gpu::ORB_GPU>  btl::kinect::CKeyFrame::_pOrb;
+boost::shared_ptr<cv::gpu::BroxOpticalFlow>  btl::kinect::CKeyFrame::_pBroxOpticalFlow;
 
 btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_/*float fCwX_, float fCwY_, float fCwZ_*/ )
 :_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_),_eivInitCw(eivCw_){
@@ -282,7 +283,7 @@ void btl::kinect::CKeyFrame::establishPlaneCorrespondences( const CKeyFrame& sRe
 	//search for pairs of correspondences with depth data available.
 	const float*const  _pCurrentPlane   = (const float*)              _acvmShrPtrDistanceClusters[0]->data;
 	const float*const  _pReferencePlane = (const float*)sReferenceKF_._acvmShrPtrDistanceClusters[0]->data;
-	std::vector< int > _vDepthIdxCur, _vDepthIdxRef, _vSelectedPairs;
+	std::vector< int > _vDepthIdxCur, _vDepthIdxPrv, _vSelectedPairs;
 	unsigned int uMatchIdx = 0;
 	for ( std::vector< cv::DMatch >::const_iterator cit = _vMatches.begin(); cit != _vMatches.end(); cit++,uMatchIdx++ ) {
 		int nKeyPointIdxCur = cit->queryIdx;
@@ -326,6 +327,22 @@ void btl::kinect::CKeyFrame::extractOrbFeatures ()  {
 	(*_pOrb)(*_acvgmShrPtrPyrBWs[0], cv::gpu::GpuMat(), _cvgmKeyPoints, _cvgmDescriptors);
 	_pOrb->downloadKeyPoints(_cvgmKeyPoints, _vKeyPoints);
 	return;
+}
+
+double btl::kinect::CKeyFrame::gpuCalcRTBroxOpticalFlow ( const CKeyFrame& sPrevFrameWorld_, const double dDistanceThreshold_, unsigned short* pInliers_) {
+	// - The reference frame must contain a calibrated Rw and Tw. 
+	// - The point cloud in the reference (previous) frame must be transformed into the world coordinate system.
+	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
+	// - The point cloud in the current frame must be in the camera coordinate system.
+
+	//establish the point correspondences using dense optical flow
+	cv::gpu::GpuMat cvgmPrev,cvgmCurr,u,v;
+	sPrevFrameWorld_._acvgmShrPtrPyrBWs[0]->convertTo(cvgmPrev,cv::DataType<float>::type);
+	_acvgmShrPtrPyrBWs[0]->convertTo(cvgmCurr,cv::DataType<float>::type);
+	(*_pBroxOpticalFlow)(cvgmPrev,cvgmCurr,u,v);
+
+	cv::Mat cvmU,cvmV; u.download(cvmU); v.download(cvmV);
+	return 0;
 }
 
 double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {

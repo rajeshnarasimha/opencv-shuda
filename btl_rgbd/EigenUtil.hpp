@@ -93,7 +93,7 @@ T absoluteOrientation ( Eigen::Matrix<T,-1,-1,0,-1,-1> & eimA_, Eigen::Matrix<T,
 
 	//Compute the centroid of each point set
 	
-	Eigen::Matrix<T,3,1,0,3,1> eivCentroidA(0,0,0), eivCentroidB(0,0,0); //Matrix<float,3,1,0,3,1> = Vector3f
+	Eigen::Matrix<T,3,1> eivCentroidA(0,0,0), eivCentroidB(0,0,0); //Matrix<float,3,1,0,3,1> = Vector3f
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
 		eivCentroidA += eimA_.col ( nC );
 		eivCentroidB += eimB_.col ( nC );
@@ -120,7 +120,7 @@ T absoluteOrientation ( Eigen::Matrix<T,-1,-1,0,-1,-1> & eimA_, Eigen::Matrix<T,
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ){
 		//pure imaginary Shortcuts
 		/*Eigen::Vector4d*/
-		Eigen::Matrix<T,4,1,0,4,1> a(0,0,0,0), b(0,0,0,0);
+		Eigen::Matrix<T,4,1> a(0,0,0,0), b(0,0,0,0);
 		a ( 1 ) = An ( 0, nC );
 		a ( 2 ) = An ( 1, nC );
 		a ( 3 ) = An ( 2, nC );
@@ -157,8 +157,7 @@ T absoluteOrientation ( Eigen::Matrix<T,-1,-1,0,-1,-1> & eimA_, Eigen::Matrix<T,
 	//PRINT( dLargest );
 	//PRINT( n );
 
-	/*Eigen::Vector4d*/
-	Eigen::Matrix<T,4,1,0,4,1> e;
+	Eigen::Matrix<T,4,1> e;
 	e << eigensolver.eigenvectors().col ( n ) ( 0 ).real(),
 		eigensolver.eigenvectors().col ( n ) ( 1 ).real(),
 		eigensolver.eigenvectors().col ( n ) ( 2 ).real(),
@@ -166,7 +165,6 @@ T absoluteOrientation ( Eigen::Matrix<T,-1,-1,0,-1,-1> & eimA_, Eigen::Matrix<T,
 
 	//PRINT( e );
 
-	/*Eigen::Matrix4d*/
 	Eigen::Matrix<T,4,4>M1, M2, R;
 	//Compute the rotation matrix
 	M1 <<  e ( 0 ), -e ( 1 ), -e ( 2 ), -e ( 3 ),
@@ -199,7 +197,6 @@ T absoluteOrientation ( Eigen::Matrix<T,-1,-1,0,-1,-1> & eimA_, Eigen::Matrix<T,
 
 	//Compute the residual error
 	T dE = 0;
-	/*Eigen::Vector3d*/
 	Eigen::Matrix<T,3,1> eivE;
 
 	for ( int nC = 0; nC < eimA_.cols(); nC++ ) {

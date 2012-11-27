@@ -825,6 +825,10 @@ void cudaConvertGL2CV(const cv::gpu::GpuMat cvgmRGB_, cv::gpu::GpuMat* pcvgmUndi
 	kernelConvertGL2CV<<<grid,block>>>(cvgmRGB_,*pcvgmUndistRGB_);
 	cudaSafeCall ( cudaGetLastError () );
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<class T>
+void cudaConvert(const cv::gpu::DevMem2D_<float3> cvgmSrc_, cv::gpu::DevMem2D_<float3> cvgmDst_){
 
+}
 }//device
 }//btl

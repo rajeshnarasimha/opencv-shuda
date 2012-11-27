@@ -103,6 +103,7 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	//btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
 	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
+	btl::kinect::CKeyFrame::_pBroxOpticalFlow.reset(new cv::gpu::BroxOpticalFlow(80,100,0.9,5,20,10));
 	_bIsSequenceEnds = false;
 	std::cout << " Done. " << std::endl;
 }
@@ -372,7 +373,7 @@ void VideoSourceKinect::getNextFrameRecording(tp_frame eFrameType_, int* pnStatu
 
 void VideoSourceKinect::getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_)
 {
-	if(_bIsSequenceEnds) { *pnStatus_ = PAUSE; _bIsSequenceEnds = true; }
+	if(_bIsSequenceEnds) { *pnStatus_ = PAUSE; _bIsSequenceEnds = false; }
 	XnStatus nRetVal = 0;
 	switch (*pnStatus_&MASK1)
 	{
@@ -383,7 +384,7 @@ void VideoSourceKinect::getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_)
 		//do nothing
 		break;
 	case CONTINUE:
-		nRetVal = _cContext.WaitAndUpdateAll();	CHECK_RC_ ( nRetVal, "UpdateData failed: " );
+		nRetVal = _cContext.WaitAndUpdateAll();	if (nRetVal != 65568 /*end of file*/) CHECK_RC_ ( nRetVal, "UpdateData failed: " );
 		break;
 	default:
 		PRINTSTR("convert to the status of CONTINUE");

@@ -11,5 +11,5 @@ nMode: 3
 oniFile: "GroundFloorAndChairs.oni"
 bRepeat: 0
 nRecordingTimeInSecond: 30
-nStatus: 1
-Tracking_Method: ORBICP
+nStatus: 2
+Tracking_Method: ORB
