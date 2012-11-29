@@ -29,57 +29,48 @@ int main(int argc, char* argv[])
     }
 	cv::Mat cvImg1 = imread(argv[1], CV_LOAD_IMAGE_GRAYSCALE);
 	cv::Mat cvImg2 = imread(argv[2], CV_LOAD_IMAGE_GRAYSCALE);
-	cv::Mat cvT1(cvImg1.rows,cvImg1.cols,CV_32F);
-    cv::Mat cvT2(cvImg1.rows,cvImg1.cols,CV_32F);
 
-	float* p1 = (float*) cvT1.data;
-	float* p2 = (float*) cvT2.data;
-	unsigned char* pt1 = cvImg1.data;
-	unsigned char* pt2 = cvImg2.data;
-	for (int i=0; i<cvImg1.rows*cvImg1.cols; i++)
-	{
-		unsigned char c = *pt1; pt1++;
-		*p1++ = float (c); 
-		c = *pt2++; 
-		*p2++ = float (c);
-	}
-	
-	GpuMat img1(cvT1);
-    GpuMat img2(cvT2);
+	GpuMat img1(cvImg1),cvgmImg1(cvImg1.size(),cv::DataType<float>::type);
+	GpuMat img2(cvImg2),cvgmImg2(cvImg2.size(),cv::DataType<float>::type);
+	img1.convertTo(cvgmImg1,cv::DataType<float>::type);
+	img2.convertTo(cvgmImg2,cv::DataType<float>::type);
+
     if (img1.empty() || img2.empty())
     {
         cout << "Can't read one of the images" << endl;
         return -1;
     }
 
-	cv::gpu::BroxOpticalFlow cBOF(80,100,0.5,5,20,10);
+	cv::gpu::BroxOpticalFlow cBOF(80,100,0.95,5,20,10);
 	GpuMat u,v;
-	cBOF(img1,img2,u,v);
+	cBOF(cvgmImg1,cvgmImg2,u,v);
 
-	cv::Mat xy[2]; //X,Y
-	u.download(xy[0]);
-	v.download(xy[1]);
-	cv::Mat magnitude, angle;
-	cv::cartToPolar(xy[0], xy[1], magnitude, angle, true);
+	cv::gpu::GpuMat cvgmMag, cvgmAngle;
+	cv::gpu::cartToPolar(u,v,cvgmMag,cvgmAngle,true);
 
 	//translate magnitude to range [0;1]
-	double mag_max;
-	cv::minMaxLoc(magnitude, 0, &mag_max);
-	magnitude.convertTo(magnitude, -1, 1.0/mag_max);
+	double mag_max,mag_min;
+	cv::gpu::minMaxLoc(cvgmMag, 0, &mag_max);
+	cvgmMag.convertTo(cvgmMag,-1,1.0/mag_max);
 
 	//build hsv image
-	cv::Mat _hsv[3], hsv;
-	_hsv[0] = angle;
-	_hsv[1] = cv::Mat::ones(angle.size(), CV_32F);
-	_hsv[2] = magnitude;
-	cv::merge(_hsv, 3, hsv);
+	cv::gpu::GpuMat cvgmHSV, cvgmOnes(cvgmAngle.size(),CV_32F); cvgmOnes.setTo(1.f);
+	std::vector<cv::gpu::GpuMat> vcvgmHSV;
+	vcvgmHSV.push_back(cvgmAngle);
+	vcvgmHSV.push_back(cvgmOnes);
+	vcvgmHSV.push_back(cvgmMag);
+	cv::gpu::merge(vcvgmHSV,cvgmHSV);
 
 	//convert to BGR and show
-	Mat bgr;//CV_32FC3 matrix
-	cv::cvtColor(hsv, bgr, cv::COLOR_HSV2BGR);
-	cv::imwrite("flow.jpg",bgr);
+	cv::gpu::GpuMat cvgmBGR;
+	cv::gpu::cvtColor(cvgmHSV,cvgmBGR,cv::COLOR_HSV2BGR);//cvgmBGR is CV_32FC3 matrix
 	cv::namedWindow("optical flow", 0);
-	cv::imshow("optical flow", bgr);
+	cvgmBGR.convertTo(cvgmBGR,CV_8UC3,255);
+	Mat cvmBGR;
+	cvgmBGR.download(cvmBGR);
+	
+	cv::imwrite("optical.png",cvmBGR);
+	cv::imshow("optical flow", cvmBGR);
 	cv::waitKey(0);
 
     return 0;
