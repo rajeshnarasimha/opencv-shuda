@@ -1,0 +1,18 @@
+%YAML:1.0
+uResolution: 0
+uPyrHeight: 3
+bUseNIRegistration: 1
+uCubicGridResolution: 512
+fVolumeSize: 3.
+bDisplayImage: 0
+bLightOn: 1
+bRenderReference: 0
+nMode: 3
+oniFile: "GroundFloorAndChairs.oni"
+bRepeat: 0
+nRecordingTimeInSecond: 30
+nStatus: 9
+Tracking_Method: ORBICP
+fCamearCenterInWorldX: 1.5000000000000000e+000
+fCamearCenterInWorldY: 1.5000000000000000e+000
+fCamearCenterInWorldZ: -3.0000011902302504e-003
