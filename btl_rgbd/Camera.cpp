@@ -120,7 +120,7 @@ void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTextu
 	//}
     return;
 }
-void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, const cv::Mat& cvmImg_, float fPhysicalFocalLength_ /*= .02*/, bool bRenderTexture_/*=true*/ ) const 
+void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, float fPhysicalFocalLength_ /*= .02f*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	GLboolean bLightIsOn;
 	glGetBooleanv(GL_LIGHTING,&bLightIsOn);

@@ -113,7 +113,7 @@ void VideoSourceKinectSimulator::getNextFrame(tp_frame eFrameType_, int* pnRecor
 	//PRINT(fMax2);
 
 	//bilateral filtering (comments off the following three lines to get raw depth map image of kinect)
-	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
+	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth,_fCutOffDistance, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
 	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
 	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
 	//get pts and nls

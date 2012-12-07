@@ -143,6 +143,10 @@ void init ( ){
 	case btl::kinect::VideoSourceKinect::PLAYING_BACK: //replay from files
 		_pKinect->initPlayer(_oniFileName,_bRepeat);
 		break;
+	default://only simply capturing and playing back mode are allowed for efficiency requirements
+		_nMode = btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING;
+		_pKinect->initKinect();
+		break;
 	}
 	//capture the first frame
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
@@ -163,12 +167,6 @@ void normalKeys ( unsigned char key, int x, int y )
 	case 27:
 		saveToYml();
 		exit ( 0 );
-		break;
-	case '>':
-		glutPostRedisplay();
-		break;
-	case '<':
-		glutPostRedisplay();
 		break;
 	case 'q':
 		_nDensity++;
@@ -254,9 +252,7 @@ void display ( void )
 	_pGL->renderPatternGL(1.f,10,10);
 	_pGL->renderVoxelGL(_fVolumeSize);
 	//_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
 	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
-	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_uLevel,0,false);
 	//show text
 	float aColor[4] = {0.f,1.f,0.f,1.f};
 	switch(_nMode){ 
@@ -282,7 +278,7 @@ void display ( void )
 
     _pGL->renderAxisGL();
 	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel] );
 	
 	
 	glutSwapBuffers();

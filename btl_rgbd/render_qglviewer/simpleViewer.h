@@ -4,7 +4,7 @@
  
 *****************************************************************************/
 
-#include <QGLViewer/qglviewer.h>
+
 
 class Viewer : public QGLViewer
 {
@@ -15,19 +15,22 @@ protected :
     virtual void draw();
     virtual void init();
     virtual QString helpString() const;
-	virtual void resizeEvent( QResizeEvent * event);
+	//virtual void resizeEvent( QResizeEvent * event);
 	virtual void keyPressEvent(QKeyEvent *e);
 	virtual void mousePressEvent(QMouseEvent *e	);
 	virtual void mouseReleaseEvent(QMouseEvent *e );
 	virtual void mouseMoveEvent( QMouseEvent *e );
-
+	virtual void wheelEvent(QWheelEvent *e );
 
 	void loadFromYml();
-	void drawLogo() const;
+	void reset();
 	btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 	btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
+	btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrame;
 
+	boost::scoped_ptr<cv::gpu::GpuMat> _pcvgmColorGraph;
+	GLuint _uTexture;
 
 	ushort _uResolution;
 	ushort _uPyrHeight;

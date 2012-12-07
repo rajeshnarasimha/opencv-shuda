@@ -60,6 +60,7 @@ public:
 	void render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const;
 	void render3DPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_,int nColorIdx_, bool bRenderPlanes_);
 	void gpuRender3DPtsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usColorIdx_, const unsigned short uLevel_, const bool bRenderPlane_) const;
+	void gpuBroxOpticalFlow (const CKeyFrame& sPrevFrameWorld_, cv::gpu::GpuMat* pcvgmColorGraph_);
 
 	inline void loadGLMVIn() const{	glMultMatrixf ( _eimGLMVInv.data() );}
 
@@ -108,6 +109,7 @@ private:
 	void gpuClusterNormal(const unsigned short uPyrLevel_,cv::Mat* pcvmLabel_,btl::geometry::tp_plane_obj_list* pvPlaneObjs_);
 	void allocate();
 	void establishPlaneCorrespondences( const CKeyFrame& sReferenceKF_);
+	void gpuConvert2ColorGraph( cv::gpu::GpuMat* pcvgmU_, cv::gpu::GpuMat* pcvgmV_, cv::gpu::GpuMat* pcvgmColorGraph_ );
 
 public:
 	btl::kinect::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
@@ -126,6 +128,8 @@ public:
 
 	static boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrDisparity[4];
 	static boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyr32FC1Tmp[4];
+	static boost::shared_ptr<cv::gpu::GpuMat> _pcvgmPrev,_pcvgmCurr,_pcvgmU,_pcvgmV;
+
 
 
 	static boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrAA[4];//for rendering

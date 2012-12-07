@@ -102,9 +102,22 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	//btl::kinect::CKeyFrame::_sNormalHist.init(2);
 	//btl::kinect::CKeyFrame::_sDistanceHist.init(30);
 	btl::kinect::CKeyFrame::_pSurf.reset(new cv::gpu::SURF_GPU(100));
-	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU);
-	btl::kinect::CKeyFrame::_pBroxOpticalFlow.reset(new cv::gpu::BroxOpticalFlow(80,100,0.9,5,20,10));
+	btl::kinect::CKeyFrame::_pOrb.reset(new cv::gpu::ORB_GPU(500,2.f,3));
+	btl::kinect::CKeyFrame::_pBroxOpticalFlow.reset(new cv::gpu::BroxOpticalFlow(80,100,0.5,3,10,5));
+
+	//
+	btl::kinect::CKeyFrame::_pcvgmPrev.reset(new cv::gpu::GpuMat(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_32FC1));
+	btl::kinect::CKeyFrame::_pcvgmCurr.reset(new cv::gpu::GpuMat(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_32FC1));
+	btl::kinect::CKeyFrame::_pcvgmU.reset(new cv::gpu::GpuMat(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_32FC1));
+	btl::kinect::CKeyFrame::_pcvgmV.reset(new cv::gpu::GpuMat(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_32FC1));
+
+	extern cv::gpu::GpuMat cvgmTest,cvgmTmp;
+	cvgmTest.create(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_32FC1);
+	cvgmTmp.create(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_32FC1);
+
 	_bIsSequenceEnds = false;
+
+	_fCutOffDistance = 3.f;
 	std::cout << " Done. " << std::endl;
 }
 VideoSourceKinect::~VideoSourceKinect()
@@ -364,7 +377,7 @@ void VideoSourceKinect::getNextFrameRecording(tp_frame eFrameType_, int* pnStatu
 	cvmDep.convertTo(_cvmDepth,CV_32FC1);
 	//mail capturing function
 	if (_bUseNIRegistration)
-		gpuBuildPyramidUseNICVm();
+		gpuBuildPyramidUseNICVm(_fCutOffDistance);
 	else
 		gpuBuildPyramidCVm();
 
@@ -401,7 +414,7 @@ void VideoSourceKinect::getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_)
 	cvmDep.convertTo(_cvmDepth,CV_32FC1);
 	//mail capturing function
 	if (_bUseNIRegistration)
-		gpuBuildPyramidUseNICVm();
+		gpuBuildPyramidUseNICVm(_fCutOffDistance);
 	else
 		gpuBuildPyramidCVm();
 	_pFrame->initRT();
@@ -427,7 +440,7 @@ void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eCon
 		fastNormalEstimation(*_pFrame->_acvmShrPtrPyrPts[i],&*_pFrame->_acvmShrPtrPyrNls[i]);
 	}*/
 }
-void VideoSourceKinect::gpuBuildPyramidUseNICVm( ){
+void VideoSourceKinect::gpuBuildPyramidUseNICVm(float fCutOffDistance_ ){
 	_cvgmRGB.upload(_cvmRGB);
 	_cvgmDepth.upload(_cvmDepth);
 	_pFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
@@ -436,7 +449,7 @@ void VideoSourceKinect::gpuBuildPyramidUseNICVm( ){
 	_cvgmUndistDepth.setTo(std::numeric_limits<float>::quiet_NaN());//clear(_cvgmUndistDepth)
 	cv::gpu::remap(_cvgmDepth, _cvgmUndistDepth, _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 	//bilateral filtering (comments off the following three lines to get raw depth map image of kinect)
-	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
+	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth,fCutOffDistance_, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
 	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
 	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
 	//get pts and nls
@@ -451,7 +464,8 @@ void VideoSourceKinect::gpuBuildPyramidUseNICVm( ){
 		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);
 		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
 		_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]->setTo(std::numeric_limits<float>::quiet_NaN());
-		btl::device::cudaPyrDown( *_pFrame->_acvgmShrPtrPyrDisparity[i-1],_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]);
+		//btl::device::cudaPyrDown( *_pFrame->_acvgmShrPtrPyrDisparity[i-1],_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]);//need to compare the performance of cudaPyDown() with resize()
+		cv::gpu::resize(*_pFrame->_acvgmShrPtrPyrDisparity[i-1],*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i],_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]->size(),0,0,cv::INTER_LINEAR);
 		btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[i]);
 		btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[i],&*_pFrame->_acvgmShrPtrPyrDepths[i]);
 		btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_pFrame->_acvgmShrPtrPyrPts[i] );
@@ -462,7 +476,7 @@ void VideoSourceKinect::gpuBuildPyramidUseNICVm( ){
 		_pFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pFrame->_acvmShrPtrPyrRGBs[i]);
 		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
 		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
-		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
+		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);
 	}
 	//scale the depth map
 	btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);

@@ -55,7 +55,7 @@
 #include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
 
-
+#include <QGLViewer/qglviewer.h>
 #include "simpleViewer.h"
 #include <qapplication.h>
 

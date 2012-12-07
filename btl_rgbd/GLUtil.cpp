@@ -30,7 +30,7 @@ namespace btl{	namespace gl_util
 	
 	CGLUtil::CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordinate_convention eConvention_ /*= btl::utility::BTL_GL*/,const Eigen::Vector3f& eivCentroid_ /*= Eigen::Vector3f(1.5f,1.5f,0.3f)*/)
 		:_uResolution(uResolution_),_usPyrHeight(uPyrLevel_),_usLevel(0),_eConvention(eConvention_),_eivCentroid(eivCentroid_){
-			_dZoom = 1.;
+			_dZoom = 0.;
 			_dZoomLast = 1.;
 			_dScale = .1;
 
@@ -58,14 +58,16 @@ namespace btl{	namespace gl_util
 		glClearColor ( 0.1f,0.1f,0.4f,1.0f );
 		glClearDepth ( 1.0 );
 	}
-
+	void CGLUtil::constructVBOsPBOs(ushort usLevel_){
+		createVBO( btl::kinect::__aKinectW[_uResolution+usLevel_], btl::kinect::__aKinectH[_uResolution+usLevel_],3,sizeof(float),&_auPtVBO[usLevel_], &_apResourcePtVBO[usLevel_] );
+		createVBO( btl::kinect::__aKinectW[_uResolution+usLevel_], btl::kinect::__aKinectH[_uResolution+usLevel_],3,sizeof(float),&_auNlVBO[usLevel_], &_apResourceNlVBO[usLevel_] );
+		createVBO( btl::kinect::__aKinectW[_uResolution+usLevel_], btl::kinect::__aKinectH[_uResolution+usLevel_],3,sizeof(uchar),&_auRGBVBO[usLevel_],&_apResourceRGBVBO[usLevel_]);
+		createPBO( btl::kinect::__aKinectW[_uResolution+usLevel_], btl::kinect::__aKinectH[_uResolution+usLevel_],3,sizeof(uchar),&_auRGBPixelBO[usLevel_],&_apResourceRGBPxielBO[usLevel_],&_auTexture[usLevel_]);
+	}
 
 	void CGLUtil::constructVBOsPBOs(){
-		for (ushort u=0; u<_usPyrHeight; u++){
-			createVBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(float),&_auPtVBO[u], &_apResourcePtVBO[u] );
-			createVBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(float),&_auNlVBO[u], &_apResourceNlVBO[u] );
-			createVBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(uchar),&_auRGBVBO[u],&_apResourceRGBVBO[u]);
-			createPBO( btl::kinect::__aKinectW[_uResolution+u], btl::kinect::__aKinectH[_uResolution+u],3,sizeof(uchar),&_auRGBPixelBO[u],&_apResourceRGBPxielBO[u],&_auTexture[u]);
+		for (ushort uLevel=0; uLevel<_usPyrHeight; uLevel++){
+			constructVBOsPBOs(uLevel);			
 		}//for each pyramid level
 	}//constructVBOsPBOs()
 	void CGLUtil::createVBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_,
@@ -108,11 +110,15 @@ namespace btl{	namespace gl_util
 
 	void CGLUtil::destroyVBOsPBOs(){
 		for (ushort u=0; u<_usPyrHeight; u++){
-			releaseVBO( _auPtVBO[u], _apResourcePtVBO[u] );
-			releaseVBO( _auNlVBO[u], _apResourceNlVBO[u] );
-			releaseVBO( _auRGBVBO[u],_apResourceRGBVBO[u]);
-			releasePBO( _auRGBPixelBO[u],_apResourceRGBPxielBO[u]);
+			destroyVBOsPBOs(u);
 		}//for each pyramid level
+	}
+
+	void CGLUtil::destroyVBOsPBOs(ushort usLevel_){
+		releaseVBO( _auPtVBO[usLevel_], _apResourcePtVBO[usLevel_] );
+		releaseVBO( _auNlVBO[usLevel_], _apResourceNlVBO[usLevel_] );
+		releaseVBO( _auRGBVBO[usLevel_],_apResourceRGBVBO[usLevel_]);
+		releasePBO( _auRGBPixelBO[usLevel_],_apResourceRGBPxielBO[usLevel_]);
 	}
 
 	void CGLUtil::drawString(const char *str, int x, int y, float color[4], void *font) const
@@ -139,6 +145,7 @@ namespace btl{	namespace gl_util
 		while(*str)
 		{
 			glutBitmapCharacter(font, *str);
+			
 			++str;
 		}
 
@@ -205,15 +212,16 @@ namespace btl{	namespace gl_util
 		size_t nSize; 
 		cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourcePtVBO[usPyrLevel_] );
 		cv::gpu::GpuMat cvgmPts(btl::kinect::__aKinectH[_uResolution+usPyrLevel_],btl::kinect::__aKinectW[_uResolution+usPyrLevel_],CV_32FC3,pDev);
+		cvgmPts_.copyTo(cvgmPts); // the operation of the Buffer must be done before cudaGraphicsUnmapResources(), otherwise, the buffer will affects each other
 		cudaGraphicsUnmapResources(1, &_apResourcePtVBO[usPyrLevel_], 0);
-		cvgmPts_.copyTo(cvgmPts);
 		// render from the vbo
 		glBindBuffer(GL_ARRAY_BUFFER, _auPtVBO[usPyrLevel_]);
 		glVertexPointer(3, GL_FLOAT, 0, 0);
-		glEnableClientState(GL_VERTEX_ARRAY);
+		glEnableClientState(GL_VERTEX_ARRAY);//you cant move glEnableClientState in front of cuda GraphicsMapResources, otherwise, you will have weird problem
 		//glColor3f(1.0, 0.0, 0.0);
 		//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
 		//glDisableClientState(GL_VERTEX_ARRAY);
+		//glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	}
 	void CGLUtil::gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_){
 		if (usPyrLevel_>=_usPyrHeight) return;
@@ -223,15 +231,16 @@ namespace btl{	namespace gl_util
 		size_t nSize; 
 		cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourceNlVBO[usPyrLevel_] );
 		cv::gpu::GpuMat cvgmNls(btl::kinect::__aKinectH[_uResolution+usPyrLevel_],btl::kinect::__aKinectW[_uResolution+usPyrLevel_],CV_32FC3,pDev);
-		cudaGraphicsUnmapResources(1, &_apResourceNlVBO[usPyrLevel_], 0);
 		cvgmNls_.copyTo(cvgmNls);
+		cudaGraphicsUnmapResources(1, &_apResourceNlVBO[usPyrLevel_], 0);
 		// render from the vbo
 		glBindBuffer(GL_ARRAY_BUFFER, _auNlVBO[usPyrLevel_]);
 		glNormalPointer(GL_FLOAT, 0, 0);
-		glEnableClientState(GL_NORMAL_ARRAY);
+		glEnableClientState(GL_NORMAL_ARRAY);//you cant move glEnableClientState infront of cuda GraphicsMapResources, otherwise, you will have weird problem
 		//glColor3f(1.0, 0.0, 0.0);
 		//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
 		//glDisableClientState(GL_NORMAL_ARRAY);
+		//glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	}
 	void CGLUtil::gpuMapRGBResources(const cv::gpu::GpuMat& cvgmRGBs_, const ushort usPyrLevel_){
 		if (usPyrLevel_>=_usPyrHeight) return;
@@ -241,12 +250,15 @@ namespace btl{	namespace gl_util
 		size_t nSize; 
 		cudaGraphicsResourceGetMappedPointer((void **)&pDev, &nSize, _apResourceRGBVBO[usPyrLevel_] );
 		cv::gpu::GpuMat cvgmRGBs(btl::kinect::__aKinectH[_uResolution+usPyrLevel_],btl::kinect::__aKinectW[_uResolution+usPyrLevel_],CV_8UC3,pDev);
-		cudaGraphicsUnmapResources(1, &_apResourceRGBVBO[usPyrLevel_], 0);
 		cvgmRGBs_.copyTo(cvgmRGBs);
+		cudaGraphicsUnmapResources(1, &_apResourceRGBVBO[usPyrLevel_], 0);
 		// render from the vbo
 		glBindBuffer(GL_ARRAY_BUFFER, _auRGBVBO[usPyrLevel_]);
 		glColorPointer(3, GL_UNSIGNED_BYTE, 0, 0);
-		glEnableClientState(GL_COLOR_ARRAY);
+		glEnableClientState(GL_COLOR_ARRAY);//you cant move glEnableClientState infront of cuda GraphicsMapResources, otherwise, you will have weird problem
+		//glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
+		//glDisableClientState(GL_COLOR_ARRAY);
+		//glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	}
 	void CGLUtil::gpuMapRgb2PixelBufferObj(const cv::gpu::GpuMat& cvgmRGB_, const ushort usPyrLevel_ ){
 		//http://rickarkin.blogspot.co.uk/2012/03/use-pbo-to-share-buffer-between-cuda.html
@@ -461,9 +473,7 @@ namespace btl{	namespace gl_util
 			setInitialPos();
 			glutPostRedisplay();
 			break;
-
 		}
-
 		return;
 	}
 
@@ -671,7 +681,7 @@ namespace btl{	namespace gl_util
 	void CGLUtil::setInitialPos(){
 		_dXAngle = 0.;
 		_dYAngle = 0.;
-		_dZoom = 1.;
+		_dZoom = 0.;
 	}
 
 	void CGLUtil::setOrthogonal( )
@@ -724,8 +734,8 @@ namespace btl{	namespace gl_util
 			m = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
 		}
 		//translation
-		_dZoom = _dZoom < 0.1? 0.1: _dZoom;
-		_dZoom = _dZoom > 10? 10: _dZoom;
+		/*_dZoom = _dZoom < 0.1? 0.1: _dZoom;
+		_dZoom = _dZoom > 10? 10: _dZoom;*/
 
 		//get direction N pointing from camera center to the object centroid
 		Eigen::Affine3f M; M.matrix() = _eimModelViewGL;
@@ -737,7 +747,7 @@ namespace btl{	namespace gl_util
 		N = N/N.norm();
 
 		Eigen::Affine3f _eimManipulate; _eimManipulate.setIdentity();
-		_eimManipulate.translate(N*(1-_dZoom));  //use camera movement toward object for zoom in/out effects
+		_eimManipulate.translate(N*_dZoom);//(N*(1-_dZoom));  //use camera movement toward object for zoom in/out effects
 		_eimManipulate.translate(_eivCentroid);  // 5. translate back to the original camera pose
 		//_eimManipulate.scale(s);				 // 4. zoom in/out, never use scale to simulate camera movement, it affects z-buffer capturing. use translation instead
 		_eimManipulate.rotate(m);				 // 2. rotate vertically // 3. rotate horizontally

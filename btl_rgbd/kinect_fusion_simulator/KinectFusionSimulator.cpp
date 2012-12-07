@@ -391,7 +391,7 @@ int main ( int argc, char** argv ) {
 		//_pKinectSimulator->initKinect();
 
 		_pKinectSimulator.reset(new btl::kinect::VideoSourceKinectSimulator(_uResolution,_uPyrHeight,true,_eivCw));
-		_pCubicGrids.reset( new btl::geometry::CCubicGrids(64,3) );
+		_pCubicGrids.reset( new btl::geometry::CCubicGrids(256,3) );
 		init();
 		_pGL->constructVBOsPBOs();
 		//_pCubicGrids->gpuCreateVBO(_pGL.get());

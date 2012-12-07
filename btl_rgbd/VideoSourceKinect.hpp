@@ -74,7 +74,7 @@ protected:
 	void gpuFastNormalEstimationGL(const unsigned int& uLevel_, cv::gpu::GpuMat* pcvgmPts_, cv::gpu::GpuMat* pcvgmNls_ );
 	void buildPyramid(btl::utility::tp_coordinate_convention eConvention_ );
 	void gpuBuildPyramidCVm( );
-	void gpuBuildPyramidUseNICVm();
+	void gpuBuildPyramidUseNICVm(float fCutOffDistance_);
 	//for debug
 	void findRange(const cv::Mat& cvmMat_);
 	void findRange(const cv::gpu::GpuMat& cvgmMat_);
@@ -153,6 +153,8 @@ protected:
 	XnCallbackHandle _handle;
 	std::string _strDumpFileName;
 	int _nMode; 
+
+	float _fCutOffDistance;
 };//class VideoSourceKinect
 
 } //namespace kinect
