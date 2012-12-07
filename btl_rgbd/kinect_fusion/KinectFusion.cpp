@@ -41,9 +41,13 @@
 btl::kinect::VideoSourceKinect::tp_shared_ptr _pKinect;
 btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 btl::geometry::CKinFuTracker::tp_shared_ptr _pTracker;
+btl::geometry::CKinFuTracker::tp_shared_ptr _pTrackerICP;
 btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGrids;
+btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGridsICP;
 btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrameWorld;
+btl::kinect::CKeyFrame::tp_shared_ptr _pVirtualFrameWorldICP;
 btl::kinect::CKeyFrame::tp_shared_ptr _pForDisplay;
+btl::kinect::CKeyFrame::tp_shared_ptr _pKFrame;
 unsigned short _nWidth, _nHeight;
 
 bool _bContinuous = true;
@@ -72,6 +76,7 @@ int _nStatus = 3;//1 restart; 2 //recording continue 3://pause 4://dump
 bool _bDisplayImage = false;
 bool _bLightOn = false;
 bool _bRenderReference = false;
+bool _bViewLocked = true;
 std::string _strTrackingMethod("ICP");
 
 void loadFromYml(){
@@ -95,6 +100,11 @@ void loadFromYml(){
 	cFSRead["nRecordingTimeInSecond"] >> _nRecordingTimeInSecond;
 	cFSRead["nStatus"] >> _nStatus;
 	cFSRead["Tracking_Method"] >> _strTrackingMethod;
+	float fCamearCenterInWorldX,fCamearCenterInWorldY,fCamearCenterInWorldZ;
+	cFSRead["fCamearCenterInWorldX"] >> fCamearCenterInWorldX;
+	cFSRead["fCamearCenterInWorldY"] >> fCamearCenterInWorldY;
+	cFSRead["fCamearCenterInWorldZ"] >> fCamearCenterInWorldZ;
+	_eivCw(0) = fCamearCenterInWorldX; _eivCw(1) = fCamearCenterInWorldY; _eivCw(2) = fCamearCenterInWorldZ;
 	cFSRead.release();
 }
 
@@ -121,6 +131,12 @@ void saveToYml(){
 	cFSWrite << "nRecordingTimeInSecond" << _nRecordingTimeInSecond;
 	cFSWrite << "nStatus" << _nStatus;
 	cFSWrite << "Tracking_Method" << _strTrackingMethod;
+	float fCamearCenterInWorldX = _eivCw(0);
+	float fCamearCenterInWorldY = _eivCw(1);
+	float fCamearCenterInWorldZ = _eivCw(2);
+	cFSWrite << "fCamearCenterInWorldX" << fCamearCenterInWorldX;
+	cFSWrite << "fCamearCenterInWorldY" << fCamearCenterInWorldY;
+	cFSWrite << "fCamearCenterInWorldZ" << fCamearCenterInWorldZ;
 
 	cFSWrite.release();
 }
@@ -151,9 +167,9 @@ void init ( ){
 	glDepthFunc  ( GL_LESS );
 	glEnable     ( GL_DEPTH_TEST );
 	glEnable 	 ( GL_SCISSOR_TEST );
-	glEnable     ( GL_BLEND );
-	glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-	glShadeModel ( GL_FLAT );
+	//glEnable     ( GL_BLEND );
+	//glBlendFunc  ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	glShadeModel ( GL_SMOOTH );
 	glEnable ( GL_LINE_SMOOTH );
 	glEnable ( GL_POINT_SMOOTH );
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
@@ -167,6 +183,10 @@ void init ( ){
 	case btl::kinect::VideoSourceKinect::PLAYING_BACK: //replay from files
 		_pKinect->initPlayer(_oniFileName,_bRepeat);
 		break;
+	case btl::kinect::VideoSourceKinect::RECORDING: //record the captured sequence from the camera
+		_pKinect->setDumpFileName(_oniFileName);
+		_pKinect->initRecorder(_oniFileName,_nRecordingTimeInSecond);
+		break;
 	default://only simply capturing and playing back mode are allowed for efficiency requirements
 		_nMode = btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING;
 		_pKinect->initKinect();
@@ -176,6 +196,7 @@ void init ( ){
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
 	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 	_pForDisplay.reset(new btl::kinect::CKeyFrame(_pKinect->_pFrame.get()));
+	_pKFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pFrame.get()));
 	//initialize the cubic grids
 	_pCubicGrids.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
 	//initialize the tracker
@@ -197,6 +218,13 @@ void init ( ){
 	}
 	_pTracker->init(_pKinect->_pFrame.get());
 	_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
+	//initialize the tracker ICP
+	_pVirtualFrameWorldICP.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+	_pCubicGridsICP.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
+	_pTrackerICP.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGridsICP));
+	_pTrackerICP->setMethod(btl::geometry::CKinFuTracker::ICP);
+	_pTrackerICP->init(_pKinect->_pFrame.get());
+	_pTrackerICP->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 	return;
 }
 void specialKeys( int key, int x, int y ){
@@ -221,27 +249,45 @@ void normalKeys ( unsigned char key, int x, int y ){
 		glutPostRedisplay();
 		break;
     case 'r':
-		if (_nMode == btl::kinect::VideoSourceKinect::PLAYING_BACK)	{
+		/*if (_nMode == btl::kinect::VideoSourceKinect::PLAYING_BACK)	{
 			_pKinect->initPlayer(_oniFileName,_bRepeat);
 			_nStatus = btl::kinect::VideoSourceKinect::CONTINUE;
-		}
+		}*/
         //reset
 		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
 		_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+		_pVirtualFrameWorldICP.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 		//initialize the tracker
 		_pTracker->init(_pKinect->_pFrame.get());
 		_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
+		//
+		_pTrackerICP->init(_pKinect->_pFrame.get());
+		_pTrackerICP->setNextView(&_pGL->_eimModelViewGL);
+
         glutPostRedisplay();
         break;
-    case 'n':
-        //next step
-        glutPostRedisplay();
-        break;
+	case 'p'://pause/continue switcher for all 3 modes
+		if ((_nStatus&btl::kinect::VideoSourceKinect::MASK1) == btl::kinect::VideoSourceKinect::PAUSE){
+			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK1))|btl::kinect::VideoSourceKinect::CONTINUE;
+		}else if ((_nStatus&btl::kinect::VideoSourceKinect::MASK1) == btl::kinect::VideoSourceKinect::CONTINUE){
+			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK1))|btl::kinect::VideoSourceKinect::PAUSE;
+		}
+		glutPostRedisplay();
+		break;
     case 's':
+		_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::DUMP_RECORDING;
+		glutPostRedisplay();
         break;
     case 'c': 
 		//capture current view as a key frame
         _bCapture = !_bCapture;
+		if (_bCapture){
+			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::START_RECORDING;
+		}
+		else{
+			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::STOP_RECORDING;
+		}
+		glutPostRedisplay();
         break;
 	case 'd':
 		//remove last key frame
@@ -253,7 +299,8 @@ void normalKeys ( unsigned char key, int x, int y ){
 		break;
 	case '2':
 		//export volume debug images
-		printVolume();
+		//printVolume();
+		_bViewLocked = !_bViewLocked;
 		glutPostRedisplay();
 		break;
 	case '3':
@@ -269,6 +316,8 @@ void normalKeys ( unsigned char key, int x, int y ){
 		break;
 	case '0':
 		_pTracker->setNextView(&_pGL->_eimModelViewGL);
+		//
+		_pTrackerICP->setNextView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 		glutPostRedisplay();
 		break;
@@ -296,23 +345,25 @@ void display ( void ) {
 
 // update frame
     _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);//the current frame must be in camera coordinate
-	PRINTSTR("Contruct pyramid.");
-	_pGL->timerStop();
-
+	_pKinect->_pFrame->copyTo(&*_pKFrame);
 	_pKinect->_pFrame->copyTo(&*_pForDisplay);
+	//PRINTSTR("Contruct pyramid.");
+	//_pGL->timerStop();
 
-// ( second frame )
 	if ( _bCapture ){
 		_pTracker->track(&*_pKinect->_pFrame);
-		PRINTSTR("trackICP done.");
-		_pGL->timerStop();
-
-		_pTracker->setNextView(&_pGL->_eimModelViewGL);
-		_pGL->setInitialPos();
+		_pTrackerICP->track(&*_pKFrame);
+		//PRINTSTR("trackICP done.");
+		//_pGL->timerStop();
 	}//if( _bCapture )
+	else{
+		_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::STOP_RECORDING;
+	}
+
 	
 	
 ////////////////////////////////////////////////////////////////////
+
 // render 1st viewport
     glMatrixMode ( GL_MODELVIEW );
     glViewport ( 0, _nHeight/2, _nWidth/2, _nHeight/2 ); //lower left is the origin (0,0) and x and y are pointing toward right and up.
@@ -329,23 +380,13 @@ void display ( void ) {
 	_pForDisplay->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	
 	// render objects
-	/*ushort usViewIdxTmp = 0;
-	for( std::vector< btl::kinect::CKeyFrame::tp_shared_ptr* >::iterator cit = _vShrPtrsKF.begin(); cit!= _vShrPtrsKF.end(); cit++,usViewIdxTmp++ ) {
-		if (usViewIdxTmp == _usViewNO)
-			(**cit)->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,.1f,_pGL->_usLevel);
-		else
-			(**cit)->renderCameraInWorldCVCV(_pGL.get(),false,.05f,_pGL->_usLevel);
-		(**cit)->render3DPtsInWorldCVCV(_pGL.get(), _pGL->_usLevel, _usColorIdx, false );
-	}*/
-	//_pKinect->_pFrame->renderCameraInWorldCVGL2( _pGL.get(), _pGL->_bDisplayCamera, true, .1f,_pGL->_usPyrLevel );
-
 	{
 		_pGL->renderAxisGL();
-		_pGL->renderPatternGL(.1f,20.f,20.f);
-		_pGL->renderPatternGL(1.f,10.f,10.f);
+		_pGL->renderPatternGL(.1f,20,20);
+		_pGL->renderPatternGL(1.f,10,10);
 		_pGL->renderVoxelGL(3.f);
 	}
-	
+
 ////////////////////////////////////////////////////////////////////
 // render 2nd viewport
     glViewport ( _nWidth/2, _nHeight/2, _nWidth/2, _nHeight/2 );
@@ -363,8 +404,8 @@ void display ( void ) {
 #else
 	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 #endif
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],0.2f );
-	
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
+/*	
 ///////////////////////////////////////////////////////////////////
 // render 3rd viewport
 	
@@ -382,21 +423,36 @@ void display ( void ) {
 #else
 	_pKinect->_pRGBCamera->LoadTexture(*pPrevKF->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 #endif
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pTracker->prevFrame()->_acvmShrPtrPyrRGBs[_pGL->_usLevel],0.2f );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
 
-/*
-	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
-	glScissor  ( 0, 0, _nWidth/2, _nHeight/2 );
-	_pGL->viewerGL();
-	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-	_pCubicGrids->gpuRenderVoxelInWorldCVGL();*/
-
+	float aColor[4] = {0.f,1.f,0.f,1.f};
+	switch(_nMode){ 
+	case btl::kinect::VideoSourceKinect::RECORDING:
+		_pGL->drawString("Recorder", 5, _nHeight/2-20, aColor, GLUT_BITMAP_8_BY_13);
+		if ( (_nStatus&btl::kinect::VideoSourceKinect::MASK_RECORDER) == btl::kinect::VideoSourceKinect::CONTINUE_RECORDING ){
+			float aColor[4] = {1.f,0.f,0.f,1.f};
+			_pGL->drawString("Recording...", 5, _nHeight/2-40, aColor, GLUT_BITMAP_8_BY_13);
+		}
+		break;
+	case btl::kinect::VideoSourceKinect::PLAYING_BACK:
+		_pGL->drawString("Player", 5, _nHeight/2-20, aColor, GLUT_BITMAP_8_BY_13);
+		break;
+	case btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING:
+		_pGL->drawString("Simple", 5, _nHeight/2-20, aColor, GLUT_BITMAP_8_BY_13);
+		break;
+	}
+	*/
 ////////////////////////////////////////////////////////////////////
 // render 4th viewport
-	glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
-	glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
+	glViewport ( 0, 0, _nWidth/2, _nHeight/2 );
+	glScissor  ( 0, 0, _nWidth/2, _nHeight/2 );
+	//glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
+	//glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
 	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
+	if (_bViewLocked){
+		_pTracker->setPrevView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
+	}
 	_pGL->viewerGL();
 	//glClearColor(1, 0, 0, 0);
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -411,51 +467,84 @@ void display ( void ) {
 	//_pPrevFrameWorld->setView(&_pGL->_eimModelViewGL);
 	{
 		_pGL->renderAxisGL();
-		_pGL->renderPatternGL(.1f,20.f,20.f);
-		_pGL->renderPatternGL(1.f,10.f,10.f);
-		_pGL->renderVoxelGL(3.f);
+		_pGL->renderPatternGL(.1f,20,20);
+		_pGL->renderPatternGL(1.f,10,10);
+		_pGL->renderVoxelGL(_fVolumeSize);
 		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
 	}
-	float aColor[4] = {1.f,0.f,0.f,1.f};
+	float aColor[4] = {0.f,1.f,0.f,1.f};
+	_pGL->drawString("Proposed Approach", 5, _nHeight/2-20, aColor, GLUT_BITMAP_8_BY_13);
 
-	_pGL->drawString("Test", 1, 1, aColor, GLUT_BITMAP_8_BY_13);
+	if (!_strTrackingMethod.compare("ICP")){
+		float aColor[4] = {0.f,1.f,0.f,1.f};
+		_pGL->drawString("ICP", 5, 10, aColor, GLUT_BITMAP_8_BY_13);
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		float aColor[4] = {0.f,1.f,0.f,1.f};
+		_pGL->drawString("ORBICP", 5, 10, aColor, GLUT_BITMAP_8_BY_13);
+	}
+	else if(!_strTrackingMethod.compare("SURF")){
+		float aColor[4] = {0.f,1.f,0.f,1.f};
+		_pGL->drawString("SURF", 5, 10, aColor, GLUT_BITMAP_8_BY_13);
+	}
+	else if(!_strTrackingMethod.compare("ORB")){
+		float aColor[4] = {0.f,1.f,0.f,1.f};
+		_pGL->drawString("ORB", 5, 10, aColor, GLUT_BITMAP_8_BY_13);
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		float aColor[4] = {0.f,1.f,0.f,1.f};
+		_pGL->drawString("ORBICP", 5, 10, aColor, GLUT_BITMAP_8_BY_13);
+	}
+////////////////////////////////////////////////////////////////////
+// render 5th viewport
+	//glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight );
+	//glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight );
+	glViewport ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
+	glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
+	if (_bViewLocked){
+		_pTrackerICP->setPrevView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
+	}
+	_pGL->viewerGL();
+	//glClearColor(1, 0, 0, 0);
+	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	_pVirtualFrameWorldICP->assignRTfromGL();
+	_pCubicGridsICP->gpuRaycast(&*_pVirtualFrameWorldICP); //get virtual frame
+	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
+	//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + "1.yml";
+	//_pPrevFrameWorld->exportYML(strPath,strFileName);
+	//_pPrevFrameWorld->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	_pVirtualFrameWorldICP->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	//_pPrevFrameWorld->setView(&_pGL->_eimModelViewGL);
+	{
+		_pGL->renderAxisGL();
+		_pGL->renderPatternGL(.1f,20,20);
+		_pGL->renderPatternGL(1.f,10,10);
+		_pGL->renderVoxelGL(_fVolumeSize);
+		//_pGL->renderOctTree(0.f,0.f,0.f,3.f,1); this is very slow when the level of octree is deep.
+	}
+	_pGL->drawString("KinectFusion", 5, _nHeight/2-20, aColor, GLUT_BITMAP_8_BY_13);
+	_pGL->drawString("ICP", 5, 10, aColor, GLUT_BITMAP_8_BY_13);
+
 /*
 	stringstream ss;
 	ss << "FBO: ";
-	if(fboUsed)
-		ss << "on" << ends;
-	else
-		ss << "off" << ends;
-
-	drawString(ss.str().c_str(), 1, screenHeight-TEXT_HEIGHT, color, font);
-	ss.str(""); // clear buffer
-
-	ss << std::fixed << std::setprecision(3);
 	ss << "Render-To-Texture Time: " << renderToTextureTime << " ms" << ends;
-	drawString(ss.str().c_str(), 1, screenHeight-(2*TEXT_HEIGHT), color, font);
-	ss.str("");
 	ss << std::resetiosflags(std::ios_base::fixed | std::ios_base::floatfield);
 */
 	
 	glutSwapBuffers();
     if ( _bContinuous ) {
         glutPostRedisplay();
-		_bContinuous = false;
+		//_bContinuous = false;
     }
 }
 
 void reshape ( int nWidth_, int nHeight_ ) {
-    //cout << "reshape() " << endl;
-    //_pKinect->_pRGBCamera->setGLProjectionMatrix ( 1, 0.01, 100 );
-
-    //// setup blending
-    // glBlendFunc ( GL_SRC_ALPHA, GL_ONE );			// Set The Blending Function For Translucency
-    //glColor4f ( 1.0f, 1.0f, 1.0f, 0.5 );
-
-    unsigned short nTemp = nWidth_ / 8; //make sure that _nWidth is divisible to 4
-    _nWidth = nTemp * 8;
-    _nHeight = nTemp * 6; //3
-    glutReshapeWindow ( int ( _nWidth ), int ( _nHeight ) );
+	_nHeight = nHeight_;
+	_nWidth = nWidth_;
     return;
 }
 
@@ -463,7 +552,7 @@ int main ( int argc, char** argv ) {
     try {
         glutInit ( &argc, argv );
         glutInitDisplayMode ( GLUT_DOUBLE | GLUT_RGB );
-        glutInitWindowSize ( 1280, 960 ); //480
+        glutInitWindowSize (1000,750 );//1280, 480 ); //480
         glutCreateWindow ( "CameraPose" );
 		GLenum eError = glewInit();
 		if (GLEW_OK != eError){
@@ -482,7 +571,6 @@ int main ( int argc, char** argv ) {
 
 		init();
 		
-		//_pCubicGrids->gpuCreateVBO(_pGL.get());
 		glutMainLoop();
 		_pGL->destroyVBOsPBOs();
 	}

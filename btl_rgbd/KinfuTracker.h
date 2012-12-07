@@ -19,6 +19,8 @@ namespace btl{ namespace geometry
 		void init(btl::kinect::CKeyFrame::tp_ptr pKeyFrame_);
 		void track( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
 		void setNextView( Eigen::Matrix4f* pSystemPose_ );
+		void setPrevView( Eigen::Matrix4f* pSystemPose_ ) const;
+
 		btl::kinect::CKeyFrame::tp_ptr prevFrame() const{ return _pPrevFrameWorld.get();}
 	protected:
 		//ICP approach
@@ -38,7 +40,6 @@ namespace btl{ namespace geometry
 		void trackSURFICP( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
 		//Brox optical flow
 		void initBroxOpticalFlow( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
-
 		CCubicGrids::tp_shared_ptr _pCubicGrids;
 		btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrameWorld;
 

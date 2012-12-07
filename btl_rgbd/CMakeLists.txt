@@ -77,6 +77,7 @@ install( TARGETS CudaLib   DESTINATION "${PROJECT_SOURCE_DIR}/lib" )
 add_executable( TestBtlRgbd ${TESTERS} )
 target_link_libraries( TestBtlRgbd ${OpenCV_LIBS} freeglut BtlRgbd CudaLib ) #${Boost_DATE_TIME_LIBRARY})#
 
+include("kinect_fusion_qglviewer/CMakeLists.txt")
 include("kinect_liveview/CMakeLists.txt")
 include("kinect_fusion/CMakeLists.txt")
 include("render_normal/CMakeLists.txt")

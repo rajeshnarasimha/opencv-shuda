@@ -7,8 +7,8 @@ fVolumeSize: 3.
 bDisplayImage: 0
 bLightOn: 0
 bRenderReference: 0
-nMode: 3
-oniFile: "end.oni"
-bRepeat: 0
+nMode: 2 
+oniFile: "GroundFloorAndChairs.oni"
+bRepeat: 1
 nRecordingTimeInSecond: 30
 nStatus: 17

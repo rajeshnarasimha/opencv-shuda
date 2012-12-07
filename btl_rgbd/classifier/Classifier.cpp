@@ -48,6 +48,7 @@ int _nDensity = 2;
 
 bool _bCaptureCurrentFrame = true;
 float _fThreshold = 0.02;
+int _nStatus;
 
 void specialKeys( int key, int x, int y ){
 	_pGL->specialKeys( key, x, y );
@@ -121,7 +122,7 @@ void display ( void )
 	//load data from video source and model
 	if( _bCaptureCurrentFrame )	
 	{
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
 		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
 		_pKinect->_pFrame->gpuBoundaryDetector(_fThreshold,_pGL->_usLevel);
 	}
@@ -136,8 +137,8 @@ void display ( void )
 	
     // render objects
     _pGL->renderAxisGL();
-	_pGL->renderPatternGL(.1f,20.f,20.f);
-	_pGL->renderPatternGL(1.f,10.f,10.f);
+	_pGL->renderPatternGL(.1f,20,20);
+	_pGL->renderPatternGL(1.f,10,10);
 	_pGL->renderVoxelGL(4.f);
 	//_pGL->timerStart();
 	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
@@ -162,7 +163,7 @@ void display ( void )
     _pGL->renderAxisGL();
 	//render3DPts();
 	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], *_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel] );
+	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel] );
 
     glutSwapBuffers();
 	glutPostRedisplay();
@@ -191,7 +192,7 @@ void init ( ){
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
 	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
 	
 	_pGL->init();
@@ -218,7 +219,7 @@ int main ( int argc, char** argv ){
         glutDisplayFunc ( display );
 		_pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();
-		_pKinect.reset(new btl::kinect::VideoSourceKinect(1,3,true,1.5f,1.5f,-0.3f));
+		_pKinect.reset(new btl::kinect::VideoSourceKinect(1,3,true,Eigen::Vector3f(1.5f,1.5f,-0.3f)));
 		init();
 		_pGL->constructVBOsPBOs();
 		glutMainLoop();

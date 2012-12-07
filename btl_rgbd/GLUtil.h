@@ -57,7 +57,9 @@ public:
 	void createPBO(const unsigned int uRows_, const unsigned int uCols_, const unsigned short usChannel_, const unsigned short usBytes_, GLuint* puPBO_, cudaGraphicsResource** ppResourcePixelBO_, GLuint* pTexture_);
 	void releasePBO( GLuint uPBO_,cudaGraphicsResource *pResourcePixelBO_ );
 	void constructVBOsPBOs();
+	void constructVBOsPBOs(ushort usLevel_);
 	void destroyVBOsPBOs();
+	void destroyVBOsPBOs(ushort usLevel_);
 	void gpuMapPtResources(const cv::gpu::GpuMat& cvgmPts_, const ushort usPyrLevel_);
 	void gpuMapNlResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);
 	void gpuMapRGBResources(const cv::gpu::GpuMat& cvgmNls_, const ushort usPyrLevel_);

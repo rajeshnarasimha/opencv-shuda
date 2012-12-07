@@ -57,6 +57,13 @@ boost::shared_ptr<cv::gpu::SURF_GPU> btl::kinect::CKeyFrame::_pSurf;
 boost::shared_ptr<cv::gpu::ORB_GPU>  btl::kinect::CKeyFrame::_pOrb;
 boost::shared_ptr<cv::gpu::BroxOpticalFlow>  btl::kinect::CKeyFrame::_pBroxOpticalFlow;
 
+boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_pcvgmPrev;
+boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_pcvgmCurr;
+boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_pcvgmU;
+boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_pcvgmV;
+
+cv::gpu::GpuMat cvgmTest,cvgmTmp;
+
 btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_/*float fCwX_, float fCwY_, float fCwZ_*/ )
 :_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_),_eivInitCw(eivCw_){
 	allocate();
@@ -345,6 +352,38 @@ double btl::kinect::CKeyFrame::gpuCalcRTBroxOpticalFlow ( const CKeyFrame& sPrev
 	return 0;
 }
 
+void btl::kinect::CKeyFrame::gpuBroxOpticalFlow (const CKeyFrame& sPrevFrameWorld_, cv::gpu::GpuMat* pcvgmColorGraph_){
+	sPrevFrameWorld_._acvgmShrPtrPyrBWs[0]->convertTo(*_pcvgmPrev,cv::DataType<float>::type);
+	_acvgmShrPtrPyrBWs[0]->convertTo(*_pcvgmCurr,cv::DataType<float>::type);
+	//calc the brox optical flow
+	(*_pBroxOpticalFlow)(*_pcvgmPrev,*_pcvgmCurr,*_pcvgmU,*_pcvgmV);
+	//calc the color graph
+	gpuConvert2ColorGraph( &*_pcvgmU, &*_pcvgmV, &*pcvgmColorGraph_ );
+	//translate magnitude to range [0;1]	return;
+}
+
+void btl::kinect::CKeyFrame::gpuConvert2ColorGraph( cv::gpu::GpuMat* pcvgmU_, cv::gpu::GpuMat* pcvgmV_, cv::gpu::GpuMat* pcvgmColorGraph_ )
+{
+	//calc the color graph
+	//initialize two GpuMat but reuse the input U and V;
+	cv::gpu::GpuMat cvgmMag(pcvgmU_->size(),pcvgmU_->type(),pcvgmU_->data);
+	cv::gpu::GpuMat cvgmAngle(pcvgmV_->size(),pcvgmV_->type(),pcvgmV_->data);
+	//transform to polar 
+	cv::gpu::cartToPolar(*pcvgmU_,*pcvgmV_,cvgmMag,cvgmAngle,true);
+
+	//translate magnitude to range [0;1]
+	double mag_max;	cv::gpu::minMaxLoc(cvgmMag, 0, &mag_max);
+	cvgmMag.convertTo(cvgmMag,-1,1.0/mag_max);
+
+	cv::gpu::GpuMat cvgmHSV(pcvgmU_->size(),pcvgmU_->type(),_pcvgmPrev->data);	cv::gpu::GpuMat cvgmOnes(pcvgmU_->size(),pcvgmU_->type(),_pcvgmCurr->data);	cvgmOnes.setTo(1.f);
+
+	//build hsv image
+	std::vector<cv::gpu::GpuMat> vcvgmHSV;	vcvgmHSV.push_back(cvgmAngle);	vcvgmHSV.push_back(cvgmOnes);	vcvgmHSV.push_back(cvgmMag);	cv::gpu::merge(vcvgmHSV,cvgmHSV);
+	//convert to BGR and show
+	cv::gpu::cvtColor(cvgmHSV,cvgmOnes,cv::COLOR_HSV2BGR);//cvgmBGR is CV_32FC3 matrix
+	cvgmOnes.convertTo(*pcvgmColorGraph_,CV_8UC3,255);
+}
+
 double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_) {
 	// - The reference frame must contain a calibrated Rw and Tw. 
 	// - The point cloud in the reference frame must be transformed into the world coordinate system.
@@ -626,19 +665,34 @@ void btl::kinect::CKeyFrame::render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr 
 } 
 void btl::kinect::CKeyFrame::gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_){
 
-	if( pGL_ && pGL_->_bEnableLighting ){glEnable(GL_LIGHTING); /* glEnable(GL_TEXTURE_2D);*/}
+	if( pGL_ && pGL_->_bEnableLighting ){
+		glEnable(GL_LIGHTING); /* glEnable(GL_TEXTURE_2D);*/
+		float shininess = 15.0f;
+		float diffuseColor[3] = {0.8f, 0.8f, 0.8f};
+		float specularColor[4] = {.2f, 0.2f, 0.2f, 1.0f};
+		// set specular and shiniess using glMaterial (gold-yellow)
+		glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess); // range 0 ~ 128
+		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specularColor);
+		// set ambient and diffuse color using glColorMaterial (gold-yellow)
+		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+		glColor3fv(diffuseColor);
+	}
 	else                            	{glDisable(GL_LIGHTING);/* glEnable(GL_TEXTURE_2D);*/}
-	glPointSize(0.1f*(usPyrLevel_+1)*20);
+	glPointSize(0.1f*(usPyrLevel_+1)*20.f);
 	if (usPyrLevel_ >= _uPyrHeight) return;
-
+	//glEnableClientState(GL_VERTEX_ARRAY);
+	//glEnableClientState(GL_NORMAL_ARRAY);
+	//glEnableClientState(GL_COLOR_ARRAY);
+	
 	pGL_->gpuMapPtResources(*_acvgmShrPtrPyrPts[usPyrLevel_],usPyrLevel_);
 	pGL_->gpuMapNlResources(*_acvgmShrPtrPyrNls[usPyrLevel_],usPyrLevel_);
-	pGL_->gpuMapRGBResources(*_acvgmShrPtrPyrRGBs[usPyrLevel_],usPyrLevel_);
+	if(!pGL_->_bEnableLighting) pGL_->gpuMapRGBResources(*_acvgmShrPtrPyrRGBs[usPyrLevel_],usPyrLevel_);
 	glDrawArrays(GL_POINTS, 0, btl::kinect::__aKinectWxH[usPyrLevel_] );
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
-
+	if(!pGL_->_bEnableLighting) glDisableClientState(GL_COLOR_ARRAY);
+	glBindBuffer( GL_ARRAY_BUFFER, 0 );// it's crucially important for program correctness, it return the buffer to opengl rendering system.
+	
 }//gpuRenderVoxelInWorldCVGL()
 void btl::kinect::CKeyFrame::gpuRender3DPtsInLocalCVGL(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usColorIdx_, const unsigned short uLevel_, const bool bRenderPlane_) const {
 	//////////////////////////////////
@@ -790,10 +844,10 @@ void btl::kinect::CKeyFrame::renderCameraInWorldCVCV( btl::gl_util::CGLUtil::tp_
 	else					{ glColor3d( 1, 1, 1 );glLineWidth(1); }
 #if USE_PBO
 		if(bRenderCamera_) pGL_->gpuMapRgb2PixelBufferObj(*_acvgmShrPtrPyrRGBs[pGL_->_usLevel],pGL_->_usLevel);
-		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[pGL_->_usLevel],*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
+		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[pGL_->_usLevel], dSize_, bRenderCamera_);
 #else 
 		if(bRenderCamera_) _pRGBCamera->LoadTexture(*_acvmShrPtrPyrRGBs[uLevel_],&pGL_->_auTexture[pGL_->_usLevel]);
-		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[pGL_->_usLevel],*_acvmShrPtrPyrRGBs[uLevel_], dSize_, bRenderCamera_);
+		_pRGBCamera->renderCameraInGLLocal ( pGL_->_auTexture[pGL_->_usLevel], dSize_, bRenderCamera_);
 #endif	
 	glPopMatrix();
 }

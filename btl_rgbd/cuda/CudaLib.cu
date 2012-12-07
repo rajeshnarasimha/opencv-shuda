@@ -11,6 +11,8 @@
 #include "pcl/limits.hpp"
 #include "pcl/device.hpp"
 #include <vector>
+//#include "../KeyFrame.h"
+//#include <boost/shared_ptr.hpp>
 
 namespace btl{ namespace device
 {
@@ -57,25 +59,26 @@ void cudaDepth2Disparity( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pc
 	cudaSafeCall ( cudaGetLastError () );
 }//cudaDepth2Disparity
 
-__global__ void kernelInverse2(const cv::gpu::DevMem2Df cvgmIn_, cv::gpu::DevMem2Df cvgmOut_){
+__global__ void kernelInverse2(const cv::gpu::DevMem2Df cvgmIn_, float fCutOffDistance_, cv::gpu::DevMem2Df cvgmOut_){
     const int nX = blockDim.x * blockIdx.x + threadIdx.x;
     const int nY = blockDim.y * blockIdx.y + threadIdx.y;
 	if (nX >= cvgmIn_.cols && nY >= cvgmIn_.rows) return;
-	if(fabsf(cvgmIn_.ptr(nY)[nX]) > 0.f )
+	if(fabsf(cvgmIn_.ptr(nY)[nX]) > 0.f && cvgmIn_.ptr(nY)[nX] < fCutOffDistance_ )
 		cvgmOut_.ptr(nY)[nX] = 1000.f/cvgmIn_.ptr(nY)[nX];
 	else
 		cvgmOut_.ptr(nY)[nX] = pcl::device::numeric_limits<float>::quiet_NaN();
 }//kernelInverse
 
-void cudaDepth2Disparity2( const cv::gpu::GpuMat& cvgmDepth_, cv::gpu::GpuMat* pcvgmDisparity_ ){
+void cudaDepth2Disparity2( const cv::gpu::GpuMat& cvgmDepth_, float fCutOffDistance_, cv::gpu::GpuMat* pcvgmDisparity_ ){
 	//convert the depth from mm to m
 	//not necessary as pcvgmDisparity has been allocated in VideoSourceKinect()
 	//pcvgmDisparity_->create(cvgmDepth_.size(),CV_32F);
 	//define grid and block
+	fCutOffDistance_ *= 1000.f; 
 	dim3 block(32, 8);
     dim3 grid(cv::gpu::divUp(cvgmDepth_.cols, block.x), cv::gpu::divUp(cvgmDepth_.rows, block.y));
 	//run kernel
-	kernelInverse2<<<grid,block>>>( cvgmDepth_,*pcvgmDisparity_ );
+	kernelInverse2<<<grid,block>>>( cvgmDepth_,fCutOffDistance_,*pcvgmDisparity_ );
 	cudaSafeCall ( cudaGetLastError () );
 }//cudaDepth2Disparity
 
@@ -150,7 +153,7 @@ __global__ void kernelTransformIR2RGBCVmCVm(const cv::gpu::DevMem2D_<float3> cvg
 
 	float3& rgbWorld = cvgmRGBWorld_.ptr(nY)[nX];
 	const float3& irWorld  = cvgmIRWorld_ .ptr(nY)[nX];
-	if( 0.4f < irWorld.z && irWorld.z < 4.f ) {
+	if( 0.4f < irWorld.z && irWorld.z < 10.f ) {
 		//_aR[0] [1] [2] //row major
 		//   [3] [4] [5]
 		//   [6] [7] [8]
@@ -189,7 +192,7 @@ __global__ void kernelProjectRGBCVmCVm(const cv::gpu::DevMem2D_<float3> cvgmRGBW
 	// cvgmAligned_ must be preset to zero;
 	if (nX >= cvgmRGBWorld_.cols || nY >= cvgmRGBWorld_.rows) return;
 	const float3& rgbWorld = cvgmRGBWorld_.ptr(nY)[nX];
-	if( 0.4f < rgbWorld.z  &&  rgbWorld.z  < 4.f ){
+	if( 0.4f < rgbWorld.z  &&  rgbWorld.z  < 10.f ){
 		// get 2D image projection in RGB image of the XYZ in the world
 		int nXAligned = __float2int_rn( _aRGBCameraParameter[0] * rgbWorld.x / rgbWorld.z + _aRGBCameraParameter[2] );
 		int nYAligned = __float2int_rn( _aRGBCameraParameter[1] * rgbWorld.y / rgbWorld.z + _aRGBCameraParameter[3] );
@@ -302,12 +305,12 @@ __global__ void kernelPyrDown (const cv::gpu::DevMem2Df cvgmSrc_, cv::gpu::DevMe
     const int D = 5;
 
     float center = cvgmSrc_.ptr (2 * y)[2 * x];
-	if( center!=center ){
+	if( isnan<float>(center) ){//center!=center ){
 		cvgmDst_.ptr (y)[x] = pcl::device::numeric_limits<float>::quiet_NaN();
 		return;
 	}//if center is NaN
-    int tx = min (2 * x - D / 2 + D, cvgmSrc_.cols - 1);
-    int ty = min (2 * y - D / 2 + D, cvgmSrc_.rows - 1);
+    int tx = min (2 * x - D / 2 + D, cvgmSrc_.cols - 1); //ensure tx <= cvgmSrc.cols-1
+    int ty = min (2 * y - D / 2 + D, cvgmSrc_.rows - 1); //ensure ty <= cvgmSrc.rows-1
     int cy = max (0, 2 * y - D / 2);
 
     float sum = 0;
@@ -320,7 +323,7 @@ __global__ void kernelPyrDown (const cv::gpu::DevMem2Df cvgmSrc_, cv::gpu::DevMe
 			sum += val;
 			++count;
         } //if within 3*fSigmaColor_
-    }//for each pixel in the neighbourhood
+    }//for each pixel in the neighbourhood 5x5
     cvgmDst_.ptr (y)[x] = sum / count;
 }//kernelPyrDown()
 void cudaPyrDown (const cv::gpu::GpuMat& cvgmSrc_, const float& fSigmaColor_, cv::gpu::GpuMat* pcvgmDst_)
@@ -341,7 +344,7 @@ __global__ void kernelUnprojectRGBCVmCVm (const cv::gpu::DevMem2Df cvgmDepths_, 
 	float3& pt = cvgmPts_.ptr(nY)[nX];
 	const float fDepth = cvgmDepths_.ptr(nY)[nX];
 
-	if( 0.4f < fDepth && fDepth < 4.f ){
+	if( 0.4f < fDepth && fDepth < 10.f ){
 		pt.z = fDepth;
 		pt.x = ( nX*uScale_  - _aRGBCameraParameter[2] ) * _aRGBCameraParameter[0] * pt.z; //_aRGBCameraParameter[0] is 1.f/fFxRGB_
 		pt.y = ( nY*uScale_  - _aRGBCameraParameter[3] ) * _aRGBCameraParameter[1] * pt.z; 

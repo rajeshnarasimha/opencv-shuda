@@ -63,6 +63,7 @@ bool _bRenderPlane = true;
 bool _bRenderDepth = true;
 ushort _usViewNO = 0;
 ushort _usPlaneNO = 0;
+int _nStatus;
 
 btl::kinect::CKeyFrame::tp_cluster _enumType = btl::kinect::CKeyFrame::NORMAL_CLUSTER;
 
@@ -194,7 +195,8 @@ void display ( void )
 	_pGL->errorDetectorGL();
 	if(/*_bContinuous &&*/ _bCaptureCurrentFrame) 
 	{
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+		int nStatus;
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&nStatus);
 		for (ushort u=0;u<_pKinect->_uPyrHeight;u++){
 			_pKinect->_pFrame->gpuDetectPlane(u);
 			_pKinect->_pFrame->gpuTransformToWorldCVCV(u);
@@ -276,7 +278,7 @@ void init ( ){
     glShadeModel ( GL_FLAT );
     glPixelStorei( GL_UNPACK_ALIGNMENT, 1);
 	_pGL->_usLevel=0;
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV);
+	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
 	_pKinect->_pFrame->_bGPURender = _bRenderDepth;
 	_pKinect->_pFrame->_bRenderPlane = true;
 	for (ushort u=0;u<_pKinect->_uPyrHeight;u++){
@@ -311,7 +313,7 @@ int main ( int argc, char** argv ){
 		
 		_pGL.reset( new btl::gl_util::CGLUtil(1,3,btl::utility::BTL_CV) );
 		_pGL->setCudaDeviceForGLInteroperation();//initialize before using any cuda component
-		_pKinect.reset( new btl::kinect::VideoSourceKinect(1,3,true,1.5f,1.5f,-0.3f) );
+		_pKinect.reset( new btl::kinect::VideoSourceKinect(1,3,true,Eigen::Vector3f(1.5f,1.5f,-0.3f) ) );
 		
 		init();
 		_pGL->constructVBOsPBOs();

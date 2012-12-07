@@ -118,9 +118,10 @@ namespace btl{ namespace geometry
 		}//if current frame moved
 		return;
 	} //trackICP()
-
-	void CKinFuTracker::setNextView( Eigen::Matrix4f* pSystemPose_ )
-	{
+	void CKinFuTracker::setPrevView( Eigen::Matrix4f* pSystemPose_ ) const{
+		_pPrevFrameWorld->setView(&*pSystemPose_);
+	}
+	void CKinFuTracker::setNextView( Eigen::Matrix4f* pSystemPose_ ){
 		_uViewNO = ++_uViewNO % _veimPoses.size(); 
 		*pSystemPose_ = _veimPoses[_uViewNO];
 	}
