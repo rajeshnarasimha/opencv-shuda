@@ -4,6 +4,8 @@
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/gpu/gpu.hpp"
+#include "Fast.h"
+#include "Orb.h"                                    
 
 using namespace std;
 using namespace cv;
@@ -22,30 +24,29 @@ void help()
 
 int main(int argc, char* argv[])
 {
-    if (argc != 3)
+    /*if (argc != 3)
     {
         help();
         return -1;
-    }
-	cv::Mat cvImg1 = imread(argv[1], CV_LOAD_IMAGE_GRAYSCALE);
-	cv::Mat cvImg2 = imread(argv[2], CV_LOAD_IMAGE_GRAYSCALE);
+    }*/
+	cv::Mat cvImg1 = imread(/*argv[1]*/"rgb0.bmp", CV_LOAD_IMAGE_GRAYSCALE);
+	cv::Mat cvImg2 = imread(/*argv[2]*/"rgb1.bmp", CV_LOAD_IMAGE_GRAYSCALE);
     GpuMat img1(cvImg1);
     GpuMat img2(cvImg2);
-    if (img1.empty() || img2.empty())
-    {
+    if (img1.empty() || img2.empty()) {
         cout << "Can't read one of the images" << endl;
         return -1;
     }
 
 
-	ORB_GPU orb(200,2.0,4,10,1,2,0,31);
+	btl::image::CORB orb(200,2.0,4,10,1,2,0,31);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
     GpuMat descriptors1GPU, descriptors2GPU;
 
-    orb(img1, GpuMat(), keypoints1GPU, descriptors1GPU); 
-	orb(img2, GpuMat(), keypoints2GPU, descriptors2GPU);
+    orb(img1, GpuMat(), &keypoints1GPU, &descriptors1GPU); 
+	orb(img2, GpuMat(), &keypoints2GPU, &descriptors2GPU);
 
     cout << "FOUND " << keypoints1GPU.cols << " keypoints on first image" << endl;
     cout << "FOUND " << keypoints2GPU.cols << " keypoints on second image" << endl;
@@ -55,8 +56,8 @@ int main(int argc, char* argv[])
     vector<float> descriptors1, descriptors2;
     vector<DMatch> matches;
 	
-	orb.downloadKeyPoints(keypoints1GPU, keypoints1);
-	orb.downloadKeyPoints(keypoints2GPU, keypoints2);
+	orb.downloadKeyPoints(keypoints1GPU, &keypoints1);
+	orb.downloadKeyPoints(keypoints2GPU, &keypoints2);
 
 	BruteForceMatcher_GPU<HammingLUT> matcher;  
 	matcher.match(descriptors1GPU, descriptors2GPU, matches);  

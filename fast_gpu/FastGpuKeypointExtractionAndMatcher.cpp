@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
     vector<float> descriptors1, descriptors2;
     vector<DMatch> matches;
 	
-	fast.downloadKeypoints(keypoints1GPU,keypoints1);
+	fast.downloadKeypoints(keypoints1GPU, keypoints1);
 	fast.downloadKeypoints(keypoints2GPU, keypoints2);
 
 	cv::Mat forDisplay1,forDisplay2;

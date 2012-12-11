@@ -47,6 +47,7 @@ message(STATUS "cuda sources names: ${CUDASOURCES}")
 file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h"  "cuda/cv/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.h")
 message(STATUS "cuda sources names: ${CUDAHEADERS}")
 
+set( CUDA_NVCC_FLAGS "-arch=sm_21" ) #allow atomicAdd operators
 cuda_add_library( CudaLib ${CUDASOURCES} ${CUDAHEADERS} )
 add_library( BtlRgbd ${SOURCES} ${HEADERS} )
  
