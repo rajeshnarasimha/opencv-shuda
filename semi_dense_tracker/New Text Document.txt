@@ -1,0 +1,17 @@
+
+	Color = cvgmImage_.ptr(r-3)[c  ];//1
+	Color = cvgmImage_.ptr(r-3)[c+1];//2
+	Color = cvgmImage_.ptr(r-2)[c+2];//3
+	Color = cvgmImage_.ptr(r-1)[c+3];//4
+	Color = cvgmImage_.ptr(r  )[c+3];//5
+	Color = cvgmImage_.ptr(r+1)[c+3];//6
+	Color = cvgmImage_.ptr(r+2)[c+2];//7
+	Color = cvgmImage_.ptr(r+3)[c+1];//8
+	Color = cvgmImage_.ptr(r+3)[c  ];//9
+	Color= cvgmImage_.ptr(r+3)[c-1];//10
+	Color= cvgmImage_.ptr(r+2)[c-2];//11
+	Color= cvgmImage_.ptr(r+1)[c-3];//12
+	Color= cvgmImage_.ptr(r  )[c-3];//13
+	Color= cvgmImage_.ptr(r-1)[c-3];//14
+	Color= cvgmImage_.ptr(r-2)[c-2];//15
+	Color= cvgmImage_.ptr(r-3)[c-1];//16

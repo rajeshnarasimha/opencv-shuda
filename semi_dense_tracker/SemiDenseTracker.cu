@@ -1,7 +1,9 @@
-#include "opencv2/gpu/gpumat.hpp"
-#include "opencv2/gpu/device/common.hpp"
-#include "opencv2/gpu/device/utility.hpp"
-#include "opencv2/gpu/device/functional.hpp"
+#include <thrust/sort.h>
+
+#include <opencv2/gpu/gpumat.hpp>
+#include <opencv2/gpu/device/common.hpp>
+#include <opencv2/gpu/device/utility.hpp>
+#include <opencv2/gpu/device/functional.hpp>
 
 #define GRAY
 
@@ -279,13 +281,65 @@ unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned 
     return uCount;
 
 }
+__device__ float devGetFastDescriptor(const cv::gpu::DevMem2D_<uchar3>& cvgmImage_, const int r, const int c, int4* pDescriptor_ ){
+	pDescriptor_->x = pDescriptor_->y = pDescriptor_->z = pDescriptor_->w = 0;
+	uchar3 Color;
+	Color = cvgmImage_.ptr(r-3)[c  ];//1
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->x << 8;
+	Color = cvgmImage_.ptr(r-3)[c+1];//2
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->x << 8;
+	Color = cvgmImage_.ptr(r-2)[c+2];//3
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->x << 8;
+	Color = cvgmImage_.ptr(r-1)[c+3];//4
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
 
+
+	Color = cvgmImage_.ptr(r  )[c+3];//5
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->y << 8;
+	Color = cvgmImage_.ptr(r+1)[c+3];//6
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->y << 8;
+	Color = cvgmImage_.ptr(r+2)[c+2];//7
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->y << 8;
+	Color = cvgmImage_.ptr(r+3)[c+1];//8
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+
+	Color = cvgmImage_.ptr(r+3)[c  ];//9
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->z << 8;
+	Color= cvgmImage_.ptr(r+3)[c-1];//10
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->z << 8;
+	Color= cvgmImage_.ptr(r+2)[c-2];//11
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->z << 8;
+	Color= cvgmImage_.ptr(r+1)[c-3];//12
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	
+	Color= cvgmImage_.ptr(r  )[c-3];//13
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->w << 8;
+	Color= cvgmImage_.ptr(r-1)[c-3];//14
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->w << 8;
+	Color= cvgmImage_.ptr(r-2)[c-2];//15
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->w << 8;
+	Color= cvgmImage_.ptr(r-3)[c-1];//16
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // kernelNonMaxSupression
 // supress all other corners in 3x3 area only keep the strongest corner
 //
-__global__ void kernelNonMaxSupression(const short2* ps2KeyPointLoc_,const int nCount_, const cv::gpu::PtrStepSzi cvgmScore_, short2* ps2LocFinal_, float* pfResponseFinal_)
+__global__ void kernelNonMaxSupression(const cv::gpu::DevMem2D_<uchar3> cvgmImage_, const short2* ps2KeyPointLoc_,const int nCount_, const cv::gpu::PtrStepSzi cvgmScore_, short2* ps2LocFinal_, float* pfResponseFinal_)
 {
     #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 110)
 
@@ -314,13 +368,16 @@ __global__ void kernelNonMaxSupression(const short2* ps2KeyPointLoc_,const int n
             const unsigned int nIdx = atomicInc(&_devuCounter, (unsigned int)(-1));
             ps2LocFinal_[nIdx] = s2Location;
             pfResponseFinal_[nIdx] = fScore;
+			/*int4 f4Descriptor;
+			devGetFastDescriptor(cvgmImage_,s2Location.y,s2Location.x,&f4Descriptor );
+			pf4devDescriptor_[nIdx] = f4Descriptor;*/
         }
     }
 
     #endif
 }
 
-unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_){
+unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_){
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
 
@@ -330,7 +387,7 @@ unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, 
 
     cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
 
-    kernelNonMaxSupression<<<grid, block>>>(cvgmKeyPointLocation_.ptr<short2>(), uMaxSalientPoints_, cvgmSaliency_, ps2devLocations_, pfdevResponse_);
+    kernelNonMaxSupression<<<grid, block>>>(cvgmImage_, cvgmKeyPointLocation_.ptr<short2>(), uMaxSalientPoints_, cvgmSaliency_, ps2devLocations_, pfdevResponse_);
     cudaSafeCall( cudaGetLastError() );
     cudaSafeCall( cudaDeviceSynchronize() );
 
@@ -339,6 +396,16 @@ unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, 
 
     return uFinalCount;
 }
+
+void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_)
+{
+    thrust::device_ptr<short2> loc_ptr(pnLoc_);
+    thrust::device_ptr<float> response_ptr(pfResponse_);
+    thrust::sort_by_key(response_ptr, response_ptr + nCorners_, loc_ptr, thrust::greater<float>());
+    return;
+}
+
+
 
 }//semidense
 }//device
