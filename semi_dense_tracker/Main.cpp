@@ -20,7 +20,9 @@ namespace btl{ namespace device{ namespace semidense{
 	//for debug
 	void cudaCalcMinDiameterContrast(const cv::gpu::GpuMat& cvgmImage_, cv::gpu::GpuMat* pcvgmContrast_);
 	unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned char ucContrastThreshold_, const float& fSaliencyThreshold_, cv::gpu::GpuMat* pcvgmSaliency_, cv::gpu::GpuMat* pcvgmKeyPointLocations_);
-	unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_);
+	unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_);
+	//sort
+	void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
 }//semidense
 }//device
 }//btl
@@ -29,13 +31,24 @@ enum
 {
 	LOCATION_ROW = 0,
 	RESPONSE_ROW,
-	ROWS_COUNT
+	VELOCITY_ROW,
+	AGE_ROW,
+	DESCRIPTOR_ROW1,
+	DESCRIPTOR_ROW2,
+	DESCRIPTOR_ROW3,
+	DESCRIPTOR_ROW4
 };
+//#define  WEB_CAM
 int main ( int argc, char** argv )
 {
     //opencv cpp style
-    cv::VideoCapture cap ( 1 ); // 0: open the default camera
+#ifdef WEB_CAM
+	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
+#else
+	cv::VideoCapture cap ( "VTreeTrunk.avi" ); 
+#endif
+    
 
     if ( !cap.isOpened() ) // check if we succeeded
     {
@@ -43,6 +56,7 @@ int main ( int argc, char** argv )
     }
 
     cv::Mat cvmColorFrame;
+	cv::Mat cvmGrayFrame;
 	cap >> cvmColorFrame; // get a new frame from camera
 	cv::Mat cvmSaliency;
 
@@ -61,12 +75,14 @@ int main ( int argc, char** argv )
 	float fSaliencyThreshold = 0.25;
 	
 	//# of Max key points
-	unsigned int uMaxKeyPoints = 5000;
+	unsigned int uMaxKeyPoints = 50000;
 	//key point locations
 	cv::gpu::GpuMat cvgmKeyPointLocation(1, uMaxKeyPoints, CV_16SC2);
 	unsigned int uTotalSalientPoints = 0;
 	//opencv key points
-	cv::gpu::GpuMat cvgmKeyPoints(3, uMaxKeyPoints, CV_32FC1) ;
+	cv::gpu::GpuMat cvgmKeyPoints(4+16, uMaxKeyPoints, CV_32FC1) ;//short2 location; float corner strength(response); float velocity; int age; 16 byte feature descriptor
+	cv::Mat cvmKeyPoints;
+	cvgmKeyPoints.setTo(0);
 	unsigned int uFinalSalientPoints = 0;
     cv::namedWindow ( "Tracker", 1 );
     for ( ;; ){
@@ -80,15 +96,32 @@ int main ( int argc, char** argv )
 		//1.compute the saliency score
 		uTotalSalientPoints = btl::device::semidense::cudaCalcSaliency(cvgmBuffer, ucContrastThresold, fSaliencyThreshold, &cvgmSaliency, &cvgmKeyPointLocation);
 		uTotalSalientPoints = std::min( uTotalSalientPoints, uMaxKeyPoints );
-		//2.do a non-max suppression
-		uFinalSalientPoints = btl::device::semidense::cudaNonMaxSupression(cvgmKeyPointLocation, uTotalSalientPoints, cvgmSaliency, cvgmKeyPoints.ptr<short2>(LOCATION_ROW), cvgmKeyPoints.ptr<float>(RESPONSE_ROW));
+		//2.do a non-max suppression and initialize particles ( extract feature descriptors )
+		uFinalSalientPoints = btl::device::semidense::cudaNonMaxSupression(cvgmBuffer,cvgmKeyPointLocation, uTotalSalientPoints, cvgmSaliency, cvgmKeyPoints.ptr<short2>(LOCATION_ROW), cvgmKeyPoints.ptr<float>(RESPONSE_ROW) );
 		uFinalSalientPoints = std::min( uFinalSalientPoints, uTotalSalientPoints );
-		//3.initialize particles
+		//3.sort all salient points according to their strength
+		btl::device::semidense::thrustSort(cvgmKeyPoints.ptr<short2>(LOCATION_ROW),cvgmKeyPoints.ptr<float>(RESPONSE_ROW),uFinalSalientPoints);
+		uFinalSalientPoints = 1000;
+		//, cvgmKeyPoints.ptr<int4>(DESCRIPTOR_ROW1)
+
+
+		//4.predict and match
+		//btl::device::semidense::cudaPredictAndMatch(cvgmKeyPoints,)
+
 
 		cvgmSaliency.convertTo(cvgmBufferC1,CV_8UC1,255);
 		//display the frame
-		cvgmBufferC1.download(cvmColorFrame);
-        imshow ( "Tracker", cvmColorFrame );
+		cvgmBufferC1.download(cvmGrayFrame);
+		//render keypoints
+		cvgmKeyPoints.download(cvmKeyPoints);
+		cv::cvtColor(cvmGrayFrame,cvmColorFrame,CV_GRAY2RGB);
+		for (unsigned int i=0;i<uFinalSalientPoints; i++)
+		{
+			short2 s2Loc = cvmKeyPoints.ptr<short2>(LOCATION_ROW)[i];
+			cv::circle(cvmColorFrame,cv::Point(s2Loc.x,s2Loc.y),2,cv::Scalar(0,0,255.));
+		}
+	
+		imshow ( "Tracker", cvmColorFrame );
 		//interactions
         if ( cv::waitKey ( 30 ) >= 0 ){
             break;

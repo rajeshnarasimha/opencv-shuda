@@ -1,6 +1,5 @@
 
 #include <thrust/sort.h>
-//#include <thrust/reduce.h>
 
 #include "opencv2/gpu/device/common.hpp"
 #include "opencv2/gpu/device/utility.hpp"
