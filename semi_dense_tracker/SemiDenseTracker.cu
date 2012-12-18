@@ -217,7 +217,7 @@ __device__ float devCalcMinDiameterContrast(const cv::gpu::DevMem2D_<uchar3>& cv
 }
 // given two pixels in the diameter
 // is it smaller than MinContrast? if yes, then MinContrast will be updated
-__device__ void devUpdateMinContrast2( const uchar3& uc3Color1_, const uchar3& uc3Color2_, const uchar3& uc3Center_, float* pfMinContrast_){
+__device__ void devUpdateMinContrastColor( const uchar3& uc3Color1_, const uchar3& uc3Color2_, const uchar3& uc3Center_, float* pfMinContrast_){
 	float fM = -1.f;
 	float fC;
 	fC = .5f * abs( 2.f * uc3Center_.x - uc3Color1_.x - uc3Color2_.x );
@@ -238,45 +238,46 @@ __device__ float devCalcMinDiameterContrast2(const cv::gpu::DevMem2D_<uchar3>& c
 
 	Color1 = cvgmImage_.ptr(r-3)[c  ];//1
 	Color2 = cvgmImage_.ptr(r+3)[c  ];//9
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 	
 	Color1 = cvgmImage_.ptr(r-3)[c+1];//2
 	Color2 = cvgmImage_.ptr(r+3)[c-1];//10
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	Color1 = cvgmImage_.ptr(r-2)[c+2];//3
 	Color2 = cvgmImage_.ptr(r+2)[c-2];//11
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	Color1 = cvgmImage_.ptr(r-1)[c+3];//4
 	Color2 = cvgmImage_.ptr(r+1)[c-3];//12
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	Color1 = cvgmImage_.ptr(r  )[c+3];//5
 	Color2 = cvgmImage_.ptr(r  )[c-3];//13
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	Color1 = cvgmImage_.ptr(r+1)[c+3];//6
 	Color2 = cvgmImage_.ptr(r-1)[c-3];//14
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	Color1 = cvgmImage_.ptr(r+2)[c+2];//7
 	Color2 = cvgmImage_.ptr(r-2)[c-2];//15
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	Color1 = cvgmImage_.ptr(r+3)[c+1];//8
 	Color2 = cvgmImage_.ptr(r-3)[c-1];//16
-	devUpdateMinContrast2( Color1, Color2, Center, &fConMin );
+	devUpdateMinContrastColor( Color1, Color2, Center, &fConMin );
 
 	return fConMin;
 }
 
 __global__ void kernelCalcMinDiameterContrast(const cv::gpu::DevMem2D_<uchar3> cvgmImage_, cv::gpu::DevMem2D_<float> cvgmContrast_ ){
-	const int c = threadIdx.x + blockIdx.x * blockDim.x + 3;
-    const int r = threadIdx.y + blockIdx.y * blockDim.y + 3;
+	const int c = threadIdx.x + blockIdx.x * blockDim.x;
+    const int r = threadIdx.y + blockIdx.y * blockDim.y;
+	if( c < 0 || c >= cvgmImage_.cols || r < 0 || r >= cvgmImage_.rows ) return; //falling out the image
+	if( c < 3 || c > cvgmImage_.cols - 4 || r < 3 || r > cvgmImage_.rows - 4 ) { cvgmContrast_.ptr(r)[c] = 0.f; return;} // brim
 
-	if( c < 3 || c > cvgmImage_.cols - 4 || r < 3 || r > cvgmImage_.rows - 4 ) return;
-	cvgmContrast_.ptr(r)[c] = devCalcMinDiameterContrast2(cvgmImage_, r, c );
+	cvgmContrast_.ptr(r)[c] = devCalcMinDiameterContrast2(cvgmImage_, r, c );  //effective domain
 }
 
 void cudaCalcMinDiameterContrast(const cv::gpu::GpuMat& cvgmImage_, cv::gpu::GpuMat* pcvgmContrast_){
@@ -287,18 +288,19 @@ void cudaCalcMinDiameterContrast(const cv::gpu::GpuMat& cvgmImage_, cv::gpu::Gpu
     grid.y = cv::gpu::divUp(cvgmImage_.rows - 6, block.y);
 
 	kernelCalcMinDiameterContrast<<<grid, block>>>(cvgmImage_, *pcvgmContrast_);
-
 }
 
 __device__ unsigned int _devuCounter = 0;
 
 __global__ void kernelCalcSaliency(const cv::gpu::DevMem2D_<uchar3> cvgmImage_, const unsigned char ucContrastThreshold_, const float fSaliencyThreshold_, 
 	cv::gpu::DevMem2D_<float> cvgmSaliency_, cv::gpu::DevMem2D_<short2> cvgmKeyPointLocations_){
-	const int c = threadIdx.x + blockIdx.x * blockDim.x + 3;
-    const int r = threadIdx.y + blockIdx.y * blockDim.y + 3;
+	const int c = threadIdx.x + blockIdx.x * blockDim.x;
+    const int r = threadIdx.y + blockIdx.y * blockDim.y;
 
-	if( c < 3 || c > cvgmImage_.cols - 4 || r < 3 || r > cvgmImage_.rows - 4 ) return;
+	if( c < 0 || c >= cvgmImage_.cols || r < 0 || r >= cvgmImage_.rows ) return; //falling out the image
 	float& fSaliency = cvgmSaliency_.ptr(r)[c];
+
+	if( c < 3 || c > cvgmImage_.cols - 4 || r < 3 || r > cvgmImage_.rows - 4 ) { fSaliency = 0.f; return;} // brim
 
 	float fMaxContrast = devCalcMaxContrast(cvgmImage_, r, c );
 	//fSaliency = fMaxContrast;
@@ -338,7 +340,62 @@ unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned 
     return uCount;
 }
 
+
 __device__ void devGetFastDescriptor(const cv::gpu::DevMem2D_<uchar3>& cvgmImage_, const int r, const int c, int4* pDescriptor_ ){
+	pDescriptor_->x = pDescriptor_->y = pDescriptor_->z = pDescriptor_->w = 0;
+	uchar3 Color;
+	Color = cvgmImage_.ptr(r-3)[c  ];//1
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->x = pDescriptor_->x << 8;
+	Color = cvgmImage_.ptr(r-6)[c+2];//2 B6
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->x = pDescriptor_->x << 8;
+	Color = cvgmImage_.ptr(r-2)[c+2];//3
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->x = pDescriptor_->x << 8;
+	Color = cvgmImage_.ptr(r-2)[c+6];//4 B6
+	pDescriptor_->x += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+
+
+	Color = cvgmImage_.ptr(r  )[c+3];//5
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->y = pDescriptor_->y << 8;
+	Color = cvgmImage_.ptr(r+2)[c+6];//6 B6
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->y = pDescriptor_->y << 8;
+	Color = cvgmImage_.ptr(r+2)[c+2];//7
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->y = pDescriptor_->y << 8;
+	Color = cvgmImage_.ptr(r+6)[c+2];//8 B6
+	pDescriptor_->y += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+
+	Color = cvgmImage_.ptr(r+3)[c  ];//9
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->z = pDescriptor_->z << 8;
+	Color= cvgmImage_.ptr(r+6)[c-2];//10 B6
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->z = pDescriptor_->z << 8;
+	Color= cvgmImage_.ptr(r+2)[c-2];//11
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->z = pDescriptor_->z << 8;
+	Color= cvgmImage_.ptr(r+2)[c-6];//12 B6
+	pDescriptor_->z += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	
+	Color= cvgmImage_.ptr(r  )[c-3];//13
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->w = pDescriptor_->w << 8;
+	Color= cvgmImage_.ptr(r-2)[c-6];//14 B6
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->w = pDescriptor_->w << 8;
+	Color= cvgmImage_.ptr(r-2)[c-2];//15
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	pDescriptor_->w = pDescriptor_->w << 8;
+	Color= cvgmImage_.ptr(r-6)[c-2];//16 B6
+	pDescriptor_->w += static_cast<uchar>((Color.x + Color.y + Color.z)/3.f); 
+	return;
+}
+
+__device__ void devGetFastDescriptor1(const cv::gpu::DevMem2D_<uchar3>& cvgmImage_, const int r, const int c, int4* pDescriptor_ ){
 	pDescriptor_->x = pDescriptor_->y = pDescriptor_->z = pDescriptor_->w = 0;
 	uchar3 Color;
 	Color = cvgmImage_.ptr(r-3)[c  ];//1
@@ -396,41 +453,48 @@ __device__ void devGetFastDescriptor(const cv::gpu::DevMem2D_<uchar3>& cvgmImage
 // kernelNonMaxSupression
 // supress all other corners in 3x3 area only keep the strongest corner
 //
-__global__ void kernelNonMaxSupression(const cv::gpu::DevMem2D_<uchar3> cvgmImage_, const short2* ps2KeyPointLoc_,const int nCount_, cv::gpu::PtrStepSzf cvgmScore_, short2* ps2LocFinal_, float* pfResponseFinal_)
+__global__ void kernelNonMaxSupression(const short2* ps2KeyPointLoc_,const int nCount_,const cv::gpu::PtrStepSzf cvgmScore_, short2* ps2LocFinal_, float* pfResponseFinal_)
 {
     const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (nKeyPointIdx < nCount_)
-    {
-        short2 s2Location = ps2KeyPointLoc_[nKeyPointIdx];
+    if (nKeyPointIdx >= nCount_) return;
+    short2 s2Location = ps2KeyPointLoc_[nKeyPointIdx];
 
-        float& fScore = cvgmScore_(s2Location.y, s2Location.x);
-		//check whether the current corner is the max in 3x3 local area
-        bool bIsMax =
-            fScore > cvgmScore_(s2Location.y - 1, s2Location.x - 1) &&
-            fScore > cvgmScore_(s2Location.y - 1, s2Location.x    ) &&
-            fScore > cvgmScore_(s2Location.y - 1, s2Location.x + 1) &&
+    const float& fScore = cvgmScore_(s2Location.y, s2Location.x);
+	//check whether the current corner is the max in 3x3 local area
+    bool bIsMax =
+        fScore > cvgmScore_(s2Location.y - 1, s2Location.x - 1) &&
+        fScore > cvgmScore_(s2Location.y - 1, s2Location.x    ) &&
+        fScore > cvgmScore_(s2Location.y - 1, s2Location.x + 1) &&
 
-            fScore > cvgmScore_(s2Location.y    , s2Location.x - 1) &&
-            fScore > cvgmScore_(s2Location.y    , s2Location.x + 1) &&
+        fScore > cvgmScore_(s2Location.y    , s2Location.x - 1) &&
+        fScore > cvgmScore_(s2Location.y    , s2Location.x + 1) &&
 
-            fScore > cvgmScore_(s2Location.y + 1, s2Location.x - 1) &&
-            fScore > cvgmScore_(s2Location.y + 1, s2Location.x    ) &&
-            fScore > cvgmScore_(s2Location.y + 1, s2Location.x + 1);
+        fScore > cvgmScore_(s2Location.y + 1, s2Location.x - 1) &&
+        fScore > cvgmScore_(s2Location.y + 1, s2Location.x    ) &&
+        fScore > cvgmScore_(s2Location.y + 1, s2Location.x + 1);
 
-        if (bIsMax){
-            const unsigned int nIdx = atomicInc(&_devuCounter, (unsigned int)(-1));
-            ps2LocFinal_[nIdx] = s2Location;
-            pfResponseFinal_[nIdx] = fScore;
-        }
-		else{
-			fScore = 0.f;
-		}
+    if (bIsMax){
+        const unsigned int nIdx = atomicInc(&_devuCounter, (unsigned int)(-1));
+        ps2LocFinal_[nIdx] = s2Location;
+        pfResponseFinal_[nIdx] = fScore;
     }
+	/*else{
+		fScore = 0.f;
+	}*/
 	return;
 }
-
-unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, cv::gpu::GpuMat* pcvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_){
+/*
+input:
+ cvgmKeyPointLocation_: 1 row array of key point (salient point) locations
+ uMaxSalientPoints_: the total # of salient points 
+ pcvgmSaliency_: store the frame of saliency score
+returned values
+ ps2devLocations_: store the non-max supressed key point (salient point) locations
+ pfdevResponse_: store the non-max supressed key point (sailent point) strength score
+*/
+unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, 
+	const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_){
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
 
@@ -440,7 +504,7 @@ unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmImage_, const cv::g
 
     cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
 
-    kernelNonMaxSupression<<<grid, block>>>(cvgmImage_, cvgmKeyPointLocation_.ptr<short2>(), uMaxSalientPoints_, *pcvgmSaliency_, ps2devLocations_, pfdevResponse_);
+    kernelNonMaxSupression<<<grid, block>>>(cvgmKeyPointLocation_.ptr<short2>(), uMaxSalientPoints_, cvgmSaliency_, ps2devLocations_, pfdevResponse_);
     cudaSafeCall( cudaGetLastError() );
     cudaSafeCall( cudaDeviceSynchronize() );
 
@@ -487,7 +551,6 @@ __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_){
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_){
 	return make_short2(s2O1_.x - s2O2_.x,s2O1_.y - s2O2_.y);
 }
-
 __device__ short2 operator * (const float fO1_, const short2 s2O2_){
 	return make_short2( __float2int_rn(fO1_* s2O2_.x),__float2int_rn( fO1_ * s2O2_.y));
 }
@@ -495,68 +558,55 @@ __device__ short2 operator * (const float fO1_, const short2 s2O2_){
 
 
 __device__ float dL1(const int4& n4Descriptor1_, const int4& n4Descriptor2_){
-	return 255.f;
-}
-
-__device__ float devMatch(short2* ps2Loc_, const cv::gpu::DevMem2D_<uchar3>& cvgmImage_, const cv::gpu::DevMem2D_<float>& cvgmScore_, int4* pn4Descriptor_){
-	float fResponse = 0.f;
-	short2 s2Loc;
-	float fMinDist = 300.f;
-	for(short r = -3; r < 4; r++ )
-	for(short c = -3; c < 4; c++ ){
-		s2Loc = *ps2Loc_ + make_short2( c, r ); 
-		fResponse = cvgmScore_.ptr(s2Loc.y)[s2Loc.x];
-		if( fResponse > 0 ){
-			int4 n4Des; 
-			devGetFastDescriptor(cvgmImage_,s2Loc.y,s2Loc.x,&n4Des);
-			float fDist = dL1(n4Des,*pn4Descriptor_);
-			if ( fDist < 76 ){
-				if (  fMinDist > fDist ){
-					fMinDist = fDist;
-					*pn4Descriptor_ = n4Des;
-				}
-			}
-		}//if sailent corner exits
-	}//for for
-	if(fMinDist < 300.f)
-		return fResponse;
-	else
-		return -1.f;
-}
-
-__global__ void kernerlPredictAndMatch(const unsigned int uMaxSailentPoints_, const cv::gpu::DevMem2D_<uchar3> cvgmImage_,const cv::gpu::DevMem2D_<float> cvgmScore_, short2* ps2KeyPointLoc_, short2* ps2ParticlesVelocity_, int4* pn4Descriptor_, uchar* pucAge_, float* pfResponse_ ){
-	const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
-	if (nKeyPointIdx >= uMaxSailentPoints_) return;
-	//predict the next position
-	short2 s2PredictNewLoc = ps2KeyPointLoc_[nKeyPointIdx] + ps2ParticlesVelocity_[nKeyPointIdx];
-	float fResponse = devMatch( &s2PredictNewLoc, cvgmImage_, cvgmScore_, &(pn4Descriptor_[nKeyPointIdx]));
-	if( fResponse > 0 ){
-		ps2ParticlesVelocity_[nKeyPointIdx] = s2PredictNewLoc - ps2KeyPointLoc_[nKeyPointIdx];//update velocity
-		pucAge_[nKeyPointIdx] ++;//update age
-		ps2KeyPointLoc_[nKeyPointIdx] = s2PredictNewLoc;//update location
-		pfResponse_[nKeyPointIdx] = fResponse;//update response
+	float fDist = 0.f;
+	uchar uD1,uD2;
+	for (uchar u=0; u < 4; u++){
+		uD1 = (n4Descriptor1_.x >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.x >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.y >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.y >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.z >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.z >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.w >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.w >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
 	}
-	else{
-		pfResponse_[nKeyPointIdx] = 0.f;
-		atomicInc(&_devuCounter, (unsigned int)(-1));
-	}//lost
-	return;
+	fDist /= 16.f;
+	return fDist;
 }
-unsigned int cudaPredictAndMatch(const unsigned int uFinalSalientPoints_, const cv::gpu::GpuMat& cvgmImage_,const cv::gpu::GpuMat& cvgmSaliency_, cv::gpu::GpuMat& cvgmFinalKeyPointsLocations_,cv::gpu::GpuMat& cvgmFinalKeyPointsResponse_,cv::gpu::GpuMat& cvgmParticlesAge_,cv::gpu::GpuMat& cvgmParticlesVelocity_, cv::gpu::GpuMat& cvgmParticlesDescriptors_){
-	void* pCounter;
-    cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
-	cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
-	dim3 block(256);
-    dim3 grid;
-    grid.x = cv::gpu::divUp(uFinalSalientPoints_, block.x);
 
-	kernerlPredictAndMatch<<<grid, block>>>(uFinalSalientPoints_, cvgmImage_, cvgmSaliency_, cvgmFinalKeyPointsLocations_.ptr<short2>(), cvgmParticlesVelocity_.ptr<short2>(), cvgmParticlesDescriptors_.ptr<int4>(), cvgmParticlesAge_.ptr<uchar>(), cvgmFinalKeyPointsResponse_.ptr<float>() );
-    cudaSafeCall( cudaGetLastError() );
-    cudaSafeCall( cudaDeviceSynchronize() );
-
-    unsigned int uDeleted ;
-    cudaSafeCall( cudaMemcpy(&uDeleted, pCounter, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
-	return uDeleted;
+__device__ float devMatch(const float& fMatchThreshold_, const int4& n4Descriptor_, const cv::gpu::DevMem2D_<uchar3>& cvgmImage_, const cv::gpu::DevMem2D_<float>& cvgmScore_,short2* ps2Loc_){
+	float fResponse = 0.f;
+	float fBestMatchedResponse;
+	short2 s2Loc,s2BestLoc;
+	float fMinDist = 300.f;
+	//search for the 7x7 neighbourhood for 
+	for(short r = -3; r < 4; r++ )
+		for(short c = -3; c < 4; c++ ){
+			s2Loc = *ps2Loc_ + make_short2( c, r ); 
+			fResponse = cvgmScore_.ptr(s2Loc.y)[s2Loc.x];
+			if( fResponse > 0 ){
+				int4 n4Des; 
+				devGetFastDescriptor(cvgmImage_,s2Loc.y,s2Loc.x,&n4Des);
+				float fDist = dL1(n4Des,n4Descriptor_);
+				if ( fDist < fMatchThreshold_ ){
+					if (  fMinDist > fDist ){
+						fMinDist = fDist;
+						fBestMatchedResponse = fResponse;
+						s2BestLoc = s2Loc;
+					}
+				}
+			}//if sailent corner exits
+		}//for for
+		if(fMinDist < 300.f){
+			*ps2Loc_ = s2BestLoc;
+			return fBestMatchedResponse;
+		}
+		else
+			return -1.f;
 }
 
 __global__ void kernerlCollectParticles( const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, cv::gpu::DevMem2D_<float> cvgmParticleResponses_){
@@ -566,7 +616,13 @@ __global__ void kernerlCollectParticles( const short2* ps2KeyPointsLocations_, c
 	const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
 	cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
 }
-
+/*
+collect all key points and key point response and set a frame of saliency frame
+input values:
+  ps2KeyPointsLocations_: 
+returned values:
+  pcvgmParticleResponses_: a frame of saliency response
+*/
 void cudaCollectParticles(const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, cv::gpu::GpuMat* pcvgmParticleResponses_){
 	dim3 block(256);
     dim3 grid;
@@ -574,6 +630,10 @@ void cudaCollectParticles(const short2* ps2KeyPointsLocations_, const float* pfK
 	kernerlCollectParticles<<<grid, block>>>( ps2KeyPointsLocations_, pfKeyPointsResponse_, uTotalParticles_, *pcvgmParticleResponses_);
 	return;
 }
+
+
+__device__ unsigned int _devuNewlyAddedCounter = 0;
+
 
 class CPredictAndMatch{
 public:
@@ -589,29 +649,37 @@ public:
 
 	float _fRho;
 
-
+	float _fMatchThreshold;
 
 	__device__ __forceinline__ void operator () (){
-		const int c = threadIdx.x + blockIdx.x * blockDim.x + 3;
-		const int r = threadIdx.y + blockIdx.y * blockDim.y + 3;
+		const int c = threadIdx.x + blockIdx.x * blockDim.x;
+		const int r = threadIdx.y + blockIdx.y * blockDim.y;
 
-		if( c < 3 || c > _cvgmBlurredPrev.cols - 4 || r < 3 || r > _cvgmBlurredPrev.rows - 4 ) return;
+		if( c < 3 || c >= _cvgmBlurredPrev.cols - 4 || r < 3 || r >= _cvgmBlurredPrev.rows - 4 ) return;
+
 		//if IsParticle( PixelLocation, cvgmParitclesResponse(i) )
-		if(_cvgmParticleResponsesPrev.ptr(r)[c] > 0.2f){
-			//A) PredictLocation = PixelLocation + ParticleVelocity(i, PixelLocation);
-			short2 s2PredictLoc = make_short2(c,r) + _cvgmParticlesVelocityPrev.ptr(r)[c];
-			//B) ActualLocation = Match(PredictLocation, cvgmBlurred(i),cvgmBlurred(i+1));
+		if(_cvgmParticleResponsesPrev.ptr(r)[c] < 0.2f) return;
+		//A) PredictLocation = PixelLocation + ParticleVelocity(i, PixelLocation);
+		short2 s2PredictLoc = make_short2(c,r);// + _cvgmParticlesVelocityPrev.ptr(r)[c];
+		//B) ActualLocation = Match(PredictLocation, cvgmBlurred(i),cvgmBlurred(i+1));
+		if (s2PredictLoc.x >=12 && s2PredictLoc.x < _cvgmBlurredPrev.cols-13 && s2PredictLoc.y >=12 && s2PredictLoc.y < _cvgmBlurredPrev.rows-13)
+		{
 			int4 n4DesPrev;	devGetFastDescriptor(_cvgmBlurredPrev,r,c,&n4DesPrev);
-			float fResponse = devMatch( &s2PredictLoc, _cvgmBlurredCurr, _cvgmParticleResponsesCurr, &n4DesPrev );
+			float fResponse = devMatch( _fMatchThreshold, n4DesPrev, _cvgmBlurredCurr, _cvgmParticleResponsesCurr, &s2PredictLoc );
 		
 			if( fResponse > 0 ){
-				_cvgmParticlesVelocityCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - _cvgmParticlesVelocityPrev.ptr(r)[c]) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
-				_cvgmParticlesAgeCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = _cvgmParticlesAgePrev.ptr(s2PredictLoc.y)[s2PredictLoc.x] + 1; //update age
+				atomicInc(&_devuNewlyAddedCounter, (unsigned int)(-1));//deleted particle counter increase by 1
+
+				_cvgmParticlesVelocityCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
+				_cvgmParticlesAgeCurr.ptr     (s2PredictLoc.y)[s2PredictLoc.x] = _cvgmParticlesAgePrev.ptr(s2PredictLoc.y)[s2PredictLoc.x] + 1; //update age
 				_cvgmParticleResponsesCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = -fResponse; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
 			}
 			else{//C) if no match found 
 				atomicInc(&_devuCounter, (unsigned int)(-1));//deleted particle counter increase by 1
 			}//lost
+		}
+		else{
+			atomicInc(&_devuCounter, (unsigned int)(-1));//deleted particle counter increase by 1
 		}
 		return;
 	}
@@ -622,7 +690,7 @@ public:
 __global__ void kernelPredictAndMatch(CPredictAndMatch cPAM_){
 	cPAM_ ();
 }
-unsigned int cudaTrack(const cv::gpu::GpuMat& cvgmBlurredPrev_, const cv::gpu::GpuMat& cvgmParticleResponsesPrev_,const cv::gpu::GpuMat& cvgmParticlesAgePrev_,const cv::gpu::GpuMat& cvgmParticlesVelocityPrev_, const cv::gpu::GpuMat& cvgmBlurredCurr_,cv::gpu::GpuMat* pcvgmParticleResponsesCurr_,cv::gpu::GpuMat* pcvgmParticlesAgeCurr_,cv::gpu::GpuMat* pcvgmParticlesVelocityCurr_){
+unsigned int cudaTrack(float fMatchThreshold_, const cv::gpu::GpuMat& cvgmBlurredPrev_, const cv::gpu::GpuMat& cvgmParticleResponsesPrev_,const cv::gpu::GpuMat& cvgmParticlesAgePrev_,const cv::gpu::GpuMat& cvgmParticlesVelocityPrev_, const cv::gpu::GpuMat& cvgmBlurredCurr_,cv::gpu::GpuMat* pcvgmParticleResponsesCurr_,cv::gpu::GpuMat* pcvgmParticlesAgeCurr_,cv::gpu::GpuMat* pcvgmParticlesVelocityCurr_){
 	dim3 block(32,8);
 	dim3 grid;
 	grid.x = cv::gpu::divUp(cvgmBlurredPrev_.cols - 6, block.x); //6 is the size-1 of the Bresenham circle
@@ -640,10 +708,15 @@ unsigned int cudaTrack(const cv::gpu::GpuMat& cvgmBlurredPrev_, const cv::gpu::G
 	cPAM._cvgmParticlesAgeCurr = *pcvgmParticlesAgeCurr_;
 
 	cPAM._fRho = .75f;
+	cPAM._fMatchThreshold = fMatchThreshold_;
 
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
 	cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
+
+	void* pCounterMatch;
+    cudaSafeCall( cudaGetSymbolAddress(&pCounterMatch, _devuNewlyAddedCounter) );
+	cudaSafeCall( cudaMemset(pCounterMatch, 0, sizeof(unsigned int)) );
 
 	kernelPredictAndMatch<<<grid, block>>>(cPAM);
 	cudaSafeCall( cudaGetLastError() );
@@ -651,13 +724,14 @@ unsigned int cudaTrack(const cv::gpu::GpuMat& cvgmBlurredPrev_, const cv::gpu::G
 
     unsigned int uDeleted ;
     cudaSafeCall( cudaMemcpy(&uDeleted, pCounter, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
+	unsigned int uMatched ;
+    cudaSafeCall( cudaMemcpy(&uMatched, pCounterMatch, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
 	return uDeleted;
 }
 
 
-__device__ unsigned int _devuNewlyAddedCounter = 0;
 
-struct SMatchCollectionAndNonMaxSupression{
+struct SMatchedAndNewlyAddedKeyPointsCollection{
 	
 	cv::gpu::DevMem2D_<float> _cvgmScore;
 	
@@ -678,49 +752,27 @@ struct SMatchCollectionAndNonMaxSupression{
 		short2 s2Location = _ps2KeyPointLocation[nKeyPointIdx];
 		float& fScore = _cvgmScore(s2Location.y, s2Location.x);
 		//if the pixel has been identified as matched, store it as the keypoint
-		if(fScore < 0){
+		if(fScore < 0.f){
 			const unsigned int nIdx = atomicInc(&_devuCounter, (unsigned int)(-1));
 			_ps2MatchedKeyPointLocation[nIdx] = s2Location;
 			_pfMatchedKeyPointResponse[nIdx] = -fScore;
-			_cvgmScore(s2Location.y, s2Location.x) = -fScore;
-			return;
+			_cvgmScore(s2Location.y, s2Location.x) = -fScore; 
 		}
-		else{
-			//check whether the current corner is the max in 3x3 local area
-			bool bIsMax =
-				fScore > abs(_cvgmScore(s2Location.y - 1, s2Location.x - 1)) &&
-				fScore > abs(_cvgmScore(s2Location.y - 1, s2Location.x    )) &&
-				fScore > abs(_cvgmScore(s2Location.y - 1, s2Location.x + 1)) &&
-
-				fScore > abs(_cvgmScore(s2Location.y    , s2Location.x - 1)) &&
-				fScore > abs(_cvgmScore(s2Location.y    , s2Location.x + 1)) &&
-
-				fScore > abs(_cvgmScore(s2Location.y + 1, s2Location.x - 1)) &&
-				fScore > abs(_cvgmScore(s2Location.y + 1, s2Location.x    )) &&
-				fScore > abs(_cvgmScore(s2Location.y + 1, s2Location.x + 1));
-
-			if (bIsMax){
-				const unsigned int nIdx = atomicInc(&_devuNewlyAddedCounter , (unsigned int)(-1));
-				_ps2NewlyAddedKeyPointLocation[nIdx] = s2Location;
-				_pfNewlyAddedKeyPointResponse[nIdx] = fScore;
-			}
-			else{
-				fScore = 0.f;
-			}
+		else if(fScore > 0.0001f){
+			const unsigned int nIdx = atomicInc(&_devuNewlyAddedCounter , (unsigned int)(-1));
+			_ps2NewlyAddedKeyPointLocation[nIdx] = s2Location;
+			_pfNewlyAddedKeyPointResponse[nIdx] = fScore;
 		}
 		return;
 	}//operator()
 };//SMatchCollectionAndNonMaxSupression
 
-
-
-__global__ void kernelMatchCollectionAndNonMaxSupression(SMatchCollectionAndNonMaxSupression sMCNMS_)
-{
+__global__ void kernelMatchedAndNewlyAddedKeyPointsCollection(SMatchedAndNewlyAddedKeyPointsCollection sMCNMS_){
     sMCNMS_ ();
 	return;
 }
 
-unsigned int cudaMatchCollectionAndNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, unsigned int* puMaxSalientPoints_, cv::gpu::GpuMat* pcvgmParticleResponsesCurr_, short2* ps2devMatchedKeyPointLocations_, float* pfdevMatchedKeyPointResponse_, short2* ps2devNewlyAddedKeyPointLocations_, float* pfdevNewlyAddedKeyPointResponse_){
+unsigned int cudaMatchedAndNewlyAddedKeyPointsCollection(cv::gpu::GpuMat& cvgmKeyPointLocation_, unsigned int* puMaxSalientPoints_, cv::gpu::GpuMat* pcvgmParticleResponsesCurr_, short2* ps2devMatchedKeyPointLocations_, float* pfdevMatchedKeyPointResponse_, short2* ps2devNewlyAddedKeyPointLocations_, float* pfdevNewlyAddedKeyPointResponse_){
 	void* pNewlyAddedCounter,*pMatchCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pMatchCounter, _devuCounter) );
 	cudaSafeCall( cudaGetSymbolAddress(&pNewlyAddedCounter, _devuNewlyAddedCounter) );
@@ -731,7 +783,8 @@ unsigned int cudaMatchCollectionAndNonMaxSupression(const cv::gpu::GpuMat& cvgmK
     dim3 grid;
     grid.x = cv::gpu::divUp(*puMaxSalientPoints_, block.x);
 
-	SMatchCollectionAndNonMaxSupression sMCNMS;
+	SMatchedAndNewlyAddedKeyPointsCollection sMCNMS;
+	sMCNMS._ps2KeyPointLocation = cvgmKeyPointLocation_.ptr<short2>();
 	sMCNMS._uTotal = *puMaxSalientPoints_;
 	sMCNMS._cvgmScore = *pcvgmParticleResponsesCurr_;
 	sMCNMS._pfMatchedKeyPointResponse = pfdevMatchedKeyPointResponse_;
@@ -739,7 +792,7 @@ unsigned int cudaMatchCollectionAndNonMaxSupression(const cv::gpu::GpuMat& cvgmK
 	sMCNMS._pfNewlyAddedKeyPointResponse = pfdevNewlyAddedKeyPointResponse_;
 	sMCNMS._ps2NewlyAddedKeyPointLocation= ps2devNewlyAddedKeyPointLocations_;
 
-    kernelMatchCollectionAndNonMaxSupression<<<grid, block>>>(sMCNMS);
+    kernelMatchedAndNewlyAddedKeyPointsCollection<<<grid, block>>>(sMCNMS);
     cudaSafeCall( cudaGetLastError() );
     cudaSafeCall( cudaDeviceSynchronize() );
 
