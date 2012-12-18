@@ -21,7 +21,7 @@ int main ( int argc, char** argv )
 	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
 #else
-	cv::VideoCapture cap ( "VTreeTrunk.avi" ); 
+	cv::VideoCapture cap ("VHall.avi"); //( "VTreeTrunk.avi" ); 
 #endif
 
     if ( !cap.isOpened() ) return -1;
@@ -38,9 +38,10 @@ int main ( int argc, char** argv )
 		if (cvmColorFrame.empty()) {
 			cap.set(CV_CAP_PROP_POS_AVI_RATIO,0);//replay at the end of the video
 			cap >> cvmColorFrame;
+			cSDT.initialize( cvmColorFrame );
 		}
 		
-		//cSDT.tracking(cvmColorFrame);
+		//cSDT.trackTest(cvmColorFrame);
 		cSDT.track(cvmColorFrame);
 	
 		imshow ( "Tracker", cvmColorFrame );

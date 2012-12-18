@@ -4,12 +4,22 @@
 
 float dL1(const int4& n4Descriptor1_, const int4& n4Descriptor2_){
 	float fDist = 0.f;
+	uchar uD1,uD2;
 	for (uchar u=0; u < 4; u++){
-		uchar uD1 = (n4Descriptor1_ >> u*8) & 0xFF;
-		uchar uD2 = (n4Descriptor2_ >> u*8) & 0xFF;
-		 fDist += abs(uD2 - uD2); 
+		uD1 = (n4Descriptor1_.x >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.x >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.y >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.y >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.z >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.z >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.w >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.w >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
 	}
-	fDist /= 4;
+	fDist /= 16;
 	return fDist;
 }
 
@@ -83,6 +93,6 @@ void main()
 	int4 n4Des1;
 	devGetFastDescriptor(cvmColorFrame,5,5,&n4Des1);
 	int4 n4Des2;
-	devGetFastDescriptor(cvmColorFrame,5,5,&n4Des2);
+	devGetFastDescriptor(cvmColorFrame,7,7,&n4Des2);
 	float fDist = dL1(n4Des1, n4Des2);
 }

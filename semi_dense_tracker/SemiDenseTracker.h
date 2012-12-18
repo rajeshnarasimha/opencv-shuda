@@ -36,8 +36,8 @@ public:
 	unsigned int _uTotalParticles;
 
 	//# of Max key points
-	unsigned int _uInitMaxKeyPoints;
-	unsigned int _uFinalMaxKeyPoints;
+	unsigned int _uMaxKeyPointsBeforeNonMax;
+	unsigned int _uMaxKeyPointsAfterNonMax;
 	//key point locations
 	cv::Mat _cvmGrayFrame;
 	cv::Mat _cvmSaliency;
@@ -49,8 +49,8 @@ public:
 	cv::gpu::GpuMat _cvgmSaliency;
 	cv::gpu::GpuMat _cvgmInitKeyPointLocation;
 	//opencv key points
-	cv::gpu::GpuMat _cvgmFinalKeyPointsLocations;
-	cv::gpu::GpuMat _cvgmFinalKeyPointsResponse;
+	cv::gpu::GpuMat _cvgmFinalKeyPointsLocationsAfterNonMax;
+	cv::gpu::GpuMat _cvgmFinalKeyPointsResponseAfterNonMax;
 	cv::gpu::GpuMat _cvgmParticlesVelocityCurr;
 	cv::gpu::GpuMat _cvgmParticlesVelocityPrev;
 	cv::gpu::GpuMat _cvgmParticlesAgeCurr;
@@ -65,11 +65,10 @@ public:
 	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointsResponse;
 	cv::Mat _cvmKeyPointsLocations;
 
-
-	void init(cv::Mat& cvmColorFrame_);
 	void initialize( cv::Mat& cvmColorFrame_ );
 	void track( cv::Mat& cvmColorFrame_ );
-	void tracking(cv::Mat& cvmColorFrame_);
+
+	void trackTest( cv::Mat& cvmColorFrame_ );
 
 };//class CSemiDenseTracker
 
