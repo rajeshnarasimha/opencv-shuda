@@ -25,7 +25,7 @@ int thrustSortFastCornersAndCull(int* pnLoc_, float* pfResponse_, const int nCor
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // kernelHarrisResponses
 
-__global__ void kernelHarrisResponses(const cv::gpu::PtrStepb cvgmImg_, const short2* loc_, float* pfResponse_, const int nPoints_, const int nBlockSize_, const float harris_k)
+__global__ void kernelHarrisResponses(const cv::gpu::PtrStepb cvgmImage_, const short2* loc_, float* pfResponse_, const int nPoints_, const int nBlockSize_, const float harris_k)
 {
     __shared__ int smem[8 * 32];
 
@@ -48,13 +48,13 @@ __global__ void kernelHarrisResponses(const cv::gpu::PtrStepb cvgmImg_, const sh
             const int i = ind / nBlockSize_;
             const int j = ind % nBlockSize_;
 
-            int Ix = (cvgmImg_(y0 + i, x0 + j + 1)     - cvgmImg_(y0 + i, x0 + j - 1)) * 2 +
-					 (cvgmImg_(y0 + i - 1, x0 + j + 1) - cvgmImg_(y0 + i - 1, x0 + j - 1)) +
-					 (cvgmImg_(y0 + i + 1, x0 + j + 1) - cvgmImg_(y0 + i + 1, x0 + j - 1));
+            int Ix = (cvgmImage_(y0 + i, x0 + j + 1)     - cvgmImage_(y0 + i, x0 + j - 1)) * 2 +
+					 (cvgmImage_(y0 + i - 1, x0 + j + 1) - cvgmImage_(y0 + i - 1, x0 + j - 1)) +
+					 (cvgmImage_(y0 + i + 1, x0 + j + 1) - cvgmImage_(y0 + i + 1, x0 + j - 1));
 
-            int Iy = (cvgmImg_(y0 + i + 1, x0 + j)     - cvgmImg_(y0 + i - 1, x0 + j)) * 2 +
-					 (cvgmImg_(y0 + i + 1, x0 + j - 1) - cvgmImg_(y0 + i - 1, x0 + j - 1)) +
-					 (cvgmImg_(y0 + i + 1, x0 + j + 1) - cvgmImg_(y0 + i - 1, x0 + j + 1));
+            int Iy = (cvgmImage_(y0 + i + 1, x0 + j)     - cvgmImage_(y0 + i - 1, x0 + j)) * 2 +
+					 (cvgmImage_(y0 + i + 1, x0 + j - 1) - cvgmImage_(y0 + i - 1, x0 + j - 1)) +
+					 (cvgmImage_(y0 + i + 1, x0 + j + 1) - cvgmImage_(y0 + i - 1, x0 + j + 1));
 
             a += Ix * Ix;
             b += Iy * Iy;
@@ -100,7 +100,7 @@ void loadUMax(const int* u_max, int count)
     cudaSafeCall( cudaMemcpyToSymbol(c_u_max, u_max, count * sizeof(int)) );
 }
 
-__global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, float* pAngle_, const int nPoints_, const int half_k)
+__global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, float* pAngle_, const int nPoints_, const int usHalfPatch_)
 {
     __shared__ int smem[8 * 32];//Every thread in the block shares the shared memory
 
@@ -115,12 +115,12 @@ __global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, floa
         const short2 loc = loc_[nPtIdx];
 
         // Treat the center line differently, v=0
-        for (int u = threadIdx.x - half_k; u <= half_k; u += blockDim.x)
+        for (int u = threadIdx.x - usHalfPatch_; u <= usHalfPatch_; u += blockDim.x)
             m_10 += u * image(loc.y, loc.x + u);
 
         cv::gpu::device::reduce<32>(srow, m_10, threadIdx.x, cv::gpu::device::plus<volatile int>());
 
-        for (int v = 1; v <= half_k; ++v)
+        for (int v = 1; v <= usHalfPatch_; ++v)
         {
             // Proceed over the two lines
             int v_sum = 0;
@@ -155,14 +155,14 @@ __global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, floa
 	return;
 }
 
-void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* ps2Loc_, float* pAngle_, int nPoints_, int half_k, cudaStream_t stream)
+void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* ps2Loc_, float* pAngle_, int nPoints_, int usHalfPatch_, cudaStream_t stream)
 {
     dim3 block(32, 8);
 
     dim3 grid;
     grid.x = cv::gpu::divUp(nPoints_, block.y);
 
-    IC_Angle<<<grid, block, 0, stream>>>(image, ps2Loc_, pAngle_, nPoints_, half_k);
+    IC_Angle<<<grid, block, 0, stream>>>(image, ps2Loc_, pAngle_, nPoints_, usHalfPatch_);
 
     cudaSafeCall( cudaGetLastError() );
 
@@ -176,12 +176,12 @@ void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* ps2Loc_, float* pAngl
 template <int WTA_K> struct OrbDescriptor;
 
 #define GET_VALUE(idx) \
-    cvgmImg_(s2Loc_.y + __float2int_rn(pnPatternX_[idx] * sina + pnPatternY_[idx] * cosa), \
+    cvgmImage_(s2Loc_.y + __float2int_rn(pnPatternX_[idx] * sina + pnPatternY_[idx] * cosa), \
              s2Loc_.x + __float2int_rn(pnPatternX_[idx] * cosa - pnPatternY_[idx] * sina))
 
 template <> struct OrbDescriptor<2>
 {
-    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImg_, short2 s2Loc_, const int* pnPatternX_, const int* pnPatternY_, float sina, float cosa, int nDescIdx_)
+    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImage_, short2 s2Loc_, const int* pnPatternX_, const int* pnPatternY_, float sina, float cosa, int nDescIdx_)
     {
         pnPatternX_ += 16 * nDescIdx_; //compare 8 pairs of points, and that is 16 points in total
         pnPatternY_ += 16 * nDescIdx_;
@@ -219,7 +219,7 @@ template <> struct OrbDescriptor<2>
 
 template <> struct OrbDescriptor<3>
 {
-    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImg_, short2 s2Loc_, const int* pnPatternX_, const int* pnPatternY_, float sina, float cosa, int nDescIdx_)
+    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImage_, short2 s2Loc_, const int* pnPatternX_, const int* pnPatternY_, float sina, float cosa, int nDescIdx_)
     {
         pnPatternX_ += 12 * nDescIdx_;
         pnPatternY_ += 12 * nDescIdx_;
@@ -245,7 +245,7 @@ template <> struct OrbDescriptor<3>
 
 template <> struct OrbDescriptor<4>
 {
-    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImg_, short2 s2Loc_, const int* pnPatternX_, const int* pnPatternY_, float sina, float cosa, int nDescIdx_)
+    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImage_, short2 s2Loc_, const int* pnPatternX_, const int* pnPatternY_, float sina, float cosa, int nDescIdx_)
     {
         pnPatternX_ += 16 * nDescIdx_;
         pnPatternY_ += 16 * nDescIdx_;

@@ -3,7 +3,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-
+#include <assert.h>
 
 __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
@@ -79,6 +79,22 @@ float testMatDiff(const cv::gpu::GpuMat& cvgm1_,const cv::gpu::GpuMat& cvgm2_ ){
 		}
 		return fSum;
 	}
+	else if(cvm1.type() == CV_8UC1){
+		unsigned char* p = cvm1.data;
+		float fSum = 0.f;
+		for (unsigned int i=0; i<cvm1.total(); i++){
+			fSum += abs(*p++);
+		}
+		return fSum;
+	}
+	else if (cvm1.type() == CV_16SC2){
+		short nSum = 0;
+		short* p = (short*)cvm1.data;
+		for (unsigned int i=0; i<cvm1.total(); i++){
+			nSum += abs(*p++); nSum += abs(*p++);
+		}
+		return float(nSum);
+	}
 	return -1.f;
 }
 
@@ -115,6 +131,32 @@ void testCudaCollectParticlesAndOrbDescriptors(const cv::gpu::GpuMat& cvgmFinalK
 	pcvgmParticleDescriptor_->upload(cvmParticleOrbDescriptorsPrev);
 }
 
+bool testCountParticlesAndOrbDescriptors(const cv::gpu::GpuMat cvgmParticleResponses_, const cv::gpu::GpuMat& cvgmParticleAngle_, const cv::gpu::GpuMat& cvgmParticleDescriptor_, int* pnCounter_){
+	cv::Mat cvmParticleAngle;	cvgmParticleAngle_.download(cvmParticleAngle);
+	cv::Mat cvmParticleResponses;	cvgmParticleResponses_.download(cvmParticleResponses);
+	cv::Mat cvmParticleDescriptor;	cvgmParticleDescriptor_.download(cvmParticleDescriptor);
+	bool bLegal = true;
+	int nCount = 0; int nIllegal = 0;
+	for (int r=0;r<cvmParticleResponses.rows; r++)	{
+		for (int c=0; c<cvmParticleResponses.cols; c++) {
+			if( cvmParticleResponses.ptr<float>(r)[c] > 0.1f ){
+				nCount ++;
+				bLegal = bLegal && (	cvmParticleDescriptor.ptr<int2>(r)[c].x != 0 && 
+										cvmParticleDescriptor.ptr<int2>(r)[c].y != 0 &&
+										cvmParticleResponses.ptr<float>(r)[c] > 0.f /*&&
+										cvmParticleAngle.ptr<float>(r)[c] != 0.f */);
+
+				if (!bLegal){
+					nIllegal ++;
+				}
+			}
+		}//for
+	}//for
+	
+	*pnCounter_ = nCount;
+	return bLegal;
+}
+
 __constant__ uchar _popCountTable[] =
 {
 	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -134,25 +176,33 @@ public:
 	cv::Mat_<uchar>  _cvmParticlesAgePrev;
 	cv::Mat_<short2> _cvmParticlesVelocityPrev;
 
-	cv::Mat_<uchar>  _cvmImage;
-	cv::Mat_<float>  _cvmParticleAnglesCurr;
-	cv::Mat_<int2>   _cvmParticleOrbDescriptorsCurr;
-	cv::Mat_<float>  _cvmParticleResponsesCurr;
+	cv::Mat_<uchar>  _cvmImageCurr;
+	cv::Mat_<float>  _cvgmSaliencyCurr;
+	cv::Mat_<int2>   _cvmParticleDescriptorCurr;
+	cv::Mat_<int2>   _cvmParticleDescriptorCurrTmp;
+	cv::Mat_<float>  _cvmParticleResponseCurr;
 	cv::Mat_<uchar>  _cvmParticlesAgeCurr;
 	cv::Mat_<short2> _cvmParticlesVelocityCurr;
+
+	cv::Mat_<uchar>  _cvmMinMatchDistance;
 
 	float _fRho;
 
 	unsigned short _usMatchThreshold;
 	unsigned short _usHalfSize;
+	unsigned short _usHalfSizeRound;
 	short _sSearchRange;
 	const short* _psPatternX;
 	const short* _psPatternY;
 
 	unsigned int _devuMathchedCounter;
 	unsigned int _devuDeletedCounter;
-
 	unsigned int _devuOther;
+	unsigned int _devuTotal;
+	unsigned int _devuTest1;
+
+	unsigned int _uMaxMatchedKeyPoint;
+	short2* _pcvgmMatchedKeyPointLocation;
 
 	__device__ __forceinline__ uchar dL(const uchar* pDesPrev_, const uchar* pDesCurr_) const{
 		uchar ucRes = 0;
@@ -161,113 +211,221 @@ public:
 		return ucRes;
 	}
 
-__device__ __forceinline__ float devMatchOrb( const unsigned short usMatchThreshold_, 
-	const uchar* pDesPrev_, short2* ps2Loc_, uchar* pDesCur_ ){
+__device__ __forceinline__ uchar devMatchOrb( const unsigned short usMatchThreshold_, 
+	const uchar* pDesPrev_, const short2 s2PredicLoc_, short2* ps2BestLoc_, uchar* pBestDesCur_ ){
 		float fResponse = 0.f;
-		float fAngle;
-		float fBestMatchedResponse;
-		short2 s2Loc,s2BestLoc;
+		short2 s2Loc;
 		uchar ucMinDist = 255;
-		uchar aDesCur[8] = {0,0,0,0, 0,0,0,0};
 		//search for the 7x7 neighbourhood for 
-		for(short r = -_sSearchRange; r < _sSearchRange+1; r++ ){
-			for(short c = -_sSearchRange; c < _sSearchRange+1; c++ ){
-				_devuOther++;
-				s2Loc = *ps2Loc_ + make_short2( c, r ); 
-				fResponse = _cvmParticleResponsesCurr.ptr<float>(s2Loc.y)[s2Loc.x];
-				if( fResponse > 0 ){
-					
-					fAngle = _cvmParticleAnglesCurr.ptr<float>(s2Loc.y)[s2Loc.x];
-					float fSina = sin(fAngle), fCosa = cos(fAngle); 
-					for(int s = 0; s<8; s++)
-						aDesCur[s] = OrbDescriptor::calc(_cvmImage, s2Loc, _psPatternX, _psPatternY, fSina, fCosa, s);
-					uchar ucDist = dL(pDesPrev_,aDesCur);
+		for(short r = -_sSearchRange; r <= _sSearchRange; r++ ){
+			for(short c = -_sSearchRange; c <= _sSearchRange; c++ ){
+
+				s2Loc = s2PredicLoc_ + make_short2( c, r ); 
+				if(s2Loc.x < _usHalfSizeRound || s2Loc.x >= _cvmImageCurr.cols - _usHalfSizeRound || s2Loc.y < _usHalfSizeRound || s2Loc.y >= _cvmImageCurr.rows - _usHalfSizeRound ) continue;
+				fResponse = _cvgmSaliencyCurr.ptr<float>(s2Loc.y)[s2Loc.x];
+				if( fResponse > 0.1f ){
+					//assert(_cvmParticleDescriptorCurrTmp.ptr<int2>(s2Loc.y)[s2Loc.x].x!=0 &&_cvmParticleDescriptorCurrTmp.ptr<int2>(s2Loc.y)[s2Loc.x].y!=0 );
+					const uchar* pDesCur = (uchar*)(_cvmParticleDescriptorCurrTmp.ptr<int2>(s2Loc.y)+ s2Loc.x);
+					uchar ucDist = dL(pDesPrev_,pDesCur);
 					if ( ucDist < usMatchThreshold_ ){
 						if (  ucMinDist > ucDist ){
 							ucMinDist = ucDist;
-							fBestMatchedResponse = fResponse;
-							s2BestLoc = s2Loc;
-							pDesCur_[0] = aDesCur[0];pDesCur_[1] = aDesCur[1];pDesCur_[2] = aDesCur[2];pDesCur_[3] = aDesCur[3];pDesCur_[4] = aDesCur[4];pDesCur_[5] = aDesCur[5];pDesCur_[6] = aDesCur[6];pDesCur_[7] = aDesCur[7];
+							*ps2BestLoc_ = s2Loc;
+							pBestDesCur_[0] = pDesCur[0];pBestDesCur_[1] = pDesCur[1];pBestDesCur_[2] = pDesCur[2];pBestDesCur_[3] = pDesCur[3];pBestDesCur_[4] = pDesCur[4];pBestDesCur_[5] = pDesCur[5];pBestDesCur_[6] = pDesCur[6];pBestDesCur_[7] = pDesCur[7];
 						}
 					}
 				}//if sailent corner exits
 			}//for 
 		}//for
-		if(ucMinDist < 255){
-			*ps2Loc_ = s2BestLoc;
-			return fBestMatchedResponse;
-		}
-		else
-			return -1.f;
-}
+		return ucMinDist;
+}//devMatchOrb()
+
 __device__ __forceinline__ void operator () (){
-	_devuDeletedCounter =0;
-	_devuMathchedCounter=0;
-	_devuOther=0;
-	for (int r=0; r<_cvmImage.rows; r++ ){
-		for (int c=0; c<_cvmImage.cols; c++ ){
-			if( c < 3 || c >= _cvmImage.cols - 4 || r < 3 || r >= _cvmImage.rows - 4 ) continue;
+	short2 s2BestLoc;
+	for (int r=0; r<_cvmImageCurr.rows; r++ ){
+		for (int c=0; c<_cvmImageCurr.cols; c++ ){
+			if( c < 3 || c >= _cvmImageCurr.cols - 4 || r < 3 || r >= _cvmImageCurr.rows - 4 ) continue;
 
 			//if IsParticle( PixelLocation, cvgmParitclesResponse(i) )
 			if(_cvmParticleResponsesPrev.ptr<float>(r)[c] < 0.2f) continue;
-			//A) PredictLocation = PixelLocation + ParticleVelocity(i, PixelLocation);
-			short2 s2PredictLoc = make_short2(c,r);// + _cvgmParticlesVelocityPrev.ptr(r)[c];
-			//B) ActualLocation = Match(PredictLocation, cvgmBlurred(i),cvgmBlurred(i+1));
-			if (s2PredictLoc.x >=12 && s2PredictLoc.x < _cvmImage.cols-13 && s2PredictLoc.y >=12 && s2PredictLoc.y < _cvmImage.rows-13){
-				//;	devGetFastDescriptor(_cvgmBlurredPrev,r,c,&n4DesPrev);
-				const uchar* pDesPrev = (uchar*) ( _cvmParticleOrbDescriptorsPrev.ptr<int2>(r)+c);
-				uchar* pDesCur = (uchar*)(_cvmParticleOrbDescriptorsCurr.ptr<int2>(s2PredictLoc.y)+ s2PredictLoc.x);
-				float fResponse = devMatchOrb( _usMatchThreshold, pDesPrev, &s2PredictLoc, &*pDesCur );
-
-				if( fResponse > 0 ){
+			const uchar* pDesPrev = (uchar*) ( _cvmParticleOrbDescriptorsPrev.ptr<int2>(r)+c);
+			uchar aDesBest[8];
+			
+			const uchar ucDist = devMatchOrb( _usMatchThreshold, pDesPrev, make_short2(c,r), &s2BestLoc, &*aDesBest );
+			if( ucDist < 64 ){
+				_devuOther++;
+				const uchar& ucMin = _cvmMinMatchDistance.ptr(s2BestLoc.y)[s2BestLoc.x];
+				if(ucMin == 0xff){//if no matches before
+					_devuTest1++;
 					_devuMathchedCounter++;
-					_cvmParticleOrbDescriptorsCurr.ptr<int2>(s2PredictLoc.y)[s2PredictLoc.x]=*((int2*)pDesCur);
-					_cvmParticlesVelocityCurr.ptr<short2>(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvmParticlesVelocityPrev.ptr<short2>(r)[c];//update velocity
-					_cvmParticlesAgeCurr.ptr             (s2PredictLoc.y)[s2PredictLoc.x] = _cvmParticlesAgePrev.ptr(s2PredictLoc.y)[s2PredictLoc.x] + 1; //update age
-					_cvmParticleResponsesCurr.ptr<float> (s2PredictLoc.y)[s2PredictLoc.x] = -fResponse; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
+					_cvmParticleDescriptorCurr.ptr<int2>(s2BestLoc.y)[s2BestLoc.x] = *((int2*)aDesBest);
+					_cvmParticlesVelocityCurr.ptr<short2>(s2BestLoc.y)[s2BestLoc.x] = _fRho * (s2BestLoc - make_short2(c,r)) + (1.f - _fRho)* _cvmParticlesVelocityPrev.ptr<short2>(r)[c];//update velocity
+					_cvmParticlesAgeCurr.ptr             (s2BestLoc.y)[s2BestLoc.x] = _cvmParticlesAgePrev.ptr(r)[c] + 1; //update age
+					_cvmParticleResponseCurr.ptr<float> (s2BestLoc.y)[s2BestLoc.x] =  _cvgmSaliencyCurr.ptr<float>(s2BestLoc.y)[s2BestLoc.x]; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
+					_cvmMinMatchDistance     .ptr(s2BestLoc.y)[s2BestLoc.x] = ucDist;
 				}
-				else{//C) if no match found 
-					((int2*)pDesCur)->x = ((int2*)pDesCur)->y = 0;  
+				else{
 					_devuDeletedCounter++;
-				}//lost
+					if (ucMin > ucDist){
+						_cvmParticleDescriptorCurr.ptr<int2>(s2BestLoc.y)[s2BestLoc.x] = *((int2*)aDesBest);
+						_cvmParticlesVelocityCurr.ptr<short2>(s2BestLoc.y)[s2BestLoc.x] = _fRho * (s2BestLoc - make_short2(c,r)) + (1.f - _fRho)* _cvmParticlesVelocityPrev.ptr<short2>(r)[c];//update velocity
+						_cvmParticlesAgeCurr.ptr             (s2BestLoc.y)[s2BestLoc.x] = _cvmParticlesAgePrev.ptr(r)[c] + 1; //update age
+						_cvmParticleResponseCurr.ptr<float> (s2BestLoc.y)[s2BestLoc.x] = _cvgmSaliencyCurr.ptr<float>(s2BestLoc.y)[s2BestLoc.x]; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
+						_cvmMinMatchDistance     .ptr(s2BestLoc.y)[s2BestLoc.x] = ucDist;
+					}//if
+				}//else
 			}
-			else{
+			else{//C) if no match found 
 				_devuDeletedCounter++;
-			}
-		}
-	}
+			}//lost
+		}//for
+	}//for
 	return;
 }
 };//class
 
 unsigned int testCudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned short usHalfSize_,const unsigned short sSearchRange_,
-const short* psPatternX_, const short* psPatternY_,
-const cv::gpu::GpuMat& cvgmParticleOrbDescriptorsPrev_, const cv::gpu::GpuMat& cvgmParticleResponsesPrev_, 
-const cv::gpu::GpuMat& cvgmParticlesAgePrev_,const cv::gpu::GpuMat& cvgmParticlesVelocityPrev_, 
-const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmParticleAngleCurr_,
-cv::gpu::GpuMat* pcvgmParticleResponsesCurr_,
-cv::gpu::GpuMat* pcvgmParticlesAgeCurr_,cv::gpu::GpuMat* pcvgmParticlesVelocityCurr_,cv::gpu::GpuMat* pcvgmParticleOrbDescriptorsCurr_){
+							  const short* psPatternX_, const short* psPatternY_, const unsigned int uMaxMatchedKeyPoints_,
+							  const cv::gpu::GpuMat& cvgmParticleOrbDescriptorsPrev_, const cv::gpu::GpuMat& cvgmParticleResponsesPrev_, 
+							  const cv::gpu::GpuMat& cvgmParticlesAgePrev_,const cv::gpu::GpuMat& cvgmParticlesVelocityPrev_, 
+							  const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmParticleOrbDescriptorsCurrTmp_,
+							  const cv::gpu::GpuMat& cvgmSaliencyCurr_,
+							  cv::gpu::GpuMat* pcvgmMinMatchDistance_,
+							  cv::gpu::GpuMat* pcvgmParticleResponsesCurr_,
+							  cv::gpu::GpuMat* pcvgmParticlesAgeCurr_,cv::gpu::GpuMat* pcvgmParticleVelocityCurr_,cv::gpu::GpuMat* pcvgmParticleOrbDescriptorsCurr_){
 
 	CPredictAndMatchOrb cPAMO;
-	cvgmImage_.download(cPAMO._cvmImage);
+	cvgmImage_.download(cPAMO._cvmImageCurr);
 	cvgmParticleResponsesPrev_.download(cPAMO._cvmParticleResponsesPrev);
 	cvgmParticleOrbDescriptorsPrev_.download(cPAMO._cvmParticleOrbDescriptorsPrev);
 	cvgmParticlesVelocityPrev_.download(cPAMO._cvmParticlesVelocityPrev); 
 	cvgmParticlesAgePrev_.download(cPAMO._cvmParticlesAgePrev); 
 
-	cvgmParticleAngleCurr_.download(cPAMO._cvmParticleAnglesCurr);
-	pcvgmParticleOrbDescriptorsCurr_->download(cPAMO._cvmParticleOrbDescriptorsCurr);
-	pcvgmParticleResponsesCurr_->download(cPAMO._cvmParticleResponsesCurr);
-	pcvgmParticlesVelocityCurr_->download(cPAMO._cvmParticlesVelocityCurr);
+	cvgmSaliencyCurr_.download(cPAMO._cvgmSaliencyCurr);
+	cvgmParticleOrbDescriptorsCurrTmp_.download(cPAMO._cvmParticleDescriptorCurrTmp);
+	pcvgmParticleOrbDescriptorsCurr_->download(cPAMO._cvmParticleDescriptorCurr);
+	pcvgmParticleResponsesCurr_->download(cPAMO._cvmParticleResponseCurr);
+	pcvgmParticleVelocityCurr_->download(cPAMO._cvmParticlesVelocityCurr);
 	pcvgmParticlesAgeCurr_->download(cPAMO._cvmParticlesAgeCurr);
+	pcvgmMinMatchDistance_->setTo(255);
+	pcvgmMinMatchDistance_->download(cPAMO._cvmMinMatchDistance);
 
 	cPAMO._fRho = .75f;
 	cPAMO._usMatchThreshold = usMatchThreshold_;
 	cPAMO._usHalfSize = usHalfSize_;
+	cPAMO._usHalfSizeRound = (unsigned short)(usHalfSize_*1.5);
 	cPAMO._sSearchRange = sSearchRange_;
 	cPAMO._psPatternX = psPatternX_;
 	cPAMO._psPatternY = psPatternY_;
+
+	cPAMO._uMaxMatchedKeyPoint = uMaxMatchedKeyPoints_;
+	cPAMO._devuDeletedCounter = 0;
+	cPAMO._devuMathchedCounter = 0;
+	cPAMO._devuOther = 0;
+	cPAMO._devuTest1 = 0;
 	cPAMO();
 
-	return cPAMO._devuDeletedCounter;
+	pcvgmParticleOrbDescriptorsCurr_->upload(cPAMO._cvmParticleDescriptorCurr);
+	pcvgmParticleResponsesCurr_->upload(cPAMO._cvmParticleResponseCurr);
+	pcvgmParticleVelocityCurr_->upload(cPAMO._cvmParticlesVelocityCurr);
+	pcvgmParticlesAgeCurr_->upload(cPAMO._cvmParticlesAgeCurr);
+
+	cPAMO._devuOther;
+	cPAMO._devuDeletedCounter;
+	return cPAMO._devuMathchedCounter;
+}
+
+struct SCollectUnMatchedKeyPoints{
+	cv::Mat_<float> _cvmSaliency;
+	unsigned int _uNewlyAddedCount;
+
+	unsigned int _uTotal;
+	short2* _ps2NewlyAddedKeyPointLocation; 
+	float* _pfNewlyAddedKeyPointResponse;
+
+	int _devuCounter;
+
+	cv::Mat_<float> _cvmParticleResponseCurr;
+	cv::Mat_<int2>  _cvmParticleDescriptorCurr;
+
+	__device__ __forceinline__ void operator () (){
+
+		for (int c=0; c<_cvmParticleResponseCurr.cols; c++){
+			for (int r=0; r<_cvmParticleResponseCurr.rows; r++){
+				if( c < 3 || c >= _cvmParticleResponseCurr.cols - 4 || r < 3 || r >= _cvmParticleResponseCurr.rows - 4 ) continue;
+				if(_cvmSaliency.ptr<float>(r)[c] == _cvmParticleResponseCurr.ptr<float>(r)[c]) continue; // it is a matched key points
+				if(_cvmSaliency.ptr<float>(r)[c] > 0.f ){
+					const unsigned int nIdx = _devuCounter++;
+					if (nIdx >= _uTotal) continue;
+					_ps2NewlyAddedKeyPointLocation[nIdx] = make_short2(c,r);
+					_pfNewlyAddedKeyPointResponse[nIdx] = _cvmSaliency.ptr<float>(r)[c];
+				}
+			}
+		}
+
+		return;
+	}//operator()
+};
+
+__global__ void kernerlAddNewParticles( const unsigned int uTotalParticles_,   
+	const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
+	const cv::Mat_<int2> cvmParticleDescriptorTmp_,
+	cv::Mat_<float>& cvmParticleResponse_, cv::Mat_<int2>& cvmParticleDescriptor_){
+
+		for (int nKeyPointIdx =0; nKeyPointIdx < uTotalParticles_; nKeyPointIdx++){
+			const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
+			cvmParticleResponse_.ptr<float>(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
+			cvmParticleDescriptor_.ptr<int2>(s2Loc.y)[s2Loc.x] = cvmParticleDescriptorTmp_.ptr<int2>(s2Loc.y)[s2Loc.x]; 
+		}
+		return;
+}
+
+namespace btl{ namespace device{ namespace semidense{
+void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
+}}}
+void testCudaCollectNewlyAddedKeyPoints(unsigned int uNewlyAdded_, unsigned int uMaxKeyPointsAfterNonMax_, 
+	const cv::gpu::GpuMat& cvgmSaliency_,const cv::gpu::GpuMat& cvgmParticleResponseCurr_, const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,  
+	cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointLocation_, cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointResponse_,
+	cv::gpu::GpuMat* pcvgmParticleResponseCurr_, cv::gpu::GpuMat* pcvgmParticleDescriptorCurr_){
+	
+		if(!uNewlyAdded_) return;
+		SCollectUnMatchedKeyPoints sCUMKP;
+		cvgmSaliency_.download(sCUMKP._cvmSaliency);
+		sCUMKP._uNewlyAddedCount = uNewlyAdded_;
+
+		sCUMKP._uTotal = uMaxKeyPointsAfterNonMax_;
+		cv::Mat cvmNewlyAddedKeyPointLocation;
+		pcvgmNewlyAddedKeyPointLocation_->download(cvmNewlyAddedKeyPointLocation);
+		sCUMKP._ps2NewlyAddedKeyPointLocation = cvmNewlyAddedKeyPointLocation.ptr<short2>(); 
+		cv::Mat cvmNewlyAddedKeyPointResponse;
+		pcvgmNewlyAddedKeyPointResponse_->download(cvmNewlyAddedKeyPointResponse);
+		sCUMKP._pfNewlyAddedKeyPointResponse = cvmNewlyAddedKeyPointResponse.ptr<float>();
+
+		pcvgmParticleResponseCurr_->download(sCUMKP._cvmParticleResponseCurr);
+		pcvgmParticleDescriptorCurr_->download(sCUMKP._cvmParticleDescriptorCurr);
+
+		sCUMKP._devuCounter = 0;
+		sCUMKP();
+
+		unsigned int uUnMatched = sCUMKP._devuCounter; 
+		//sort 
+		pcvgmNewlyAddedKeyPointLocation_->upload(cvmNewlyAddedKeyPointLocation);
+		pcvgmNewlyAddedKeyPointResponse_->upload(cvmNewlyAddedKeyPointResponse);
+		btl::device::semidense::thrustSort(pcvgmNewlyAddedKeyPointLocation_->ptr<short2>(),pcvgmNewlyAddedKeyPointResponse_->ptr<float>(),uUnMatched);
+
+		pcvgmNewlyAddedKeyPointLocation_->download(cvmNewlyAddedKeyPointLocation);
+		pcvgmNewlyAddedKeyPointResponse_->download(cvmNewlyAddedKeyPointResponse);
+
+		cv::Mat_<int2> cvmParticleDescriptorCurrTmp;
+		cv::Mat_<float> cvmParticleResponseCurr;
+		cv::Mat_<int2> cvmParticleDescriptorCurr;
+		cvgmParticleDescriptorCurrTmp_.download(cvmParticleDescriptorCurrTmp);
+		pcvgmParticleResponseCurr_->download(cvmParticleResponseCurr);
+		pcvgmParticleDescriptorCurr_->download(cvmParticleDescriptorCurr);
+		kernerlAddNewParticles(uNewlyAdded_<uUnMatched?uNewlyAdded_:uUnMatched,cvmNewlyAddedKeyPointLocation.ptr<short2>(),cvmNewlyAddedKeyPointResponse.ptr<float>(),
+			cvmParticleDescriptorCurrTmp,cvmParticleResponseCurr,cvmParticleDescriptorCurr);
+		pcvgmParticleResponseCurr_->upload(cvmParticleResponseCurr);
+		pcvgmParticleDescriptorCurr_->upload(cvmParticleDescriptorCurr);
+
+		return;
 }

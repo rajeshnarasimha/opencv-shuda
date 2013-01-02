@@ -6,17 +6,6 @@ namespace btl{	namespace image	{
 	namespace semidense {
 
 class CSemiDenseTracker{
-	enum
-	{
-		LOCATION_ROW = 0,
-		RESPONSE_ROW,
-		VELOCITY_ROW,
-		AGE_ROW,
-		DESCRIPTOR_ROW1,
-		DESCRIPTOR_ROW2,
-		DESCRIPTOR_ROW3,
-		DESCRIPTOR_ROW4
-	};
 public:
 	CSemiDenseTracker();
 
@@ -53,29 +42,30 @@ public:
 	//opencv key points
 	cv::gpu::GpuMat _cvgmFinalKeyPointsLocationsAfterNonMax;
 	cv::gpu::GpuMat _cvgmFinalKeyPointsResponseAfterNonMax;
-	cv::gpu::GpuMat _cvgmParticlesVelocityCurr;
-	cv::gpu::GpuMat _cvgmParticlesVelocityPrev;
-	cv::gpu::GpuMat _cvgmParticlesAgeCurr;
-	cv::gpu::GpuMat _cvgmParticlesAgePrev;
-	cv::gpu::GpuMat _cvgmParticleResponsesCurr;
-	cv::gpu::GpuMat _cvgmParticleResponsesPrev;
+	cv::gpu::GpuMat _cvgmParticleVelocityCurr;
+	cv::gpu::GpuMat _cvgmParticleVelocityPrev;
+	cv::gpu::GpuMat _cvgmParticleAgeCurr;
+	cv::gpu::GpuMat _cvgmParticleAgePrev;
+	cv::gpu::GpuMat _cvgmParticleResponseCurr;
+	cv::gpu::GpuMat _cvgmParticleResponsePrev;
 	cv::gpu::GpuMat _cvgmParticleAnglePrev;
 	cv::gpu::GpuMat _cvgmParticleAngleCurr;
-	cv::gpu::GpuMat _cvgmParticleDescriptorsPrev;
-	cv::gpu::GpuMat _cvgmParticleDescriptorsCurr;
+	cv::gpu::GpuMat _cvgmParticleDescriptorPrev;
+	cv::gpu::GpuMat _cvgmParticleDescriptorCurr;
 
 
-	cv::gpu::GpuMat _cvgmMatchedKeyPointsLocations;
-	cv::gpu::GpuMat _cvgmMatchedKeyPointsResponse;
-	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointsLocations;
-	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointsResponse;
-	cv::Mat _cvmKeyPointsLocations;
-	cv::Mat _cvmKeyPointsAge;
-	cv::Mat _cvmKeyPointVelocitys[30];
+	cv::gpu::GpuMat _cvgmMatchedKeyPointLocation;
+	cv::gpu::GpuMat _cvgmMatchedKeyPointResponse;
+	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointLocation;
+	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointResponse;
+	
+	cv::Mat _cvmKeyPointLocation;
+	cv::Mat _cvmKeyPointAge;
+	cv::Mat _cvmKeyPointVelocity[30];
 
 	int _nFrameIdx;
 
-	virtual void initialize( cv::Mat& cvmColorFrame_ );
+	virtual bool initialize( cv::Mat& cvmColorFrame_ );
 	virtual void track( cv::Mat& cvmColorFrame_ );
 
 	void trackTest( cv::Mat& cvmColorFrame_ );

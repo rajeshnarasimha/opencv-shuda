@@ -16,7 +16,7 @@ namespace btl { namespace device {  namespace orb  {
 
 	void loadUMax(const int* u_max, int count);
 
-	void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, cudaStream_t stream);
+	void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* loc, float* angle, int npoints, int usHalfPatch_, cudaStream_t stream);
 
 	void cudaComputeOrbDescriptor(cv::gpu::PtrStepb cvgmImg_, const short2* pLoc_, const float* pAngle_, const int nPoints_,
 		const int* nPatternX_, const int* nPatternY_, cv::gpu::PtrStepb cvgmDescriptor_, int nDescriptorSize_, int WTA_K, cudaStream_t stream);

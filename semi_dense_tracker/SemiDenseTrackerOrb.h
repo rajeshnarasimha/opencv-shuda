@@ -12,13 +12,12 @@ public:
 	unsigned short _usHalfPatchSize; //	the size of a circular region where the patch angle and the orb descriptor are defined
 
 	cv::gpu::GpuMat _cvgmPattern;
-	cv::gpu::GpuMat _cvgmParticleOrbDescriptorsPrev;
-	cv::gpu::GpuMat _cvgmParticleOrbDescriptorsCurr;
-	//opencv key points
-
+	cv::gpu::GpuMat _cvgmParticleResponseCurrTmp;
+	cv::gpu::GpuMat _cvgmParticleDescriptorCurrTmp;
+	cv::gpu::GpuMat _cvgmMinMatchDistance;
 
 	CSemiDenseTrackerOrb();
-	virtual void initialize( cv::Mat& cvmColorFrame_ );
+	virtual bool initialize( cv::Mat& cvmColorFrame_ );
 	virtual void track( cv::Mat& cvmColorFrame_ );
 
 	void trackTest( cv::Mat& cvmColorFrame_ );

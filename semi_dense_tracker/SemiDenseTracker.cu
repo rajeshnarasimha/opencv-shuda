@@ -292,7 +292,7 @@ __device__ void devUpdateMinContrastColor( const uchar3& uc3Color1_, const uchar
 	fC = .5f * abs( 2.f * uc3Center_.z - uc3Color1_.z - uc3Color2_.z );
 	fM = fM > fC ? fM : fC;
 	*pfMinContrast_ = *pfMinContrast_ < fM? *pfMinContrast_:fM;
-
+	return;
 }
 __device__ float devCalcMinDiameterContrast2(const cv::gpu::DevMem2D_<uchar3>& cvgmImage_, int r, int c){
 	const uchar3& Center = cvgmImage_.ptr(r)[c];
@@ -357,36 +357,35 @@ void cudaCalcMinDiameterContrast(const cv::gpu::GpuMat& cvgmImage_, cv::gpu::Gpu
 
 
 
-__global__ void kernelCalcSaliency(const cv::gpu::DevMem2D_<uchar> cvgmImage_, const unsigned char ucContrastThreshold_, const float fSaliencyThreshold_, 
-	cv::gpu::DevMem2D_<float> cvgmSaliency_, cv::gpu::DevMem2D_<short2> cvgmKeyPointLocations_){
+__global__ void kernelCalcSaliency(const cv::gpu::DevMem2D_<uchar> cvgmImage_, const unsigned short usHalfSizeRound_, 
+								   const unsigned char ucContrastThreshold_, const float fSaliencyThreshold_, 
+								   cv::gpu::DevMem2D_<float> cvgmSaliency_, cv::gpu::DevMem2D_<short2> cvgmKeyPointLocations_){
 	const int c = threadIdx.x + blockIdx.x * blockDim.x;
     const int r = threadIdx.y + blockIdx.y * blockDim.y;
 
 	if( c < 0 || c >= cvgmImage_.cols || r < 0 || r >= cvgmImage_.rows ) return; //falling out the image
-	float& fSaliency = cvgmSaliency_.ptr(r)[c];
+	float& fSaliency = cvgmSaliency_.ptr(r)[c]; 
+	fSaliency = 0.f;
 
-	if( c < 3 || c > cvgmImage_.cols - 4 || r < 3 || r > cvgmImage_.rows - 4 ) { fSaliency = 0.f; return;} // brim
+	if( c < usHalfSizeRound_ || c >= cvgmImage_.cols - usHalfSizeRound_ || r < usHalfSizeRound_ || r >= cvgmImage_.rows - usHalfSizeRound_ ) return; 
 
+	//calc saliency scores
 	float fMaxContrast = devCalcMaxContrast(cvgmImage_, r, c );
-	//fSaliency = fMaxContrast;
-	if(fMaxContrast > ucContrastThreshold_){
-		fSaliency = devCalcMinDiameterContrast(cvgmImage_, r, c )/fMaxContrast;
-		if (fSaliency > fSaliencyThreshold_){
-			const unsigned int nIdx = atomicInc(&_devuCounter, (unsigned int)(-1));
-
-            if (nIdx < cvgmKeyPointLocations_.cols)
-				cvgmKeyPointLocations_.ptr(0)[nIdx] = make_short2(c, r);
-		}
-		else
-			fSaliency = 0.f;
-	}
-	else
-		fSaliency = 0.f;
+	if(fMaxContrast <= ucContrastThreshold_) return;
+	fSaliency = devCalcMinDiameterContrast(cvgmImage_, r, c )/fMaxContrast;
+	if (fSaliency < fSaliencyThreshold_) { fSaliency = 0.f; return; } //if lower than the saliency threshold
+																	  //the saliency score is truncated into 0.f;
+	//record the location of the pixel where the saliency is above the threshold
+	const unsigned int nIdx = atomicInc(&_devuCounter, (unsigned int)(-1));
+    if (nIdx < cvgmKeyPointLocations_.cols)
+		cvgmKeyPointLocations_.ptr(0)[nIdx] = make_short2(c, r);
 	return;
 }
 
 //return the No. of Salient pixels above fSaliencyThreshold_
-unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned char ucContrastThreshold_, const float& fSaliencyThreshold_, cv::gpu::GpuMat* pcvgmSaliency_, cv::gpu::GpuMat* pcvgmKeyPointLocations_){
+unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned short usHalfSizeRound_,
+							  const unsigned char ucContrastThreshold_, const float& fSaliencyThreshold_, 
+							  cv::gpu::GpuMat* pcvgmSaliency_, cv::gpu::GpuMat* pcvgmKeyPointLocations_){
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
 
@@ -395,7 +394,7 @@ unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned 
     grid.x = cv::gpu::divUp(cvgmImage_.cols - 6, block.x); //6 is the size-1 of the Bresenham circle
     grid.y = cv::gpu::divUp(cvgmImage_.rows - 6, block.y);
 
-	kernelCalcSaliency<<<grid, block>>>(cvgmImage_, ucContrastThreshold_, fSaliencyThreshold_, *pcvgmSaliency_, *pcvgmKeyPointLocations_);
+	kernelCalcSaliency<<<grid, block>>>(cvgmImage_, usHalfSizeRound_, ucContrastThreshold_, fSaliencyThreshold_, *pcvgmSaliency_, *pcvgmKeyPointLocations_);
 	cudaSafeCall( cudaGetLastError() );
     cudaSafeCall( cudaDeviceSynchronize() );
 
@@ -613,26 +612,7 @@ void cudaFastDescriptors(const cv::gpu::GpuMat& cvgmImage_, unsigned int uFinalS
 
 
 
-__device__ float dL1(const int4& n4Descriptor1_, const int4& n4Descriptor2_){
-	float fDist = 0.f;
-	uchar uD1,uD2;
-	for (uchar u=0; u < 4; u++){
-		uD1 = (n4Descriptor1_.x >> u*8) & 0xFF;
-		uD2 = (n4Descriptor2_.x >> u*8) & 0xFF;
-		fDist += abs(uD1 - uD2); 
-		uD1 = (n4Descriptor1_.y >> u*8) & 0xFF;
-		uD2 = (n4Descriptor2_.y >> u*8) & 0xFF;
-		fDist += abs(uD1 - uD2); 
-		uD1 = (n4Descriptor1_.z >> u*8) & 0xFF;
-		uD2 = (n4Descriptor2_.z >> u*8) & 0xFF;
-		fDist += abs(uD1 - uD2); 
-		uD1 = (n4Descriptor1_.w >> u*8) & 0xFF;
-		uD2 = (n4Descriptor2_.w >> u*8) & 0xFF;
-		fDist += abs(uD1 - uD2); 
-	}
-	fDist /= 16.f;
-	return fDist;
-}
+
 
 
 
@@ -679,13 +659,6 @@ void cudaCollectParticles(const short2* ps2KeyPointsLocations_, const float* pfK
 	return;
 }
 
-
-
-
-
-
-
-
 class CPredictAndMatch{
 public:
 	cv::gpu::DevMem2D_<int4>   _cvgmParticleDescriptorsPrev;
@@ -703,7 +676,29 @@ public:
 
 	float _fMatchThreshold;
 	short _sSearchRange;
-
+	unsigned short _usHalfSizeRound;
+/*calc the distance of two descriptors, the distance is ranged from 0. to 255.
+*/
+__device__ float dL1(const int4& n4Descriptor1_, const int4& n4Descriptor2_){
+	float fDist = 0.f;
+	uchar uD1,uD2;
+	for (uchar u=0; u < 4; u++){
+		uD1 = (n4Descriptor1_.x >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.x >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.y >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.y >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.z >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.z >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+		uD1 = (n4Descriptor1_.w >> u*8) & 0xFF;
+		uD2 = (n4Descriptor2_.w >> u*8) & 0xFF;
+		fDist += abs(uD1 - uD2); 
+	}
+	fDist /= 16.f;
+	return fDist;
+}
 /*search in a n x n (search area) area round ps2Loc_ in current frame for the most similar descriptor
   Input: 
 	1.fMatchThreshold_: the difference of two descriptors
@@ -725,8 +720,9 @@ public:
 		for(short r = -sSearchRange_; r <= sSearchRange_; r++ ){
 			for(short c = -sSearchRange_; c <= sSearchRange_; c++ ){
 				s2Loc = *ps2Loc_ + make_short2( c, r ); 
+				if(s2Loc.x < _usHalfSizeRound || s2Loc.x >= _cvgmImageCurr.cols - _usHalfSizeRound || s2Loc.y < _usHalfSizeRound || s2Loc.y >= _cvgmImageCurr.rows - _usHalfSizeRound ) continue;
 				fResponse = _cvgmParticleResponsesCurr.ptr(s2Loc.y)[s2Loc.x];
-				if( fResponse > 0 ){
+				if( fResponse > 0.1f ){
 					int4 n4Des; 
 					devGetFastDescriptor(_cvgmImageCurr,s2Loc.y,s2Loc.x,&n4Des);
 					float fDist = dL1(n4Des,n4DesPrev_);
@@ -747,11 +743,9 @@ public:
 			return fBestMatchedResponse;
 		}
 		else{
-			pn4DesCurr_->x = pn4DesCurr_->y = pn4DesCurr_->z = pn4DesCurr_->w = 0;
 			return -1.f;
 		}
-	}
-
+	}//devMatch
 
 	__device__ __forceinline__ void operator () (){
 		const int c = threadIdx.x + blockIdx.x * blockDim.x;
@@ -764,29 +758,25 @@ public:
 		//A) PredictLocation = PixelLocation + ParticleVelocity(i, PixelLocation);
 		short2 s2PredictLoc = make_short2(c,r);// + _cvgmParticlesVelocityPrev.ptr(r)[c];
 		//B) ActualLocation = Match(PredictLocation, cvgmBlurred(i),cvgmBlurred(i+1));
-		if (s2PredictLoc.x >=12 && s2PredictLoc.x < _cvgmImageCurr.cols-13 && s2PredictLoc.y >=12 && s2PredictLoc.y < _cvgmImageCurr.rows-13)
-		{
-			//;	devGetFastDescriptor(_cvgmBlurredPrev,r,c,&n4DesPrev);
-			const int4& n4DesPrev = _cvgmParticleDescriptorsPrev.ptr(r)[c];
-			int4 n4DesCur;
-			float fResponse = devMatch( _fMatchThreshold, _sSearchRange, n4DesPrev, &s2PredictLoc, &n4DesCur );
 		
-			if( fResponse > 0 ){
-				atomicInc(&_devuNewlyAddedCounter, (unsigned int)(-1));//deleted particle counter increase by 1
+		//;	devGetFastDescriptor(_cvgmBlurredPrev,r,c,&n4DesPrev);
+		const int4& n4DesPrev = _cvgmParticleDescriptorsPrev.ptr(r)[c];
+		int4 n4DesCur;
+		float fResponse = devMatch( _fMatchThreshold, _sSearchRange, n4DesPrev, &s2PredictLoc, &n4DesCur );
+		
+		if( fResponse > 0.1f ){
+			atomicInc(&_devuNewlyAddedCounter, (unsigned int)(-1));//deleted particle counter increase by 1
 
-				_cvgmParticleDescriptorsCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x]=n4DesCur;
-				_cvgmParticlesVelocityCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
-				_cvgmParticlesAgeCurr.ptr     (s2PredictLoc.y)[s2PredictLoc.x] = _cvgmParticlesAgePrev.ptr(r)[c] + 1; //update age
-				_cvgmParticleResponsesCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = -fResponse; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
-			}
-			else{//C) if no match found 
-				_cvgmParticlesVelocityPrev.ptr(r)[c] = make_short2(0,0);
-				atomicInc(&_devuCounter, (unsigned int)(-1));//deleted particle counter increase by 1
-			}//lost
+			_cvgmParticleDescriptorsCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x]=n4DesCur;
+			_cvgmParticlesVelocityCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
+			_cvgmParticlesAgeCurr.ptr     (s2PredictLoc.y)[s2PredictLoc.x] = _cvgmParticlesAgePrev.ptr(r)[c] + 1; //update age
+			_cvgmParticleResponsesCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = -fResponse; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
 		}
-		else{
+		else{//C) if no match found 
+			_cvgmParticlesVelocityPrev.ptr(r)[c] = make_short2(0,0);
 			atomicInc(&_devuCounter, (unsigned int)(-1));//deleted particle counter increase by 1
-		}
+		}//lost
+		
 		return;
 	}
 };//class CPredictAndMatch
@@ -820,6 +810,7 @@ unsigned int cudaTrack(float fMatchThreshold_, const short sSearchRange_,
 	cPAM._fRho = .75f;
 	cPAM._fMatchThreshold = fMatchThreshold_;
 	cPAM._sSearchRange = sSearchRange_;
+	cPAM._usHalfSizeRound = 7;//the half size of fast descriptor is 6, but it doesnot rotate, therefore 7 is enough to avoid memory voilation
 
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
