@@ -15,6 +15,7 @@ public:
 	cv::gpu::GpuMat _cvgmParticleResponseCurrTmp;
 	cv::gpu::GpuMat _cvgmParticleDescriptorCurrTmp;
 	cv::gpu::GpuMat _cvgmMinMatchDistance;
+	cv::gpu::GpuMat _cvgmMatchedLocationPrev;
 
 	CSemiDenseTrackerOrb();
 	virtual bool initialize( cv::Mat& cvmColorFrame_ );

@@ -52,6 +52,7 @@ public:
 	cv::gpu::GpuMat _cvgmParticleAngleCurr;
 	cv::gpu::GpuMat _cvgmParticleDescriptorPrev;
 	cv::gpu::GpuMat _cvgmParticleDescriptorCurr;
+	cv::gpu::GpuMat _cvgmParticleDescriptorCurrTmp;
 
 
 	cv::gpu::GpuMat _cvgmMatchedKeyPointLocation;
