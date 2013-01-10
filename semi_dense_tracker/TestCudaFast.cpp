@@ -8,7 +8,10 @@
 
 __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
-__device__ short2 operator * (const float fO1_, const short2 s2O2_);
+__device__ float2 operator * (const float fO1_, const short2 s2O2_);
+__device__ __host__ float2 operator + (const float2 f2O1_, const float2 f2O2_);
+__device__ __host__ float2 operator - (const float2 f2O1_, const float2 f2O2_);
+__device__  short2 convert2s2(const float2 f2O1_);
 
 float dL1(const int4& n4Descriptor1_, const int4& n4Descriptor2_){
 	float fDist = 0.f;
@@ -159,7 +162,7 @@ __device__ __forceinline__ void operator () (){
 			if(fResponse > 0.1f){
 				_devuNewlyAddedCounter++;
 				_cvmParticleDescriptorsCurr.ptr<int4>(s2PredictLoc.y)[s2PredictLoc.x] = n4DenCurr;
-				_cvmParticlesVelocityCurr.ptr<short2>(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvmParticlesVelocityPrev.ptr<short2>(r)[c];//update velocity
+				_cvmParticlesVelocityCurr.ptr<short2>(s2PredictLoc.y)[s2PredictLoc.x] = convert2s2( _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvmParticlesVelocityPrev.ptr<short2>(r)[c] + make_float2(.5f,.5f));//update velocity
 				_cvmParticlesAgeCurr.ptr			 (s2PredictLoc.y)[s2PredictLoc.x] = _cvmParticlesAgePrev.ptr(r)[c] + 1; //update age
 				_cvmParticleResponsesCurr.ptr<float> (s2PredictLoc.y)[s2PredictLoc.x] = -fResponse; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
 			}

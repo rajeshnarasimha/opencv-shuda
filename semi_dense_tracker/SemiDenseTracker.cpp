@@ -63,7 +63,7 @@ btl::image::semidense::CSemiDenseTracker::CSemiDenseTracker()
 
 	_uTotalParticles = 2000;
 
-	_sSearchRange = 10;
+	_sSearchRange = 5;
 
 }
 
@@ -92,6 +92,7 @@ bool btl::image::semidense::CSemiDenseTracker::initialize( cv::Mat& cvmColorFram
 	_cvgmParticleVelocityCurr.create(cvmColorFrame_.size(),CV_16SC2);_cvgmParticleVelocityCurr.setTo(cv::Scalar::all(0));//float velocity; 
 	_cvgmParticleAgeCurr.create(cvmColorFrame_.size(),CV_8UC1);	  _cvgmParticleAgeCurr.setTo(0);//uchar age;
 	_cvgmParticleDescriptorCurr.create(cvmColorFrame_.size(),CV_32SC4);_cvgmParticleDescriptorCurr.setTo(cv::Scalar::all(0));
+	_cvgmParticleDescriptorCurrTmp.create(cvmColorFrame_.size(),CV_32SC4);_cvgmParticleDescriptorCurr.setTo(cv::Scalar::all(0));
 
 	//allocate filter
 	if (_pBlurFilter.empty()){
@@ -99,35 +100,38 @@ bool btl::image::semidense::CSemiDenseTracker::initialize( cv::Mat& cvmColorFram
 	}
 
 	//processing the frame
-	//0.gaussian filter 
-	//a) cvgmBlurred(i) = Gaussian(cvgmImage); // gaussian filter the input image 
+	//apply gaussian filter
 	_pBlurFilter->apply(_cvgmGrayFrame, _cvgmBlurredPrev, cv::Rect(0, 0, _cvgmGrayFrame.cols, _cvgmGrayFrame.rows));
 	//detect key points
-
 	//1.compute the saliency score 
-	//b) cvgmResponse = ExtractSalientPixels(cvgmBlurred(i));
-	unsigned int uTotalSalientPoints = btl::device::semidense::cudaCalcSaliency(_cvgmBlurredPrev, 6*1.5, _ucContrastThresold, _fSaliencyThreshold, 
-		&_cvgmSaliency,&_cvgmInitKeyPointLocation); if (uTotalSalientPoints< _uTotalParticles/2) return false;
+	unsigned int uTotalSalientPoints = btl::device::semidense::cudaCalcSaliency(_cvgmBlurredPrev, unsigned short(6*1.5), _ucContrastThresold, _fSaliencyThreshold, 
+																				&_cvgmSaliency,&_cvgmInitKeyPointLocation); 
+	if (uTotalSalientPoints< _uTotalParticles/2) return false;
 	uTotalSalientPoints = std::min( uTotalSalientPoints, _uMaxKeyPointsBeforeNonMax );
 	
 	//2.do a non-max suppression and initialize particles ( extract feature descriptors ) 
-	//c) cvgmSupressed, KeyPoints, Response = NonMaxSupression(cvgmResponse);
 	unsigned int uFinalSalientPointsAfterNonMax = btl::device::semidense::cudaNonMaxSupression(_cvgmInitKeyPointLocation, uTotalSalientPoints, _cvgmSaliency, 
-		_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(), _cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>() ); 
+																							   _cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(), _cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>() ); 
 	uFinalSalientPointsAfterNonMax = std::min( uFinalSalientPointsAfterNonMax, _uMaxKeyPointsAfterNonMax );
 	
 	//3.sort all salient points according to their strength 
-	//d) cvgmParitclesResponse(i) = Sort(KeyPoints, Response, cvgmSupressed, N); //choose top N strongest salient pixels are particles
 	btl::device::semidense::thrustSort(_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>(),uFinalSalientPointsAfterNonMax);
 	_uTotalParticles = std::min( _uTotalParticles, uFinalSalientPointsAfterNonMax );
+	
+	//4.collect all salient points and descriptors on them
 	_cvgmParticleResponsePrev.setTo(0.f);
 	btl::device::semidense::cudaCollectParticles(_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>(),_uTotalParticles,
-		&_cvgmParticleResponsePrev,&_cvgmParticleDescriptorPrev,_cvgmBlurredPrev);
-	
+												 &_cvgmParticleResponsePrev,&_cvgmParticleDescriptorPrev,_cvgmBlurredPrev);
+
+	//test
+
+
+	//store velocity
 	_cvgmParticleVelocityPrev.download(_cvmKeyPointVelocity[_nFrameIdx]);
 	btl::other::increase<int>(30, &_nFrameIdx);
+
 	cvmColorFrame_.setTo(cv::Scalar::all(255));
-	cv::putText(cvmColorFrame_, "Matthieu 2012", cv::Point(10, 15), cv::FONT_HERSHEY_SIMPLEX, .5, cv::Scalar(1.,0.,0.) );
+	//cv::putText(cvmColorFrame_, "Matthieu 2012", cv::Point(10, 15), cv::FONT_HERSHEY_SIMPLEX, .5, cv::Scalar(1.,0.,0.) );
 	return true;
 }
 
@@ -158,8 +162,8 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	_uFinalSalientPoints = uFinalSalientPoints = std::min( uFinalSalientPoints, unsigned int(_uMaxKeyPointsAfterNonMax) );
 	_cvgmSaliency.setTo(0.f);//clear saliency scores
 	//redeploy the saliency matrix
-	btl::device::semidense::cudaCollectParticles(_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>(),uFinalSalientPoints,
-		&_cvgmSaliency,NULL);
+	btl::device::semidense::cudaCollectParticles(_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>(),
+		uFinalSalientPoints, &_cvgmSaliency, &_cvgmParticleDescriptorCurrTmp,_cvgmBlurredCurr);
 
 	/*cv::gpu::GpuMat cvgmSaliencyTest;
 	_cvgmSaliency.copyTo(cvgmSaliencyTest);
@@ -171,15 +175,15 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	//Note that _cvgmSaliency is the input as well as output, tracked particles are marked as negative scores
 	_cvgmParticleDescriptorCurr.setTo(cv::Scalar::all(0));_cvgmParticleAgeCurr.setTo(0);_cvgmParticleVelocityCurr.setTo(cv::Scalar::all(0));//clear all memory
 	unsigned int uDeletedPoints = btl::device::semidense::cudaTrack(5.f,_sSearchRange,
-		_cvgmParticleDescriptorPrev, _cvgmParticleResponsePrev, _cvgmParticleAgePrev, _cvgmParticleVelocityPrev, _cvgmBlurredCurr, 
-		&_cvgmSaliency, &_cvgmParticleAgeCurr, &_cvgmParticleVelocityCurr, &_cvgmParticleDescriptorCurr);
+																	_cvgmParticleDescriptorPrev, _cvgmParticleResponsePrev, _cvgmParticleAgePrev, _cvgmParticleVelocityPrev, _cvgmBlurredCurr, 
+																	&_cvgmSaliency, &_cvgmParticleAgeCurr, &_cvgmParticleVelocityCurr, &_cvgmParticleDescriptorCurr);
 	//separate tracked particles and rest of candidates. Note that saliency scores are updated 
 	//Note that _cvgmSaliency is the input as well as output, after the tracked particles are separated with rest of candidates, their negative saliency
 	//scores are recovered into positive scores
 	unsigned int uNewlyAdded = btl::device::semidense::cudaMatchedAndNewlyAddedKeyPointsCollection(_cvgmFinalKeyPointsLocationsAfterNonMax, &uFinalSalientPoints, 
-		&_cvgmSaliency, //s
-		_cvgmMatchedKeyPointLocation.ptr<short2>(), _cvgmMatchedKeyPointResponse.ptr<float>(), //tracked particles
-		_cvgmNewlyAddedKeyPointLocation.ptr<short2>(), _cvgmNewlyAddedKeyPointResponse.ptr<float>() ); //rest of candidates
+																									&_cvgmSaliency, //s
+																									_cvgmMatchedKeyPointLocation.ptr<short2>(), _cvgmMatchedKeyPointResponse.ptr<float>(), //tracked particles
+																									_cvgmNewlyAddedKeyPointLocation.ptr<short2>(), _cvgmNewlyAddedKeyPointResponse.ptr<float>() ); //rest of candidates
 	uNewlyAdded = std::min(uNewlyAdded,_uMaxKeyPointsAfterNonMax);
 	unsigned int uMatched = std::min(uFinalSalientPoints,_uTotalParticles);
 	//rest of candidates are ranked according to their strength, and some of them are selected as new particles and added into the set of particles
@@ -188,7 +192,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	//collect particles
 	_cvgmParticleResponseCurr.setTo(0);
 	btl::device::semidense::cudaCollectParticles(_cvgmMatchedKeyPointLocation.ptr<short2>(),_cvgmMatchedKeyPointResponse.ptr<float>(),uMatched,
-		&_cvgmParticleResponseCurr,NULL);//collect tracked particles
+												 &_cvgmParticleResponseCurr,NULL);//collect tracked particles
 	btl::device::semidense::cudaCollectParticles(_cvgmNewlyAddedKeyPointLocation.ptr<short2>(),_cvgmNewlyAddedKeyPointResponse.ptr<float>(),uNewlyAdded,
 		&_cvgmParticleResponseCurr,&_cvgmParticleDescriptorCurr,_cvgmBlurredCurr);//collect new particles and calc their descriptors
 	
@@ -205,6 +209,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	//store velocity
 	_cvgmParticleVelocityCurr.download(_cvmKeyPointVelocity[_nFrameIdx]);
 	cvmColorFrame_.setTo(cv::Scalar::all(255));
+	float fAvgAge = 0.f;
 	for (unsigned int i=0;i<uMatched; i++){
 		short2 ptCurr = _cvmKeyPointLocation.ptr<short2>()[i];
 		uchar ucAge = _cvmKeyPointAge.ptr(ptCurr.y)[ptCurr.x];
@@ -212,6 +217,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 		cv::circle(cvmColorFrame_,cv::Point(ptCurr.x,ptCurr.y),1,cv::Scalar(0,0,255.));
 		short2 vi = _cvmKeyPointVelocity[_nFrameIdx].ptr<short2>(ptCurr.y)[ptCurr.x];
 		int nFrameCurr = _nFrameIdx;
+		fAvgAge += ucAge;
 		while (ucAge > 0 ){//render trajectory 
 			short2 ptPrev = ptCurr - vi;
 			cv::line(cvmColorFrame_, cv::Point(ptCurr.x,ptCurr.y), cv::Point(ptPrev.x,ptPrev.y), cv::Scalar(0,0,0));
@@ -221,6 +227,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 			--ucAge;
 		}
 	}
+	fAvgAge /= uMatched;
 	btl::other::increase<int>(30,&_nFrameIdx);
 	return;	
 }

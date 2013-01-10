@@ -768,7 +768,7 @@ __device__ float dL1(const int4& n4Descriptor1_, const int4& n4Descriptor2_){
 			atomicInc(&_devuNewlyAddedCounter, (unsigned int)(-1));//deleted particle counter increase by 1
 
 			_cvgmParticleDescriptorsCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x]=n4DesCur;
-			_cvgmParticlesVelocityCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
+			_cvgmParticlesVelocityCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = convert2s2( _fRho * (s2PredictLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c] + make_float2(.5f,.5f));//update velocity
 			_cvgmParticlesAgeCurr.ptr     (s2PredictLoc.y)[s2PredictLoc.x] = _cvgmParticlesAgePrev.ptr(r)[c] + 1; //update age
 			_cvgmParticleResponsesCurr.ptr(s2PredictLoc.y)[s2PredictLoc.x] = -fResponse; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
 		}
