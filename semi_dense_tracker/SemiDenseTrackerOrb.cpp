@@ -61,19 +61,14 @@ namespace btl{ namespace device{ namespace semidense{
 	//after tracking, the matched particles are filled into the pcvgmParticleResponsesCurr_, pcvgmParticlesAgeCurr_, pcvgmParticlesVelocityCurr_, 
 	//and pcvgmParticleOrbDescriptorsCurr_, moreover, the cvgmSaliencyCurr_
 	unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned short usHalfSize_, const short sSearchRange_,
-							const short* psPatternX_, const short* psPatternY_, /*const unsigned int uMaxMatchedKeyPoints_,*/
 							const cv::gpu::GpuMat& cvgmParticleOrbDescriptorsPrev_, const cv::gpu::GpuMat& cvgmParticleResponsesPrev_, 
-							/*const cv::gpu::GpuMat& cvgmParticlesAgePrev_,const cv::gpu::GpuMat& cvgmParticlesVelocityPrev_, 
-							const cv::gpu::GpuMat& cvgmImage_,*/ const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
+							const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
 							const cv::gpu::GpuMat& cvgmSaliencyCurr_,
-							/*cv::gpu::GpuMat* pcvgmMutex_,*/
 							cv::gpu::GpuMat* pcvgmMinMatchDistance_,
-							cv::gpu::GpuMat* pcvgmMatchedLocationPrev_
-							/*cv::gpu::GpuMat* pcvgmParticleResponsesCurr_,
-							cv::gpu::GpuMat* pcvgmParticlesAgeCurr_,cv::gpu::GpuMat* pcvgmParticlesVelocityCurr_,cv::gpu::GpuMat* pcvgmParticleOrbDescriptorsCurr_*/);
+							cv::gpu::GpuMat* pcvgmMatchedLocationPrev_);
 	//separate salient point into matched and newly added.
 	//for matched keypoints the velocity and age will be updated
-	void cudaCollectNewlyAddedKeyPoints(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_,
+	void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_,
 										const cv::gpu::GpuMat& cvgmSaliency_,/*const cv::gpu::GpuMat& cvgmParticleResponseCurrTmp_,*/
 										const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
 										const cv::gpu::GpuMat& cvgmParticleVelocityPrev_,
@@ -177,7 +172,6 @@ bool btl::image::semidense::CSemiDenseTrackerOrb::initialize( cv::Mat& cvmColorF
 	//init particles
 	_cvgmParticleResponsePrev.create(cvmColorFrame_.size(),CV_32FC1);	   _cvgmParticleResponsePrev.setTo(0);
 	_cvgmParticleResponseCurr.create(cvmColorFrame_.size(),CV_32FC1);	   _cvgmParticleResponseCurr.setTo(0);
-	_cvgmParticleResponseCurrTmp.create(cvmColorFrame_.size(),CV_32FC1);   _cvgmParticleResponseCurrTmp.setTo(0);
 	_cvgmParticleAnglePrev.create(cvmColorFrame_.size(),CV_32FC1);		   _cvgmParticleAnglePrev.setTo(0);
 	_cvgmParticleAngleCurr.create(cvmColorFrame_.size(),CV_32FC1);		   _cvgmParticleAngleCurr.setTo(0);
 	_cvgmParticleVelocityPrev.create(cvmColorFrame_.size(),CV_16SC2);	   _cvgmParticleVelocityPrev.setTo(cv::Scalar::all(0));//float velocity; 
@@ -269,11 +263,9 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( cv::Mat& cvmColorFrame_
 	//track particles in previous frame by searching the candidates of current frame. 
 	//Note that _cvgmSaliency is the input as well as output, tracked particles are marked as negative scores
 	_cvgmMatchedLocationPrev.setTo(cv::Scalar::all(0));
-	unsigned int uMatchedPoints = btl::device::semidense::cudaTrackOrb( 12, _usHalfPatchSize, _sSearchRange,
-																		_cvgmPattern.ptr<short>(0),_cvgmPattern.ptr<short>(1),
-																		_cvgmParticleDescriptorPrev, _cvgmParticleResponsePrev, 
-																		_cvgmParticleDescriptorCurrTmp,
-																		_cvgmSaliency,
+	unsigned int uMatchedPoints = btl::device::semidense::cudaTrackOrb( 16, _usHalfPatchSize, _sSearchRange,
+																		_cvgmParticleDescriptorPrev,  _cvgmParticleResponsePrev, 
+																		_cvgmParticleDescriptorCurrTmp, _cvgmSaliency,
 																		&_cvgmMinMatchDistance,
 																		&_cvgmMatchedLocationPrev);
 	/*nCounter = 0;
@@ -299,25 +291,18 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( cv::Mat& cvmColorFrame_
 	//separate tracked particles and rest of candidates. Note that saliency scores are updated 
 	//Note that _cvgmSaliency is the input as well as output, after the tracked particles are separated with rest of candidates, their negative saliency
 	//scores are recovered into positive scores
-	
 	_cvgmMatchedKeyPointLocation   .setTo(cv::Scalar::all(0));//clear all memory
 	_cvgmMatchedKeyPointResponse   .setTo(0.f);
 	_cvgmNewlyAddedKeyPointLocation.setTo(cv::Scalar::all(0));//clear all memory
 	_cvgmNewlyAddedKeyPointResponse.setTo(0.f);
-	
-/*
-	nCounter = 0;
-	bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency,_cvgmParticleDescriptorCurrTmp,&nCounter);
-*/
-
-	btl::device::semidense::cudaCollectNewlyAddedKeyPoints(_uTotalParticles, _uMaxKeyPointsAfterNonMax, 0.75f,
-															_cvgmSaliency, _cvgmParticleDescriptorCurrTmp,
-															_cvgmParticleVelocityPrev,_cvgmParticleAgePrev,
-															_cvgmMinMatchDistance,_cvgmMatchedLocationPrev,
-															&_cvgmNewlyAddedKeyPointLocation, &_cvgmNewlyAddedKeyPointResponse, 
-															&_cvgmMatchedKeyPointLocation, &_cvgmMatchedKeyPointResponse,
-															&_cvgmParticleResponseCurr, &_cvgmParticleDescriptorCurr,
-															&_cvgmParticleVelocityCurr,&_cvgmParticleAgeCurr);
+	btl::device::semidense::cudaCollectKeyPointOrb(_uTotalParticles, _uMaxKeyPointsAfterNonMax, 0.75f,
+													_cvgmSaliency, _cvgmParticleDescriptorCurrTmp,
+													_cvgmParticleVelocityPrev,_cvgmParticleAgePrev,
+													_cvgmMinMatchDistance,_cvgmMatchedLocationPrev,
+													&_cvgmNewlyAddedKeyPointLocation, &_cvgmNewlyAddedKeyPointResponse, 
+													&_cvgmMatchedKeyPointLocation, &_cvgmMatchedKeyPointResponse,
+													&_cvgmParticleResponseCurr, &_cvgmParticleDescriptorCurr,
+													&_cvgmParticleVelocityCurr,&_cvgmParticleAgeCurr);
 /*
 	nCounter = 0;
 	bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency,_cvgmParticleDescriptorCurrTmp,&nCounter);
