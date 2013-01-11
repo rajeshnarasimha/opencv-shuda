@@ -11,7 +11,6 @@ cuda_add_executable( SemiDenseTracker Main.cpp SemiDenseTracker.cpp SemiDenseTra
 Orb.h Orb.cu Fast.cpp Fast.cu Fast.h SemiDenseTrackerOrb.cpp SemiDenseTrackerOrb.h SemiDenseTrackerOrb.cu TestCudaOrb.cpp TestCudaFast.cpp CudaHelper.hpp Helper.hpp Helper.cpp)
 target_link_libraries( SemiDenseTracker ${OpenCV_LIBS} )
 
-add_executable( TestSemiDense TestSemiDense.cpp )
-target_link_libraries( TestSemiDense ${OpenCV_LIBS} )
+
 
 

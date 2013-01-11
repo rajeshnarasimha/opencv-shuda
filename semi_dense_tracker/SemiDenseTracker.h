@@ -24,6 +24,7 @@ public:
 
 	unsigned int _uTotalParticles;
 	short _sSearchRange;
+	unsigned short _usHalfPatchSize; //	the size of a circular region where the patch angle and the orb descriptor are defined
 
 	//# of Max key points
 	unsigned int _uMaxKeyPointsBeforeNonMax;
@@ -52,13 +53,15 @@ public:
 	cv::gpu::GpuMat _cvgmParticleAngleCurr;
 	cv::gpu::GpuMat _cvgmParticleDescriptorPrev;
 	cv::gpu::GpuMat _cvgmParticleDescriptorCurr;
-	cv::gpu::GpuMat _cvgmParticleDescriptorCurrTmp;
-
 
 	cv::gpu::GpuMat _cvgmMatchedKeyPointLocation;
 	cv::gpu::GpuMat _cvgmMatchedKeyPointResponse;
 	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointLocation;
 	cv::gpu::GpuMat _cvgmNewlyAddedKeyPointResponse;
+
+	cv::gpu::GpuMat _cvgmParticleDescriptorCurrTmp;
+	cv::gpu::GpuMat _cvgmMinMatchDistance;
+	cv::gpu::GpuMat _cvgmMatchedLocationPrev;
 	
 	cv::Mat _cvmKeyPointLocation;
 	cv::Mat _cvmKeyPointAge;
@@ -69,7 +72,6 @@ public:
 	virtual bool initialize( cv::Mat& cvmColorFrame_ );
 	virtual void track( cv::Mat& cvmColorFrame_ );
 
-	void trackTest( cv::Mat& cvmColorFrame_ );
 	void displayCandidates( cv::Mat& cvmColorFrame_ );
 
 };//class CSemiDenseTracker

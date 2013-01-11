@@ -191,47 +191,21 @@ __constant__ uchar _popCountTable[] =
 
 class CPredictAndMatchOrb{
 public:
-	//the idea is borrowed from cuda by example appendix A
-	cv::gpu::DevMem2D_<int> _cvgmMutex; //for lock
-
-	__device__ void lock( int r, int c ) {
-		int* pMutex = _cvgmMutex.ptr(r)+c; 
-		while( atomicCAS( pMutex, 0, 1 ) != 0 );
-	}
-
-	__device__ void unlock(	int r, int c ) {
-		int* pMutex = _cvgmMutex.ptr(r)+c;
-		atomicExch( pMutex, 0 );
-	}
-
-
 	cv::gpu::DevMem2D_<int2>   _cvgmParticleOrbDescriptorsPrev;
 	cv::gpu::DevMem2D_<float>  _cvgmParticleResponsesPrev;
-	//cv::gpu::DevMem2D_<uchar>  _cvgmParticlesAgePrev;
-	//cv::gpu::DevMem2D_<short2> _cvgmParticlesVelocityPrev;
 	
-	//cv::gpu::DevMem2D_<uchar>  _cvgmImageCurr;
 	cv::gpu::DevMem2D_<int2>   _cvgmParticleDescriptorCurrTmp; //store the orb descriptor for each salient point
-	//cv::gpu::DevMem2D_<int2>   _cvgmParticleOrbDescriptorsCurr;
 	cv::gpu::DevMem2D_<float>  _cvgmSaliencyCurr;
-	//cv::gpu::DevMem2D_<float>  _cvgmParticleResponsesCurr;
-	//cv::gpu::DevMem2D_<uchar>  _cvgmParticlesAgeCurr;
-	//cv::gpu::DevMem2D_<short2> _cvgmParticlesVelocityCurr;
 
 	cv::gpu::DevMem2D_<uchar>  _cvgmMinMatchDistance;
 	cv::gpu::DevMem2D_<short2> _cvgmMatchedLocationPrev;
 
-	//float _fRho;
-	//unsigned int _uMaxMatchedKeyPoint;
 	short _sSearchRange;
 	unsigned short _usMatchThreshold;
 	unsigned short _usHalfSize;
 	unsigned short _usHalfSizeRound;//the patch will be rotated according to it main angle
 									//therefore the patch half size have to be sqrt(2)*HalfSize 
 	                                //it's roughly 1.5 * HalfSize
-
-	const short* _psPatternX;
-	const short* _psPatternY;
 
 	__device__ __forceinline__ uchar dL(const uchar* pDesPrev_, const uchar* pDesCurr_) const{
 		uchar ucRes = 0;
@@ -240,14 +214,13 @@ public:
 		return ucRes;
 	}
 	__device__ __forceinline__ uchar devMatchOrb( const unsigned short usMatchThreshold_, 
-		const uchar* pDesPrev_, const short2 s2PredicLoc_, short2* ps2BestLoc_, uchar* pBestDesCur_ ){
+												  const uchar* pDesPrev_, const short2 s2PredicLoc_, short2* ps2BestLoc_){
 		float fResponse = 0.f;
 		short2 s2Loc;
 		uchar ucMinDist = 255;
 		//search for the 7x7 neighbourhood for 
 		for(short r = -_sSearchRange; r <= _sSearchRange; r++ ){
 			for(short c = -_sSearchRange; c <= _sSearchRange; c++ ){
-
 				s2Loc = s2PredicLoc_ + make_short2( c, r ); 
 				if(s2Loc.x < _usHalfSizeRound || s2Loc.x >= _cvgmParticleResponsesPrev.cols - _usHalfSizeRound || s2Loc.y < _usHalfSizeRound || s2Loc.y >= _cvgmParticleResponsesPrev.rows - _usHalfSizeRound ) continue;
 				fResponse = _cvgmSaliencyCurr.ptr(s2Loc.y)[s2Loc.x];
@@ -258,15 +231,13 @@ public:
 						if (  ucMinDist > ucDist ){
 							ucMinDist = ucDist;
 							*ps2BestLoc_ = s2Loc;
-							//pBestDesCur_[0] = pDesCur[0]; pBestDesCur_[1] = pDesCur[1]; pBestDesCur_[2] = pDesCur[2]; pBestDesCur_[3] = pDesCur[3];
-							//pBestDesCur_[4] = pDesCur[4]; pBestDesCur_[5] = pDesCur[5]; pBestDesCur_[6] = pDesCur[6]; pBestDesCur_[7] = pDesCur[7];
 						}
 					}
 				}//if sailent corner exits
 			}//for 
 		}//for
 		return ucMinDist;
-	}
+	}//devMatchOrb()
 		
 
 	__device__ __forceinline__ void operator () (){
@@ -274,24 +245,16 @@ public:
 		const int r = threadIdx.y + blockIdx.y * blockDim.y;
 
 		if( c < _usHalfSizeRound || c >= _cvgmParticleResponsesPrev.cols - _usHalfSizeRound || r < _usHalfSizeRound || r >= _cvgmParticleResponsesPrev.rows - _usHalfSizeRound ) return;
-		//if IsParticle( PixelLocation, cvgmParitclesResponse(i) )
-		if(_cvgmParticleResponsesPrev.ptr(r)[c] < 0.2f) return;
+		if(_cvgmParticleResponsesPrev.ptr(r)[c] < 0.1f) return;
 		const uchar* pDesPrev = (uchar*) ( _cvgmParticleOrbDescriptorsPrev.ptr(r)+c);
-		short2 s2BestLoc; uchar aDesBest[8];
 
-		const uchar ucDist = devMatchOrb( _usMatchThreshold, pDesPrev,make_short2(c,r), &s2BestLoc, &*aDesBest );
+		short2 s2BestLoc; 
+		const uchar ucDist = devMatchOrb( _usMatchThreshold, pDesPrev,make_short2(c,r), &s2BestLoc );
 		
-		if( ucDist < 64 ){
-			atomicInc(&_devuOther, (unsigned int)(-1));//deleted particle counter increase by 1
-			//const uchar ucMin = atomicMin(_cvgmMinMatchDistance.ptr(s2BestLoc.y)[s2BestLoc.x], 255);
-			//lock(s2BestLoc.y,s2BestLoc.x);
+		if( ucDist < 64 ){ //64 is the max distance
 			const uchar ucMin = _cvgmMinMatchDistance.ptr(s2BestLoc.y)[s2BestLoc.x];//competing for the same memory
 			if( ucMin == uchar(0xff) ) {//it has NEVER been matched before.
 				atomicInc(&_devuNewlyAddedCounter, (unsigned int)(-1));//deleted particle counter increase by 1
-				//_cvgmParticleOrbDescriptorsCurr.ptr(s2BestLoc.y)[s2BestLoc.x]=*((int2*)aDesBest);
-				//_cvgmParticlesVelocityCurr.ptr(s2BestLoc.y)[s2BestLoc.x] = _fRho * (s2BestLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
-				//_cvgmParticlesAgeCurr	  .ptr(s2BestLoc.y)[s2BestLoc.x] = _cvgmParticlesAgePrev.ptr(r)[c] + 1; //update age
-				//_cvgmParticleResponsesCurr.ptr(s2BestLoc.y)[s2BestLoc.x] = _cvgmSaliencyCurr.ptr(s2BestLoc.y)[s2BestLoc.x]; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
 				_cvgmMinMatchDistance     .ptr(s2BestLoc.y)[s2BestLoc.x] = ucDist;
 				_cvgmMatchedLocationPrev  .ptr(s2BestLoc.y)[s2BestLoc.x] = make_short2(c,r);
 			}
@@ -299,11 +262,6 @@ public:
 				//double match means one of them will be removed
 				atomicInc(&_devuCounter, (unsigned int)(-1));//deleted particle counter increase by 1
 				if ( ucMin > ucDist ){//record it if it is a better match than previous match
-					//note that the match double match the match counter doesnt increase
-					//_cvgmParticleOrbDescriptorsCurr.ptr(s2BestLoc.y)[s2BestLoc.x]=*((int2*)aDesBest);
-					//_cvgmParticlesVelocityCurr.ptr(s2BestLoc.y)[s2BestLoc.x] = _fRho * (s2BestLoc - make_short2(c,r)) + (1.f - _fRho)* _cvgmParticlesVelocityPrev.ptr(r)[c];//update velocity
-					//_cvgmParticlesAgeCurr	  .ptr(s2BestLoc.y)[s2BestLoc.x] = _cvgmParticlesAgePrev.ptr(r)[c] + 1; //update age
-					//_cvgmParticleResponsesCurr.ptr(s2BestLoc.y)[s2BestLoc.x] = _cvgmSaliencyCurr.ptr(s2BestLoc.y)[s2BestLoc.x]; //update response and location //marked as matched and it will be corrected in NoMaxAndCollection
 					_cvgmMinMatchDistance     .ptr(s2BestLoc.y)[s2BestLoc.x] = ucDist;
 					_cvgmMatchedLocationPrev  .ptr(s2BestLoc.y)[s2BestLoc.x] = make_short2(c,r);
 				}//if
@@ -323,53 +281,32 @@ __global__ void kernelPredictAndMatchOrb(CPredictAndMatchOrb cPAMO_ ){
 //after tracking, the matched particles are filled into the pcvgmParticleResponsesCurr_, pcvgmParticlesAgeCurr_, pcvgmParticlesVelocityCurr_, 
 //and pcvgmParticleOrbDescriptorsCurr_, moreover, the cvgmSaliencyCurr_
 unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned short usHalfSize_, const short sSearchRange_,
-							const short* psPatternX_, const short* psPatternY_, /*const unsigned int uMaxMatchedKeyPoints_,*/
-							const cv::gpu::GpuMat& cvgmParticleOrbDescriptorsPrev_, const cv::gpu::GpuMat& cvgmParticleResponsesPrev_, 
-							/*const cv::gpu::GpuMat& cvgmParticlesAgePrev_,const cv::gpu::GpuMat& cvgmParticlesVelocityPrev_, 
-							const cv::gpu::GpuMat& cvgmImage_,*/ const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
-							const cv::gpu::GpuMat& cvgmSaliencyCurr_,
-							/*cv::gpu::GpuMat* pcvgmMutex_,*/
+							const cv::gpu::GpuMat& cvgmParticleOrbDescriptorPrev_, const cv::gpu::GpuMat& cvgmParticleResponsePrev_, 
+							const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,  const cv::gpu::GpuMat& cvgmSaliencyCurr_,
 							cv::gpu::GpuMat* pcvgmMinMatchDistance_,
-							cv::gpu::GpuMat* pcvgmMatchedLocationPrev_
-							/*cv::gpu::GpuMat* pcvgmParticleResponsesCurr_,
-							cv::gpu::GpuMat* pcvgmParticlesAgeCurr_,cv::gpu::GpuMat* pcvgmParticlesVelocityCurr_,cv::gpu::GpuMat* pcvgmParticleOrbDescriptorsCurr_*/){
+							cv::gpu::GpuMat* pcvgmMatchedLocationPrev_){
 	
 	dim3 block(32,8);
 	dim3 grid;
-	grid.x = cv::gpu::divUp(cvgmParticleResponsesPrev_.cols, block.x);
-    grid.y = cv::gpu::divUp(cvgmParticleResponsesPrev_.rows, block.y);
+	grid.x = cv::gpu::divUp(cvgmParticleResponsePrev_.cols, block.x);
+    grid.y = cv::gpu::divUp(cvgmParticleResponsePrev_.rows, block.y);
 
 	CPredictAndMatchOrb cPAMO;
-	//cPAMO._cvgmImageCurr = cvgmImage_;
-	cPAMO._cvgmParticleOrbDescriptorsPrev = cvgmParticleOrbDescriptorsPrev_;
-	cPAMO._cvgmParticleResponsesPrev = cvgmParticleResponsesPrev_;
-	//cPAMO._cvgmParticlesVelocityPrev = cvgmParticlesVelocityPrev_;
-	//cPAMO._cvgmParticlesAgePrev = cvgmParticlesAgePrev_;
+	cPAMO._cvgmParticleOrbDescriptorsPrev = cvgmParticleOrbDescriptorPrev_;
+	cPAMO._cvgmParticleResponsesPrev = cvgmParticleResponsePrev_;
 
-	//pcvgmParticlesAgeCurr_->setTo(0);
-	//cPAMO._cvgmParticleOrbDescriptorsCurr = *pcvgmParticleOrbDescriptorsCurr_;
 	cPAMO._cvgmParticleDescriptorCurrTmp = cvgmParticleDescriptorCurrTmp_;
-	//cPAMO._cvgmParticleResponsesCurr = *pcvgmParticleResponsesCurr_;
 	cPAMO._cvgmSaliencyCurr = cvgmSaliencyCurr_;
-	//cPAMO._cvgmParticlesVelocityCurr = *pcvgmParticlesVelocityCurr_;
-	//cPAMO._cvgmParticlesAgeCurr = *pcvgmParticlesAgeCurr_;
-	/*pcvgmMutex_->setTo(0);
-	cPAMO._cvgmMutex = *pcvgmMutex_;*/
 
-
-	//cPAMO._uMaxMatchedKeyPoint = uMaxMatchedKeyPoints_*2;
 	pcvgmMinMatchDistance_->setTo(255);
 	cPAMO._cvgmMinMatchDistance = *pcvgmMinMatchDistance_;
 	pcvgmMatchedLocationPrev_->setTo(cv::Scalar::all(0));
 	cPAMO._cvgmMatchedLocationPrev = *pcvgmMatchedLocationPrev_; 
 
-	//cPAMO._fRho = .75f;
 	cPAMO._usMatchThreshold = usMatchThreshold_;
 	cPAMO._usHalfSize = usHalfSize_;
 	cPAMO._usHalfSizeRound = (unsigned short)(usHalfSize_*1.5);
 	cPAMO._sSearchRange = sSearchRange_;
-	cPAMO._psPatternX = psPatternX_;
-	cPAMO._psPatternY = psPatternY_;
 
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
@@ -383,10 +320,6 @@ unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned
     cudaSafeCall( cudaGetSymbolAddress(&pCounterOther, _devuOther) );
 	cudaSafeCall( cudaMemset(pCounterOther, 0, sizeof(unsigned int)) );
 
-	void* pCounterTest1;
-    cudaSafeCall( cudaGetSymbolAddress(&pCounterTest1, _devuTest1) );
-	cudaSafeCall( cudaMemset(pCounterTest1, 0, sizeof(unsigned int)) );
-
 	kernelPredictAndMatchOrb<<<grid, block>>>(cPAMO);
 	cudaSafeCall( cudaGetLastError() );
     cudaSafeCall( cudaDeviceSynchronize() );
@@ -397,8 +330,6 @@ unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned
     cudaSafeCall( cudaMemcpy(&uMatched, pCounterMatch, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
 	unsigned int uOther ;
     cudaSafeCall( cudaMemcpy(&uOther, pCounterOther, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
-	unsigned int uTest1 ;
-    cudaSafeCall( cudaMemcpy(&uTest1, pCounterTest1, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
 
 	return uMatched;
 }//cudaTrackOrb
@@ -481,19 +412,20 @@ __global__ void kernerlAddNewParticles( const unsigned int uTotalParticles_,
 	const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
 	cvgmParticleResponse_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
 	cvgmParticleDescriptor_.ptr(s2Loc.y)[s2Loc.x] = cvgmParticleDescriptorTmp_.ptr(s2Loc.y)[s2Loc.x]; 
-	return;
+	return; 
 }
-void cudaCollectNewlyAddedKeyPoints(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_,
-									const cv::gpu::GpuMat& cvgmSaliency_,/*const cv::gpu::GpuMat& cvgmParticleResponseCurrTmp_,*/
-									const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
-									const cv::gpu::GpuMat& cvgmParticleVelocityPrev_,
-									const cv::gpu::GpuMat& cvgmParticleAgePrev_,
-									const cv::gpu::GpuMat& cvgmMinMatchDistance_,
-									const cv::gpu::GpuMat& cvgmMatchedLocationPrev_,
-									cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointLocation_, cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointResponse_,
-									cv::gpu::GpuMat* pcvgmMatchedKeyPointLocation_, cv::gpu::GpuMat* pcvgmMatchedKeyPointResponse_,
-									cv::gpu::GpuMat* pcvgmParticleResponseCurr_, cv::gpu::GpuMat* pcvgmParticleDescriptorCurr_,
-									cv::gpu::GpuMat* pcvgmParticleVelocityCurr_, cv::gpu::GpuMat* pcvgmParticleAgeCurr_){
+
+void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_,
+							const cv::gpu::GpuMat& cvgmSaliency_,/*const cv::gpu::GpuMat& cvgmParticleResponseCurrTmp_,*/
+							const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
+							const cv::gpu::GpuMat& cvgmParticleVelocityPrev_,
+							const cv::gpu::GpuMat& cvgmParticleAgePrev_,
+							const cv::gpu::GpuMat& cvgmMinMatchDistance_,
+							const cv::gpu::GpuMat& cvgmMatchedLocationPrev_,
+							cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointLocation_, cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointResponse_,
+							cv::gpu::GpuMat* pcvgmMatchedKeyPointLocation_, cv::gpu::GpuMat* pcvgmMatchedKeyPointResponse_,
+							cv::gpu::GpuMat* pcvgmParticleResponseCurr_, cv::gpu::GpuMat* pcvgmParticleDescriptorCurr_,
+							cv::gpu::GpuMat* pcvgmParticleVelocityCurr_, cv::gpu::GpuMat* pcvgmParticleAgeCurr_){
 	if(!uTotalParticles_) return;
 
 	SCollectUnMatchedKeyPoints sCUMKP;
