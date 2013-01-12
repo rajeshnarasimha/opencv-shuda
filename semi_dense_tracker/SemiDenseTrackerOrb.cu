@@ -153,13 +153,19 @@ __global__ void kernerlCollectParticlesAndOrbDescriptors(
 	pD[nDescIdx]= ucDesc;
 }
 // it fills the 1.pcvgmParticleResponses_, 2.pcvgmParticleAngle_, 3.pcvgmParticleDescriptor_
-void cudaCollectParticlesAndOrbDescriptors(
-		const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const cv::gpu::GpuMat& cvgmImage_,
-		const unsigned int uTotalParticles_, const unsigned short usHalfPatchSize_,
-		const short* psPatternX_, const short* psPatternY_,
-		cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleAngle_, cv::gpu::GpuMat* pcvgmParticleDescriptor_){
+void cudaExtractAllDescriptorOrb(	const cv::gpu::GpuMat& cvgmImage_,
+									const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
+									const unsigned int uTotalParticles_, const unsigned short usHalfPatchSize_,
+									const short* psPatternX_, const short* psPatternY_,
+									cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleAngle_, cv::gpu::GpuMat* pcvgmParticleDescriptor_){
 
 	if(uTotalParticles_ == 0) return;
+
+	cudaEvent_t     start, stop;
+    cudaSafeCall( cudaEventCreate( &start ) );
+    cudaSafeCall( cudaEventCreate( &stop ) );
+    cudaSafeCall( cudaEventRecord( start, 0 ) );
+
 	//calc corner angle
 	cudaCalcAngles(cvgmImage_, ps2KeyPointsLocations_, uTotalParticles_,  usHalfPatchSize_, pcvgmParticleAngle_);
 
@@ -172,6 +178,18 @@ void cudaCollectParticlesAndOrbDescriptors(
 		uTotalParticles_, 
 		psPatternX_, psPatternY_,(unsigned short)(usHalfPatchSize_*1.5), //it is the roughly sqrt(2)* usHalfPatchSize_
 		*pcvgmParticleResponses_, *pcvgmParticleAngle_, *pcvgmParticleDescriptor_);
+	cudaSafeCall( cudaGetLastError() );
+
+	cudaSafeCall( cudaEventRecord( stop, 0 ) );
+    cudaSafeCall( cudaEventSynchronize( stop ) );
+    float   elapsedTime;
+    cudaSafeCall( cudaEventElapsedTime( &elapsedTime, start, stop ) );
+    printf( "Extract Orb:  %3.1f ms\n", elapsedTime );
+
+    cudaSafeCall( cudaEventDestroy( start ) );
+    cudaSafeCall( cudaEventDestroy( stop ) );
+
+
 	return;
 }
 
@@ -286,6 +304,12 @@ unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned
 							cv::gpu::GpuMat* pcvgmMinMatchDistance_,
 							cv::gpu::GpuMat* pcvgmMatchedLocationPrev_){
 	
+								
+	cudaEvent_t     start, stop;
+    cudaSafeCall( cudaEventCreate( &start ) );
+    cudaSafeCall( cudaEventCreate( &stop ) );
+    cudaSafeCall( cudaEventRecord( start, 0 ) );
+
 	dim3 block(32,8);
 	dim3 grid;
 	grid.x = cv::gpu::divUp(cvgmParticleResponsePrev_.cols, block.x);
@@ -319,10 +343,13 @@ unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned
 	void* pCounterOther;
     cudaSafeCall( cudaGetSymbolAddress(&pCounterOther, _devuOther) );
 	cudaSafeCall( cudaMemset(pCounterOther, 0, sizeof(unsigned int)) );
+	
 
 	kernelPredictAndMatchOrb<<<grid, block>>>(cPAMO);
 	cudaSafeCall( cudaGetLastError() );
     cudaSafeCall( cudaDeviceSynchronize() );
+
+
 
     unsigned int uDeleted ;
     cudaSafeCall( cudaMemcpy(&uDeleted, pCounter, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
@@ -330,6 +357,17 @@ unsigned int cudaTrackOrb(const unsigned short usMatchThreshold_, const unsigned
     cudaSafeCall( cudaMemcpy(&uMatched, pCounterMatch, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
 	unsigned int uOther ;
     cudaSafeCall( cudaMemcpy(&uOther, pCounterOther, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
+
+
+	cudaSafeCall( cudaEventRecord( stop, 0 ) );
+    cudaSafeCall( cudaEventSynchronize( stop ) );
+    float   elapsedTime;
+    cudaSafeCall( cudaEventElapsedTime( &elapsedTime, start, stop ) );
+    printf( "Track Orb:  %3.1f ms\n", elapsedTime );
+
+    cudaSafeCall( cudaEventDestroy( start ) );
+    cudaSafeCall( cudaEventDestroy( stop ) );
+
 
 	return uMatched;
 }//cudaTrackOrb
@@ -428,6 +466,11 @@ void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewK
 							cv::gpu::GpuMat* pcvgmParticleVelocityCurr_, cv::gpu::GpuMat* pcvgmParticleAgeCurr_){
 	if(!uTotalParticles_) return;
 
+	cudaEvent_t     start, stop;
+    cudaSafeCall( cudaEventCreate( &start ) );
+    cudaSafeCall( cudaEventCreate( &stop ) );
+    cudaSafeCall( cudaEventRecord( start, 0 ) );
+
 	SCollectUnMatchedKeyPoints sCUMKP;
 	
 	sCUMKP._cvgmSaliency				  = cvgmSaliency_;//store all non-max salient points
@@ -452,6 +495,9 @@ void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewK
 	sCUMKP._pfNewlyAddedKeyPointResponse  = pcvgmNewlyAddedKeyPointResponse_->ptr<float>();
 	sCUMKP._ps2MatchedKeyPointLocation    = pcvgmMatchedKeyPointLocation_->ptr<short2>(); 
 	sCUMKP._pfMatchedKeyPointResponse     = pcvgmMatchedKeyPointResponse_->ptr<float>();
+
+
+
 
 	void* pNewCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pNewCounter, _devuCounter) );
@@ -488,6 +534,19 @@ void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewK
 											sCUMKP._cvgmParticleDescriptorCurrTmp ,
 											sCUMKP._cvgmParticleResponseCurr, sCUMKP._cvgmParticleDescriptorCurr);
 	cudaSafeCall( cudaGetLastError() );
+
+
+	cudaSafeCall( cudaEventRecord( stop, 0 ) );
+    cudaSafeCall( cudaEventSynchronize( stop ) );
+    float   elapsedTime;
+    cudaSafeCall( cudaEventElapsedTime( &elapsedTime, start, stop ) );
+    printf( "Collect Orb:  %3.1f ms\n", elapsedTime );
+
+    cudaSafeCall( cudaEventDestroy( start ) );
+    cudaSafeCall( cudaEventDestroy( stop ) );
+
+	
+
 }
 
 
