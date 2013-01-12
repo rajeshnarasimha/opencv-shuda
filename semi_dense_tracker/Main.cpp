@@ -38,8 +38,8 @@ int main ( int argc, char** argv )
 	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
 #else
-	cv::VideoCapture cap("VFootball.mkv");//("VRotatePersp.avi");//("VRotateOrtho.avi"); //("VBranches.avi"); //("sav.avi");//("VZoomIn.avi");//("VHand.avi"); 
-	//("VPerson.avi");//("VCars.avi"); //("VHall.avi");//( "VRectLight.avi" );// ("VTreeTrunk.avi"); //("VMouth.avi");// // ("VZoomOut.avi");// 
+	cv::VideoCapture cap("VFootball.mkv");//("VTreeTrunk.avi"); //("VRotatePersp.avi");//( "VRectLight.avi" );//("VCars.avi"); //("VRotateOrtho.avi"); //("VBranches.avi"); //("sav.avi");//("VZoomIn.avi");//("VHand.avi"); 
+	//("VPerson.avi");//("VHall.avi");// ("VMouth.avi");// // ("VZoomOut.avi");// 
 	//  //
 #endif
 
@@ -76,12 +76,13 @@ int main ( int argc, char** argv )
 	bool bStart = false;
 	unsigned int uIdx = 0;
     for ( ;;uIdx++ ){
+		double t = (double)cv::getTickCount();
 		if ( cv::waitKey ( 'a' ) >= 0 ) bStart = true;
 		imshow ( "Tracker", cvmTotalFrame );
 		if(!bStart) continue;
 		//load a new frame
-        cap >> cvmColorFrame; 
-		
+		cap >> cvmColorFrame; 
+
 		if (cvmColorFrame.empty()) {
 			cap.set(CV_CAP_PROP_POS_AVI_RATIO,0);//replay at the end of the video
 			cap >> cvmColorFrame; 
@@ -100,11 +101,13 @@ int main ( int argc, char** argv )
 			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);// get a new frame from camera
 		}
 
-
 		cSDTOrb.track( cvmROI1 );
 		cSDTFast.track( cvmROI2 );
 		cSDTOrb.displayCandidates( cvmROI3 );
-		
+		t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+		std::cout << "frame time [s]: " << t << " ms" << std::endl;	
+
+
 		//interactions
         if ( cv::waitKey ( 30 ) >= 0 ){
             break;

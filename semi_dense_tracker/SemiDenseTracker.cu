@@ -616,27 +616,20 @@ void cudaFastDescriptors(const cv::gpu::GpuMat& cvgmImage_, unsigned int uFinalS
 
 
 
-__global__ void kernerlCollectParticles( const cv::gpu::DevMem2D_<uchar> cvgmImage_,const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, 
-	cv::gpu::DevMem2D_<float> cvgmParticleResponses_, cv::gpu::DevMem2D_<int4> cvgmParticleDescriptors_){
+__global__ void kernelExtractAllDescriptorFast(const cv::gpu::DevMem2D_<uchar> cvgmImage_,
+											   const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
+											   const unsigned int uTotalParticles_, const unsigned int usHalfPatchSizeRound_,
+											   cv::gpu::DevMem2D_<float> cvgmParticleResponses_, cv::gpu::DevMem2D_<int4> cvgmParticleDescriptors_){
+
 	const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
 	if (nKeyPointIdx >= uTotalParticles_) return;
 
 	const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
-	if( s2Loc.x < 8 || s2Loc.x >= cvgmImage_.cols - 8 || s2Loc.y < 8 || s2Loc.y >= cvgmImage_.rows - 8 ) return;
+	if( s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmImage_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmImage_.rows - usHalfPatchSizeRound_ ) return;
 
 	cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
-	int4 n4Desc;
-	devGetFastDescriptor(cvgmImage_,s2Loc.y,s2Loc.x,&n4Desc);
+	int4 n4Desc; devGetFastDescriptor(cvgmImage_,s2Loc.y,s2Loc.x,&n4Desc);
 	cvgmParticleDescriptors_.ptr(s2Loc.y)[s2Loc.x] = n4Desc;
-}
-
-__global__ void kernerlCollectParticles( const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, 
-	cv::gpu::DevMem2D_<float> cvgmParticleResponses_){
-	const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
-	if (nKeyPointIdx >= uTotalParticles_) return;
-
-	const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
-	cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
 }
 /*
 collect all key points and key point response and set a frame of saliency frame
@@ -645,16 +638,33 @@ input values:
 returned values:
   pcvgmParticleResponses_: a frame of saliency response
 */
-void cudaCollectParticles(const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, 
-	cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleDescriptor_, const cv::gpu::GpuMat& cvgmImage_/*=cv::gpu::GpuMat()*/ ){
+void cudaExtractAllDescriptorFast(const cv::gpu::GpuMat& cvgmImage_, 
+								  const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
+								  const unsigned int uTotalParticles_, const unsigned int usHalfPatchSize_,  
+								  cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleDescriptor_ ){
+	cudaEvent_t     start, stop;
+    cudaSafeCall( cudaEventCreate( &start ) );
+    cudaSafeCall( cudaEventCreate( &stop ) );
+    cudaSafeCall( cudaEventRecord( start, 0 ) );
+
 	if(uTotalParticles_ == 0) return;
 	dim3 block(256);
     dim3 grid;
     grid.x = cv::gpu::divUp(uTotalParticles_, block.x);
-	if(pcvgmParticleDescriptor_)
-		kernerlCollectParticles<<<grid, block>>>( cvgmImage_, ps2KeyPointsLocations_, pfKeyPointsResponse_, uTotalParticles_, *pcvgmParticleResponses_, *pcvgmParticleDescriptor_);
-	else
-		kernerlCollectParticles<<<grid, block>>>( ps2KeyPointsLocations_, pfKeyPointsResponse_, uTotalParticles_, *pcvgmParticleResponses_);
+	unsigned int usHalfPatchRound = unsigned int(usHalfPatchSize_*1.5);
+	kernelExtractAllDescriptorFast<<<grid, block>>>( cvgmImage_, ps2KeyPointsLocations_, pfKeyPointsResponse_, 
+													 uTotalParticles_, usHalfPatchRound, 
+													 *pcvgmParticleResponses_, *pcvgmParticleDescriptor_);
+
+	cudaSafeCall( cudaEventRecord( stop, 0 ) );
+    cudaSafeCall( cudaEventSynchronize( stop ) );
+    float   elapsedTime;
+    cudaSafeCall( cudaEventElapsedTime( &elapsedTime, start, stop ) );
+    printf( "Extract Fast:  %3.1f ms\n", elapsedTime );
+
+    cudaSafeCall( cudaEventDestroy( start ) );
+    cudaSafeCall( cudaEventDestroy( stop ) );
+
 	return;
 }
 
@@ -774,6 +784,12 @@ unsigned int cudaTrackFast(float fMatchThreshold_, const unsigned short usHalfSi
 							const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_, const cv::gpu::GpuMat& cvgmSaliencyCurr_, 
 							cv::gpu::GpuMat* pcvgmMinMatchDistance_,
 							cv::gpu::GpuMat* pcvgmMatchedLocationPrev_){
+
+	cudaEvent_t     start, stop;
+    cudaSafeCall( cudaEventCreate( &start ) );
+    cudaSafeCall( cudaEventCreate( &stop ) );
+    cudaSafeCall( cudaEventRecord( start, 0 ) );
+
 	dim3 block(32,8);
 	dim3 grid;
 	grid.x = cv::gpu::divUp(cvgmParticleResponsesPrev_.cols - 6, block.x); //6 is the size-1 of the Bresenham circle
@@ -819,6 +835,15 @@ unsigned int cudaTrackFast(float fMatchThreshold_, const unsigned short usHalfSi
     cudaSafeCall( cudaMemcpy(&uMatched, pCounterMatch, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
 	unsigned int uOther ;
     cudaSafeCall( cudaMemcpy(&uOther, pCounterOther, sizeof(unsigned int), cudaMemcpyDeviceToHost) );
+
+	cudaSafeCall( cudaEventRecord( stop, 0 ) );
+    cudaSafeCall( cudaEventSynchronize( stop ) );
+    float   elapsedTime;
+    cudaSafeCall( cudaEventElapsedTime( &elapsedTime, start, stop ) );
+    printf( "Track Fast:  %3.1f ms\n", elapsedTime );
+
+    cudaSafeCall( cudaEventDestroy( start ) );
+    cudaSafeCall( cudaEventDestroy( stop ) );
 
 	return uMatched;
 }//cudaTrack
@@ -878,7 +903,6 @@ struct SMatchedAndNewlyAddedKeyPointsCollection{
 			_cvgmParticleResponseCurr  .ptr(r)[c] = fResponse; 
 			_cvgmParticleDescriptorCurr.ptr(r)[c] = _cvgmParticleDescriptorCurrTmp.ptr(r)[c];
 			_cvgmParticleVelocityCurr  .ptr(r)[c] = make_short2(c,r) - s2PrevLoc;
-				//convert2s2( _fRho * (make_short2(c,r) - s2PrevLoc) + (1.f - _fRho)* _cvgmParticleVelocityPrev.ptr(s2PrevLoc.y)[s2PrevLoc.x] + make_float2(.5f,.5f));//update velocity
 			_cvgmParticleAgeCurr	   .ptr(r)[c] = _cvgmParticleAgePrev.ptr(s2PrevLoc.y)[s2PrevLoc.x] + 1; //update age
 		}
 		return;
@@ -960,7 +984,12 @@ void cudaCollectKeyPointsFast(unsigned int uTotalParticles_, unsigned int uMaxNe
 	
 	if(!uTotalParticles_) return;
 	SMatchedAndNewlyAddedKeyPointsCollection sCUMKP;
-	
+
+	cudaEvent_t     start, stop;
+    cudaSafeCall( cudaEventCreate( &start ) );
+    cudaSafeCall( cudaEventCreate( &stop ) );
+    cudaSafeCall( cudaEventRecord( start, 0 ) );
+
 	sCUMKP._cvgmSaliency				  = cvgmSaliency_;//store all non-max salient points
 	sCUMKP._cvgmParticleDescriptorCurrTmp = cvgmParticleDescriptorCurrTmp_;//store all non-max salient descriptors
 
@@ -1017,6 +1046,19 @@ void cudaCollectKeyPointsFast(unsigned int uTotalParticles_, unsigned int uMaxNe
 	kernerlAddNewParticlesFast<<<grid, block>>>(uNewlyAdded, pcvgmNewlyAddedKeyPointLocation_->ptr<short2>(), pcvgmNewlyAddedKeyPointResponse_->ptr<float>(),
 											sCUMKP._cvgmParticleDescriptorCurrTmp ,
 											sCUMKP._cvgmParticleResponseCurr, sCUMKP._cvgmParticleDescriptorCurr);
+
+	
+	cudaSafeCall( cudaEventRecord( stop, 0 ) );
+    cudaSafeCall( cudaEventSynchronize( stop ) );
+    float   elapsedTime;
+    cudaSafeCall( cudaEventElapsedTime( &elapsedTime, start, stop ) );
+    printf( "Collect Fast:  %3.1f ms\n", elapsedTime );
+
+    cudaSafeCall( cudaEventDestroy( start ) );
+    cudaSafeCall( cudaEventDestroy( stop ) );
+
+
+
     return;
 }
 
