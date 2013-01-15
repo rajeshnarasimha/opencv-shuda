@@ -26,6 +26,7 @@ public:
 	short _sSearchRange;
 	unsigned short _usHalfPatchSize; //	the size of a circular region where the patch angle and the orb descriptor are defined
 
+	float _fMatchThreshold;
 	//# of Max key points
 	unsigned int _uMaxKeyPointsBeforeNonMax;
 	unsigned int _uMaxKeyPointsAfterNonMax;

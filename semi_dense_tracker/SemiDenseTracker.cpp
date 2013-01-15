@@ -44,7 +44,6 @@ namespace btl{ namespace device{ namespace semidense{
 		const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_);
 	//sort
 	void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
-	void cudaFastDescriptors(const cv::gpu::GpuMat& cvgmImage_, unsigned int uFinalSalientPoints_, cv::gpu::GpuMat* pcvgmKeyPointsLocations_, cv::gpu::GpuMat* pcvgmParticlesDescriptors_);
 	unsigned int cudaPredictAndMatch(const unsigned int uFinalSalientPoints_, const cv::gpu::GpuMat& cvgmImage_,const cv::gpu::GpuMat& cvgmSaliency_, cv::gpu::GpuMat& cvgmFinalKeyPointsLocations_,cv::gpu::GpuMat& cvgmFinalKeyPointsResponse_,cv::gpu::GpuMat& cvgmParticlesAge_,cv::gpu::GpuMat& cvgmParticlesVelocity_, cv::gpu::GpuMat& cvgmParticlesDescriptors_);
 	void cudaExtractAllDescriptorFast(const cv::gpu::GpuMat& cvgmImage_, 
 									  const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
@@ -89,17 +88,19 @@ btl::image::semidense::CSemiDenseTracker::CSemiDenseTracker()
 	_ucContrastThresold = 5; // 255 * 0.02 = 5.1
 
 	//saliency threshold
-	_fSaliencyThreshold = 0.25;
+	_fSaliencyThreshold = 0.2f;
+	//match threshold
+	_fMatchThreshold = 7.f;
 
 	//# of Max key points
 	_uMaxKeyPointsBeforeNonMax = 50000;
 	_uMaxKeyPointsAfterNonMax= 20000;
+	_uTotalParticles = 10000;
 
-	_uTotalParticles = 2000;
-
-	_usHalfPatchSize = 6;
+	_usHalfPatchSize = 9;
 	_sSearchRange = 5;
 
+	_nFrameIdx = 0;
 }
 
 bool btl::image::semidense::CSemiDenseTracker::initialize( cv::Mat& cvmColorFrame_ )
@@ -142,9 +143,9 @@ bool btl::image::semidense::CSemiDenseTracker::initialize( cv::Mat& cvmColorFram
 	_pBlurFilter->apply(_cvgmGrayFrame, _cvgmBlurredPrev, cv::Rect(0, 0, _cvgmGrayFrame.cols, _cvgmGrayFrame.rows));
 	//detect key points
 	//1.compute the saliency score 
-	unsigned int uTotalSalientPoints = btl::device::semidense::cudaCalcSaliency(_cvgmBlurredPrev, unsigned short(6*1.5), _ucContrastThresold, _fSaliencyThreshold, 
+	unsigned int uTotalSalientPoints = btl::device::semidense::cudaCalcSaliency(_cvgmBlurredPrev, unsigned short(_usHalfPatchSize*1.5), _ucContrastThresold, _fSaliencyThreshold, 
 																				&_cvgmSaliency,&_cvgmInitKeyPointLocation); 
-	if (uTotalSalientPoints< _uTotalParticles/2) return false;
+	if (uTotalSalientPoints< 50) return false;
 	uTotalSalientPoints = std::min( uTotalSalientPoints, _uMaxKeyPointsBeforeNonMax );
 	
 	//2.do a non-max suppression and initialize particles ( extract feature descriptors ) 
@@ -155,7 +156,7 @@ bool btl::image::semidense::CSemiDenseTracker::initialize( cv::Mat& cvmColorFram
 	//3.sort all salient points according to their strength 
 	btl::device::semidense::thrustSort(_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>(),uFinalSalientPointsAfterNonMax);
 	_uTotalParticles = std::min( _uTotalParticles, uFinalSalientPointsAfterNonMax );
-	
+
 	//4.collect all salient points and descriptors on them
 	_cvgmParticleResponsePrev.setTo(0.f);
 	btl::device::semidense::cudaExtractAllDescriptorFast(_cvgmBlurredPrev, 
@@ -199,7 +200,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	
 	//do a non-max suppression and collect the candidate particles into a temporary vectors( extract feature descriptors ) 
 	unsigned int uFinalSalientPoints = btl::device::semidense::cudaNonMaxSupression(_cvgmInitKeyPointLocation, uTotalSalientPoints, _cvgmSaliency, 
-		_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(), _cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>() );
+																					_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(), _cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>() );
 	_uFinalSalientPoints = uFinalSalientPoints = std::min( uFinalSalientPoints, unsigned int(_uMaxKeyPointsAfterNonMax) );
 	_cvgmSaliency.setTo(0.f);//clear saliency scores
 	//redeploy the saliency matrix
@@ -207,13 +208,14 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 														_cvgmFinalKeyPointsLocationsAfterNonMax.ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax.ptr<float>(),
 														uFinalSalientPoints, _usHalfPatchSize,
 														&_cvgmSaliency, &_cvgmParticleDescriptorCurrTmp);
-	/*int nCounter = 0;
+	/*
+	int nCounter = 0;
 	bool bIsLegal = testCountResponseAndDescriptorFast(_cvgmSaliency,_cvgmParticleDescriptorCurrTmp,&nCounter);*/
 
 	//track particles in previous frame by searching the candidates of current frame. 
 	//Note that _cvgmSaliency is the input as well as output, tracked particles are marked as negative scores
 	_cvgmParticleDescriptorCurr.setTo(cv::Scalar::all(0));_cvgmParticleAgeCurr.setTo(0);_cvgmParticleVelocityCurr.setTo(cv::Scalar::all(0));//clear all memory
-	unsigned int uMatchedPoints = btl::device::semidense::cudaTrackFast(5.f,_usHalfPatchSize, _sSearchRange,
+	unsigned int uMatchedPoints = btl::device::semidense::cudaTrackFast(_fMatchThreshold,_usHalfPatchSize, _sSearchRange,
 																		_cvgmParticleDescriptorPrev,  _cvgmParticleResponsePrev, 
 																		_cvgmParticleDescriptorCurrTmp, _cvgmSaliency,
 																		&_cvgmMinMatchDistance,
@@ -222,7 +224,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	nCounter = 0;
 	bIsLegal = testCountMinDistAndMatchedLocationFast( _cvgmMinMatchDistance, _cvgmMatchedLocationPrev, &nCounter );
 	cv::gpu::GpuMat _cvgmMinMatchDistanceTest(_cvgmMinMatchDistance),_cvgmMatchedLocationPrevTest(_cvgmMatchedLocationPrev);
-	unsigned int uMatchedPointsTest = testCudaTrackFast(10.f,_usHalfPatchSize, _sSearchRange,
+	unsigned int uMatchedPointsTest = testCudaTrackFast(_fMatchThreshold,_usHalfPatchSize, _sSearchRange,
 														_cvgmParticleDescriptorPrev,  _cvgmParticleResponsePrev, 
 														_cvgmParticleDescriptorCurrTmp, _cvgmSaliency,
 														&_cvgmMinMatchDistanceTest,
@@ -299,7 +301,7 @@ void btl::image::semidense::CSemiDenseTracker::track( cv::Mat& cvmColorFrame_ )
 	_cvgmParticleAgeCurr.download(_cvmKeyPointAge);
 	cvmColorFrame_.setTo(cv::Scalar::all(255));
 	float fAvgAge = 0.f; 
-	for (unsigned int i=0;i<uMatchedPoints; i+=2){
+	for (unsigned int i=0;i<uMatchedPoints; i+=1){
 		short2 ptCurr = _cvmKeyPointLocation.ptr<short2>()[i];
 		uchar ucAge = _cvmKeyPointAge.ptr(ptCurr.y)[ptCurr.x];
 		//if(ucAge < 2 ) continue;

@@ -86,22 +86,166 @@ void cudaCalcAngles(const cv::gpu::GpuMat& cvgmImage_, const short2* pdevFinalKe
 	cudaSafeCall( cudaDeviceSynchronize() );
 	return;
 }
+//#define SHARE
+#ifdef SHARE
+	#define GET_VALUE_SHARE(idx) \
+		pImage_[ ( r + __float2int_rn(pnPatternX_[idx] * sina + pnPatternY_[idx] * cosa) )*WHOLE_WIDTH +\
+				   c + __float2int_rn(pnPatternX_[idx] * cosa - pnPatternY_[idx] * sina) ]
 
-#define GET_VALUE(idx) \
-    cvgmImg_(s2Loc_.y + __float2int_rn(pnPatternX_[idx] * sina + pnPatternY_[idx] * cosa), \
-             s2Loc_.x + __float2int_rn(pnPatternX_[idx] * cosa - pnPatternY_[idx] * sina))
+	#define HALFROUND 13
+	#define TWO_HALFROUND 26 // HALFROUND*2
+	#define WHOLE_WIDTH 58 // BLOCKDIM_X + HALFROUND*2
+	#define WHOLE_HEIGHT 58 // BLOCKDIM_Y + HALFROUND*2
+	#define BLOCKDIM_X 32
+	#define BLOCKDIM_Y 32 
+#else
+	#define GET_VALUE(idx) \
+		cvgmImage_.ptr(s2Loc_.y + __float2int_rn(pnPatternX_[idx] * sina + pnPatternY_[idx] * cosa)) \
+                  [s2Loc_.x + __float2int_rn(pnPatternX_[idx] * cosa - pnPatternY_[idx] * sina) ]
+#endif
 
-
-struct OrbDescriptor
+struct SOrbDescriptor
 {
-    __device__ static unsigned char calc(const cv::gpu::PtrStepb& cvgmImg_, short2 s2Loc_, const short* pnPatternX_, const short* pnPatternY_, float sina, float cosa, int nDescIdx_)
+	//input
+	cv::gpu::DevMem2D_<uchar> cvgmImage_;
+	const short2* ps2KeyPointsLocations_;
+	const float* pfKeyPointsResponse_;
+	cv::gpu::DevMem2D_<float> cvgmParticleAngle_;
+
+	const short* psPatternX_;
+	const short* psPatternY_;
+
+	unsigned int uTotalParticles_;
+	unsigned short usHalfPatchSizeRound_;
+
+	//output
+	cv::gpu::DevMem2D_<float> cvgmParticleResponses_;
+	cv::gpu::DevMem2D_<int2> cvgmParticleOrbDescriptors_;
+#ifdef SHARE
+	__device__ void assign(){
+		const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+		if (nKeyPointIdx >= uTotalParticles_) return;
+
+		const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
+		if( s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmParticleResponses_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmParticleResponses_.rows - usHalfPatchSizeRound_ ) return;
+
+		cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
+		return;
+	}
+
+	__device__ unsigned char devGetOrbDescriptor(uchar* pImage_, const int r, const int c, float sina, float cosa, int nDescIdx_)
     {
-        pnPatternX_ += 16 * nDescIdx_; //compare 8 pairs of points, and that is 16 points in total
-        pnPatternY_ += 16 * nDescIdx_;
+        const short* pnPatternX_ = psPatternX_ + 16 * nDescIdx_; //compare 8 pairs of points, and that is 16 points in total
+        const short* pnPatternY_ = psPatternY_ + 16 * nDescIdx_;
 
         int t0, t1;
 		unsigned char val;
+        t0 = GET_VALUE_SHARE(0); t1 = GET_VALUE_SHARE(1);
+        val = t0 < t1;
 
+        t0 = GET_VALUE_SHARE(2); t1 = GET_VALUE_SHARE(3);
+        val |= (t0 < t1) << 1;
+
+        t0 = GET_VALUE_SHARE(4); t1 = GET_VALUE_SHARE(5);
+        val |= (t0 < t1) << 2;
+
+        t0 = GET_VALUE_SHARE(6); t1 = GET_VALUE_SHARE(7);
+        val |= (t0 < t1) << 3;
+
+        t0 = GET_VALUE_SHARE(8); t1 = GET_VALUE_SHARE(9);
+        val |= (t0 < t1) << 4;
+
+        t0 = GET_VALUE_SHARE(10); t1 = GET_VALUE_SHARE(11);
+        val |= (t0 < t1) << 5;
+
+        t0 = GET_VALUE_SHARE(12); t1 = GET_VALUE_SHARE(13);
+        val |= (t0 < t1) << 6;
+
+        t0 = GET_VALUE_SHARE(14); t1 = GET_VALUE_SHARE(15);
+        val |= (t0 < t1) << 7;
+
+        return val;
+    }
+
+	__device__ void operator () () {
+		// assert ( usHalfPatchSizeRound_ == HALFROUND )z
+		const int nGrid_C = blockIdx.x * blockDim.x;
+		const int nGrid_R = blockIdx.y * blockDim.y;
+		const int c = threadIdx.x + nGrid_C;
+		const int r = threadIdx.y + nGrid_R;
+	
+		__shared__ uchar _sImage[  WHOLE_WIDTH  * WHOLE_HEIGHT  ];
+
+		bool bOutterUpY = r >= 0;
+		bool bOutterDownY = r < cvgmImage_.rows;
+		bool bOutterLeftX = c >= 0;
+		bool bOutterRightX = c < cvgmImage_.cols;
+
+		bool bInnerDownY  = r >= HALFROUND;
+		bool bInnerUpY    = r < cvgmImage_.rows - HALFROUND;
+		bool bInnerLeftX  = c >= HALFROUND;
+		bool bInnerRightX = c < cvgmImage_.cols - HALFROUND;
+
+		bool bThreadLeftX = threadIdx.x < HALFROUND;
+		bool bThreadRightX = threadIdx.x >= BLOCKDIM_X - HALFROUND;
+		bool bThreadUpY = threadIdx.y < HALFROUND;
+		bool bThreadDownY = threadIdx.y >= BLOCKDIM_Y - HALFROUND;
+		 //{ __syncthreads(); return; }
+		//copy image to shared memory
+		//up left
+		if( bThreadLeftX && bThreadUpY && bOutterDownY && bOutterRightX)
+			_sImage[threadIdx.x + threadIdx.y*WHOLE_WIDTH ] = cvgmImage_.ptr(r - HALFROUND )[c - HALFROUND ];
+		//left
+		if( bThreadLeftX && bOutterDownY && bInnerLeftX && bOutterRightX )
+			_sImage[threadIdx.x + (threadIdx.y + HALFROUND)*WHOLE_WIDTH ] = cvgmImage_.ptr(r )[c- HALFROUND ];
+		//down left
+		if( bThreadLeftX && bThreadDownY && bInnerDownY && bOutterRightX )
+			_sImage[threadIdx.x + (threadIdx.y + TWO_HALFROUND )*WHOLE_WIDTH ] = cvgmImage_.ptr(r+HALFROUND )[c- HALFROUND ];
+
+		//up
+		if( bThreadUpY && bInnerUpY && bOutterDownY && bOutterRightX )
+			_sImage[threadIdx.x + HALFROUND + (threadIdx.y )*WHOLE_WIDTH ] = cvgmImage_.ptr(r - HALFROUND )[c];
+		//center
+		if( bInnerLeftX && bInnerRightX && bInnerUpY && bInnerDownY )
+			_sImage[threadIdx.x + HALFROUND + ( threadIdx.y + HALFROUND ) *WHOLE_WIDTH ] = cvgmImage_.ptr(r )[c];
+		//down
+		if( bThreadDownY && bInnerDownY && bOutterRightX )
+			_sImage[threadIdx.x + HALFROUND + (threadIdx.y + TWO_HALFROUND )*WHOLE_WIDTH ] = cvgmImage_.ptr(r + HALFROUND )[c];
+
+		//up right
+		if( bThreadRightX && bThreadUpY && bInnerUpY && bOutterDownY && bInnerRightX )
+			_sImage[threadIdx.x + TWO_HALFROUND + threadIdx.y*WHOLE_WIDTH ] = cvgmImage_.ptr(r - HALFROUND )[c + HALFROUND ];
+		//right
+		if( bThreadRightX && bOutterUpY && bOutterDownY && bInnerRightX )
+			_sImage[threadIdx.x + TWO_HALFROUND + (threadIdx.y + HALFROUND)*WHOLE_WIDTH ] = cvgmImage_.ptr(r )[c + HALFROUND ];
+		//down right
+		if( bThreadRightX && bThreadDownY && bOutterUpY && bInnerDownY && bInnerRightX )
+			_sImage[threadIdx.x + TWO_HALFROUND + ( threadIdx.y + TWO_HALFROUND )*WHOLE_WIDTH ] = cvgmImage_.ptr( r + HALFROUND )[ c + HALFROUND ];
+	
+		// synchronize threads in this block
+		__syncthreads();
+
+		if( bInnerLeftX && bInnerRightX && bInnerUpY && bInnerDownY ){
+			short2 s2Loc = make_short2( c, r );
+			if ( cvgmParticleResponses_.ptr(r)[c] < 0.02f ) return;
+			float fAngle = cvgmParticleAngle_.ptr(s2Loc.y)[s2Loc.x];
+			float fSina, fCosa;  ::sincosf(fAngle, &fSina, &fCosa);
+			//int4 n4Desc; devGetFastDescriptor(s2Loc.y,s2Loc.x,&n4Desc);
+			uchar * pDesc = (uchar*) ( cvgmParticleOrbDescriptors_.ptr(s2Loc.y)+ s2Loc.x );
+			for( int n = 0; n< 8; ++n ){
+			    pDesc[n] = devGetOrbDescriptor(_sImage, threadIdx.y+HALFROUND, threadIdx.x+HALFROUND, fSina, fCosa,n);
+			}
+		}
+		return;
+	}//operator()
+#else
+	__device__ unsigned char devGetOrbDescriptor(short2 s2Loc_,  float sina, float cosa, int nDescIdx_)
+    {
+        const short* pnPatternX_ = psPatternX_ + 16 * nDescIdx_; //compare 8 pairs of points, and that is 16 points in total
+        const short* pnPatternY_ = psPatternY_ + 16 * nDescIdx_;
+
+        int t0, t1;
+		unsigned char val;
         t0 = GET_VALUE(0); t1 = GET_VALUE(1);
         val = t0 < t1;
 
@@ -128,30 +272,39 @@ struct OrbDescriptor
 
         return val;
     }
+
+	__device__ void normal() {
+		const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+		if (nKeyPointIdx >= uTotalParticles_) return;
+
+		const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
+		if(s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmImage_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmImage_.rows - usHalfPatchSizeRound_ ) return;
+
+		const int nDescIdx = threadIdx.y + blockIdx.y * blockDim.y;
+
+		cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
+		float fAngle = cvgmParticleAngle_.ptr(s2Loc.y)[s2Loc.x];
+		float fSina, fCosa;  ::sincosf(fAngle, &fSina, &fCosa);
+		uchar ucDesc = devGetOrbDescriptor(  s2Loc, fSina, fCosa, nDescIdx);
+		uchar* pD = (uchar*)(cvgmParticleOrbDescriptors_.ptr(s2Loc.y)+ s2Loc.x);
+		pD[nDescIdx]= ucDesc;
+	}
+#endif
 };
+#ifdef SHARE
+__global__ void kernelAssignKeyPoint(SOrbDescriptor sOD ){
 
-
-__global__ void kernerlCollectParticlesAndOrbDescriptors( 
-	const cv::gpu::DevMem2D_<uchar> cvgmImage_,const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_,
-	const unsigned int uTotalParticles_, 
-	const short* psPatternX_, const short* psPatternY_, const unsigned short usHalfPatchSizeRound_,
-	cv::gpu::DevMem2D_<float> cvgmParticleResponses_, cv::gpu::DevMem2D_<float> cvgmParticleAngle_, cv::gpu::DevMem2D_<int2> cvgmParticleOrbDescriptors_){
-
-	const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
-	if (nKeyPointIdx >= uTotalParticles_) return;
-
-	const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
-	if(s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmImage_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmImage_.rows - usHalfPatchSizeRound_ ) return;
-
-	const int nDescIdx = threadIdx.y + blockIdx.y * blockDim.y;
-
-	cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
-	float fAngle = cvgmParticleAngle_.ptr(s2Loc.y)[s2Loc.x];
-	float fSina, fCosa;  ::sincosf(fAngle, &fSina, &fCosa);
-	uchar ucDesc = OrbDescriptor::calc(cvgmImage_, s2Loc, psPatternX_, psPatternY_, fSina, fCosa, nDescIdx);
-	uchar* pD = (uchar*)(cvgmParticleOrbDescriptors_.ptr(s2Loc.y)+ s2Loc.x);
-	pD[nDescIdx]= ucDesc;
+	sOD.assign();
 }
+#endif
+__global__ void kernelExtractAllDescriptorOrb(SOrbDescriptor sOD ){
+#ifdef SHARE
+	sOD();
+#else
+	sOD.normal();
+#endif
+}
+
 // it fills the 1.pcvgmParticleResponses_, 2.pcvgmParticleAngle_, 3.pcvgmParticleDescriptor_
 void cudaExtractAllDescriptorOrb(	const cv::gpu::GpuMat& cvgmImage_,
 									const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
@@ -169,17 +322,45 @@ void cudaExtractAllDescriptorOrb(	const cv::gpu::GpuMat& cvgmImage_,
 	//calc corner angle
 	cudaCalcAngles(cvgmImage_, ps2KeyPointsLocations_, uTotalParticles_,  usHalfPatchSize_, pcvgmParticleAngle_);
 
+	SOrbDescriptor sOD;
+
+	sOD.cvgmImage_ = cvgmImage_;
+	sOD.ps2KeyPointsLocations_ = ps2KeyPointsLocations_;
+	sOD.pfKeyPointsResponse_ = pfKeyPointsResponse_;
+	sOD.uTotalParticles_ = uTotalParticles_;
+	sOD.usHalfPatchSizeRound_ = (unsigned short)(usHalfPatchSize_*1.5);
+	sOD.psPatternX_ = psPatternX_;
+	sOD.psPatternY_ = psPatternY_;
+	sOD.cvgmParticleAngle_ = *pcvgmParticleAngle_;
+
+	sOD.cvgmParticleResponses_ = *pcvgmParticleResponses_;
+	sOD.cvgmParticleOrbDescriptors_ = *pcvgmParticleDescriptor_;
+#ifdef SHARE
+	dim3 block(256);
+    dim3 grid;
+    grid.x = cv::gpu::divUp( uTotalParticles_, block.x );
+
+	kernelAssignKeyPoint<<<grid, block>>>( sOD );
+	cudaSafeCall( cudaGetLastError() );
+
+	block.x = BLOCKDIM_X;
+	block.y = BLOCKDIM_Y;
+	grid.x = cv::gpu::divUp(cvgmImage_.cols, block.x);
+	grid.y = cv::gpu::divUp(cvgmImage_.rows, block.y);
+
+	kernelExtractAllDescriptorOrb<<<grid, block>>>( sOD );
+	cudaSafeCall( cudaGetLastError() );
+	cudaSafeCall( cudaDeviceSynchronize() );
+#else
 	dim3 block(32,8);
     dim3 grid;
     grid.x = cv::gpu::divUp(uTotalParticles_, block.x);
 	grid.y = cv::gpu::divUp(8, 8);
-	kernerlCollectParticlesAndOrbDescriptors<<<grid, block>>>( 
-		cvgmImage_, ps2KeyPointsLocations_, pfKeyPointsResponse_, 
-		uTotalParticles_, 
-		psPatternX_, psPatternY_,(unsigned short)(usHalfPatchSize_*1.5), //it is the roughly sqrt(2)* usHalfPatchSize_
-		*pcvgmParticleResponses_, *pcvgmParticleAngle_, *pcvgmParticleDescriptor_);
-	cudaSafeCall( cudaGetLastError() );
 
+	kernelExtractAllDescriptorOrb<<<grid, block>>>( sOD );
+	cudaSafeCall( cudaGetLastError() );
+	cudaSafeCall( cudaDeviceSynchronize() );
+#endif
 	cudaSafeCall( cudaEventRecord( stop, 0 ) );
     cudaSafeCall( cudaEventSynchronize( stop ) );
     float   elapsedTime;
@@ -188,7 +369,6 @@ void cudaExtractAllDescriptorOrb(	const cv::gpu::GpuMat& cvgmImage_,
 
     cudaSafeCall( cudaEventDestroy( start ) );
     cudaSafeCall( cudaEventDestroy( stop ) );
-
 
 	return;
 }
