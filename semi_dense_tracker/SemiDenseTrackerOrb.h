@@ -8,7 +8,7 @@ namespace btl{	namespace image	{
 class CSemiDenseTrackerOrb: public CSemiDenseTracker{
 public:
 
-	//Gaussian filter
+	unsigned short _usMatchThreshod;
 
 	cv::gpu::GpuMat _cvgmPattern;
 

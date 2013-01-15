@@ -38,7 +38,8 @@ int main ( int argc, char** argv )
 	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
 #else
-	cv::VideoCapture cap("VFootball.mkv");//("VTreeTrunk.avi"); //("VRotatePersp.avi");//( "VRectLight.avi" );//("VCars.avi"); //("VRotateOrtho.avi"); //("VBranches.avi"); //("sav.avi");//("VZoomIn.avi");//("VHand.avi"); 
+	cv::VideoCapture cap("VSelf.avi");//("VFootball.mkv");//("VTreeTrunk.avi"); //("VCars.avi"); //("VFootball.mkv");//("VRotatePersp.avi");//( "VRectLight.avi" );
+	//("VCars.avi"); //("VRotateOrtho.avi"); //("VBranches.avi"); //("VZoomIn.avi");//("VHand.avi"); 
 	//("VPerson.avi");//("VHall.avi");// ("VMouth.avi");// // ("VZoomOut.avi");// 
 	//  //
 #endif
@@ -50,7 +51,8 @@ int main ( int argc, char** argv )
 	btl::image::semidense::CSemiDenseTrackerOrb cSDTOrb;
 	btl::image::semidense::CSemiDenseTracker cSDTFast;
 	cap >> cvmColorFrame; 
-	cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),0.5,0.5);	cvmColorFrameSmall.copyTo(cvmColorFrame);
+	const float fScale = .15f;
+	cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 	cv::Mat cvmTotalFrame;
 	cvmTotalFrame.create(cvmColorFrame.rows*2,cvmColorFrame.cols*2,CV_8UC3);
 	cv::Mat cvmROI0(cvmTotalFrame, cv::Rect(	   0,					 0,			 cvmColorFrame.cols, cvmColorFrame.rows));
@@ -58,20 +60,24 @@ int main ( int argc, char** argv )
 	cv::Mat cvmROI2(cvmTotalFrame, cv::Rect(cvmColorFrame.cols,  cvmColorFrame.rows, cvmColorFrame.cols, cvmColorFrame.rows));
 	cv::Mat cvmROI3(cvmTotalFrame, cv::Rect(cvmColorFrame.cols,          0,          cvmColorFrame.cols, cvmColorFrame.rows));
 
-	cv::gpu::GpuMat cvgmColorFrame;
 
 	cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
 	bool bIsInitSuccessful;
-	bIsInitSuccessful = cSDTOrb.initialize( cvmROI1 );
 	bIsInitSuccessful = cSDTFast.initialize( cvmROI2 );
+	bIsInitSuccessful = cSDTOrb.initialize( cvmROI1 );
+
+	cv::gpu::GpuMat cvgmColorFrame;
 
 	while(!bIsInitSuccessful){
 		cap >> cvmColorFrame; 
+		cv::imwrite("tmp.png",cvmColorFrame);
+		cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
+		cv::imwrite("tmp1.png",cvmColorFrame);
 		cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
 		bIsInitSuccessful = cSDTOrb.initialize( cvmROI1 );
 		bIsInitSuccessful = cSDTFast.initialize( cvmROI2 );
 	}
-  
+
     cv::namedWindow ( "Tracker", 1 );
 	bool bStart = false;
 	unsigned int uIdx = 0;
@@ -86,24 +92,24 @@ int main ( int argc, char** argv )
 		if (cvmColorFrame.empty()) {
 			cap.set(CV_CAP_PROP_POS_AVI_RATIO,0);//replay at the end of the video
 			cap >> cvmColorFrame; 
-			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),0.5,0.5);  cvmColorFrameSmall.copyTo(cvmColorFrame);
+			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
 			cSDTOrb.initialize( cvmROI1 );
 			cSDTFast.initialize( cvmROI2 );
 			cap >> cvmColorFrame; 
-			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),0.5,0.5);  cvmColorFrameSmall.copyTo(cvmColorFrame);
+			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
 		}else{
 			/*cvgmColorFrame.upload(cvmColorFrame);
 			cvgmColorFrame.convertTo(cvgmColorFrame,CV_8UC3,pow(0.9f,_aLight[uIdx%1024]));
 			cvgmColorFrame.download(cvmColorFrame);*/
-			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),0.5,0.5);  cvmColorFrameSmall.copyTo(cvmColorFrame);
+			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);// get a new frame from camera
 		}
 
 		cSDTOrb.track( cvmROI1 );
 		cSDTFast.track( cvmROI2 );
-		cSDTOrb.displayCandidates( cvmROI3 );
+		cSDTFast.displayCandidates( cvmROI3 );
 		t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 		std::cout << "frame time [s]: " << t << " ms" << std::endl;	
 

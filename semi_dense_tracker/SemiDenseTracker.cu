@@ -391,11 +391,12 @@ unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned 
 							  cv::gpu::GpuMat* pcvgmSaliency_, cv::gpu::GpuMat* pcvgmKeyPointLocations_){
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
-
+    cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
+	
 	dim3 block(32, 8);
     dim3 grid;
-    grid.x = cv::gpu::divUp(cvgmImage_.cols - 6, block.x); //6 is the size-1 of the Bresenham circle
-    grid.y = cv::gpu::divUp(cvgmImage_.rows - 6, block.y);
+    grid.x = cv::gpu::divUp(cvgmImage_.cols, block.x); //6 is the size-1 of the Bresenham circle
+    grid.y = cv::gpu::divUp(cvgmImage_.rows, block.y);
 
 	kernelCalcSaliency<<<grid, block>>>(cvgmImage_, usHalfSizeRound_, ucContrastThreshold_, fSaliencyThreshold_, *pcvgmSaliency_, *pcvgmKeyPointLocations_);
 	cudaSafeCall( cudaGetLastError() );
@@ -407,114 +408,6 @@ unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned 
     return uCount;
 }
 
-
-__device__ void devGetFastDescriptor(const cv::gpu::DevMem2D_<uchar>& cvgmImage_, const int r, const int c, int4* pDescriptor_ ){
-	pDescriptor_->x = pDescriptor_->y = pDescriptor_->z = pDescriptor_->w = 0;
-	uchar Color;
-	Color = cvgmImage_.ptr(r-3)[c  ];//1
-	pDescriptor_->x += Color; 
-	pDescriptor_->x = pDescriptor_->x << 8;
-	Color = cvgmImage_.ptr(r-6)[c+2];//2 B6
-	pDescriptor_->x += Color; 
-	pDescriptor_->x = pDescriptor_->x << 8;
-	Color = cvgmImage_.ptr(r-2)[c+2];//3
-	pDescriptor_->x += Color; 
-	pDescriptor_->x = pDescriptor_->x << 8;
-	Color = cvgmImage_.ptr(r-2)[c+6];//4 B6
-	pDescriptor_->x += Color; 
-
-
-	Color = cvgmImage_.ptr(r  )[c+3];//5
-	pDescriptor_->y += Color; 
-	pDescriptor_->y = pDescriptor_->y << 8;
-	Color = cvgmImage_.ptr(r+2)[c+6];//6 B6
-	pDescriptor_->y += Color; 
-	pDescriptor_->y = pDescriptor_->y << 8;
-	Color = cvgmImage_.ptr(r+2)[c+2];//7
-	pDescriptor_->y += Color; 
-	pDescriptor_->y = pDescriptor_->y << 8;
-	Color = cvgmImage_.ptr(r+6)[c+2];//8 B6
-	pDescriptor_->y += Color; 
-
-	Color = cvgmImage_.ptr(r+3)[c  ];//9
-	pDescriptor_->z += Color; 
-	pDescriptor_->z = pDescriptor_->z << 8;
-	Color= cvgmImage_.ptr(r+6)[c-2];//10 B6
-	pDescriptor_->z += Color; 
-	pDescriptor_->z = pDescriptor_->z << 8;
-	Color= cvgmImage_.ptr(r+2)[c-2];//11
-	pDescriptor_->z += Color; 
-	pDescriptor_->z = pDescriptor_->z << 8;
-	Color= cvgmImage_.ptr(r+2)[c-6];//12 B6
-	pDescriptor_->z += Color; 
-	
-	Color= cvgmImage_.ptr(r  )[c-3];//13
-	pDescriptor_->w += Color; 
-	pDescriptor_->w = pDescriptor_->w << 8;
-	Color= cvgmImage_.ptr(r-2)[c-6];//14 B6
-	pDescriptor_->w += Color; 
-	pDescriptor_->w = pDescriptor_->w << 8;
-	Color= cvgmImage_.ptr(r-2)[c-2];//15
-	pDescriptor_->w += Color; 
-	pDescriptor_->w = pDescriptor_->w << 8;
-	Color= cvgmImage_.ptr(r-6)[c-2];//16 B6
-	pDescriptor_->w += Color; 
-	return;
-}
-//single ring
-__device__ void devGetFastDescriptor1(const cv::gpu::DevMem2D_<uchar>& cvgmImage_, const int r, const int c, int4* pDescriptor_ ){
-	pDescriptor_->x = pDescriptor_->y = pDescriptor_->z = pDescriptor_->w = 0;
-	uchar Color;
-	Color = cvgmImage_.ptr(r-3)[c  ];//1
-	pDescriptor_->x += Color; 
-	pDescriptor_->x = pDescriptor_->x << 8;
-	Color = cvgmImage_.ptr(r-3)[c+1];//2
-	pDescriptor_->x += Color; 
-	pDescriptor_->x = pDescriptor_->x << 8;
-	Color = cvgmImage_.ptr(r-2)[c+2];//3
-	pDescriptor_->x += Color; 
-	pDescriptor_->x = pDescriptor_->x << 8;
-	Color = cvgmImage_.ptr(r-1)[c+3];//4
-	pDescriptor_->x += Color; 
-
-
-	Color = cvgmImage_.ptr(r  )[c+3];//5
-	pDescriptor_->y += Color; 
-	pDescriptor_->y = pDescriptor_->y << 8;
-	Color = cvgmImage_.ptr(r+1)[c+3];//6
-	pDescriptor_->y += Color; 
-	pDescriptor_->y = pDescriptor_->y << 8;
-	Color = cvgmImage_.ptr(r+2)[c+2];//7
-	pDescriptor_->y += Color; 
-	pDescriptor_->y = pDescriptor_->y << 8;
-	Color = cvgmImage_.ptr(r+3)[c+1];//8
-	pDescriptor_->y += Color; 
-
-	Color = cvgmImage_.ptr(r+3)[c  ];//9
-	pDescriptor_->z += Color; 
-	pDescriptor_->z = pDescriptor_->z << 8;
-	Color= cvgmImage_.ptr(r+3)[c-1];//10
-	pDescriptor_->z += Color; 
-	pDescriptor_->z = pDescriptor_->z << 8;
-	Color= cvgmImage_.ptr(r+2)[c-2];//11
-	pDescriptor_->z += Color; 
-	pDescriptor_->z = pDescriptor_->z << 8;
-	Color= cvgmImage_.ptr(r+1)[c-3];//12
-	pDescriptor_->z += Color; 
-	
-	Color= cvgmImage_.ptr(r  )[c-3];//13
-	pDescriptor_->w += Color; 
-	pDescriptor_->w = pDescriptor_->w << 8;
-	Color= cvgmImage_.ptr(r-1)[c-3];//14
-	pDescriptor_->w += Color; 
-	pDescriptor_->w = pDescriptor_->w << 8;
-	Color= cvgmImage_.ptr(r-2)[c-2];//15
-	pDescriptor_->w += Color; 
-	pDescriptor_->w = pDescriptor_->w << 8;
-	Color= cvgmImage_.ptr(r-3)[c-1];//16
-	pDescriptor_->w += Color; 
-	return;
-}
 
 ///////////////////////////////////////////////////////////////////////////
 // kernelNonMaxSupression
@@ -564,12 +457,11 @@ unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, 
 	const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_){
 	void* pCounter;
     cudaSafeCall( cudaGetSymbolAddress(&pCounter, _devuCounter) );
+    cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
 
     dim3 block(256);
     dim3 grid;
     grid.x = cv::gpu::divUp(uMaxSalientPoints_, block.x);
-
-    cudaSafeCall( cudaMemset(pCounter, 0, sizeof(unsigned int)) );
 
     kernelNonMaxSupression<<<grid, block>>>(cvgmKeyPointLocation_.ptr<short2>(), uMaxSalientPoints_, cvgmSaliency_, ps2devLocations_, pfdevResponse_);
     cudaSafeCall( cudaGetLastError() );
@@ -589,47 +481,299 @@ void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_
     return;
 }
 
-__global__ void kernelFastDescriptors(cv::gpu::DevMem2D_<uchar> cvgmImage_, const short2* ps2KeyPointLoc_, const unsigned int uMaxSailentPoints_, int4* pn4devDescriptor_ )
-{
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 110)
+#define SHARE
+#ifdef SHARE
+	#define HALFROUND 9
+	#define TWO_HALFROUND 18 // HALFROUND*2
+	#define WHOLE_WIDTH 51 // BLOCKDIM_X + HALFROUND*2
+	#define WHOLE_HEIGHT 51 // BLOCKDIM_Y + HALFROUND*2
+	#define BLOCKDIM_X 32
+	#define BLOCKDIM_Y 32 
+#endif
+struct SFastDescriptor {
+	//input
+	cv::gpu::DevMem2D_<uchar> cvgmImage_;
+	unsigned int uTotalParticles_;      
+	unsigned int usHalfPatchSizeRound_; //must equal to HALFROUND
 
-    const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (nKeyPointIdx < uMaxSailentPoints_){
-		short2 s2Location = ps2KeyPointLoc_[nKeyPointIdx];
+	const short2* ps2KeyPointsLocations_;
+	const float* pfKeyPointsResponse_; 
+
+	//output for assign and input for ()
+	cv::gpu::DevMem2D_<float> cvgmParticleResponses_;
+	//output
+	cv::gpu::DevMem2D_<int4> cvgmParticleDescriptors_;
+#ifdef SHARE
+	__device__ void assign(){
+		const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+		if (nKeyPointIdx >= uTotalParticles_) return;
+
+		const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
+		if( s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmParticleResponses_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmParticleResponses_.rows - usHalfPatchSizeRound_ ) return;
+
+		cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
+		return;
+	}
+
+	//shared memory
+	__device__ int4 devGetFastDescriptor(const uchar* pImage_, const int r, const int c ){
+	int4 n4Descriptor;
+	n4Descriptor.x = n4Descriptor.y = n4Descriptor.z = n4Descriptor.w = 0;
+	uchar Color;
+	Color = *(pImage_ + (r-3)*( WHOLE_WIDTH ) + c); //1
+	n4Descriptor.x += Color; 
+	n4Descriptor.x = n4Descriptor.x << 8;
+	Color = *(pImage_ + (r-6)*( WHOLE_WIDTH ) + c + 2); //2 B6
+	n4Descriptor.x += Color; 
+	n4Descriptor.x = n4Descriptor.x << 8;
+	Color = *(pImage_ + (r-2)*( WHOLE_WIDTH ) + c + 2); //3
+	n4Descriptor.x += Color; 
+	n4Descriptor.x = n4Descriptor.x << 8;
+	Color = *(pImage_ + (r-2)*( WHOLE_WIDTH ) + c + 6); //4 B6
+	n4Descriptor.x += Color; 
+
+	Color = *(pImage_ + (r)*( WHOLE_WIDTH ) + c + 3); //5
+	n4Descriptor.y += Color; 
+	n4Descriptor.y = n4Descriptor.y << 8;
+	Color = *(pImage_ + (r+2)*( WHOLE_WIDTH ) + c + 6); //6 B6
+	n4Descriptor.y += Color; 
+	n4Descriptor.y = n4Descriptor.y << 8;
+	Color = *(pImage_ + (r+2)*( WHOLE_WIDTH ) + c + 2); //7
+	n4Descriptor.y += Color; 
+	n4Descriptor.y = n4Descriptor.y << 8;
+	Color = *(pImage_ + (r+6)*( WHOLE_WIDTH ) + c + 2); //8 B6
+	n4Descriptor.y += Color; 
+
+	Color = *(pImage_ + (r+3)*( WHOLE_WIDTH ) + c ); //9
+	n4Descriptor.z += Color; 
+	n4Descriptor.z = n4Descriptor.z << 8;
+	Color = *(pImage_ + (r+6)*( WHOLE_WIDTH ) + c-2 ); //10 B6
+	n4Descriptor.z += Color; 
+	n4Descriptor.z = n4Descriptor.z << 8;
+	Color = *(pImage_ + (r+2)*( WHOLE_WIDTH ) + c-2 ); //11
+	n4Descriptor.z += Color; 
+	n4Descriptor.z = n4Descriptor.z << 8;
+	Color = *(pImage_ + (r+2)*( WHOLE_WIDTH ) + c-6 ); //12
+	n4Descriptor.z += Color; 
+	
+	Color = *(pImage_ + (r)*( WHOLE_WIDTH ) + c-3 ); //13
+	n4Descriptor.w += Color; 
+	n4Descriptor.w = n4Descriptor.w << 8;
+	Color = *(pImage_ + (r-2)*( WHOLE_WIDTH ) + c-6 ); //14 B6
+	n4Descriptor.w += Color; 
+	n4Descriptor.w = n4Descriptor.w << 8;
+	Color = *(pImage_ + (r-2)*( WHOLE_WIDTH ) + c-2 ); //15
+	n4Descriptor.w += Color; 
+	n4Descriptor.w = n4Descriptor.w << 8;
+	Color = *(pImage_ + (r-6)*( WHOLE_WIDTH ) + c-2 ); //16 B6
+	n4Descriptor.w += Color; 
+	return n4Descriptor;
+}
+	__device__ void operator () (){
+		// assert ( usHalfPatchSizeRound_ == HALFROUND )z
+
+		const int nGrid_C = blockIdx.x * blockDim.x;
+		const int nGrid_R = blockIdx.y * blockDim.y;
+		const int c = threadIdx.x + nGrid_C;
+		const int r = threadIdx.y + nGrid_R;
+	
+		__shared__ uchar _sImage[  WHOLE_WIDTH  * WHOLE_HEIGHT  ];
+
+		bool bOutterUpY = r >= 0;
+		bool bOutterDownY = r < cvgmImage_.rows;
+		bool bOutterLeftX = c >= 0;
+		bool bOutterRightX = c < cvgmImage_.cols;
+
+		bool bInnerDownY  = r >= HALFROUND;
+		bool bInnerUpY    = r < cvgmImage_.rows - HALFROUND;
+		bool bInnerLeftX  = c >= HALFROUND;
+		bool bInnerRightX = c < cvgmImage_.cols - HALFROUND;
+
+		bool bThreadLeftX = threadIdx.x < HALFROUND;
+		bool bThreadRightX = threadIdx.x >= BLOCKDIM_X - HALFROUND;
+		bool bThreadUpY = threadIdx.y < HALFROUND;
+		bool bThreadDownY = threadIdx.y >= BLOCKDIM_Y - HALFROUND;
+		 //{ __syncthreads(); return; }
+		//copy image to shared memory
+			//up left
+		if( bThreadLeftX && bThreadUpY && bOutterDownY && bOutterRightX)
+			_sImage[threadIdx.x + threadIdx.y*WHOLE_WIDTH ] = cvgmImage_.ptr(r - HALFROUND )[c - HALFROUND ];
+		//left
+		if( bThreadLeftX && bOutterDownY && bInnerLeftX && bOutterRightX )
+			_sImage[threadIdx.x + (threadIdx.y + HALFROUND)*WHOLE_WIDTH ] = cvgmImage_.ptr(r )[c- HALFROUND ];
+		//down left
+		if( bThreadLeftX && bThreadDownY && bInnerDownY && bOutterRightX )
+			_sImage[threadIdx.x + (threadIdx.y + TWO_HALFROUND )*WHOLE_WIDTH ] = cvgmImage_.ptr(r+HALFROUND )[c- HALFROUND ];
+
+		//up
+		if( bThreadUpY && bInnerUpY && bOutterDownY && bOutterRightX )
+			_sImage[threadIdx.x + HALFROUND + (threadIdx.y )*WHOLE_WIDTH ] = cvgmImage_.ptr(r - HALFROUND )[c];
+		//center
+		if( bInnerLeftX && bInnerRightX && bInnerUpY && bInnerDownY )
+			_sImage[threadIdx.x + HALFROUND + ( threadIdx.y + HALFROUND ) *WHOLE_WIDTH ] = cvgmImage_.ptr(r )[c];
+		//down
+		if( bThreadDownY && bInnerDownY && bOutterRightX )
+			_sImage[threadIdx.x + HALFROUND + (threadIdx.y + TWO_HALFROUND )*WHOLE_WIDTH ] = cvgmImage_.ptr(r + HALFROUND )[c];
+
+		//up right
+		if( bThreadRightX && bThreadUpY && bInnerUpY && bOutterDownY && bInnerRightX )
+			_sImage[threadIdx.x + TWO_HALFROUND + threadIdx.y*WHOLE_WIDTH ] = cvgmImage_.ptr(r - HALFROUND )[c + HALFROUND ];
+		//right
+		if( bThreadRightX && bOutterUpY && bOutterDownY && bInnerRightX )
+			_sImage[threadIdx.x + TWO_HALFROUND + (threadIdx.y + HALFROUND)*WHOLE_WIDTH ] = cvgmImage_.ptr(r )[c + HALFROUND ];
+		//down right
+		if( bThreadRightX && bThreadDownY && bOutterUpY && bInnerDownY && bInnerRightX )
+			_sImage[threadIdx.x + TWO_HALFROUND + ( threadIdx.y + TWO_HALFROUND )*WHOLE_WIDTH ] = cvgmImage_.ptr( r + HALFROUND )[ c + HALFROUND ];
+	
+		// synchronize threads in this block
+		__syncthreads();
+
+		if( bInnerLeftX && bInnerRightX && bInnerUpY && bInnerDownY ){
+			short2 s2Loc = make_short2( c, r );
+			if ( cvgmParticleResponses_.ptr(r)[c] < 0.02f ) return;
+			//int4 n4Desc; devGetFastDescriptor(s2Loc.y,s2Loc.x,&n4Desc);
+			int4 n4DescShare = devGetFastDescriptor(_sImage,threadIdx.y+HALFROUND,threadIdx.x+HALFROUND);
+			cvgmParticleDescriptors_.ptr(s2Loc.y)[s2Loc.x] = n4DescShare;//n4Desc;
+		}
+		return;
+	}
+#else
+	__device__ int4 devGetFastDescriptor( const int r, const int c ){
 		int4 n4Descriptor;
-		devGetFastDescriptor(cvgmImage_,s2Location.y,s2Location.x,&n4Descriptor );
-		pn4devDescriptor_[nKeyPointIdx] = n4Descriptor;
+		n4Descriptor.x = n4Descriptor.y = n4Descriptor.z = n4Descriptor.w = 0;
+		uchar Color;
+		Color = cvgmImage_.ptr(r-3)[c  ];//1
+		n4Descriptor.x += Color; 
+		n4Descriptor.x = n4Descriptor.x << 8;
+		Color = cvgmImage_.ptr(r-6)[c+2];//2 B6
+		n4Descriptor.x += Color; 
+		n4Descriptor.x = n4Descriptor.x << 8;
+		Color = cvgmImage_.ptr(r-2)[c+2];//3
+		n4Descriptor.x += Color; 
+		n4Descriptor.x = n4Descriptor.x << 8;
+		Color = cvgmImage_.ptr(r-2)[c+6];//4 B6
+		n4Descriptor.x += Color; 
+
+
+		Color = cvgmImage_.ptr(r  )[c+3];//5
+		n4Descriptor.y += Color; 
+		n4Descriptor.y = n4Descriptor.y << 8;
+		Color = cvgmImage_.ptr(r+2)[c+6];//6 B6
+		n4Descriptor.y += Color; 
+		n4Descriptor.y = n4Descriptor.y << 8;
+		Color = cvgmImage_.ptr(r+2)[c+2];//7
+		n4Descriptor.y += Color; 
+		n4Descriptor.y = n4Descriptor.y << 8;
+		Color = cvgmImage_.ptr(r+6)[c+2];//8 B6
+		n4Descriptor.y += Color; 
+
+		Color = cvgmImage_.ptr(r+3)[c  ];//9
+		n4Descriptor.z += Color; 
+		n4Descriptor.z = n4Descriptor.z << 8;
+		Color= cvgmImage_.ptr(r+6)[c-2];//10 B6
+		n4Descriptor.z += Color; 
+		n4Descriptor.z = n4Descriptor.z << 8;
+		Color= cvgmImage_.ptr(r+2)[c-2];//11
+		n4Descriptor.z += Color; 
+		n4Descriptor.z = n4Descriptor.z << 8;
+		Color= cvgmImage_.ptr(r+2)[c-6];//12 B6
+		n4Descriptor.z += Color; 
+	
+		Color= cvgmImage_.ptr(r  )[c-3];//13
+		n4Descriptor.w += Color; 
+		n4Descriptor.w = n4Descriptor.w << 8;
+		Color= cvgmImage_.ptr(r-2)[c-6];//14 B6
+		n4Descriptor.w += Color; 
+		n4Descriptor.w = n4Descriptor.w << 8;
+		Color= cvgmImage_.ptr(r-2)[c-2];//15
+		n4Descriptor.w += Color; 
+		n4Descriptor.w = n4Descriptor.w << 8;
+		Color= cvgmImage_.ptr(r-6)[c-2];//16 B6
+		n4Descriptor.w += Color; 
+		return;
+	}
+	//single ring
+	__device__ int4 devGetFastDescriptor1( const int r, const int c ){
+		int4 n4Descriptor;
+		n4Descriptor.x = n4Descriptor.y = n4Descriptor.z = n4Descriptor.w = 0;
+		uchar Color;
+		Color = cvgmImage_.ptr(r-3)[c  ];//1
+		n4Descriptor.x += Color; 
+		n4Descriptor.x = n4Descriptor.x << 8;
+		Color = cvgmImage_.ptr(r-3)[c+1];//2
+		n4Descriptor.x += Color; 
+		n4Descriptor.x = n4Descriptor.x << 8;
+		Color = cvgmImage_.ptr(r-2)[c+2];//3
+		n4Descriptor.x += Color; 
+		n4Descriptor.x = n4Descriptor.x << 8;
+		Color = cvgmImage_.ptr(r-1)[c+3];//4
+		n4Descriptor.x += Color; 
+
+
+		Color = cvgmImage_.ptr(r  )[c+3];//5
+		n4Descriptor.y += Color; 
+		n4Descriptor.y = n4Descriptor.y << 8;
+		Color = cvgmImage_.ptr(r+1)[c+3];//6
+		n4Descriptor.y += Color; 
+		n4Descriptor.y = n4Descriptor.y << 8;
+		Color = cvgmImage_.ptr(r+2)[c+2];//7
+		n4Descriptor.y += Color; 
+		n4Descriptor.y = n4Descriptor.y << 8;
+		Color = cvgmImage_.ptr(r+3)[c+1];//8
+		n4Descriptor.y += Color; 
+
+		Color = cvgmImage_.ptr(r+3)[c  ];//9
+		n4Descriptor.z += Color; 
+		n4Descriptor.z = n4Descriptor.z << 8;
+		Color= cvgmImage_.ptr(r+3)[c-1];//10
+		n4Descriptor.z += Color; 
+		n4Descriptor.z = n4Descriptor.z << 8;
+		Color= cvgmImage_.ptr(r+2)[c-2];//11
+		n4Descriptor.z += Color; 
+		n4Descriptor.z = n4Descriptor.z << 8;
+		Color= cvgmImage_.ptr(r+1)[c-3];//12
+		n4Descriptor.z += Color; 
+	
+		Color= cvgmImage_.ptr(r  )[c-3];//13
+		n4Descriptor.w += Color; 
+		n4Descriptor.w = n4Descriptor.w << 8;
+		Color= cvgmImage_.ptr(r-1)[c-3];//14
+		n4Descriptor.w += Color; 
+		n4Descriptor.w = n4Descriptor.w << 8;
+		Color= cvgmImage_.ptr(r-2)[c-2];//15
+		n4Descriptor.w += Color; 
+		n4Descriptor.w = n4Descriptor.w << 8;
+		Color= cvgmImage_.ptr(r-3)[c-1];//16
+		n4Descriptor.w += Color; 
+		return;
+	}
+	__device__ void normal(){
+		// assert ( usHalfPatchSizeRound_ == HALFROUND )z
+		const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
+		if (nKeyPointIdx >= uTotalParticles_) return;
+
+		const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
+		if( s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmImage_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmImage_.rows - usHalfPatchSizeRound_ ) return;
+
+		cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
+		cvgmParticleDescriptors_.ptr(s2Loc.y)[s2Loc.x] = devGetFastDescriptor(s2Loc.y,s2Loc.x);
+		return;
 	}
 #endif
+};
+
+#ifdef SHARE
+__global__ void kernelAssignKeyPoint(SFastDescriptor sFD){
+	sFD.assign();
 }
+#endif
 
-void cudaFastDescriptors(const cv::gpu::GpuMat& cvgmImage_, unsigned int uFinalSalientPoints_, cv::gpu::GpuMat* pcvgmKeyPointsLocations_, cv::gpu::GpuMat* pcvgmParticlesDescriptors_){
-	dim3 block(256);
-    dim3 grid;
-    grid.x = cv::gpu::divUp(uFinalSalientPoints_, block.x);
-
-	kernelFastDescriptors<<<grid, block>>>(cvgmImage_, pcvgmKeyPointsLocations_->ptr<short2>(), uFinalSalientPoints_, pcvgmParticlesDescriptors_->ptr<int4>());
-    cudaSafeCall( cudaGetLastError() );
-    cudaSafeCall( cudaDeviceSynchronize() );
-}
-
-
-
-
-__global__ void kernelExtractAllDescriptorFast(const cv::gpu::DevMem2D_<uchar> cvgmImage_,
-											   const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
-											   const unsigned int uTotalParticles_, const unsigned int usHalfPatchSizeRound_,
-											   cv::gpu::DevMem2D_<float> cvgmParticleResponses_, cv::gpu::DevMem2D_<int4> cvgmParticleDescriptors_){
-
-	const int nKeyPointIdx = threadIdx.x + blockIdx.x * blockDim.x;
-	if (nKeyPointIdx >= uTotalParticles_) return;
-
-	const short2& s2Loc = ps2KeyPointsLocations_[nKeyPointIdx];
-	if( s2Loc.x < usHalfPatchSizeRound_ || s2Loc.x >= cvgmImage_.cols - usHalfPatchSizeRound_ || s2Loc.y < usHalfPatchSizeRound_ || s2Loc.y >= cvgmImage_.rows - usHalfPatchSizeRound_ ) return;
-
-	cvgmParticleResponses_.ptr(s2Loc.y)[s2Loc.x] = pfKeyPointsResponse_[nKeyPointIdx];
-	int4 n4Desc; devGetFastDescriptor(cvgmImage_,s2Loc.y,s2Loc.x,&n4Desc);
-	cvgmParticleDescriptors_.ptr(s2Loc.y)[s2Loc.x] = n4Desc;
+__global__ void kernelExtractAllDescriptorFast(SFastDescriptor sFD){
+#ifdef SHARE
+	sFD();
+#else
+	sFD.normal();
+#endif
 }
 /*
 collect all key points and key point response and set a frame of saliency frame
@@ -648,14 +792,42 @@ void cudaExtractAllDescriptorFast(const cv::gpu::GpuMat& cvgmImage_,
     cudaSafeCall( cudaEventRecord( start, 0 ) );
 
 	if(uTotalParticles_ == 0) return;
+	
+	struct SFastDescriptor sFD;
+	//input
+	sFD.cvgmImage_ = cvgmImage_;
+	sFD.uTotalParticles_ = uTotalParticles_;
+	sFD.usHalfPatchSizeRound_ = unsigned int(usHalfPatchSize_*1.5);
+
+	sFD.ps2KeyPointsLocations_ = ps2KeyPointsLocations_;
+	sFD.pfKeyPointsResponse_ = pfKeyPointsResponse_;
+	//output
+	sFD.cvgmParticleResponses_ = *pcvgmParticleResponses_;
+	sFD.cvgmParticleDescriptors_ = *pcvgmParticleDescriptor_;
+#ifdef SHARE
 	dim3 block(256);
     dim3 grid;
     grid.x = cv::gpu::divUp(uTotalParticles_, block.x);
-	unsigned int usHalfPatchRound = unsigned int(usHalfPatchSize_*1.5);
-	kernelExtractAllDescriptorFast<<<grid, block>>>( cvgmImage_, ps2KeyPointsLocations_, pfKeyPointsResponse_, 
-													 uTotalParticles_, usHalfPatchRound, 
-													 *pcvgmParticleResponses_, *pcvgmParticleDescriptor_);
-
+	
+	kernelAssignKeyPoint<<<grid, block>>>( sFD );
+	cudaSafeCall( cudaGetLastError() );
+	
+	block.x = BLOCKDIM_X;
+	block.y = BLOCKDIM_Y;
+	grid.x = cv::gpu::divUp(cvgmImage_.cols, block.x);
+	grid.y = cv::gpu::divUp(cvgmImage_.rows, block.y);
+	
+	kernelExtractAllDescriptorFast<<<grid, block>>>( sFD );
+	cudaSafeCall( cudaGetLastError() );
+	cudaSafeCall( cudaDeviceSynchronize() );
+#else
+	dim3 block(256);
+    dim3 grid;
+    grid.x = cv::gpu::divUp(uTotalParticles_, block.x);
+	kernelExtractAllDescriptorFast<<<grid, block>>>( sFD );
+	cudaSafeCall( cudaGetLastError() );
+	cudaSafeCall( cudaDeviceSynchronize() );
+#endif
 	cudaSafeCall( cudaEventRecord( stop, 0 ) );
     cudaSafeCall( cudaEventSynchronize( stop ) );
     float   elapsedTime;
