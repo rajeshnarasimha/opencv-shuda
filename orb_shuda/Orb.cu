@@ -102,9 +102,9 @@ void loadUMax(const int* u_max, int count)
 
 __global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, float* pAngle_, const int nPoints_, const int half_k)
 {
-    __shared__ int smem[8 * 32];
+    __shared__ int smem[8 * 32];//Every thread in the block shares the shared memory
 
-    volatile int* srow = smem + threadIdx.y * blockDim.x;
+    volatile int* srow = smem + threadIdx.y * blockDim.x; //The volatile keyword specifies that the value associated with the name that follows can be modified by actions other than those in the user application. 
 
     const int nPtIdx = blockIdx.x * blockDim.y + threadIdx.y;
 
@@ -125,7 +125,7 @@ __global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, floa
             // Proceed over the two lines
             int v_sum = 0;
             int m_sum = 0;
-            const int d = c_u_max[v];
+            const int d = c_u_max[v];//1/4 circular patch
 
             for (int u = threadIdx.x - d; u <= d; u += blockDim.x)
             {
@@ -152,16 +152,17 @@ __global__ void IC_Angle(const cv::gpu::PtrStepb image, const short2* loc_, floa
             pAngle_[nPtIdx] = kp_dir;
         }
     }
+	return;
 }
 
-void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* s2Loc_, float* pAngle_, int nPoints_, int half_k, cudaStream_t stream)
+void IC_Angle_gpu(cv::gpu::PtrStepSzb image, const short2* ps2Loc_, float* pAngle_, int nPoints_, int half_k, cudaStream_t stream)
 {
     dim3 block(32, 8);
 
     dim3 grid;
     grid.x = cv::gpu::divUp(nPoints_, block.y);
 
-    IC_Angle<<<grid, block, 0, stream>>>(image, s2Loc_, pAngle_, nPoints_, half_k);
+    IC_Angle<<<grid, block, 0, stream>>>(image, ps2Loc_, pAngle_, nPoints_, half_k);
 
     cudaSafeCall( cudaGetLastError() );
 
@@ -298,18 +299,18 @@ __global__ void kernelComputeOrbDescriptor(const cv::gpu::PtrStepb cvgmImg_, con
     const int nDescIdx = blockIdx.x * blockDim.x + threadIdx.x;
     const int nPtIdx   = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (nPtIdx < nPoints_ && nDescIdx < nDescriptorSize_)
-    {
+    if (nPtIdx < nPoints_ && nDescIdx < nDescriptorSize_) {
         float fAngle = pAngle_[nPtIdx];
         fAngle *= (float)(CV_PI / 180.f);
 
         float sina, cosa;
-        ::sincosf(fAngle, &sina, &cosa);
+        ::sincosf(fAngle, &sina, &cosa);//Calculate the sine and cosine of the first input argument x (measured in radians).
 
         cvgmDescriptor_.ptr(nPtIdx)[nDescIdx] = OrbDescriptor<WTA_K>::calc(cvgmImg_, pLoc_[nPtIdx], pnPatternX_, pnPatternY_, sina, cosa, nDescIdx);
     }
 }
-
+//nPoints_: the # of key points
+//nDescriptorSize_: the # of bytes of the descriptor. it is 256 bits that is 32 bytes
 void cudaComputeOrbDescriptor(cv::gpu::PtrStepb cvgmImg_, const short2* pLoc_, const float* pAngle_, const int nPoints_,
     const int* pnPatternX_, const int* pnPatternY_, cv::gpu::PtrStepb cvgmDescriptor_, int nDescriptorSize_, int WTA_K, cudaStream_t stream)
 {

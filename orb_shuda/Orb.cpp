@@ -362,7 +362,7 @@ _nFeatures(nFeatures), _fScaleFactor(scaleFactor), _nLevels(nLevels), _nEdgeThre
 	}
 	_vFeaturesPerLevel[_nLevels - 1] = nFeatures - sum_n_features;
 
-	// pre-compute the end of a row in a circular patch
+	// pre-compute the end of a row in a circular patch (1/4 of the circular patch)
 	int half_patch_size = _nPatchSize / 2;
 	std::vector<int> u_max(half_patch_size + 2);
 	for (int v = 0; v <= half_patch_size * std::sqrt(2.f) / 2 + 1; ++v)
@@ -442,6 +442,7 @@ namespace
 
 			*pnCornerBeforeCulling_ = thrustSortFastCornersAndCull(cvgmKeyPoints_.ptr<int>(cv::gpu::FAST_GPU::LOCATION_ROW), cvgmKeyPoints_.ptr<float>(cv::gpu::FAST_GPU::RESPONSE_ROW), *pnCornerBeforeCulling_, nCornerAfterCulling_);
 		}
+		return;
 	}
 }
 
@@ -545,8 +546,7 @@ void CORB::computeDescriptors(cv::gpu::GpuMat* pcvgmDescriptors_)
 	for (int l = 0; l < _nLevels; ++l)
 		nAllKeyPoints += _vKeyPointsCount[l];
 
-	if (nAllKeyPoints == 0)
-	{
+	if (nAllKeyPoints == 0)	{
 		pcvgmDescriptors_->release();
 		return;
 	}
