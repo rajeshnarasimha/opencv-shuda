@@ -69,16 +69,17 @@ int main ( int argc, char** argv )
     {
         cap >> frame; // get a new frame from camera
         //cv::cvtColor ( frame, edges, CV_BGR2GRAY );
-        cv::GaussianBlur ( frame, edges, cv::Size ( 7, 7 ), 1.5, 1.5 );
+        //cv::GaussianBlur ( frame, edges, cv::Size ( 7, 7 ), 1.5, 1.5 );
         //cv::Canny ( edges, edges, 0, 30, 3 );
-        imshow ( "edges", edges );
+        imshow ( "edges", frame );
 
-        if ( cv::waitKey ( 30 ) >= 0 )
-        {
+        if ( cv::waitKey ( 30 ) >= 0 ) {
             break;
         }
         //cvtColor(edges, cvColorFrame, CV_GRAY2RGB);
-        //cvSav << cvColorFrame;
+		//cvSav.write(cvColorFrame);
+		
+        cvSav << frame;
     }
 
     // the camera will be deinitialized automatically in VideoCapture destructor
