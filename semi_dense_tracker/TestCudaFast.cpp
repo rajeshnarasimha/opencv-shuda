@@ -5,6 +5,7 @@
 #include <cuda_runtime.h>
 
 #include "Helper.hpp"
+#include "TestCudaFast.h"
 
 __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);

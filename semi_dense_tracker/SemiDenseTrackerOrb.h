@@ -8,13 +8,12 @@ namespace btl{	namespace image	{
 class CSemiDenseTrackerOrb: public CSemiDenseTracker{
 public:
 
-	unsigned short _usMatchThreshod;
-
+	unsigned short _usMatchThreshod[4];
 	cv::gpu::GpuMat _cvgmPattern;
 
 	CSemiDenseTrackerOrb();
-	virtual bool initialize( cv::Mat& cvmColorFrame_ );
-	virtual void track( cv::Mat& cvmColorFrame_ );
+	virtual bool initialize( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
+	virtual void track( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
 
 private:
 	void initUMax();

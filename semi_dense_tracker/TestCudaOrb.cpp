@@ -5,6 +5,8 @@
 #include <cuda_runtime.h>
 #include <assert.h>
 
+#include "TestCudaOrb.h"
+
 __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
 __device__ float2 operator * (const float fO1_, const short2 s2O2_);
