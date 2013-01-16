@@ -1,0 +1,7 @@
+PROJECT( WebCam )
+cmake_minimum_required(VERSION 2.8)
+FIND_PACKAGE( OpenCV REQUIRED )
+ADD_EXECUTABLE( WebCam main.cpp )
+TARGET_LINK_LIBRARIES( WebCam ${OpenCV_LIBS} )
+install( TARGETS WebCam DESTINATION "${PROJECT_SOURCE_DIR}" )
+
