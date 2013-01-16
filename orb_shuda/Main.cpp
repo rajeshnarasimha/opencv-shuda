@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     }
 
 
-	btl::image::CORB orb(200,2.0,4,10,1,2,0,31);
+	btl::image::CORB orb(200,2.0,4,10,1,2,0,11);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
