@@ -38,7 +38,7 @@ int main ( int argc, char** argv )
 	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
 #else
-	cv::VideoCapture cap("VSelf.avi");//("VFootball.mkv");//("VTreeTrunk.avi"); //("VCars.avi"); //("VFootball.mkv");//("VRotatePersp.avi");//( "VRectLight.avi" );
+	cv::VideoCapture cap("VTreeTrunk.avi"); //("VSelf.avi");//("VFootball.mkv");//("VCars.avi"); //("VFootball.mkv");//("VRotatePersp.avi");//( "VRectLight.avi" );
 	//("VCars.avi"); //("VRotateOrtho.avi"); //("VBranches.avi"); //("VZoomIn.avi");//("VHand.avi"); 
 	//("VPerson.avi");//("VHall.avi");// ("VMouth.avi");// // ("VZoomOut.avi");// 
 	//  //
@@ -51,7 +51,7 @@ int main ( int argc, char** argv )
 	btl::image::semidense::CSemiDenseTrackerOrb cSDTOrb;
 	btl::image::semidense::CSemiDenseTracker cSDTFast;
 	cap >> cvmColorFrame; 
-	const float fScale = .15f;
+	const float fScale = .8f;
 	cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 	cv::Mat cvmTotalFrame;
 	cvmTotalFrame.create(cvmColorFrame.rows*2,cvmColorFrame.cols*2,CV_8UC3);
@@ -100,9 +100,9 @@ int main ( int argc, char** argv )
 			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
 		}else{
-			/*cvgmColorFrame.upload(cvmColorFrame);
+			cvgmColorFrame.upload(cvmColorFrame);
 			cvgmColorFrame.convertTo(cvgmColorFrame,CV_8UC3,pow(0.9f,_aLight[uIdx%1024]));
-			cvgmColorFrame.download(cvmColorFrame);*/
+			cvgmColorFrame.download(cvmColorFrame);
 			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
 			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);// get a new frame from camera
 		}
