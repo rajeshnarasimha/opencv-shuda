@@ -37,8 +37,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-
-	ORB_GPU orb(200,2.0,4,10,1,2,0,31);
+	ORB_GPU orb(400,2.0,4,10,1,2,0,31);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
@@ -66,7 +65,7 @@ int main(int argc, char* argv[])
 
     int nSize = matches.size();//>300?300:matches.size();
     cout << "matched point pairs: " << nSize << endl;
-	for( int i=0;i < nSize;i++)
+	for( int i=0;i < 100;i++)
     {
         closest.push_back( matches[i] );
         //cout << matches[i].distance << endl;
