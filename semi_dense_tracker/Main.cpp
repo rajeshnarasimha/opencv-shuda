@@ -10,11 +10,13 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/gpu/gpu.hpp>
 #include <iostream>
+#include <boost/shared_ptr.hpp>
 
 #include "SemiDenseTracker.h"
 #include "SemiDenseTrackerOrb.h"
 #include <boost/random.hpp>
 #include <boost/random/normal_distribution.hpp>
+
 
 float _aLight[1024];
 
@@ -29,6 +31,23 @@ void initLight(){
 }
 
 #include <math.h>
+
+boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBWs[4]; 
+void initPyramid(int r, int c){
+	for (int n=0; n<4; n++){
+		_acvgmShrPtrPyrBWs[n].reset(new cv::gpu::GpuMat(r,c,CV_8UC1));
+		r /= 2; c /= 2;
+	}
+	return;
+}
+void buildPyramid(const cv::gpu::GpuMat& cvgmGray_){
+	cvgmGray_.copyTo(*_acvgmShrPtrPyrBWs[0]);
+	for (int n=0; n< 3; n++){
+		cv::gpu::resize(*_acvgmShrPtrPyrBWs[n],*_acvgmShrPtrPyrBWs[n+1],cv::Size(0,0),.5f,.5f );	
+	}
+	return;
+}
+
 //#define  WEB_CAM
 int main ( int argc, char** argv )
 {
@@ -38,44 +57,47 @@ int main ( int argc, char** argv )
 	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
 #else
-	cv::VideoCapture cap("VTreeTrunk.avi"); //("VSelf.avi");//("VFootball.mkv");//("VCars.avi"); //("VFootball.mkv");//("VRotatePersp.avi");//( "VRectLight.avi" );
-	//("VCars.avi"); //("VRotateOrtho.avi"); //("VBranches.avi"); //("VZoomIn.avi");//("VHand.avi"); 
-	//("VPerson.avi");//("VHall.avi");// ("VMouth.avi");// // ("VZoomOut.avi");// 
-	//  //
+	cv::VideoCapture cap("VDark.avi");//("VBranches.avi"); //("VTreeTrunk.avi"); //("VRotatePersp.avi");//("VMouth.avi");// ("VCars.avi"); //("VZoomIn.avi");//("VSelf.avi");//("VFootball.mkv");//( "VRectLight.avi" );
+	//("VCars.avi"); //("VRotateOrtho.avi"); //("VHand.avi"); 
+	//("VPerson.avi");//("VHall.avi");// // ("VZoomOut.avi");// 
 #endif
 
     if ( !cap.isOpened() ) return -1;
-	cv::Mat cvmColorFrame;
-	cv::Mat cvmColorFrameSmall;
-
+	
 	btl::image::semidense::CSemiDenseTrackerOrb cSDTOrb;
 	btl::image::semidense::CSemiDenseTracker cSDTFast;
-	cap >> cvmColorFrame; 
+	cv::gpu::GpuMat cvgmColorFrame,cvgmGrayFrame,cvgmColorFrameSmall; 
+	cv::Mat cvmColorFrame, cvmGrayFrame, cvmTotalFrame;
+	cap >> cvmColorFrame; cvgmColorFrame.upload(cvmColorFrame);
+	//resize
 	const float fScale = .8f;
-	cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
-	cv::Mat cvmTotalFrame;
-	cvmTotalFrame.create(cvmColorFrame.rows*2,cvmColorFrame.cols*2,CV_8UC3);
-	cv::Mat cvmROI0(cvmTotalFrame, cv::Rect(	   0,					 0,			 cvmColorFrame.cols, cvmColorFrame.rows));
-	cv::Mat cvmROI1(cvmTotalFrame, cv::Rect(       0,			 cvmColorFrame.rows, cvmColorFrame.cols, cvmColorFrame.rows));
-	cv::Mat cvmROI2(cvmTotalFrame, cv::Rect(cvmColorFrame.cols,  cvmColorFrame.rows, cvmColorFrame.cols, cvmColorFrame.rows));
-	cv::Mat cvmROI3(cvmTotalFrame, cv::Rect(cvmColorFrame.cols,          0,          cvmColorFrame.cols, cvmColorFrame.rows));
+	cv::gpu::resize(cvgmColorFrame,cvgmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	
+	//to gray
+	cv::gpu::cvtColor(cvgmColorFrameSmall,cvgmGrayFrame,cv::COLOR_RGB2GRAY);
+	initPyramid(cvgmGrayFrame.rows, cvgmGrayFrame.cols );
+	buildPyramid(cvgmGrayFrame);
+	cvmTotalFrame.create(cvgmColorFrameSmall.rows*2,cvgmColorFrameSmall.cols*2,CV_8UC3);
+	cv::Mat cvmROI0(cvmTotalFrame, cv::Rect(	     0,					        0,			    cvgmColorFrameSmall.cols, cvgmColorFrameSmall.rows));
+	cv::Mat cvmROI1(cvmTotalFrame, cv::Rect(       0,  			   cvgmColorFrameSmall.rows, cvgmColorFrameSmall.cols, cvgmColorFrameSmall.rows));
+	cv::Mat cvmROI2(cvmTotalFrame, cv::Rect(cvgmColorFrameSmall.cols, cvgmColorFrameSmall.rows, cvgmColorFrameSmall.cols, cvgmColorFrameSmall.rows));
+	cv::Mat cvmROI3(cvmTotalFrame, cv::Rect(cvgmColorFrameSmall.cols,          0,              cvgmColorFrameSmall.cols, cvgmColorFrameSmall.rows));
+	//copy to total frame
+	cvgmColorFrameSmall.download(cvmROI0); cvgmColorFrameSmall.download(cvmROI1); cvgmColorFrameSmall.download(cvmROI2); cvgmColorFrameSmall.download(cvmROI3);
 
-
-	cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
 	bool bIsInitSuccessful;
-	bIsInitSuccessful = cSDTFast.initialize( cvmROI2 );
-	bIsInitSuccessful = cSDTOrb.initialize( cvmROI1 );
-
-	cv::gpu::GpuMat cvgmColorFrame;
+	bIsInitSuccessful = cSDTFast.init( _acvgmShrPtrPyrBWs );
+	bIsInitSuccessful = cSDTOrb.init( _acvgmShrPtrPyrBWs );
 
 	while(!bIsInitSuccessful){
-		cap >> cvmColorFrame; 
-		cv::imwrite("tmp.png",cvmColorFrame);
-		cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
-		cv::imwrite("tmp1.png",cvmColorFrame);
-		cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
-		bIsInitSuccessful = cSDTOrb.initialize( cvmROI1 );
-		bIsInitSuccessful = cSDTFast.initialize( cvmROI2 );
+		cap >> cvmColorFrame; cvgmColorFrame.upload(cvmColorFrame);
+		//resize
+		cv::gpu::resize(cvgmColorFrame,cvgmColorFrameSmall,cv::Size(0,0),fScale ,fScale );
+		//to gray
+		cv::gpu::cvtColor(cvgmColorFrameSmall,cvgmGrayFrame,cv::COLOR_RGB2GRAY);
+		//copy into total frame	
+		cvgmColorFrameSmall.download(cvmROI0); cvgmColorFrameSmall.download(cvmROI1); cvgmColorFrameSmall.download(cvmROI2); cvgmColorFrameSmall.download(cvmROI3);
+		bIsInitSuccessful = cSDTOrb.init( _acvgmShrPtrPyrBWs );
+		bIsInitSuccessful = cSDTFast.init( _acvgmShrPtrPyrBWs );
 	}
 
     cv::namedWindow ( "Tracker", 1 );
@@ -87,31 +109,53 @@ int main ( int argc, char** argv )
 		imshow ( "Tracker", cvmTotalFrame );
 		if(!bStart) continue;
 		//load a new frame
-		cap >> cvmColorFrame; 
+ 		cap >> cvmColorFrame; 
 
 		if (cvmColorFrame.empty()) {
 			cap.set(CV_CAP_PROP_POS_AVI_RATIO,0);//replay at the end of the video
-			cap >> cvmColorFrame; 
-			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
-			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
-			cSDTOrb.initialize( cvmROI1 );
-			cSDTFast.initialize( cvmROI2 );
-			cap >> cvmColorFrame; 
-			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
-			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);
+			cap >> cvmColorFrame; cvgmColorFrame.upload(cvmColorFrame);
+			//resize
+			cv::gpu::resize(cvgmColorFrame,cvgmColorFrameSmall,cv::Size(0,0),fScale ,fScale );
+			//to gray
+			cv::gpu::cvtColor(cvgmColorFrameSmall,cvgmGrayFrame,cv::COLOR_RGB2GRAY);
+			buildPyramid(cvgmGrayFrame);
+			//copy into total frame	
+			cvgmColorFrameSmall.download(cvmROI0); cvgmColorFrameSmall.download(cvmROI1); cvgmColorFrameSmall.download(cvmROI2); cvgmColorFrameSmall.download(cvmROI3);
+			cSDTOrb.init( _acvgmShrPtrPyrBWs );
+			cSDTFast.init( _acvgmShrPtrPyrBWs );
+			//get second frame
+			cap >> cvmColorFrame; cvgmColorFrame.upload(cvmColorFrame);
+			//resize
+			cv::gpu::resize(cvgmColorFrame,cvgmColorFrameSmall,cv::Size(0,0),fScale ,fScale );
+			//to gray
+			cv::gpu::cvtColor(cvgmColorFrameSmall,cvgmGrayFrame,cv::COLOR_RGB2GRAY);
+			//copy into total frame	
+			cvgmColorFrameSmall.download(cvmROI0); cvgmColorFrameSmall.download(cvmROI1); cvgmColorFrameSmall.download(cvmROI2); cvgmColorFrameSmall.download(cvmROI3);
 		}else{
-			cvgmColorFrame.upload(cvmColorFrame);
+			/*cvgmColorFrame.upload(cvmColorFrame);
 			cvgmColorFrame.convertTo(cvgmColorFrame,CV_8UC3,pow(0.9f,_aLight[uIdx%1024]));
-			cvgmColorFrame.download(cvmColorFrame);
-			cv::resize(cvmColorFrame,cvmColorFrameSmall,cv::Size(0,0),fScale ,fScale ); cvmColorFrame.release(); cvmColorFrameSmall.copyTo(cvmColorFrame);
-			cvmColorFrame.copyTo(cvmROI0); cvmColorFrame.copyTo(cvmROI1); cvmColorFrame.copyTo(cvmROI2); cvmColorFrame.copyTo(cvmROI3);// get a new frame from camera
+			cvgmColorFrame.download(cvmColorFrame);*/
+
+			cvgmColorFrame.upload(cvmColorFrame);
+			//resize
+			cv::gpu::resize(cvgmColorFrame,cvgmColorFrameSmall,cv::Size(0,0),fScale ,fScale );
+			//to gray
+			cv::gpu::cvtColor(cvgmColorFrameSmall,cvgmGrayFrame,cv::COLOR_RGB2GRAY);
+			buildPyramid(cvgmGrayFrame);
+			//copy into total frame	
+			cvgmColorFrameSmall.download(cvmROI0); cvgmColorFrameSmall.download(cvmROI1); cvgmColorFrameSmall.download(cvmROI2); cvgmColorFrameSmall.download(cvmROI3);
 		}
 
-		cSDTOrb.track( cvmROI1 );
-		cSDTFast.track( cvmROI2 );
+		
+		cSDTFast.trackAll( _acvgmShrPtrPyrBWs );
 		cSDTFast.displayCandidates( cvmROI3 );
+ 		cSDTFast.display(cvmROI2);
+		
+		cSDTOrb.trackAll( _acvgmShrPtrPyrBWs );
+		cSDTOrb.display(cvmROI1);
+
 		t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-		std::cout << "frame time [s]: " << t << " ms" << std::endl;	
+		std::cout << "frame time [s]: " << t*1000 << " ms" << std::endl;	
 
 
 		//interactions
