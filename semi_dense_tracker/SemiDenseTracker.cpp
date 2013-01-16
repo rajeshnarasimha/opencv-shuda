@@ -90,7 +90,7 @@ btl::image::semidense::CSemiDenseTracker::CSemiDenseTracker()
 	//saliency threshold
 	_fSaliencyThreshold = 0.2f;
 	//match threshold
-	_fMatchThreshold = 7.f;
+	_fMatchThreshold = 6.f;
 
 	//# of Max key points
 	_uMaxKeyPointsBeforeNonMax = 50000;
