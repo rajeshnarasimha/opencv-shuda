@@ -19,10 +19,98 @@ void help()
     cout << "\nThis program demonstrates using SURF_GPU features detector, descriptor extractor and BruteForceMatcher_GPU" << endl;
     cout << "\nUsage:\n\tmatcher_simple_gpu <image1> <image2>" << endl;
 }
+int video() {
 
-int main(int argc, char* argv[])
-{
-    if (argc != 3)
+	cv::Mat cvmColorFrame;
+	cv::Mat cvmBGR;
+
+	cv::gpu::GpuMat cvgmColorFrame;
+	cv::gpu::GpuMat cvgmGrayFramePrev;
+	cv::gpu::GpuMat cvgmGrayFrameCurr;
+
+	cv::gpu::GpuMat cvgmGrayFrameSmall;
+
+	
+	cv::VideoCapture cap("VBranches.avi");
+	if ( !cap.isOpened() ) return -1;
+	cap >> cvmColorFrame; cvgmColorFrame.upload(cvmColorFrame);
+	cv::gpu::cvtColor(cvgmColorFrame,cvgmGrayFramePrev,CV_RGB2GRAY);
+	float fScale = 0.125;
+	cv::gpu::resize(cvgmGrayFramePrev,cvgmGrayFrameSmall,cv::Size(0,0),fScale,fScale);
+	
+
+	cv::gpu::GpuMat cvgmFloatFramePrev(cvgmGrayFrameSmall.size(),cv::DataType<float>::type);
+	cv::gpu::GpuMat cvgmFloatFrameCurr(cvgmGrayFrameSmall.size(),cv::DataType<float>::type);
+
+	cvgmGrayFrameSmall.convertTo(cvgmFloatFramePrev,cv::DataType<float>::type);
+
+	cv::gpu::BroxOpticalFlow cBOF(80.f,100.f,0.95f,5,20,10);
+	cv::gpu::GpuMat u,v;
+
+	cv::gpu::GpuMat cvgmMag, cvgmAngle;
+	cv::gpu::GpuMat cvgmHSV, cvgmOnes(cvgmGrayFrameSmall.size(),CV_32F);
+	std::vector<cv::gpu::GpuMat> vcvgmHSV;
+	cv::gpu::GpuMat cvgmBGR;
+
+	cv::namedWindow("optical flow", 0);
+
+	for ( ;; ){
+		double t = (double)cv::getTickCount();
+		int nKey = cv::waitKey(1);
+		if ( nKey == 'q') break;
+
+		cap >> cvmColorFrame; 
+
+		if (cvmColorFrame.empty()) {
+			cap.set(CV_CAP_PROP_POS_AVI_RATIO,0);//replay at the end of the video
+			cap >> cvmColorFrame; 
+		}
+		cvgmColorFrame.upload(cvmColorFrame);
+		cv::gpu::cvtColor(cvgmColorFrame,cvgmGrayFrameCurr,CV_RGB2GRAY);
+		cv::gpu::resize(cvgmGrayFramePrev,cvgmGrayFrameSmall,cv::Size(0,0),fScale,fScale);
+		cvgmGrayFrameSmall.convertTo(cvgmFloatFrameCurr,cv::DataType<float>::type);
+		//
+
+		cBOF(cvgmFloatFramePrev,cvgmFloatFrameCurr,u,v);
+
+		t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+		std::cout << "frame time [s]: " << t*1000 << " ms" << std::endl;	
+		cv::gpu::cartToPolar(u,v,cvgmMag,cvgmAngle,true);
+
+		//translate magnitude to range [0;1]
+		double mag_max;
+		cv::gpu::minMaxLoc(cvgmMag, 0, &mag_max);
+		cvgmMag.convertTo(cvgmMag,-1,1.0/mag_max);
+
+		//build hsv image
+		cvgmOnes.setTo(1.f);
+		vcvgmHSV.push_back(cvgmAngle);
+		vcvgmHSV.push_back(cvgmOnes);
+		vcvgmHSV.push_back(cvgmMag);
+		cv::gpu::merge(vcvgmHSV,cvgmHSV);
+
+		//convert to BGR and show
+
+		cv::gpu::cvtColor(cvgmHSV,cvgmBGR,cv::COLOR_HSV2BGR);//cvgmBGR is CV_32FC3 matrix
+
+		cvgmBGR.convertTo(cvgmBGR,CV_8UC3,255);
+		cvgmBGR.download(cvmBGR);
+
+		cv::imshow("optical flow", cvmBGR);
+
+		//
+		cvgmGrayFrameCurr.copyTo(cvgmGrayFramePrev);
+		vcvgmHSV.clear();
+
+
+	}
+
+
+	return 0;
+
+}
+int image(int argc, char* argv[]){
+	if (argc != 3)
     {
         help();
         return -1;
@@ -41,7 +129,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-	cv::gpu::BroxOpticalFlow cBOF(80,100,0.95,5,20,10);
+	cv::gpu::BroxOpticalFlow cBOF(80.f,100.f,0.95f,5,20,10);
 	GpuMat u,v;
 	cBOF(cvgmImg1,cvgmImg2,u,v);
 
@@ -49,7 +137,7 @@ int main(int argc, char* argv[])
 	cv::gpu::cartToPolar(u,v,cvgmMag,cvgmAngle,true);
 
 	//translate magnitude to range [0;1]
-	double mag_max,mag_min;
+	double mag_max;
 	cv::gpu::minMaxLoc(cvgmMag, 0, &mag_max);
 	cvgmMag.convertTo(cvgmMag,-1,1.0/mag_max);
 
@@ -72,6 +160,10 @@ int main(int argc, char* argv[])
 	cv::imwrite("optical.png",cvmBGR);
 	cv::imshow("optical flow", cvmBGR);
 	cv::waitKey(0);
-
-    return 0;
+	return 0;
+}
+int main(int argc, char* argv[])
+{
+	return video();
+    //return image(argc,argv);
 }
