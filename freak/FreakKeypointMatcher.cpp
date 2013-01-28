@@ -6,6 +6,8 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/gpu/gpu.hpp"
 
+#include "Freak.h"
+
 using namespace std;
 using namespace cv;
 using namespace cv::gpu;
@@ -34,15 +36,15 @@ int main(int argc, char* argv[])
 	vector<KeyPoint> vKeypoints1; cv::Mat cvmDescriptors1;
 	vector<KeyPoint> vKeypoints2; cv::Mat cvmDescriptors2;
 
-	cv::SURF surf(2000,4);
+	cv::SURF surf(10,4,2,true,true);
 	surf.detect(cvmGray1, vKeypoints1);
 	surf.detect(cvmGray2, vKeypoints2);
 
 	// detecting keypoints & computing descriptors
-	cv::FREAK *pFreak = new cv::FREAK();
+	btl::image::FREAK *pFreak = new btl::image::FREAK();
+	double t = (double)getTickCount();
 	pFreak->compute( cvmGray1, vKeypoints1, cvmDescriptors1 );
 	pFreak->compute( cvmGray2, vKeypoints2, cvmDescriptors2 );
-
 
     cout << "FOUND " << vKeypoints1.size() << " keypoints on first image" << endl;
     cout << "FOUND " << vKeypoints2.size() << " keypoints on second image" << endl;
@@ -53,7 +55,7 @@ int main(int argc, char* argv[])
 
     vector<DMatch> vMatches;
 	BruteForceMatcher_GPU<HammingLUT> matcher;  
-	double t = (double)getTickCount();
+	
 	matcher.match(cvgmDescriptors1, cvgmDescriptors2, vMatches);  
 	t = ((double)getTickCount() - t)/getTickFrequency();
 	std::cout << "match time [s]: " << t << std::endl;	
@@ -62,7 +64,7 @@ int main(int argc, char* argv[])
 
     int nSize = vMatches.size();//>300?300:matches.size();
     cout << "matched point pairs: " << nSize << endl;
-	for( int i=0;i < 100;i++) {
+	for( int i=0;i < 300;i++) {
         closest.push_back( vMatches[i] );
         //cout << matches[i].distance << endl;
     }
