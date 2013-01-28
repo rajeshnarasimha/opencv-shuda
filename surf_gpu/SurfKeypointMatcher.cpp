@@ -4,6 +4,8 @@
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/gpu/gpu.hpp"
+#include <vector>
+#include "Surf.h"
 
 using namespace std;
 using namespace cv;
@@ -37,7 +39,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    SURF_GPU surf;
+    CSurf surf(0,4,1,false,0.3,false);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
@@ -69,7 +71,7 @@ int main(int argc, char* argv[])
     for( int i=0;i < nSize;i++)
     {
         closest.push_back( matches[i] );
-        cout << matches[i].distance << endl;
+        cout << matches[i].distance << " ";
     }
     // drawing the results
     Mat img_matches;
