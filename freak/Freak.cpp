@@ -1,35 +1,3 @@
-//  freak.cpp
-//
-//  Copyright (C) 2011-2012  Signal processing laboratory 2, EPFL,
-//  Kirell Benzi (kirell.benzi@epfl.ch),
-//  Raphael Ortiz (raphael.ortiz@a3.epfl.ch)
-//  Alexandre Alahi (alexandre.alahi@epfl.ch)
-//  and Pierre Vandergheynst (pierre.vandergheynst@epfl.ch)
-//
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//
-//   * Redistribution's of source code must retain the above copyright notice,
-//     this list of conditions and the following disclaimer.
-//
-//   * Redistribution's in binary form must reproduce the above copyright notice,
-//     this list of conditions and the following disclaimer in the documentation
-//     and/or other materials provided with the distribution.
-//
-//   * The name of the copyright holders may not be used to endorse or promote products
-//     derived from this software without specific prior written permission.
-//
-//  This software is provided by the copyright holders and contributors "as is" and
-//  any express or implied warranties, including, but not limited to, the implied
-//  warranties of merchantability and fitness for a particular purpose are disclaimed.
-//  In no event shall the Intel Corporation or contributors be liable for any direct,
-//  indirect, incidental, special, exemplary, or consequential damages
-//  (including, but not limited to, procurement of substitute goods or services;
-//  loss of use, data, or profits; or business interruption) however caused
-//  and on any theory of liability, whether in contract, strict liability,
-//  or tort (including negligence or otherwise) arising in any way out of
-//  the use of this software, even if advised of the possibility of such damage.
-
 //#include "precomp.hpp"
 #include <fstream>
 #include <stdlib.h>
@@ -40,6 +8,10 @@
 #include <algorithm>
 #include <iomanip>
 #include <string.h>
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+
 #include "opencv2/core/core.hpp"
 #include "opencv2/flann/miniflann.hpp"
 #include <opencv2/features2d/features2d.hpp>
@@ -47,84 +19,24 @@
 #include <opencv2/gpu/gpu.hpp>
 #define CV_SSE2 0
 #include "Freak.h"
+#include "Freak.cuh"
+#include "Surf.h"
+#include "TestFreak.h"
 
 namespace btl {
 namespace image {
-
-	
-/****************************************************************************************\
-*                                 DescriptorExtractor                                    *
-\****************************************************************************************/
-/*
- *   DescriptorExtractor
- */
-DescriptorExtractor::~DescriptorExtractor()
-{}
-
-void DescriptorExtractor::compute( const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors ) const
-{
-    if( image.empty() || keypoints.empty() )
-    {
-        descriptors.release();
-        return;
-    }
-
-    KeyPointsFilter::runByImageBorder( keypoints, image.size(), 0 );
-    KeyPointsFilter::runByKeypointSize( keypoints, std::numeric_limits<float>::epsilon() );
-
-}
-
-void DescriptorExtractor::compute( const vector<Mat>& imageCollection, vector<vector<KeyPoint> >& pointCollection, vector<Mat>& descCollection ) const
-{
-    CV_Assert( imageCollection.size() == pointCollection.size() );
-    descCollection.resize( imageCollection.size() );
-    for( size_t i = 0; i < imageCollection.size(); i++ )
-        compute( imageCollection[i], pointCollection[i], descCollection[i] );
-}
-
-/*void DescriptorExtractor::read( const FileNode& )
-{}
-
-void DescriptorExtractor::write( FileStorage& ) const
-{}*/
-
-bool DescriptorExtractor::empty() const
-{
-    return false;
-}
-
-void DescriptorExtractor::removeBorderKeypoints( vector<KeyPoint>& keypoints,
-                                                 Size imageSize, int borderSize )
-{
-    //KeyPointsFilter::runByImageBorder( keypoints, imageSize, borderSize );
-}
-
-/*
-Ptr<DescriptorExtractor> DescriptorExtractor::create(const string& descriptorExtractorType)
-{
-
-    if( descriptorExtractorType.find("Opponent") == 0 )
-    {
-        size_t pos = string("Opponent").size();
-        string type = descriptorExtractorType.substr(pos);
-        return new OpponentColorDescriptorExtractor(DescriptorExtractor::create(type));
-    }
-
-    return Algorithm::create<DescriptorExtractor>("Feature2D." + descriptorExtractorType);
-}*/
-
 
 static const double FREAK_SQRT2 = 1.4142135623731;
 static const double FREAK_INV_SQRT2 = 1.0 / FREAK_SQRT2;
 static const double FREAK_LOG2 = 0.693147180559945;
 static const int FREAK_NB_ORIENTATION = 256;
 static const int FREAK_NB_POINTS = 43;
-static const int FREAK_SMALLEST_KP_SIZE = 7; // smallest size of keypoints
+static const int FREAK_SMALLEST_KP_SIZE = 7;// smallest size of keypoints
 static const int FREAK_NB_SCALES = FREAK::NB_SCALES;
 static const int FREAK_NB_PAIRS = FREAK::NB_PAIRS;
 static const int FREAK_NB_ORIENPAIRS = FREAK::NB_ORIENPAIRS;
 
-static const int FREAK_DEF_PAIRS[FREAK::NB_PAIRS] =
+static const short FREAK_DEF_PAIRS[FREAK::NB_PAIRS] =
 { // default pairs
      404,431,818,511,181,52,311,874,774,543,719,230,417,205,11,
      560,149,265,39,306,165,857,250,8,61,15,55,717,44,412,
@@ -177,29 +89,28 @@ struct sortMean
 
 void FREAK::buildPattern()
 {
-    if( patternScale == patternScale0 && nOctaves == nOctaves0 && !patternLookup.empty() )
+    if( patternScale == patternScale0 && _nOctaves == nOctaves0 && !patternLookup.empty() )
         return;
 
-    nOctaves0 = nOctaves;
+    nOctaves0 = _nOctaves;
     patternScale0 = patternScale;
 
     patternLookup.resize(FREAK_NB_SCALES*FREAK_NB_ORIENTATION*FREAK_NB_POINTS);
 	//sample the nOctaves into 64 steps
-    double scaleStep = pow(2.0, (double)(nOctaves)/FREAK_NB_SCALES ); // 2 ^ ( (nOctaves-1) /nbScales)
+    double scaleStep = pow(2.0, (double)(_nOctaves)/FREAK_NB_SCALES ); // 2 ^ ( (nOctaves-1) /nbScales)
     double scalingFactor, alpha, beta, theta = 0;
 
     // pattern definition, radius normalized to 1.0 (outer point position+sigma=1.0)
     const int n[8] = {6,6,6,6,6,6,6,1}; // number of points on each concentric circle (from outer to inner) 43 in total
-    const double bigR(2.0/3.0); // bigger radius
+    const double bigR(2.0/3.0); // bigger radius; assuming the whole circular patch is 1.0
     const double smallR(2.0/24.0); // smaller radius
-    const double unitSpace( (bigR-smallR)/21.0 ); // define spaces between concentric circles (from center to outer: 1,2,3,4,5,6)
+    const double unitSpace( (bigR-smallR)/21.0 ); // define spaces between concentric circles (from center to outer: 1,2,3,4,5,6) the total is 21
     // radii of the concentric cirles (from outer to inner)
     const double radius[8] = {bigR, bigR-6*unitSpace, bigR-11*unitSpace, bigR-15*unitSpace, bigR-18*unitSpace, bigR-20*unitSpace, smallR, 0.0};
     // sigma of pattern points (each group of 6 points on a concentric circle has the same sigma)
     const double sigma[8] = {radius[0]/2.0, radius[1]/2.0, radius[2]/2.0,
                              radius[3]/2.0, radius[4]/2.0, radius[5]/2.0,
-                             radius[6]/2.0, radius[6]/2.0
-                            };
+                             radius[6]/2.0, radius[6]/2.0};
     // fill the lookup table
     for( int scaleIdx=0; scaleIdx < FREAK_NB_SCALES; ++scaleIdx ) { //64 scales
         patternSizes[scaleIdx] = 0; // proper initialization
@@ -221,13 +132,12 @@ void FREAK::buildPattern()
                     point.y = static_cast<float>(radius[i] * sin(alpha) * scalingFactor * patternScale);
                     point.sigma = static_cast<float>(sigma[i] * scalingFactor * patternScale);
 
-                    // adapt the sizeList if necessary
-                    const int sizeMax = static_cast<int>(ceil((radius[i]+sigma[i])*scalingFactor*patternScale)) + 1;
-                    if( patternSizes[scaleIdx] < sizeMax )
-                        patternSizes[scaleIdx] = sizeMax;
-
                     ++pointIdx;
                 }
+				// adapt the sizeList if necessary
+				const int sizeMax = static_cast<int>(ceil((radius[i]+sigma[i])*scalingFactor*patternScale)) + 1;
+				if( patternSizes[scaleIdx] < sizeMax )
+					patternSizes[scaleIdx] = sizeMax;
             }
         }
     }
@@ -297,24 +207,24 @@ void FREAK::compute( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& de
 
     Mat imgIntegral;
     integral(image, imgIntegral);
-	gpu::GpuMat cvgmImage(image);
+	gpu::GpuMat cvgmImg(image);
 	gpu::GpuMat cvgmImgInt(imgIntegral);
-	gpu::integral(cvgmImage,cvgmImgInt);
+	gpu::integral(cvgmImg,cvgmImgInt);
     std::vector<int> kpScaleIdx(keypoints.size()); // used to save pattern scale index corresponding to each keypoints
     const std::vector<int>::iterator ScaleIdxBegin = kpScaleIdx.begin(); // used in std::vector erase function
     const std::vector<cv::KeyPoint>::iterator kpBegin = keypoints.begin(); // used in std::vector erase function
-    const float sizeCst = static_cast<float>(FREAK_NB_SCALES/(FREAK_LOG2* nOctaves));
+    const float sizeCst = static_cast<float>(FREAK_NB_SCALES/(FREAK_LOG2* _nOctaves));
     uchar pointsValue[FREAK_NB_POINTS];
     int thetaIdx = 0;
-    int direction0;
-    int direction1;
+    int shnDirection0;
+    int shnDirection1;
 
     // compute the scale index corresponding to the keypoint size and remove keypoints close to the border
     if( scaleNormalized ) {
         for( size_t k = keypoints.size(); k--; ) {
             //Is k non-zero? If so, decrement it and continue"
             kpScaleIdx[k] = max( (int)(log(keypoints[k].size/FREAK_SMALLEST_KP_SIZE)*sizeCst+0.5) ,0); //calc the scale index w.r.t. FREAK scale samples,
-            if( kpScaleIdx[k] >= FREAK_NB_SCALES ) // it should lie within 0 and 63 
+             if( kpScaleIdx[k] >= FREAK_NB_SCALES ) // it should lie within 0 and 63 
                 kpScaleIdx[k] = FREAK_NB_SCALES-1;
 
             if( keypoints[k].pt.x <= patternSizes[kpScaleIdx[k]] || //check if the description at this specific position and scale fits inside the image
@@ -365,16 +275,16 @@ void FREAK::compute( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& de
                 for( int i = FREAK_NB_POINTS; i--; ) {
                     pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i);
                 }
-                direction0 = 0;
-                direction1 = 0;
+                shnDirection0 = 0;
+                shnDirection1 = 0;
                 for( int m = 45; m--; ) {
                     //iterate through the orientation pairs
                     const int delta = (pointsValue[ orientationPairs[m].i ]-pointsValue[ orientationPairs[m].j ]);
-                    direction0 += delta*(orientationPairs[m].weight_dx)/2048;
-                    direction1 += delta*(orientationPairs[m].weight_dy)/2048;
+                    shnDirection0 += delta*(orientationPairs[m].weight_dx)/2048;
+                    shnDirection1 += delta*(orientationPairs[m].weight_dy)/2048;
                 }
 
-                keypoints[k].angle = static_cast<float>(atan2((float)direction1,(float)direction0)*(180.0/CV_PI));//estimate orientation
+                keypoints[k].angle = static_cast<float>(atan2((float)shnDirection1,(float)shnDirection0)*(180.0/CV_PI));//estimate orientation
                 thetaIdx = int(FREAK_NB_ORIENTATION*keypoints[k].angle*(1/360.0)+0.5);
                 if( thetaIdx < 0 )
                     thetaIdx += FREAK_NB_ORIENTATION;
@@ -473,16 +383,16 @@ void FREAK::compute( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& de
                 for( int i = FREAK_NB_POINTS;i--; )
                     pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,keypoints[k].pt.y, kpScaleIdx[k], 0, i);
 
-                direction0 = 0;
-                direction1 = 0;
+                shnDirection0 = 0;
+                shnDirection1 = 0;
                 for( int m = 45; m--; ) {
                     //iterate through the orientation pairs
                     const int delta = (pointsValue[ orientationPairs[m].i ]-pointsValue[ orientationPairs[m].j ]);
-                    direction0 += delta*(orientationPairs[m].weight_dx)/2048;
-                    direction1 += delta*(orientationPairs[m].weight_dy)/2048;
+                    shnDirection0 += delta*(orientationPairs[m].weight_dx)/2048;
+                    shnDirection1 += delta*(orientationPairs[m].weight_dy)/2048;
                 }
 
-                keypoints[k].angle = static_cast<float>(atan2((float)direction1,(float)direction0)*(180.0/CV_PI)); //estimate orientation
+                keypoints[k].angle = static_cast<float>(atan2((float)shnDirection1,(float)shnDirection0)*(180.0/CV_PI)); //estimate orientation
                 thetaIdx = int(FREAK_NB_ORIENTATION*keypoints[k].angle*(1/360.0)+0.5);
 
                 if( thetaIdx < 0 )
@@ -493,8 +403,8 @@ void FREAK::compute( const Mat& image, std::vector<KeyPoint>& keypoints, Mat& de
             }
             // get the points intensity value in the rotated pattern
             for( int i = FREAK_NB_POINTS; i--; ) {
-                pointsValue[i] = meanIntensity(image, imgIntegral, keypoints[k].pt.x,
-                                             keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i);
+                pointsValue[i] = meanIntensity( image, imgIntegral, keypoints[k].pt.x,
+                                                keypoints[k].pt.y, kpScaleIdx[k], thetaIdx, i);
             }
 
             int cnt(0);
@@ -516,7 +426,7 @@ uchar FREAK::meanIntensity( const cv::Mat& image, const cv::Mat& integral,
                             const float kp_y,
                             const unsigned int scale,
                             const unsigned int rot,
-                            const unsigned int point) const {
+                            const unsigned int point)  {
     // get point position in image
     const PatternPoint& FreakPoint = patternLookup[scale*FREAK_NB_ORIENTATION*FREAK_NB_POINTS + rot*FREAK_NB_POINTS + point];
     const float xf = FreakPoint.x+kp_x;
@@ -536,7 +446,7 @@ uchar FREAK::meanIntensity( const cv::Mat& image, const cv::Mat& integral,
         const int r_x_1 = (1024-r_x);
         const int r_y_1 = (1024-r_y);
         uchar* ptr = image.data+x+y*imagecols;
-        unsigned int ret_val;
+        int ret_val;
         // linear interpolation:
         ret_val = (r_x_1*r_y_1*int(*ptr));
         ptr++;
@@ -681,8 +591,15 @@ void FREAKImpl::drawPattern()
 FREAK::FREAK( bool _orientationNormalized, bool _scaleNormalized
             , float _patternScale, int _nOctaves, const std::vector<int>& _selectedPairs )
     : orientationNormalized(_orientationNormalized), scaleNormalized(_scaleNormalized),
-    patternScale(_patternScale), nOctaves(_nOctaves), extAll(false), nOctaves0(0), selectedPairs0(_selectedPairs)
+    patternScale(_patternScale), _nOctaves(_nOctaves), extAll(false), nOctaves0(0), selectedPairs0(_selectedPairs)
 {
+	const float sizeCst = static_cast<float>(FREAK_NB_SCALES/(FREAK_LOG2* _nOctaves));
+	btl::device::freak::loadGlobalConstants(_nOctaves, sizeCst , FREAK_SMALLEST_KP_SIZE, FREAK_NB_POINTS, FREAK_NB_SCALES,
+											FREAK_NB_ORIENPAIRS, FREAK_NB_ORIENTATION,   FREAK_NB_PAIRS,  FREAK_LOG2);
+
+	//buildPattern();//for test
+	gpuBuildPattern();
+	//compare(); //for test
 }
 
 FREAK::~FREAK()
@@ -696,6 +613,264 @@ int FREAK::descriptorSize() const {
 int FREAK::descriptorType() const {
     return CV_8U;
 }
+
+bool FREAK::compare() const {
+	bool bTrue = true;
+	cv::Mat cvmPatternLookup; _cvgmPatternLookup.download(cvmPatternLookup);
+	for (int i=0; i < cvmPatternLookup.cols; i++ ){
+		float f1 = fabs( patternLookup[i].x - cvmPatternLookup.ptr<float3>(0)[i].x );
+		float f2 = fabs( patternLookup[i].y - cvmPatternLookup.ptr<float3>(0)[i].y );
+		float f3 = fabs( patternLookup[i].sigma - cvmPatternLookup.ptr<float3>(0)[i].z );
+		if (f1+f2+f3> 0.00001){
+			return false;
+		}
+	}
+
+	cv::Mat cvmPatternSize; _cvgmPatternSize.download(cvmPatternSize);
+	for (int i=0; i < cvmPatternSize.cols; i++ ){
+		int n1 = abs( cvmPatternSize.ptr<int>(0)[i] - patternSizes[i] );
+		if (n1!=0){
+			return false;
+		}
+	}
+
+	cv::Mat cvmOrientationPair; _cvgmOrientationPair.download(cvmOrientationPair);
+	for (int i=0; i < cvmOrientationPair.cols; i++) {
+		const int4 n4Orien = cvmOrientationPair.ptr<int4>(0)[i];
+		int n1 = abs( n4Orien.x - orientationPairs[i].i);
+		int n2 = abs( n4Orien.y - orientationPairs[i].j);
+		int n3 = abs( n4Orien.z - orientationPairs[i].weight_dx);
+		int n4 = abs( n4Orien.w - orientationPairs[i].weight_dy);
+		if (n1+n2+n3+n4 != 0)
+			return false;
+	}
+
+	cv::Mat cvmDescriptorPair; _cvgmDescriptorPair.download(cvmDescriptorPair);
+	for (int i=0; i < cvmDescriptorPair.cols; i++) {
+		int n1 = abs( cvmDescriptorPair.ptr<uchar2>(0)[i].x - descriptionPairs[i].i );
+		int n2 = abs( cvmDescriptorPair.ptr<uchar2>(0)[i].y - descriptionPairs[i].j );
+		if (n1+n2!=0)
+			return false;
+	}
+	return true;
+}
+void FREAK::downloadKeypoints(const cv::gpu::GpuMat& keypointsGPU, vector<KeyPoint>& keypoints)
+{
+	using namespace btl::image;
+	const int nFeatures = keypointsGPU.cols;
+
+	keypoints.clear();
+	kpScaleIdx.clear();
+	if (nFeatures != 0)
+	{
+		CV_Assert(keypointsGPU.type() == CV_32FC1 && keypointsGPU.rows == CSurf::ROWS_COUNT);
+
+		Mat keypointsCPU(keypointsGPU);
+		keypoints.reserve(nFeatures);
+		kpScaleIdx.reserve(nFeatures); // used to save pattern scale index corresponding to each keypoints
+
+		float* kp_x = keypointsCPU.ptr<float>(CSurf::X_ROW);
+		float* kp_y = keypointsCPU.ptr<float>(CSurf::Y_ROW);
+		int* kp_laplacian = keypointsCPU.ptr<int>(CSurf::LAPLACIAN_ROW);
+		int* kp_octave = keypointsCPU.ptr<int>(CSurf::OCTAVE_ROW);
+		float* kp_size = keypointsCPU.ptr<float>(CSurf::SIZE_ROW);
+		float* kp_dir = keypointsCPU.ptr<float>(CSurf::ANGLE_ROW);
+		float* kp_hessian = keypointsCPU.ptr<float>(CSurf::HESSIAN_ROW);
+
+		cv::Mat cvmKpScaleIdx; if(!_cvgmKpScaleIdx.empty()) _cvgmKpScaleIdx.download(cvmKpScaleIdx);
+
+		for (int i = 0; i < nFeatures; ++i)
+		{
+			//if(kp_hessian[i]<0.f) continue;
+			KeyPoint kp;
+			kp.pt.x = kp_x[i];
+			kp.pt.y = kp_y[i];
+			kp.class_id = kp_laplacian[i];
+			kp.octave = kp_octave[i];
+			kp.size = kp_size[i];
+			kp.angle = kp_dir[i];
+			kp.response = kp_hessian[i];
+			keypoints.push_back(kp);
+			//if(!cvmKpScaleIdx.empty()) 
+			kpScaleIdx.push_back(cvmKpScaleIdx.ptr<short>()[i]);
+		}
+	}
+}
+void FREAK::gpuBuildPattern()
+{
+	// the output of the gpuBuildPattern() including 
+	// 1. _cvgmPatternLookup// 1 x FREAK_NB_SCALES*FREAK_NB_ORIENTATION*FREAK_NB_POINTS
+	// 2. _cvgmPatternSize // 1 x 64 int
+	// 3. _cvgmOrientationPair
+	// 4. _cvgmDescriptorPair
+
+	/*
+	if( patternScale == patternScale0 && nOctaves == nOctaves0 && !_cvgmPatternLookup.empty() )
+		return;
+	patternScale0 = patternScale;
+	nOctaves0 = nOctaves;
+	*/
+
+	//sample the nOctaves into 64 steps
+	double scaleStep = pow(2.0, (double)(_nOctaves)/FREAK_NB_SCALES ); // 2 ^ ( (nOctaves-1) /nbScales)
+
+	// pattern definition, radius normalized to 1.0 (outer point position+sigma=1.0)
+	const int n[8] = {6,6,6,6,6,6,6,1}; // number of points on each concentric circle (from outer to inner) 43 in total
+	const double bigR(2.0/3.0); // bigger radius
+	const double smallR(2.0/24.0); // smaller radius
+	const double unitSpace( (bigR-smallR)/21.0 ); // define spaces between concentric circles (from center to outer: 1,2,3,4,5,6)
+	// radii of the concentric cirles (from outer to inner)
+	const double radius[8] = {bigR, bigR-6*unitSpace, bigR-11*unitSpace, bigR-15*unitSpace, bigR-18*unitSpace, bigR-20*unitSpace, smallR, 0.0};
+	// sigma of pattern points (each group of 6 points on a concentric circle has the same sigma)
+	const double sigma[8] = {radius[0]/2.0, radius[1]/2.0, radius[2]/2.0,
+		radius[3]/2.0, radius[4]/2.0, radius[5]/2.0,
+		radius[6]/2.0, radius[6]/2.0
+	};
+
+	//calc standard pattern points
+	_cvgmPatternLookup.create(1, FREAK_NB_SCALES*FREAK_NB_ORIENTATION*FREAK_NB_POINTS, CV_32FC3); //x,y,sigma each col is a point in pattern
+	_cvgmPatternSize.create(1, FREAK_NB_SCALES, CV_32SC1);
+	btl::device::freak::cudaBuildFreakPattern(patternScale,scaleStep,FREAK_NB_ORIENTATION,n,radius,sigma, &_cvgmPatternLookup,&_cvgmPatternSize);
+
+
+	_cvgmOrientationPair.create(1,45,CV_32SC4);
+	cv::Mat cvmOrientationPair; cvmOrientationPair.create(1,45,CV_32SC4);
+
+	// build the list of orientation pairs
+	cvmOrientationPair.ptr<int4>(0)[0].x=0; cvmOrientationPair.ptr<int4>(0)[0].y=3; cvmOrientationPair.ptr<int4>(0)[1].x=1; cvmOrientationPair.ptr<int4>(0)[1].y=4; cvmOrientationPair.ptr<int4>(0)[2].x=2; cvmOrientationPair.ptr<int4>(0)[2].y=5;
+	cvmOrientationPair.ptr<int4>(0)[3].x=0; cvmOrientationPair.ptr<int4>(0)[3].y=2; cvmOrientationPair.ptr<int4>(0)[4].x=1; cvmOrientationPair.ptr<int4>(0)[4].y=3; cvmOrientationPair.ptr<int4>(0)[5].x=2; cvmOrientationPair.ptr<int4>(0)[5].y=4;
+	cvmOrientationPair.ptr<int4>(0)[6].x=3; cvmOrientationPair.ptr<int4>(0)[6].y=5; cvmOrientationPair.ptr<int4>(0)[7].x=4; cvmOrientationPair.ptr<int4>(0)[7].y=0; cvmOrientationPair.ptr<int4>(0)[8].x=5; cvmOrientationPair.ptr<int4>(0)[8].y=1;
+
+	cvmOrientationPair.ptr<int4>(0)[9].x=6; cvmOrientationPair.ptr<int4>(0)[9].y=9; cvmOrientationPair.ptr<int4>(0)[10].x=7; cvmOrientationPair.ptr<int4>(0)[10].y=10; cvmOrientationPair.ptr<int4>(0)[11].x=8; cvmOrientationPair.ptr<int4>(0)[11].y=11;
+	cvmOrientationPair.ptr<int4>(0)[12].x=6; cvmOrientationPair.ptr<int4>(0)[12].y=8; cvmOrientationPair.ptr<int4>(0)[13].x=7; cvmOrientationPair.ptr<int4>(0)[13].y=9; cvmOrientationPair.ptr<int4>(0)[14].x=8; cvmOrientationPair.ptr<int4>(0)[14].y=10;
+	cvmOrientationPair.ptr<int4>(0)[15].x=9; cvmOrientationPair.ptr<int4>(0)[15].y=11; cvmOrientationPair.ptr<int4>(0)[16].x=10; cvmOrientationPair.ptr<int4>(0)[16].y=6; cvmOrientationPair.ptr<int4>(0)[17].x=11; cvmOrientationPair.ptr<int4>(0)[17].y=7;
+
+	cvmOrientationPair.ptr<int4>(0)[18].x=12; cvmOrientationPair.ptr<int4>(0)[18].y=15; cvmOrientationPair.ptr<int4>(0)[19].x=13; cvmOrientationPair.ptr<int4>(0)[19].y=16; cvmOrientationPair.ptr<int4>(0)[20].x=14; cvmOrientationPair.ptr<int4>(0)[20].y=17;
+	cvmOrientationPair.ptr<int4>(0)[21].x=12; cvmOrientationPair.ptr<int4>(0)[21].y=14; cvmOrientationPair.ptr<int4>(0)[22].x=13; cvmOrientationPair.ptr<int4>(0)[22].y=15; cvmOrientationPair.ptr<int4>(0)[23].x=14; cvmOrientationPair.ptr<int4>(0)[23].y=16;
+	cvmOrientationPair.ptr<int4>(0)[24].x=15; cvmOrientationPair.ptr<int4>(0)[24].y=17; cvmOrientationPair.ptr<int4>(0)[25].x=16; cvmOrientationPair.ptr<int4>(0)[25].y=12; cvmOrientationPair.ptr<int4>(0)[26].x=17; cvmOrientationPair.ptr<int4>(0)[26].y=13;
+
+	cvmOrientationPair.ptr<int4>(0)[27].x=18; cvmOrientationPair.ptr<int4>(0)[27].y=21; cvmOrientationPair.ptr<int4>(0)[28].x=19; cvmOrientationPair.ptr<int4>(0)[28].y=22; cvmOrientationPair.ptr<int4>(0)[29].x=20; cvmOrientationPair.ptr<int4>(0)[29].y=23;
+	cvmOrientationPair.ptr<int4>(0)[30].x=18; cvmOrientationPair.ptr<int4>(0)[30].y=20; cvmOrientationPair.ptr<int4>(0)[31].x=19; cvmOrientationPair.ptr<int4>(0)[31].y=21; cvmOrientationPair.ptr<int4>(0)[32].x=20; cvmOrientationPair.ptr<int4>(0)[32].y=22;
+	cvmOrientationPair.ptr<int4>(0)[33].x=21; cvmOrientationPair.ptr<int4>(0)[33].y=23; cvmOrientationPair.ptr<int4>(0)[34].x=22; cvmOrientationPair.ptr<int4>(0)[34].y=18; cvmOrientationPair.ptr<int4>(0)[35].x=23; cvmOrientationPair.ptr<int4>(0)[35].y=19;
+
+	cvmOrientationPair.ptr<int4>(0)[36].x=24; cvmOrientationPair.ptr<int4>(0)[36].y=27; cvmOrientationPair.ptr<int4>(0)[37].x=25; cvmOrientationPair.ptr<int4>(0)[37].y=28; cvmOrientationPair.ptr<int4>(0)[38].x=26; cvmOrientationPair.ptr<int4>(0)[38].y=29;
+	cvmOrientationPair.ptr<int4>(0)[39].x=30; cvmOrientationPair.ptr<int4>(0)[39].y=33; cvmOrientationPair.ptr<int4>(0)[40].x=31; cvmOrientationPair.ptr<int4>(0)[40].y=34; cvmOrientationPair.ptr<int4>(0)[41].x=32; cvmOrientationPair.ptr<int4>(0)[41].y=35;
+	cvmOrientationPair.ptr<int4>(0)[42].x=36; cvmOrientationPair.ptr<int4>(0)[42].y=39; cvmOrientationPair.ptr<int4>(0)[43].x=37; cvmOrientationPair.ptr<int4>(0)[43].y=40; cvmOrientationPair.ptr<int4>(0)[44].x=38; cvmOrientationPair.ptr<int4>(0)[44].y=41;
+
+	cv::Mat cvmPatternLookup; _cvgmPatternLookup.download(cvmPatternLookup);//x,y,sigma,1xcols pattern points
+	for( unsigned m = FREAK_NB_ORIENPAIRS; m--; ) {
+		const float dx = cvmPatternLookup.ptr<float3>(0)[cvmOrientationPair.ptr<int4>(0)[m].x].x - cvmPatternLookup.ptr<float3>(0)[cvmOrientationPair.ptr<int4>(0)[m].y].x;
+		const float dy = cvmPatternLookup.ptr<float3>(0)[cvmOrientationPair.ptr<int4>(0)[m].x].y - cvmPatternLookup.ptr<float3>(0)[cvmOrientationPair.ptr<int4>(0)[m].y].y;
+		const float norm_sq = (dx*dx+dy*dy);
+		cvmOrientationPair.ptr<int4>(0)[m].z = int((dx/(norm_sq))*4096.0+0.5);//quantization into 4096 levels
+		cvmOrientationPair.ptr<int4>(0)[m].w = int((dy/(norm_sq))*4096.0+0.5);
+	}
+	//_cvgmOrientationPair.upload(cvmOrientationPair);
+
+	// build the list of description pairs
+	//_cvgmDescriptorPair.create(1,NB_PAIRS,CV_8UC2);
+	cv::Mat cvmDescriptorPair;cvmDescriptorPair.create(1,NB_PAIRS,CV_8UC2);
+	std::vector<DescriptionPair> allPairs;
+	for( unsigned int i = 1; i < (unsigned int)FREAK_NB_POINTS; ++i ) {
+		// (generate all the pairs)
+		for( unsigned int j = 0; (unsigned int)j < i; ++j ) {
+			DescriptionPair pair = {(uchar)i,(uchar)j};
+			allPairs.push_back(pair);
+		}
+	}
+	// Input vector provided
+	if( !selectedPairs0.empty() ) {
+		if( (int)selectedPairs0.size() == FREAK_NB_PAIRS ) {
+			for( int i = 0; i < FREAK_NB_PAIRS; ++i ){
+				cvmDescriptorPair.ptr<uchar2>(0)[i].x = allPairs[selectedPairs0.at(i)].i;
+				cvmDescriptorPair.ptr<uchar2>(0)[i].y = allPairs[selectedPairs0.at(i)].j;
+			}
+		}
+		else {
+			CV_Error(CV_StsVecLengthErr, "Input vector does not match the required size");
+		}
+	}
+	else { // default selected pairs
+		for( int i = 0; i < FREAK_NB_PAIRS; ++i ){ // 512 in total
+			cvmDescriptorPair.ptr<uchar2>(0)[i].x = allPairs[FREAK_DEF_PAIRS[i]].i;//assign precomputed default pairs
+			cvmDescriptorPair.ptr<uchar2>(0)[i].y = allPairs[FREAK_DEF_PAIRS[i]].j;
+		}
+	}
+	//_cvgmDescriptorPair.upload(cvmDescriptorPair);
+
+	btl::device::freak::loadOrientationAndDescriptorPair( cvmOrientationPair.ptr<int4>() ,cvmDescriptorPair.ptr<uchar2>());
+}
+
+//************************************
+// Method:    gpuCompute
+// FullName:  btl::image::FREAK::gpuCompute
+// Access:    public 
+// Returns:   void
+// Qualifier:
+// Parameter: const Mat & image 
+// Parameter: cv::gpu::GpuMat & cvgmKeyPoint_ is the predetecte keypoints
+// Parameter: cv::gpu::GpuMat * pcvgmDescriptors_ 
+//************************************
+
+unsigned int FREAK::gpuCompute( const cv::gpu::GpuMat& cvgmImg_, const cv::gpu::GpuMat& cvgmImgInt_, cv::gpu::GpuMat& cvgmKeyPoint_,  cv::gpu::GpuMat* pcvgmDescriptor_ ) {
+
+	if( cvgmImg_.empty() )		return 0;
+	if( cvgmKeyPoint_.empty() )	return 0;
+
+	btl::device::freak::loadGlobalConstantsImgResolution( cvgmImg_.rows, cvgmImg_.cols );
+
+	//test::loadGlobalConstants( cvgmImg_.rows, cvgmImg_.cols, _nOctaves, sizeCst , FREAK_SMALLEST_KP_SIZE, FREAK_NB_POINTS, FREAK_NB_SCALES,
+	//						   FREAK_NB_ORIENPAIRS, FREAK_NB_ORIENTATION,   FREAK_NB_PAIRS,  FREAK_LOG2);
+	//test::loadOrientationAndDescriptorPair( cvmOrientationPair.ptr<int4>() ,cvmDescriptorPair.ptr<uchar2>());
+
+	_cvgmKpScaleIdx.create(1, cvgmKeyPoint_.cols, CV_16SC1);
+	btl::device::freak::cudaComputeScaleIndex(_cvgmPatternSize, &cvgmKeyPoint_, &_cvgmKpScaleIdx);//int, float, short
+
+	cv::gpu::GpuMat cvgmKeyPointTest = cvgmKeyPoint_.clone();
+
+	//pcvgmDescriptor_->create( cvgmKeyPoint_.cols,FREAK_NB_PAIRS/8, CV_8U ); 
+	//pcvgmDescriptor_->setTo(0);
+	unsigned int uT = btl::device::freak::cudaComputeFreakDescriptor( cvgmImg_, 
+													cvgmImgInt_, 
+													cvgmKeyPoint_, 
+													_cvgmKpScaleIdx,
+													_cvgmPatternLookup,
+													_cvgmPatternSize,
+													&(*pcvgmDescriptor_)
+													);
+
+	/*cv::gpu::GpuMat cvgmDescriptorTest;	cvgmDescriptorTest.create( cvgmKeyPoint_.cols,FREAK_NB_PAIRS/8, CV_8U ); 
+	test::cudaComputeFreakDescriptor( cvgmImg_, 
+										cvgmImgInt_, 
+										cvgmKeyPointTest, 
+										_cvgmKpScaleIdx,
+										_cvgmPatternLookup,
+										_cvgmPatternSize,
+										&cvgmDescriptorTest
+										);
+
+	
+	cv::Mat cvmKp; cvgmKeyPoint_.download(cvmKp);
+	cv::Mat cvmKpTest; cvgmKeyPointTest.download(cvmKpTest);
+
+	cv::Mat cvmDescriptor; (*pcvgmDescriptor_).download(cvmDescriptor);
+	cv::Mat cvmDescriptorTest; cvgmDescriptorTest.download(cvmDescriptorTest);
+
+	float fDDescriptor1 = 0;
+
+	for (int c=0;c< cvmKp.cols; c++){
+		if (cvmKp.ptr<float>(CSurf::HESSIAN_ROW)[c] < 0.f ) continue;
+		//descriptor
+		for (int i=0; i< cvmDescriptor.cols; i++){
+			uchar c1 = cvmDescriptor.ptr<uchar>(c)[i];
+			uchar c2 = cvmDescriptorTest.ptr<uchar>(c)[i];
+			fDDescriptor1 += abs( c1 - c2 );
+		}
+	}
+	cout << "the difference with test of descriptor =" << fDDescriptor1;*/
+
+	return uT;
+}//gpuCompute()
 
 }//namespace image
 }//namespace btl
