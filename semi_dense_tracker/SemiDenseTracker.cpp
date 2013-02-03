@@ -319,7 +319,7 @@ void btl::image::semidense::CSemiDenseTracker::displayCandidates( cv::Mat& cvmCo
 void btl::image::semidense::CSemiDenseTracker::display(cv::Mat& cvmColorFrame_) const{
 	cvmColorFrame_.setTo(cv::Scalar::all(255));
 	float fAvgAge = 0.f; 
-	for(int n = 0; n< 4; n++ ) {
+	for(int n = 0; n< 2; n++ ) {
 		int t = 1<<n;
 		for (unsigned int i=0;i<_uMatchedPoints[n]; i+=1){
 			short2 ptCurr = _cvmKeyPointLocation[n].ptr<short2>()[i];
@@ -333,7 +333,7 @@ void btl::image::semidense::CSemiDenseTracker::display(cv::Mat& cvmColorFrame_) 
 			int nFrameCurr = _nFrameIdx;
 			fAvgAge += ucAge;
 			int nFrame = 0;
-			while (ucAge > 0 && nFrame < 5){//render trajectory 
+			while (ucAge > 0 && nFrame < 1){//render trajectory 
 				short2 ptPrev = ptCurr - vi;
 
 				if( n == 0) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(0,0,128));

@@ -57,7 +57,7 @@ int main ( int argc, char** argv )
 	cv::VideoCapture cap ( 1 ); // 0: open the default camera
 								// 1: open the integrated webcam
 #else
-	cv::VideoCapture cap("VDark.avi");//("VBranches.avi"); //("VTreeTrunk.avi"); //("VRotatePersp.avi");//("VMouth.avi");// ("VCars.avi"); //("VZoomIn.avi");//("VSelf.avi");//("VFootball.mkv");//( "VRectLight.avi" );
+	cv::VideoCapture cap("VBranches.avi"); //("VDark.avi");//("VTreeTrunk.avi"); //("VRotatePersp.avi");//("VMouth.avi");// ("VCars.avi"); //("VZoomIn.avi");//("VSelf.avi");//("VFootball.mkv");//( "VRectLight.avi" );
 	//("VCars.avi"); //("VRotateOrtho.avi"); //("VHand.avi"); 
 	//("VPerson.avi");//("VHall.avi");// // ("VZoomOut.avi");// 
 #endif
@@ -70,7 +70,7 @@ int main ( int argc, char** argv )
 	cv::Mat cvmColorFrame, cvmGrayFrame, cvmTotalFrame;
 	cap >> cvmColorFrame; cvgmColorFrame.upload(cvmColorFrame);
 	//resize
-	const float fScale = .8f;
+	const float fScale = 1.f;
 	cv::gpu::resize(cvgmColorFrame,cvgmColorFrameSmall,cv::Size(0,0),fScale ,fScale );	
 	//to gray
 	cv::gpu::cvtColor(cvgmColorFrameSmall,cvgmGrayFrame,cv::COLOR_RGB2GRAY);
@@ -105,7 +105,15 @@ int main ( int argc, char** argv )
 	unsigned int uIdx = 0;
     for ( ;;uIdx++ ){
 		double t = (double)cv::getTickCount();
-		if ( cv::waitKey ( 'a' ) >= 0 ) bStart = true;
+		int nKey = cv::waitKey( 0 ) ;
+		if ( nKey == 'a' ){
+			bStart = true;
+		}
+		else if ( nKey == 'q'){
+			break;
+		}
+		
+
 		imshow ( "Tracker", cvmTotalFrame );
 		if(!bStart) continue;
 		//load a new frame
@@ -159,9 +167,9 @@ int main ( int argc, char** argv )
 
 
 		//interactions
-        if ( cv::waitKey ( 30 ) >= 0 ){
+        /*if ( cv::waitKey ( 30 ) >= 0 ){
             break;
-        }
+        }*/
     }
 
     // the camera will be deinitialized automatically in VideoCapture destructor

@@ -73,7 +73,7 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb()
 	//saliency threshold
 	_fSaliencyThreshold = 0.2f;
 	//match threshold
-	_usMatchThreshod[0] = 12;
+	_usMatchThreshod[0] = 9;
 	_usMatchThreshod[1] = 12;
 	_usMatchThreshod[2] = 12;
 	_usMatchThreshod[3] = 12; 
@@ -98,6 +98,11 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb()
 	_sSearchRange = 5;
 
 	_nFrameIdx = 0;
+
+	_uMatchedPoints[0] = 0;
+	_uMatchedPoints[1] = 0;
+	_uMatchedPoints[2] = 0;
+	_uMatchedPoints[3] = 0;
 }
 
 void btl::image::semidense::CSemiDenseTrackerOrb::initUMax(){
