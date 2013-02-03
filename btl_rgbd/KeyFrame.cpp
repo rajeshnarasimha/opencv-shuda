@@ -39,6 +39,8 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "CVUtil.hpp"
 #include "Utility.hpp"
@@ -389,7 +391,7 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
 	// - The point cloud in the reference frame must be transformed into the world coordinate system.
 	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
 	// - The point cloud in the current frame must be in the camera coordinate system.
-	BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
+	//BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame");
 	//matching from current to reference
 	cv::gpu::BruteForceMatcher_GPU< cv::L2<float> > cBruteMatcher;
 	cv::gpu::GpuMat cvgmTrainIdx, cvgmDistance;
@@ -549,19 +551,19 @@ double btl::kinect::CKeyFrame::calcRT ( const CKeyFrame& sPrevKF_, const unsigne
 }// calcRT
 
 double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const double dDistanceThreshold_, unsigned short* pInliers_) {
-	// - The reference frame must contain a calibrated Rw and Tw. 
-	// - The point cloud in the reference frame must be transformed into the world coordinate system.
+	// - The previous frame must contain a calibrated Rw and Tw. 
+	// - The point cloud in the previous frame must be transformed into the world coordinate system.
 	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
 	// - The point cloud in the current frame must be in the camera coordinate system.
-	BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less SURF features detected in the reference frame")
+	//BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less Orb features detected in the reference frame")
 	const unsigned short sLevel_ = 0;
 	//matching from current to reference
 	cv::gpu::BruteForceMatcher_GPU< cv::HammingLUT > cBruteMatcher;
 	cBruteMatcher.match(_cvgmDescriptors, sPrevKF_._cvgmDescriptors, _vMatches);  
 	PRINT(_vMatches.size());
 	std::sort( _vMatches.begin(), _vMatches.end() );
-	if (_vMatches.size()> 100) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
-	CHECK ( !_vMatches.empty(), "SKeyFrame::calcRT() _vMatches should not calculated." );
+	if (_vMatches.size()> 300) { _vMatches.erase( _vMatches.begin()+ 300, _vMatches.end() ); }
+	//CHECK ( !_vMatches.empty(), "SKeyFrame::calcRTOrb() _vMatches should not calculated." );
 	//calculate the R and T
 	//search for pairs of correspondences with depth data available.
 	const float*const  _pCurrPts = (const float*)         _acvmShrPtrPyrPts[sLevel_]->data;
@@ -618,6 +620,15 @@ double btl::kinect::CKeyFrame::calcRTOrb ( const CKeyFrame& sPrevKF_, const doub
 	updateMVInv();
     return dErrorBest;
 }// calcRT
+
+void btl::kinect::CKeyFrame::calcRTSemiDense( const CKeyFrame& sPrevKF_ ){
+	// - The previous frame must contain a calibrated Rw and Tw. 
+	// - The point cloud in the previous frame must be transformed into the world coordinate system.
+	// - The current frame's Rw and Tw must be initialized as the reference's Rw Tw. (This is for fDist = norm3<float>() ) 
+	// - The point cloud in the current frame must be in the camera coordinate system.
+	//BTL_ASSERT(sPrevKF_._vKeyPoints.size()>10,"extractSurfFeatures() Too less Orb features detected in the reference frame")
+
+}
 
 void btl::kinect::CKeyFrame::render3DPtsInLocalGL(btl::gl_util::CGLUtil::tp_ptr pGL_, const unsigned short uLevel_,const bool bRenderPlane_) const {
 	//////////////////////////////////
@@ -1128,6 +1139,96 @@ bool btl::kinect::CKeyFrame::isMovedwrtReferencInRadiusM(const CKeyFrame* const 
 	return ( dRot > dRotAngleThreshold_ || dTrn > dTranslationThreshold_);
 }
 
+void btl::kinect::CKeyFrame::gpuImageICP(const CKeyFrame* pPrevFrameWorld_, const btl::image::semidense::CSemiDenseTrackerOrb* pSDTracker_){
+	// the point cloud in previous frame has been transformed into the world coordinate
+	// the current frame is still in camera coordinate
+
+	//define parameters
+	const short asICPIterations[] = {7, 3, 2, 1};
+	const float fDistThreshold = 0.10f; //meters
+	const float fSinAngleThres_ = sin (20.f * 3.14159254f / 180.f);
+	//get R,T of reference 
+	Eigen::Matrix3f eimrmRwPrev = pPrevFrameWorld_->_eimRw.transpose();//because by default eimrmRwPrev is colume major
+	Eigen::Vector3f eivTwPrev = pPrevFrameWorld_->_eivTw;
+	pcl::device::Mat33&  devRwPrev = pcl::device::device_cast<pcl::device::Mat33> (eimrmRwPrev);
+	float3& devTwPrev = pcl::device::device_cast<float3> (eivTwPrev);
+	//set R,T of current frame
+	Eigen::Matrix3f eimrmRwCur = eimrmRwPrev;
+	Eigen::Vector3f eivTwCur   = eivTwPrev;
+
+	//from low resolution to high
+	for (short sPyrLevel = _uPyrHeight-1; sPyrLevel >= 0; sPyrLevel--){
+		//	short sPyrLevel = 3;
+		for ( short sIter = 0; sIter < asICPIterations[sPyrLevel]; ++sIter ){
+			//	short sIter = 0;
+			//get R and T
+			pcl::device::Mat33& devRwCurTrans = pcl::device::device_cast<pcl::device::Mat33> (eimrmRwCur);
+			float3& devTwCur = pcl::device::device_cast<float3> (eivTwCur);
+			cv::gpu::GpuMat cvgmSumBuf;
+			//run ICP and reduction
+			btl::device::registrationImageICP(  pSDTracker_->_uMatchedPoints[sPyrLevel],
+												pSDTracker_->_cvgmMinMatchDistance[sPyrLevel],
+												pSDTracker_->_cvgmMatchedLocationPrev[sPyrLevel],
+												pcl::device::Intr(_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v)(sPyrLevel),
+												fDistThreshold,fSinAngleThres_,
+												devRwCurTrans, devTwCur, devRwPrev, devTwPrev,
+												*pPrevFrameWorld_->_acvgmShrPtrPyrPts[sPyrLevel],*pPrevFrameWorld_->_acvgmShrPtrPyrNls[sPyrLevel],//previous points and normals
+												*_acvgmShrPtrPyrPts[sPyrLevel],*_acvgmShrPtrPyrNls[sPyrLevel],//current points and normals
+												&cvgmSumBuf);
+
+			cv::Mat cvmSumBuf;
+			cvgmSumBuf.download (cvmSumBuf);
+			double* aHostTmp = (double*) cvmSumBuf.data;
+			//declare A and b
+			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
+			Eigen::Matrix<double, 6, 1> b;
+			//retrieve A and b from cvmSumBuf
+			short sShift = 0;
+			for (int i = 0; i < 6; ++i){   // rows
+				for (int j = i; j < 7; ++j) { // cols + b
+					double value = aHostTmp[sShift++];
+					if (j == 6)       // vector b
+						b.data()[i] = value;
+					else
+						A.data()[j * 6 + i] = A.data()[i * 6 + j] = value;
+				}//for each col
+			}//for each row
+			//checking nullspace
+			double dDet = A.determinant ();
+			if (fabs (dDet) < 1e-15 || dDet != dDet ){
+				if (dDet != dDet) std::cout << "qnan" << std::endl;
+				//reset ();
+				return ;
+			}//if dDet is rational
+			//float maxc = A.maxCoeff();
+
+			Eigen::Matrix<float, 6, 1> result = A.llt ().solve (b).cast<float>();
+			//Eigen::Matrix<float, 6, 1> result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
+
+			float alpha = result (0);
+			float beta  = result (1);
+			float gamma = result (2);
+
+			Eigen::Matrix3f Rinc = (Eigen::Matrix3f)Eigen::AngleAxisf (gamma, Eigen::Vector3f::UnitZ ()) * Eigen::AngleAxisf (beta, Eigen::Vector3f::UnitY ()) * Eigen::AngleAxisf (alpha, Eigen::Vector3f::UnitX ());
+			Eigen::Vector3f tinc = result.tail<3> ();
+
+			//compose
+			//eivTwCur   = Rinc * eivTwCur + tinc;
+			//eimrmRwCur = Rinc * eimrmRwCur;
+			Eigen::Vector3f eivTinv = - eimrmRwCur.transpose()* eivTwCur;
+			Eigen::Matrix3f eimRinv = eimrmRwCur.transpose();
+			eivTinv = Rinc * eivTinv + tinc;
+			eimRinv = Rinc * eimRinv;
+			eivTwCur = - eimRinv.transpose() * eivTinv;
+			eimrmRwCur = eimRinv.transpose();
+		}//for each iteration
+	}//for each pyramid level
+	_eimRw = eimrmRwCur;
+	_eivTw = eivTwCur;
+
+	return;
+}
+
 void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pPrevFrameWorld_,bool bUsePrevRTAsInitial_){
 	// the point cloud in previous frame has been transformed into the world coordinate
 	// the current frame is still in camera coordinate
@@ -1163,11 +1264,12 @@ void btl::kinect::CKeyFrame::gpuICP(const CKeyFrame* pPrevFrameWorld_,bool bUseP
 			float3& devTwCur = pcl::device::device_cast<float3> (eivTwCur);
 			cv::gpu::GpuMat cvgmSumBuf;
 			//run ICP and reduction
-			btl::device::registrationICP( pcl::device::Intr(_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v)(sPyrLevel),fDistThreshold,fSinAngleThres_,
-				devRwCurTrans, devTwCur, devRwPrev, devTwPrev,
-				*pPrevFrameWorld_->_acvgmShrPtrPyrPts[sPyrLevel],*pPrevFrameWorld_->_acvgmShrPtrPyrNls[sPyrLevel],
-				&*_acvgmShrPtrPyrPts[sPyrLevel],&*_acvgmShrPtrPyrNls[sPyrLevel],
-				&cvgmSumBuf);
+			btl::device::registrationICP( pcl::device::Intr(_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v)(sPyrLevel),
+											fDistThreshold,fSinAngleThres_,
+											devRwCurTrans, devTwCur, devRwPrev, devTwPrev,
+											*pPrevFrameWorld_->_acvgmShrPtrPyrPts[sPyrLevel],*pPrevFrameWorld_->_acvgmShrPtrPyrNls[sPyrLevel],
+											*_acvgmShrPtrPyrPts[sPyrLevel],*_acvgmShrPtrPyrNls[sPyrLevel],
+											&cvgmSumBuf);
 			
 			cv::Mat cvmSumBuf;
 			cvgmSumBuf.download (cvmSumBuf);

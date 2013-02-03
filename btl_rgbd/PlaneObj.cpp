@@ -36,8 +36,8 @@ void btl::geometry::mergePlaneObj(btl::geometry::tp_plane_obj_list* plPlanes_, c
 			}
 			if( itTesting!= itMerging && itMerging->identical( *itTesting ) ){
 				//merge itMenging and itTesting
-				int nMerging = itMerging->_vIdx.size();
-				int nTesting = itTesting->_vIdx.size();
+				int nMerging = (int)itMerging->_vIdx.size();
+				int nTesting = (int)itTesting->_vIdx.size();
 				itMerging->_dAvgPosition = (nMerging* itMerging->_dAvgPosition + nTesting* itTesting->_dAvgPosition)/(nMerging+nTesting);
 				itMerging->_eivAvgNormal = (nMerging* itMerging->_eivAvgNormal + nTesting* itTesting->_eivAvgNormal);
 				itMerging->_eivAvgNormal.normalize();

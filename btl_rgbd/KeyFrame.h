@@ -36,8 +36,11 @@ public:
 	double calcRT ( const CKeyFrame& sReferenceKF_, const unsigned short sLevel_ , const double dDistanceThreshold_, unsigned short* pInliers_);
 	void extractOrbFeatures ();
 	double calcRTOrb ( const CKeyFrame& sPrevKF_, const double dDistanceThreshold_, unsigned short* pInliers_);
+	void calcRTSemiDense( const CKeyFrame& sPrevKF_ );
+
 	void gpuICP(const CKeyFrame* pRefFrameWorld_,bool bUseReferenceRTAsInitial);
 	double gpuCalcRTBroxOpticalFlow ( const CKeyFrame& sPrevFrameWorld_, const double dDistanceThreshold_, unsigned short* pInliers_);
+	void gpuImageICP(const CKeyFrame* pPrevFrameWorld_, const btl::image::semidense::CSemiDenseTrackerOrb* pSDTracker_);
 
 	//accumulate the relative R T to the global RT
 	void applyRelativePose( const CKeyFrame& sReferenceKF_ ); 

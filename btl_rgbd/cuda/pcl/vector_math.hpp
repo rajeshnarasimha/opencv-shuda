@@ -57,6 +57,43 @@ namespace pcl
         ////////////////////////////////
         // three element vectors
 
+
+
+
+		__device__ __host__ __forceinline__ short2 operator + (const short2 s2O1_, const short2 s2O2_){
+			return make_short2(s2O1_.x + s2O2_.x,s2O1_.y + s2O2_.y);
+		}
+		__device__ __host__ __forceinline__ short2 operator - (const short2 s2O1_, const short2 s2O2_){ //can be called from host and device
+			return make_short2(s2O1_.x - s2O2_.x,s2O1_.y - s2O2_.y);
+		}
+		__device__ __forceinline__ float2 operator * (const float fO1_, const short2 s2O2_){
+			return make_float2( fO1_* s2O2_.x, fO1_ * s2O2_.y);
+		}
+		__device__ __forceinline__ short2 operator * (const short sO1_, const short2 s2O2_){
+			return make_short2( sO1_* s2O2_.x, sO1_ * s2O2_.y);
+		}
+		__device__ __host__ __forceinline__ float2 operator + (const float2 f2O1_, const float2 f2O2_){ //can be called from host and device
+			return make_float2(f2O1_.x + f2O2_.x,f2O1_.y + f2O2_.y);
+		}
+		__device__ __host__ __forceinline__ float2 operator - (const float2 f2O1_, const float2 f2O2_){ //can be called from host and device
+			return make_float2(f2O1_.x - f2O2_.x,f2O1_.y - f2O2_.y);
+		}
+		__device__ __host__ __forceinline__ int4 operator + (const int4 n4O1_, const int4 n4O2_){
+			return make_int4(n4O1_.x + n4O2_.x, n4O1_.y + n4O2_.y, n4O1_.z+n4O2_.z, n4O1_.w+n4O2_.w);
+		}
+		__device__ __host__ __forceinline__ int4 operator - (const int4 n4O1_, const int4 n4O2_){
+			return make_int4(n4O1_.x - n4O2_.x, n4O1_.y - n4O2_.y, n4O1_.z-n4O2_.z, n4O1_.w-n4O2_.w);
+		}
+		__device__ __host__ __forceinline__ uchar3 operator * (const uchar3 uc3O1_, const float fO2_){
+			return make_uchar3( uchar(uc3O1_.x * fO2_ +.5f), uchar(uc3O1_.y * fO2_+.5f),uchar(uc3O1_.z*fO2_+.5f) );
+		}
+
+		__device__  __forceinline__ short2 convert2s2(const float2 f2O1_){ //can be called from host and device
+			return make_short2(__float2int_rn(f2O1_.x), __float2int_rn(f2O1_.y));
+		}
+
+
+
 #define PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(type, scalar, op) \
         __device__ __host__ __forceinline__ type & operator op (type & v1, const type & v2) { v1.x op v2.x; v1.y op v2.y; v1.z op v2.z; return v1; } \
         __device__ __host__ __forceinline__ type & operator op (type & v, scalar val)       {  v.x op val;   v.y op val;   v.z op val;  return v;  }
@@ -72,7 +109,6 @@ namespace pcl
 
         PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(int3, int, +=)
 
-		PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(uchar3, float, *=)
 		PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP(uchar3, uchar, +=)
 
 #undef PCL_GPU_IMPLEMENT_COMPOUND_VEC3_OP
@@ -107,7 +143,6 @@ namespace pcl
 
         PCL_GPU_IMPLEMENT_VEC_BINOP(int3, int, +, +=)
 
-		PCL_GPU_IMPLEMENT_VEC_BINOP(uchar3, float, *, *=)
 		PCL_GPU_IMPLEMENT_VEC_BINOP(uchar3, uchar, +, +=)
 
 #undef PCL_GPU_IMPLEMENT_VEC_BINOP

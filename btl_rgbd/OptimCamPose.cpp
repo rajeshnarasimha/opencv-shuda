@@ -96,7 +96,7 @@ void btl::utility::COptimCamPose::dFunc(const cv::Mat_<double>& cvmX_, cv::Mat_<
 
 	// calculate the gradient using finite difference
 	// G(X) = F(X+dX) - F(X-dX)
-	for(unsigned int i=0; i<cvmX0.cols; i++){ //X0 is column vector
+	for(int i=0; i<cvmX0.cols; i++){ //X0 is column vector
 		cvmX0.at<double>(0,i) = cvmX_.at<double>(0,i) + _cvmDelta.at<double>(0,i);
 		cvmG_.at<double>(0,i)  = Func(cvmX0);
 		cvmX0.at<double>(0,i) = cvmX_.at<double>(0,i) - _cvmDelta.at<double>(0,i);

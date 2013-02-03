@@ -28,10 +28,14 @@ protected :
 	btl::gl_util::CGLUtil::tp_shared_ptr _pGL;
 
 	btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrame;
+	btl::kinect::CKeyFrame::tp_scoped_ptr _pVirtualFrameWorld;
 
 	boost::scoped_ptr<cv::gpu::GpuMat> _pcvgmColorGraph;
+	btl::geometry::CCubicGrids::tp_shared_ptr _pCubicGrids;
+	btl::geometry::CKinFuTracker::tp_shared_ptr _pTracker;
 	GLuint _uTexture;
 
+	std::string _strTrackingMethod;
 	ushort _uResolution;
 	ushort _uPyrHeight;
 	Eigen::Vector3f _eivCw;
@@ -47,5 +51,8 @@ protected :
 	bool _bDisplayImage;
 	bool _bLightOn;
 	bool _bRenderReference;
+	bool _bCapture; // controled by c
+	bool _bTrackOnly;
+	bool _bViewLocked; // controlled by 2
 
 };

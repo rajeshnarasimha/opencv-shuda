@@ -29,9 +29,14 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
+#include "CubicGrids.h"
+#include "KinfuTracker.h"
+
 //Qt
 #include <QResizeEvent>
 #include <QGLViewer/qglviewer.h>
@@ -42,7 +47,7 @@ using namespace std;
 Viewer::Viewer(){
 	_uResolution = 0;
 	_uPyrHeight = 3;
-	_eivCw = Eigen::Vector3f(1.5f,1.5f,-0.3f);
+	_eivCw = Eigen::Vector3f(1.5f,1.5f,1.5f);
 	_bUseNIRegistration = true;
 	_uCubicGridResolution = 512;
 	_fVolumeSize = 3.f;
@@ -55,6 +60,8 @@ Viewer::Viewer(){
 	_bDisplayImage = false;
 	_bLightOn = false;
 	_bRenderReference = false;
+	_bCapture = false;
+	_bTrackOnly = false;
 }
 Viewer::~Viewer()
 {
@@ -65,23 +72,89 @@ void Viewer::draw()
 {
 	//load data from video source and model
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV();
+	//_pKinect->_pFrame->gpuTransformToWorldCVCV();
 	//set viewport
-	_pGL->timerStart();
-	_pKinect->_pFrame->gpuBroxOpticalFlow(*_pPrevFrame,&*_pcvgmColorGraph);
-	_pGL->timerStop();
-	_pKinect->_pFrame->copyTo(&*_pPrevFrame);
+	//_pGL->timerStart();
+	//_pKinect->_pFrame->gpuBroxOpticalFlow(*_pPrevFrame,&*_pcvgmColorGraph);
+	//_pGL->timerStop();
+	//_pKinect->_pFrame->copyTo(&*_pPrevFrame);
+
+	if ( _bCapture )
+	{
+		_pTracker->track(&*_pKinect->_pFrame,_bTrackOnly);
+		//PRINTSTR("trackICP done.");
+	}//if( _bCapture )
+	else{
+		_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::STOP_RECORDING;
+	}
 
 	glViewport (0, 0, width()/2, height());
 	glScissor  (0, 0, width()/2, height());
 
-	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.2f,30.f);
-	glMatrixMode ( GL_MODELVIEW );
-	glLoadIdentity();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	//render color graph
-	_pGL->gpuMapRgb2PixelBufferObj(*_pcvgmColorGraph,0);
-	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
+
+	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
+	if (_bViewLocked){
+		_pTracker->setCurrView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
+	}
+	_pGL->viewerGL();
+	//glClearColor(1, 0, 0, 0);
+	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	_pVirtualFrameWorld->assignRTfromGL();
+	_pCubicGrids->gpuRaycast(&*_pVirtualFrameWorld); //get virtual frame
+	//std::string strPath("C:\\csxsl\\src\\opencv-shuda\\Data\\");
+	//std::string strFileName =  boost::lexical_cast<std::string> ( _nRFIdx ) + "1.yml";
+	//_pPrevFrameWorld->exportYML(strPath,strFileName);
+	//_pPrevFrameWorld->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel,0,false);
+	_pVirtualFrameWorld->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	{
+		_pGL->renderAxisGL();
+		_pGL->renderPatternGL(.1f,20,20);
+		_pGL->renderPatternGL(1.f,10,10);
+		_pGL->renderVoxelGL(_fVolumeSize);
+	}
+	float aColor[4] = {0.f,0.f,1.f,1.f};
+	if (!_strTrackingMethod.compare("ICP")){
+		glColor4fv(aColor);
+		renderText(5,40,QString("ICP"),QFont("Arial", 13, QFont::Normal));
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		glColor4fv(aColor);
+		renderText(5,40,QString("ORBICP"),QFont("Arial", 13, QFont::Normal));
+	}
+	else if(!_strTrackingMethod.compare("SURF")){
+		glColor4fv(aColor);
+		renderText(5,40,QString("SURF"),QFont("Arial", 13, QFont::Normal));
+	}
+	else if(!_strTrackingMethod.compare("ORB")){
+		glColor4fv(aColor);
+		renderText(5,40,QString("ORB"),QFont("Arial", 13, QFont::Normal));
+	}
+	else if(!_strTrackingMethod.compare("SURFICP")){
+		glColor4fv(aColor);
+		renderText(5,40,QString("SURFICP"),QFont("Arial", 13, QFont::Normal));
+	}
+	if( _bCapture )
+	{
+		if (!_bTrackOnly){
+			float aColor[4] = {1.f,0.f,0.f,1.f};
+			glColor4fv(aColor);
+			renderText(230,20,QString("Reconstructing"),QFont("Arial", 13, QFont::Normal));
+		}
+		else{
+			float aColor[4] = {1.f,0.f,0.f,1.f};
+			glColor4fv(aColor);
+			renderText(230,20,QString("Tracking"),QFont("Arial", 13, QFont::Normal));
+		}
+	}
+	//_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.2f,30.f);
+	//glMatrixMode ( GL_MODELVIEW );
+	//glLoadIdentity();
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	////render color graph
+	//_pGL->gpuMapRgb2PixelBufferObj(*_pcvgmColorGraph,0);
+	//_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
 	// after set the intrinsics and extrinsics
 	// load the matrix to set camera pose
 	//_pGL->viewerGL();	
@@ -172,14 +245,42 @@ void Viewer::reset(){
 	}
 
 	_pPrevFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));
-
+	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));
 	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+/*
 	_pKinect->_pFrame->gpuTransformToWorldCVCV();
 	_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
-
-	_pKinect->_pFrame->copyTo(&*_pPrevFrame);
+	_pKinect->_pFrame->copyTo(&*_pPrevFrame);*/
 
 	_pcvgmColorGraph.reset(new cv::gpu::GpuMat(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_8UC3));
+
+	//initialize the cubic grids
+	_pCubicGrids.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
+	//initialize the tracker
+	_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
+	if (!_strTrackingMethod.compare("ICP")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORBICP);
+	}
+	else if(!_strTrackingMethod.compare("SURF")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::SURF);
+	}
+	else if(!_strTrackingMethod.compare("ORB")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORB);
+	}
+	else if(!_strTrackingMethod.compare("ORBICP")){
+		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORBICP);
+	}
+	else{
+
+	}
+	_pTracker->init(_pKinect->_pFrame.get());
+	_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
+
+
+
 	return;
 }
 void Viewer::init()
@@ -264,13 +365,14 @@ void Viewer::loadFromYml(){
 #if __linux__
 	cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
 #else if _WIN32 || _WIN64
-	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\btl_rgbd\\kinect_fusion_qglviewer\\KinectFusionQGlviewer.yml", cv::FileStorage::READ );
+	cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\btl_rgbd\\kinect_fusion_qglviewer\\KinectFusionQGLViewer.yml", cv::FileStorage::READ );
 #endif
 	cFSRead["uResolution"] >> _uResolution;
 	cFSRead["uPyrHeight"] >> _uPyrHeight;
 	cFSRead["bUseNIRegistration"] >> _bUseNIRegistration;
 	cFSRead["uCubicGridResolution"] >> _uCubicGridResolution;
 	cFSRead["fVolumeSize"] >> _fVolumeSize;
+	_eivCw = Eigen::Vector3f(_fVolumeSize/2,_fVolumeSize/2,_fVolumeSize/2);
 	//rendering
 	cFSRead["bDisplayImage"] >> _bDisplayImage;
 	cFSRead["bLightOn"] >> _bLightOn;
@@ -280,6 +382,7 @@ void Viewer::loadFromYml(){
 	cFSRead["bRepeat"] >> _bRepeat;
 	cFSRead["nRecordingTimeInSecond"] >> _nRecordingTimeInSecond;
 	cFSRead["nStatus"] >> _nStatus;
+	cFSRead["Tracking_Method"] >> _strTrackingMethod;
 
 	cFSRead.release();
 }
@@ -289,8 +392,19 @@ void Viewer::keyPressEvent(QKeyEvent *pEvent_)
 	// Defines the Alt+R shortcut.
 	if (pEvent_->key() == Qt::Key_0) 
 	{
-		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pTracker->setNextView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
+		updateGL(); // Refresh display
+	}
+	else if (pEvent_->key() == Qt::Key_BracketLeft)
+	{
+		_pTracker->setPrevView(&_pGL->_eimModelViewGL);
+		_pGL->setInitialPos();
+		updateGL(); // Refresh display
+	}
+	else if (pEvent_->key() == Qt::Key_2)
+	{
+		_bViewLocked = !_bViewLocked;
 		updateGL(); // Refresh display
 	}
 	else if (pEvent_->key() == Qt::Key_9) 
@@ -315,6 +429,11 @@ void Viewer::keyPressEvent(QKeyEvent *pEvent_)
 			_pKinect->initPlayer(_oniFileName,_bRepeat);
 			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK1))|btl::kinect::VideoSourceKinect::CONTINUE;
 		};
+		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+		_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
+		//initialize the tracker
+		_pTracker->init(_pKinect->_pFrame.get());
+		_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 		updateGL();
 	}
 	else if (pEvent_->key() == Qt::Key_R && (pEvent_->modifiers() & Qt::ShiftModifier) ){
@@ -322,7 +441,17 @@ void Viewer::keyPressEvent(QKeyEvent *pEvent_)
 		updateGL();
 	}
 	else if (pEvent_->key() == Qt::Key_C && !(pEvent_->modifiers() & Qt::ShiftModifier) ){
-		_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::START_RECORDING;
+		_bCapture = !_bCapture;
+		if (_bCapture){
+			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::START_RECORDING;
+		}
+		else{
+			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::STOP_RECORDING;
+		}
+		updateGL();
+	}
+	else if (pEvent_->key() == Qt::Key_T && !(pEvent_->modifiers() & Qt::ShiftModifier) ){
+		_bTrackOnly = !_bTrackOnly;
 		updateGL();
 	}
 	else if (pEvent_->key() == Qt::Key_S && !(pEvent_->modifiers() & Qt::ShiftModifier) ){

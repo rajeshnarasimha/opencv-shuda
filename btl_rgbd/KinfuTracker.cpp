@@ -30,11 +30,14 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
 #include "CubicGrids.h"
 #include "KinfuTracker.h"
+
 
 namespace btl{ namespace geometry
 {
@@ -42,6 +45,7 @@ namespace btl{ namespace geometry
 		:_pCubicGrids(pCubicGrids_)
 	{
 		_nMethod = CKinFuTracker::ICP;
+		_bTrackOnly = false;
 	}
 
 	void CKinFuTracker::init(const btl::kinect::CKeyFrame::tp_ptr pKeyFrame_){
@@ -64,7 +68,8 @@ namespace btl{ namespace geometry
 		return;
 	}
 
-	void CKinFuTracker::track(btl::kinect::CKeyFrame::tp_ptr pCurFrame_){
+	void CKinFuTracker::track(btl::kinect::CKeyFrame::tp_ptr pCurFrame_,bool bTrackOnly_/* = false*/){
+		_bTrackOnly = bTrackOnly_;
 		switch(_nMethod)
 		{
 		case ICP:
@@ -107,7 +112,7 @@ namespace btl{ namespace geometry
 		pCurFrame_->gpuICP ( _pPrevFrameWorld.get(), false );//refine the R,T with w.r.t. previous key frame
 		if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
 			pCurFrame_->gpuTransformToWorldCVCV();
-			_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
+			if(!_bTrackOnly) _pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
 			//refresh prev frame in world as the ray casted virtual frame
 			_pPrevFrameWorld->setRTTo( *pCurFrame_ );
 			_pCubicGrids->gpuRaycast( &*_pPrevFrameWorld ); //get virtual frame
@@ -118,8 +123,13 @@ namespace btl{ namespace geometry
 		}//if current frame moved
 		return;
 	} //trackICP()
-	void CKinFuTracker::setPrevView( Eigen::Matrix4f* pSystemPose_ ) const{
-		_pPrevFrameWorld->setView(&*pSystemPose_);
+	void CKinFuTracker::setCurrView( Eigen::Matrix4f* pSystemPose_ ) const{
+		_pPrevFrameWorld->setView(&*pSystemPose_);//set as i-1 
+	}
+	void CKinFuTracker::setPrevView( Eigen::Matrix4f* pSystemPose_ ){
+		_uViewNO = --_uViewNO % _veimPoses.size(); 
+		*pSystemPose_ = _veimPoses[_uViewNO];
+		//_pPrevFrameWorld->setView(&*pSystemPose_);
 	}
 	void CKinFuTracker::setNextView( Eigen::Matrix4f* pSystemPose_ ){
 		_uViewNO = ++_uViewNO % _veimPoses.size(); 
@@ -156,6 +166,19 @@ namespace btl{ namespace geometry
 		PRINT(uInliers)
 		if ( uInliers > 60) {
 			pCurFrame_->gpuICP ( _pPrevFrameWorld.get(), false );//refine the R,T with w.r.t. previous key frame
+			if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
+				pCurFrame_->gpuTransformToWorldCVCV();
+				if(!_bTrackOnly) _pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
+				//refresh prev frame in world as the ray casted virtual frame
+				_pPrevFrameWorld->setRTTo( *pCurFrame_ );
+				_pCubicGrids->gpuRaycast( &*_pPrevFrameWorld ); //get virtual frame
+				//store R t pose
+				pCurFrame_->setView(&_eimCurPose);
+				_veimPoses.push_back(_eimCurPose);
+				pCurFrame_->copyImageTo(&*_pPrevFrameWorld);
+			}//if current frame moved
+		}else{
+			pCurFrame_->gpuICP ( _pPrevFrameWorld.get(), true );//refine the R,T with w.r.t. previous key frame
 			if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
 				pCurFrame_->gpuTransformToWorldCVCV();
 				_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
@@ -201,7 +224,7 @@ namespace btl{ namespace geometry
 		double dError = pCurFrame_->calcRTOrb ( *_pPrevFrameWorld, .2, &uInliers ); //roughly estimate R,T w.r.t. last key frame,
 		if ( /*uInliers > 300 &&*/ pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(), M_PI_4/45., 0.02 )) {//test if the current frame have been moving
 			pCurFrame_->gpuTransformToWorldCVCV();
-			_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
+			if(!_bTrackOnly) _pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
 			//refresh prev frame in world as the ray casted virtual frame
 			_pPrevFrameWorld->setRTTo( *pCurFrame_ );
 			pCurFrame_->copyTo(&*_pPrevFrameWorld);
@@ -286,7 +309,7 @@ namespace btl{ namespace geometry
 			pCurFrame_->gpuICP ( _pPrevFrameWorld.get(), false );//refine the R,T with w.r.t. previous key frame
 			if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
 				pCurFrame_->gpuTransformToWorldCVCV();
-				_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
+				if(!_bTrackOnly) _pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
 				//refresh prev frame in world as the ray casted virtual frame
 				_pPrevFrameWorld->setRTTo( *pCurFrame_ );
 				_pCubicGrids->gpuRaycast( &*_pPrevFrameWorld ); //get virtual frame
@@ -315,6 +338,51 @@ namespace btl{ namespace geometry
 		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
 	}
 
+	void CKinFuTracker::initSemiDenseICP( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ )
+	{
+		//input key frame must be defined in local camera system
+		_pCubicGrids->reset();
+		_veimPoses.clear();
+		_veimPoses.reserve(1000);
+		//initialize pose
+		pKeyFrame_->setView(&_eimCurPose);
+		_veimPoses.push_back(_eimCurPose); // the first pose is initialize by the pKeyFrame_;
+		//copy pKeyFrame_ to _pPrevFrameWorld
+		_pPrevFrameWorld.reset(new btl::kinect::CKeyFrame(pKeyFrame_));	
+		_pPrevFrameWorld->gpuTransformToWorldCVCV();//transform from camera to world
+		//integrate the frame into the world
+		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
+		//extract ORB features
+		_pSemiDenseOrb.reset(new btl::image::semidense::CSemiDenseTrackerOrb );
+		//extract features in the first frame
+		_pSemiDenseOrb->initialize(_pPrevFrameWorld->_acvgmShrPtrPyrBWs);
+	}
+
+	void CKinFuTracker::trackSemiDenseICP( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ )
+	{
+		//the current frame is defined in camera system
+		//PRINTSTR("ICP tracking.");
+		pCurFrame_->setRTTo(*_pPrevFrameWorld);//initialize the current un-calibrated frame as the previous frame
+		//trackICP camera motion
+		_pSemiDenseOrb->track(pCurFrame_->_acvgmShrPtrPyrBWs);
+		PRINT(_pSemiDenseOrb->_uMatchedPoints);
+
+		pCurFrame_->gpuImageICP(_pPrevFrameWorld.get(),_pSemiDenseOrb.get());
+
+		if( pCurFrame_->isMovedwrtReferencInRadiusM( _pPrevFrameWorld.get(),M_PI_4/45.,0.02) ){ //test if the current frame have been moving
+			pCurFrame_->gpuTransformToWorldCVCV();
+			if(!_bTrackOnly) _pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*pCurFrame_);
+			//refresh prev frame in world as the ray casted virtual frame
+			_pPrevFrameWorld->setRTTo( *pCurFrame_ );
+		}//if current frame moved
+
+		_pCubicGrids->gpuRaycast( &*_pPrevFrameWorld ); //get virtual frame at current pose
+		//store R t pose
+		pCurFrame_->setView(&_eimCurPose);
+		_veimPoses.push_back(_eimCurPose);
+		pCurFrame_->copyImageTo(&*_pPrevFrameWorld);
+		return;
+	}//trackORBICP
 
 
 }//geometry

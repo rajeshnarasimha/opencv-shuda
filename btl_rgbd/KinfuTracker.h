@@ -17,9 +17,10 @@ namespace btl{ namespace geometry
 		~CKinFuTracker(){;}
 		void setMethod(int nMethod_){ _nMethod = nMethod_;}
 		void init(btl::kinect::CKeyFrame::tp_ptr pKeyFrame_);
-		void track( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
+		void track(btl::kinect::CKeyFrame::tp_ptr pCurFrame_,bool bTrackOnly_ = false);
 		void setNextView( Eigen::Matrix4f* pSystemPose_ );
-		void setPrevView( Eigen::Matrix4f* pSystemPose_ ) const;
+		void setPrevView( Eigen::Matrix4f* pSystemPose_ );
+		void setCurrView( Eigen::Matrix4f* pSystemPose_ ) const;
 
 		btl::kinect::CKeyFrame::tp_ptr prevFrame() const{ return _pPrevFrameWorld.get();}
 	protected:
@@ -40,6 +41,12 @@ namespace btl{ namespace geometry
 		void trackSURFICP( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
 		//Brox optical flow
 		void initBroxOpticalFlow( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
+		//semi dense + ICP
+		void initSemiDenseICP( btl::kinect::CKeyFrame::tp_ptr pKeyFrame_ );
+		void trackSemiDenseICP( btl::kinect::CKeyFrame::tp_ptr pCurFrame_ );
+
+
+
 		CCubicGrids::tp_shared_ptr _pCubicGrids;
 		btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrameWorld;
 
@@ -48,6 +55,10 @@ namespace btl{ namespace geometry
 		unsigned int _uViewNO;
 		std::vector<Eigen::Matrix4f> _veimPoses;
 		int _nMethod;
+		bool _bTrackOnly;
+
+		btl::image::semidense::CSemiDenseTrackerOrb::tp_scoped_ptr _pSemiDenseOrb;
+
 	};//CKinFuTracker
 
 }//geometry
