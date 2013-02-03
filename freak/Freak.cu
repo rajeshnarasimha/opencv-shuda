@@ -48,8 +48,6 @@ namespace freak
 //#define FREAK_NB_POINTS 43
 #define PI 3.14159265358979323846
 
-
-
 	void loadGlobalConstants( int nFREAK_OCTAVE_, float fSizeCst_, int nFREAK_SMALLEST_KP_SIZE_, int nFREAK_NB_POINTS_, int nFREAK_NB_SCALES_,
 							  int nFREAK_NB_ORIENPAIRS_,  int nFREAK_NB_ORIENTATION_,int nFREAK_NB_PAIRS_, double dFREAK_LOG2_)
     {
@@ -170,6 +168,7 @@ namespace freak
 		return;
 	}//
 
+
 	struct SComputeScaleIndex{
 		enum KeypointLayout
 		{
@@ -261,7 +260,8 @@ namespace freak
 
 		return;
 	}
-
+	
+#define TH_Y 1
 	struct SComputeFreakDescriptor{
 		enum KeypointLayout	{
 			X_ROW = 0,
@@ -369,12 +369,13 @@ namespace freak
 			}
 		}//meanIntensity()
 
+		//the each row handle a feature. there are 
 		__device__ __forceinline__ void  mainFunc() {
 			const int nThr = threadIdx.x; //64 threads to compute one single descriptor
 			const int nIdx = threadIdx.y + blockIdx.y * blockDim.y; // idx of key points
 
 			if(nIdx >= _cvgmKeyPoints.cols) {
-				__syncthreads();//1
+				__syncthreads();//0.5
 				__syncthreads();//1.5
 				__syncthreads();//2
 				__syncthreads();//3
@@ -382,31 +383,38 @@ namespace freak
 				return;
 			}
 
-			const float fKpX = _cvgmKeyPoints.ptr(X_ROW)[nIdx]; //get key point locations
-			const float fKpY = _cvgmKeyPoints.ptr(Y_ROW)[nIdx];
-			const short sScale = _cvgmKpScaleIdx.ptr()[nIdx]; //get scale idx
-			const float fResponse = _cvgmKeyPoints.ptr(HESSIAN_ROW)[nIdx]; //get hessian score
+			__shared__ float fKpX[TH_Y];
+			__shared__ float fKpY[TH_Y];
+			__shared__ short sScale[TH_Y];
+			__shared__ float fResponse[TH_Y];
+			
+			__shared__ int shnDirection0[TH_Y]; 
+			__shared__ int shnDirection1[TH_Y]; 
 
-			if( fResponse < 0.f ){ // if hessian score is negative, ignore current
-				__syncthreads();//1
+			if(nThr == 0){
+				fKpX[threadIdx.y] = _cvgmKeyPoints.ptr(X_ROW)[nIdx]; //get key point locations
+				fKpY[threadIdx.y] = _cvgmKeyPoints.ptr(Y_ROW)[nIdx];
+				sScale[threadIdx.y] = _cvgmKpScaleIdx.ptr()[nIdx]; //get scale idx
+				fResponse[threadIdx.y] = _cvgmKeyPoints.ptr(HESSIAN_ROW)[nIdx]; //get hessian score
+				shnDirection0[threadIdx.y] = 0; 
+				shnDirection1[threadIdx.y] = 0;
+			}
+
+			__syncthreads(); //0.5
+
+			if( fResponse[threadIdx.y] < 0.f ){ // if hessian score is negative, ignore current
 				__syncthreads();//1.5
 				__syncthreads();//2
 				__syncthreads();//3
 				__syncthreads();//4
 				return;
 			}
-			__shared__ uchar shaucPointIntensity[43]; //hold the intensity of the Freak points
+			__shared__ uchar shaucPointIntensity[TH_Y][43]; //hold the intensity of the Freak points
 
 			if( nThr < _nFREAK_NB_POINTS ){ //get intensity for all freak points
-				shaucPointIntensity[ nThr ] = meanIntensity( fKpX, fKpY, sScale, 0, nThr );
+				shaucPointIntensity[threadIdx.y][ nThr ] = meanIntensity( fKpX[threadIdx.y], fKpY[threadIdx.y], sScale[threadIdx.y], 0, nThr );
 				//_cvgmFreakPointPerKp.ptr(nIdx)[nThr] = shaucPointIntensity[ nThr ]; 
 			}
-
-			__syncthreads();//1
-			
-			__shared__ int shnDirection0; 
-			__shared__ int shnDirection1; 
-			if(nThr == 0){ shnDirection0 = 0; shnDirection1 = 0; }
 
 			__syncthreads();//1.5
 
@@ -414,23 +422,23 @@ namespace freak
 				//iterate through the orientation pairs
 				const int delta = shaucPointIntensity[ _an4OrientationPair[nThr].x ] - shaucPointIntensity[ _an4OrientationPair[nThr].y ];
 				int d0 = delta*(_an4OrientationPair[nThr].z)/2048; //weight_dx
-				atomicAdd( &shnDirection0, d0 );
+				atomicAdd( &(shnDirection0[threadIdx.y]), d0 );
 				int d1 = delta*(_an4OrientationPair[nThr].w)/2048; //weight_dy
-				atomicAdd( &shnDirection1, d1 );
+				atomicAdd( &(shnDirection1[threadIdx.y]), d1 );
 			}
 
 			__syncthreads();//2
 
-			__shared__ int shnThetaIdx;			
+			__shared__ int shnThetaIdx[TH_Y];			
 			if( nThr == 0 ){
-				float fAngle = (180./PI)*::atan2(double(shnDirection1),double(shnDirection0));//estimate orientation
+				float fAngle = (180./PI)*::atan2(double(shnDirection1[threadIdx.y]),double(shnDirection0[threadIdx.y]));//estimate orientation
 				_cvgmKeyPoints.ptr(ANGLE_ROW)[nIdx] = fAngle;
-				shnThetaIdx = int(_nFREAK_NB_ORIENTATION*fAngle/360.f+.5f);
-				if( shnThetaIdx < 0 )
-					shnThetaIdx += _nFREAK_NB_ORIENTATION;
+				shnThetaIdx[threadIdx.y] = int(_nFREAK_NB_ORIENTATION*fAngle/360.f+.5f);
+				if( shnThetaIdx[threadIdx.y] < 0 )
+					shnThetaIdx[threadIdx.y] += _nFREAK_NB_ORIENTATION;
 
-				if( shnThetaIdx >= _nFREAK_NB_ORIENTATION )
-					shnThetaIdx -= _nFREAK_NB_ORIENTATION;
+				if( shnThetaIdx[threadIdx.y] >= _nFREAK_NB_ORIENTATION )
+					shnThetaIdx[threadIdx.y] -= _nFREAK_NB_ORIENTATION;
 
 				atomicAdd( &_devuTotal, 1 );
 				//_cvgmTheta.ptr(nIdx)[0] = shnThetaIdx;
@@ -440,7 +448,7 @@ namespace freak
 
 			// extract descriptor at the computed orientation
 			if( nThr < _nFREAK_NB_POINTS ) {
-				shaucPointIntensity[nThr] = meanIntensity( fKpX, fKpY, sScale, shnThetaIdx, nThr );
+				shaucPointIntensity[threadIdx.y][nThr] = meanIntensity( fKpX[threadIdx.y], fKpY[threadIdx.y], sScale[threadIdx.y], shnThetaIdx[threadIdx.y], nThr );
 				//_cvgmFreakPointPerKp2.ptr(nIdx)[nThr] = shaucPointIntensity[ nThr ]; 
 			}
 
@@ -449,7 +457,7 @@ namespace freak
 			// extracting descriptor preserving the order of SSE version
 
 			if( nThr < 64 ){
-				_cvgmFreakDescriptor.ptr(nIdx)[nThr] = devGetFreakDescriptor(shaucPointIntensity, nThr);
+				_cvgmFreakDescriptor.ptr(nIdx)[nThr] = devGetFreakDescriptor(shaucPointIntensity[threadIdx.y], nThr);
 			}
 			return;
 		}
@@ -493,7 +501,7 @@ namespace freak
 		cudaSafeCall( cudaGetSymbolAddress(&pTotal, _devuTotal) );
 		cudaSafeCall( cudaMemset(pTotal, 0, sizeof(unsigned int)) );
 			 
-		dim3 block(64,1);
+		dim3 block(64,TH_Y);
 		dim3 grid;
 		grid.x = 1;
 		grid.y = cv::gpu::divUp(cvgmKeyPoint_.cols,1);

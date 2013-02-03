@@ -600,6 +600,7 @@ FREAK::FREAK( bool _orientationNormalized, bool _scaleNormalized
 	//buildPattern();//for test
 	gpuBuildPattern();
 	//compare(); //for test
+	_cvgmKpScaleIdx.create(1, 8000, CV_16SC1);
 }
 
 FREAK::~FREAK()
@@ -703,13 +704,6 @@ void FREAK::gpuBuildPattern()
 	// 2. _cvgmPatternSize // 1 x 64 int
 	// 3. _cvgmOrientationPair
 	// 4. _cvgmDescriptorPair
-
-	/*
-	if( patternScale == patternScale0 && nOctaves == nOctaves0 && !_cvgmPatternLookup.empty() )
-		return;
-	patternScale0 = patternScale;
-	nOctaves0 = nOctaves;
-	*/
 
 	//sample the nOctaves into 64 steps
 	double scaleStep = pow(2.0, (double)(_nOctaves)/FREAK_NB_SCALES ); // 2 ^ ( (nOctaves-1) /nbScales)
@@ -822,11 +816,12 @@ unsigned int FREAK::gpuCompute( const cv::gpu::GpuMat& cvgmImg_, const cv::gpu::
 	//test::loadGlobalConstants( cvgmImg_.rows, cvgmImg_.cols, _nOctaves, sizeCst , FREAK_SMALLEST_KP_SIZE, FREAK_NB_POINTS, FREAK_NB_SCALES,
 	//						   FREAK_NB_ORIENPAIRS, FREAK_NB_ORIENTATION,   FREAK_NB_PAIRS,  FREAK_LOG2);
 	//test::loadOrientationAndDescriptorPair( cvmOrientationPair.ptr<int4>() ,cvmDescriptorPair.ptr<uchar2>());
+	cv::gpu::ensureSizeIsEnough(cvgmKeyPoint_.cols,FREAK_NB_PAIRS/8,CV_8U,*pcvgmDescriptor_);
+	cv::gpu::ensureSizeIsEnough(1,cvgmKeyPoint_.cols,CV_16SC1,_cvgmKpScaleIdx);
 
 	_cvgmKpScaleIdx.create(1, cvgmKeyPoint_.cols, CV_16SC1);
 	btl::device::freak::cudaComputeScaleIndex(_cvgmPatternSize, &cvgmKeyPoint_, &_cvgmKpScaleIdx);//int, float, short
-
-	cv::gpu::GpuMat cvgmKeyPointTest = cvgmKeyPoint_.clone();
+	//cv::gpu::GpuMat cvgmKeyPointTest = cvgmKeyPoint_.clone();
 
 	//pcvgmDescriptor_->create( cvgmKeyPoint_.cols,FREAK_NB_PAIRS/8, CV_8U ); 
 	//pcvgmDescriptor_->setTo(0);
