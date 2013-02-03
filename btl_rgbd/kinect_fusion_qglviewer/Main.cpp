@@ -51,9 +51,13 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
+#include "CubicGrids.h"
+#include "KinfuTracker.h"
 
 #include <QGLViewer/qglviewer.h>
 #include "SimpleViewer.h"

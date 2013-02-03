@@ -44,7 +44,8 @@ file(GLOB TESTERS "test/[a-zA-Z]*.cpp")
 message(STATUS "tester names: ${TESTERS}")
 file(GLOB CUDASOURCES "cuda/[a-zA-Z]*.cu")
 message(STATUS "cuda sources names: ${CUDASOURCES}")
-file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h"  "cuda/cv/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.h")
+file(GLOB CUDAHEADERS "cuda/[a-zA-Z]*.h"  "cuda/cv/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.hpp" "cuda/pcl/[a-zA-Z]*.h"
+"cuda/[a-zA-Z]*.cuh")
 message(STATUS "cuda sources names: ${CUDAHEADERS}")
 
 set( CUDA_NVCC_FLAGS "-arch=sm_21" ) #allow atomicAdd operators

@@ -9,10 +9,10 @@
 #include "Kinect.h"
 #include "CVUtil.hpp"
 
-btl::kinect::SCamera::SCamera( tp_camera eT_ /*= CAMERA_RGB*/, ushort uResolution_ )
-	:_eType(eT_), _uResolution(uResolution_)
+btl::kinect::SCamera::SCamera( const std::string& strCamParam_/*tp_camera eT_ = CAMERA_RGB*/, ushort uResolution_ )
+	:/*_eType(eT_),*/ _uResolution(uResolution_)
 {
-	importYML();
+	importYML(strCamParam_);
 }
 
 void btl::kinect::SCamera::generateMapXY4Undistort()
@@ -28,7 +28,7 @@ void btl::kinect::SCamera::generateMapXY4Undistort()
 	_cvgmMapX.upload(_cvmMapX);
 	_cvgmMapY.upload(_cvmMapY);
 }
-void btl::kinect::SCamera::importYML()
+void btl::kinect::SCamera::importYML(const std::string& strCamParam_)
 {
 	std::string strFileName;
 	// create and open a character archive for output
@@ -39,10 +39,16 @@ void btl::kinect::SCamera::importYML()
 	strFileName = "C:\\csxsl\\src\\opencv-shuda\\Data\\";
 	//cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
 #endif
-	if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "XtionRGB.yml";}
-	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "XtionIR.yml";}
-
+	/*if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "XtionRGB.yml";}
+	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "XtionIR.yml";}*/
+	strFileName += strCamParam_;
 	cv::FileStorage cFSRead ( strFileName, cv::FileStorage::READ );
+
+	if (!cFSRead.isOpened()) 
+	{
+		PRINTSTR("Load camera parameter failed.")
+	}
+
 	cFSRead ["_fFx"] >> _fFx;
 	cFSRead ["_fFy"] >> _fFy;
 	cFSRead ["_u"] >> _u;

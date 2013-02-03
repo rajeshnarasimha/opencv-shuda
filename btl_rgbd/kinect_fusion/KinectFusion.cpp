@@ -31,6 +31,8 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "CyclicBuffer.h"
 #include "VideoSourceKinect.hpp"
@@ -78,7 +80,36 @@ bool _bLightOn = false;
 bool _bRenderReference = false;
 bool _bViewLocked = true;
 std::string _strTrackingMethod("ICP");
+std::string kinectMode2String(const int nMode_){
 
+	switch(nMode_){
+	case btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING:
+		return std::string("SIMPLE_CAPTURING");
+		break;
+	case btl::kinect::VideoSourceKinect::RECORDING:
+		return std::string("RECORDING");
+		break;
+	case btl::kinect::VideoSourceKinect::PLAYING_BACK:
+		return std::string("PLAYING_BACK");
+		break;
+	default:
+		;
+	}
+	return std::string("Unrecognized");
+}
+
+int kinectMode2Int(const std::string& strMode_){
+	if( !strMode_.compare("SIMPLE_CAPTURING") ){
+		return btl::kinect::VideoSourceKinect::SIMPLE_CAPTURING;
+	}
+	else if( !strMode_.compare("RECORDING") ){
+		return btl::kinect::VideoSourceKinect::RECORDING;
+	}
+	else if( !strMode_.compare("PLAYING_BACK") ){
+		return btl::kinect::VideoSourceKinect::PLAYING_BACK;
+	}
+	return -1;
+}
 void loadFromYml(){
 #if __linux__
 	cv::FileStorage cFSRead( "/space/csxsl/src/opencv-shuda/Data/kinect_intrinsics.yml", cv::FileStorage::READ );
@@ -94,7 +125,9 @@ void loadFromYml(){
 	cFSRead["bDisplayImage"] >> _bDisplayImage;
 	cFSRead["bLightOn"] >> _bLightOn;
 	cFSRead["bRenderReference"] >> _bRenderReference;
-	cFSRead["nMode"] >> _nMode;//1 kinect; 2 recorder; 3 player
+	//cFSRead["nMode"] >> _nMode;//1 kinect; 2 recorder; 3 player
+	std::string strMode;
+	cFSRead["Kinect_Mode"] >> strMode; _nMode = kinectMode2Int(strMode);//1 kinect; 2 recorder; 3 player
 	cFSRead["oniFile"] >> _oniFileName;
 	cFSRead["bRepeat"] >> _bRepeat;
 	cFSRead["nRecordingTimeInSecond"] >> _nRecordingTimeInSecond;
@@ -125,7 +158,8 @@ void saveToYml(){
 	cFSWrite << "bDisplayImage" << _pGL->_bDisplayCamera;
 	cFSWrite << "bLightOn"  << _pGL->_bEnableLighting;
 	cFSWrite << "bRenderReference" << _pGL->_bRenderReference;
-	cFSWrite << "nMode" <<  _nMode;//1 kinect; 2 recorder; 3 player
+	//cFSWrite << "nMode" <<  _nMode;//1 kinect; 2 recorder; 3 player
+	cFSWrite << "Kinect_Mode" << kinectMode2String(_nMode);
 	cFSWrite << "oniFile" << _oniFileName;
 	cFSWrite << "bRepeat" << _bRepeat;
 	cFSWrite << "nRecordingTimeInSecond" << _nRecordingTimeInSecond;
@@ -359,8 +393,6 @@ void display ( void ) {
 	else{
 		_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK_RECORDER))|btl::kinect::VideoSourceKinect::STOP_RECORDING;
 	}
-
-	
 	
 ////////////////////////////////////////////////////////////////////
 
@@ -450,7 +482,7 @@ void display ( void ) {
 	//glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
 	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
 	if (_bViewLocked){
-		_pTracker->setPrevView(&_pGL->_eimModelViewGL);
+		_pTracker->setCurrView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 	}
 	_pGL->viewerGL();
@@ -503,7 +535,7 @@ void display ( void ) {
 	glScissor  ( _nWidth/2, 0, _nWidth/2, _nHeight/2 );
 	_pKinect->_pRGBCamera->setGLProjectionMatrix(1,0.1f,100.f);
 	if (_bViewLocked){
-		_pTrackerICP->setPrevView(&_pGL->_eimModelViewGL);
+		_pTrackerICP->setCurrView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 	}
 	_pGL->viewerGL();

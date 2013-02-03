@@ -11,7 +11,7 @@ struct SCamera
 	enum tp_camera {CAMERA_RGB, CAMERA_IR};
 
 	//constructor
-	SCamera(btl::kinect::SCamera::tp_camera eT_ = CAMERA_RGB,ushort uResolution_ = 0);//0 480x640
+	SCamera(const std::string& strCamParam_/*btl::kinect::SCamera::tp_camera eT_ = CAMERA_RGB*/,ushort uResolution_ = 0);//0 480x640
 	//methods
 
 	//rendering
@@ -20,7 +20,7 @@ struct SCamera
 	//void renderCameraInGLLocal (const GLuint uTesture_, const cv::Mat& cvmImg_, float fPhysicalFocalLength_ = .02f, bool bRenderTexture_=true ) const;
 	void renderCameraInGLLocal (const GLuint uTesture_, float fPhysicalFocalLength_ = .02f, bool bRenderTexture_=true ) const;
 	void renderOnImage( int nX_, int nY_ );
-	void importYML();
+	void importYML(const std::string& strCamParam_);
 	void generateMapXY4Undistort();
 
 	//camera parameters
@@ -35,6 +35,7 @@ struct SCamera
 	cv::gpu::GpuMat  _cvgmMapX;
 	cv::gpu::GpuMat  _cvgmMapY;
 	//type
+private:
 	tp_camera _eType;
 };
 

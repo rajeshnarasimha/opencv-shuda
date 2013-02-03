@@ -734,7 +734,7 @@ __global__ void kernelBoundaryDetector(const float fThreshold, const cv::gpu::De
 	fDistance = pcl::device::norm(PtNeighbour - Pt);	if(fDistance>fThreshold||isnan<float>(fDistance)) sCount++;
 
 	if(sCount>2&&sCount<8){//if it is a border pixel
-		RGB = RGB*0.5 + make_uchar3(255,0,0)*0.5;
+		RGB = RGB*0.5f + make_uchar3(255,0,0)*0.5f;
 	}
 	return;
 }

@@ -7,8 +7,8 @@ fVolumeSize: 3.
 bDisplayImage: 0
 bLightOn: 1
 bRenderReference: 1
-nMode: 3
+nMode: 2
 oniFile: "end.oni"
 bRepeat: 0
 nRecordingTimeInSecond: 30
-nStatus: 2
+nStatus: 17

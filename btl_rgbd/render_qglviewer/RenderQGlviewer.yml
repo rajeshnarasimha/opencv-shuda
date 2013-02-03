@@ -3,7 +3,7 @@ uResolution: 0
 uPyrHeight: 3
 bUseNIRegistration: 1
 uCubicGridResolution: 512
-fVolumeSize: 3.
+fVolumeSize: 6
 bDisplayImage: 0
 bLightOn: 0
 bRenderReference: 0

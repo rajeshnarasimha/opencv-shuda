@@ -32,6 +32,8 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "VideoSourceKinect.hpp"
 #include "cuda/CudaLib.h"
@@ -83,8 +85,8 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_cvgmUndistDepth    .create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC1);
 
 	//import camera parameters
-	_pRGBCamera.reset(new SCamera(btl::kinect::SCamera::CAMERA_RGB,_uResolution));
-	_pIRCamera .reset(new SCamera(btl::kinect::SCamera::CAMERA_IR, _uResolution));
+	_pRGBCamera.reset(new SCamera("XtionRGB.yml"/*btl::kinect::SCamera::CAMERA_RGB*/,_uResolution));
+	_pIRCamera .reset(new SCamera("XtionIR.yml"/*btl::kinect::SCamera::CAMERA_IR*/, _uResolution));
 
 	importYML();
 	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,eivCw_));

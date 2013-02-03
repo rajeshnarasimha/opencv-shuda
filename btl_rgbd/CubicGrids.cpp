@@ -39,6 +39,8 @@
 #include "GLUtil.h"
 #include "PlaneObj.h"
 #include "Histogram.h"
+#include "SemiDenseTracker.h"
+#include "SemiDenseTrackerOrb.h"
 #include "KeyFrame.h"
 #include "CubicGrids.h"
 #include "cuda/CudaLib.h"
