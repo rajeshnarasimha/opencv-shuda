@@ -15,13 +15,7 @@ using namespace cv::gpu;
 
 bool sort_pred ( const DMatch& m1_, const DMatch& m2_ )
 {
-    return m1_.distance < m2_.distance;
-}
-
-void help()
-{
-    cout << "\nThis program demonstrates using SURF_GPU features detector, descriptor extractor and BruteForceMatcher_GPU" << endl;
-    cout << "\nUsage:\n\tmatcher_simple_gpu <image1> <image2>" << endl;
+	return m1_.distance < m2_.distance;
 }
 
 int main(int argc, char* argv[])
@@ -39,28 +33,30 @@ int main(int argc, char* argv[])
 	cv::gpu::GpuMat cvgmKeyPoint1, cvgmKeyPoint2;
 	cv::gpu::GpuMat cvgmDescriptor1, cvgmDescriptor2;
 
-	btl::image::CSurf surf(4000,4,2,false,0.1f,true);
+	btl::image::CSurf surf(400,4,2,false,0.1f,true);
 	// detecting keypoints & computing descriptors
 	btl::image::FREAK *pFreak = new btl::image::FREAK();
-
+	cvgmDescriptor1.create( 8000,512/8, CV_8U ); 
+	cvgmDescriptor2.create( 8000,512/8, CV_8U ); 
 	vector<DMatch> vMatches;
 	BruteForceMatcher_GPU<HammingLUT> matcher;  
 
-	double t = (double)getTickCount();
+	//for (;;)
+	{
+
+		surf(cvgmGray1, cv::gpu::GpuMat(), cvgmKeyPoint1);
+		/*cvgmDescriptor1.create( cvgmKeyPoint1.cols,512/8, CV_8U );*/ 	cvgmDescriptor1.setTo(0); //allocate memory
+		unsigned int uT1 = pFreak->gpuCompute( cvgmGray1, surf.getImgInt(), cvgmKeyPoint1, &cvgmDescriptor1 );
+		surf(cvgmGray2, cv::gpu::GpuMat(), cvgmKeyPoint2);
+		/*cvgmDescriptor2.create( cvgmKeyPoint2.cols,512/8, CV_8U );*/	cvgmDescriptor2.setTo(255); //allocate memory
+		double t = (double)getTickCount();
+		unsigned int uT2 = pFreak->gpuCompute( cvgmGray2, surf.getImgInt(), cvgmKeyPoint2, &cvgmDescriptor2 );
+		t = ((double)getTickCount() - t)/getTickFrequency();
+		matcher.match(cvgmDescriptor1, cvgmDescriptor2, vMatches);  
+
+		std::cout << "whole time [s]: " << t << std::endl;	
+	}
 	
-	surf(cvgmGray1, cv::gpu::GpuMat(), cvgmKeyPoint1);
-	cvgmDescriptor1.create( cvgmKeyPoint1.cols,512/8, CV_8U ); 	cvgmDescriptor1.setTo(0); //allocate memory
-	unsigned int uT1 = pFreak->gpuCompute( cvgmGray1, surf.getImgInt(), cvgmKeyPoint1, &cvgmDescriptor1 );
-
-	surf(cvgmGray2, cv::gpu::GpuMat(), cvgmKeyPoint2);
-	cvgmDescriptor2.create( cvgmKeyPoint2.cols,512/8, CV_8U ); 	cvgmDescriptor2.setTo(255); //allocate memory
-	unsigned int uT2 = pFreak->gpuCompute( cvgmGray2, surf.getImgInt(), cvgmKeyPoint2, &cvgmDescriptor2 );
-	
-	matcher.match(cvgmDescriptor1, cvgmDescriptor2, vMatches);  
-
-	t = ((double)getTickCount() - t)/getTickFrequency();
-
-	std::cout << "whole time [s]: " << t << std::endl;	
     sort (vMatches.begin(), vMatches.end(), sort_pred);
     vector<DMatch> closest;
 
@@ -86,7 +82,8 @@ int main(int argc, char* argv[])
     
     namedWindow("matches", 0);
     imshow("matches", cvmImgMatches);
-    waitKey(0);
+    
+	waitKey(0);
 
     return 0;
 }
