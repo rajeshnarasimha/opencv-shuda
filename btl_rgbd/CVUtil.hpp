@@ -290,6 +290,20 @@ Eigen::Matrix< T, 2, 1 > distortPoint ( const Eigen::Matrix< T, 2, 1 >& eivUndis
     return distorted;
 }
 
+//************************************
+// Method:    distortPoint
+// FullName:  btl::utility<T>::distortPoint
+// Access:    public 
+// Returns:   void
+// Qualifier:
+// Parameter: const T & xu
+// Parameter: const T & yu
+// Parameter: const cv::Mat_< T > & cvmK_
+// Parameter: const cv::Mat_< T > & cvmInvK_
+// Parameter: const cv::Mat_< T > & cvmDistCoeffs_
+// Parameter: T * pxu_
+// Parameter: T * pyu_
+//************************************
 template < class T >
 void distortPoint ( const T& xu, const T& yu,const cv::Mat_< T >& cvmK_, const cv::Mat_< T >& cvmInvK_, const cv::Mat_< T >& cvmDistCoeffs_, T* pxu_, T* pyu_ )
 {

@@ -1,16 +1,26 @@
 #ifndef BTL_CAMERA
 #define BTL_CAMERA
 
-namespace btl{ namespace kinect {
+namespace btl{ namespace image {
 
 struct SCamera
 {
 	//type
 	typedef boost::shared_ptr<SCamera> tp_shared_ptr;
+	typedef boost::shared_ptr<SCamera> tp_scoped_ptr;
 	typedef SCamera* tp_ptr;
 	enum tp_camera {CAMERA_RGB, CAMERA_IR};
 
 	//constructor
+	//************************************
+	// Method:    SCamera
+	// FullName:  btl::image::SCamera::SCamera
+	// Access:    public 
+	// Returns:   na
+	// Qualifier: 
+	// Parameter: const std::string & strCamParam_: the yml file stores the camera internal parameters
+	// Parameter: ushort uResolution_: the resolution level, where 0 is the original 1 is by half, 2 is the half of haly so on
+	//************************************
 	SCamera(const std::string& strCamParam_/*btl::kinect::SCamera::tp_camera eT_ = CAMERA_RGB*/,ushort uResolution_ = 0);//0 480x640
 	//methods
 
@@ -23,6 +33,14 @@ struct SCamera
 	void importYML(const std::string& strCamParam_);
 	void generateMapXY4Undistort();
 
+	Eigen::Matrix3f getK(){ 
+		Eigen::Matrix3f eimK;
+		eimK << _fFx, 0.f , _u,
+			    0.f,  _fFy, _v,
+				0.f,  0.f , 1.f;
+		return eimK;
+	}
+
 	//camera parameters
 	ushort _uResolution;
 	float _fFx, _fFy, _u, _v; //_dFxIR, _dFyIR IR camera focal length
@@ -30,8 +48,8 @@ struct SCamera
 	cv::Mat _cvmDistCoeffs;
 	//rendering
 	//GLuint _uTexture;
-	//cv::Mat          _cvmMapX; //for undistortion
-	//cv::Mat			 _cvmMapY; //useless just for calling cv::remap
+	//cv::Mat        _cvmMapX; //for undistortion
+	//cv::Mat		 _cvmMapY; //useless just for calling cv::remap
 	cv::gpu::GpuMat  _cvgmMapX;
 	cv::gpu::GpuMat  _cvgmMapY;
 	//type
@@ -39,6 +57,6 @@ private:
 	tp_camera _eType;
 };
 
-}//kinect
+}//image
 }//btl
 #endif

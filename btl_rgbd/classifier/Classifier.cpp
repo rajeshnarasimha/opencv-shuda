@@ -87,7 +87,7 @@ void normalKeys ( unsigned char key, int x, int y )
 		break;
 	case '0':
 		//_pKinect->_pFrame->setView2(_pGL->_adModelViewGL);
-		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pKinect->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 		break;
 	case 't':
 		_fThreshold += 0.01;
@@ -124,9 +124,9 @@ void display ( void )
 	//load data from video source and model
 	if( _bCaptureCurrentFrame )	
 	{
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-		_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
-		_pKinect->_pFrame->gpuBoundaryDetector(_fThreshold,_pGL->_usLevel);
+		_pKinect->getNextFrame(&_nStatus);
+		_pKinect->_pCurrFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
+		_pKinect->_pCurrFrame->gpuBoundaryDetector(_fThreshold,_pGL->_usLevel);
 	}
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
@@ -143,8 +143,8 @@ void display ( void )
 	_pGL->renderPatternGL(1.f,10,10);
 	_pGL->renderVoxelGL(4.f);
 	//_pGL->timerStart();
-	_pKinect->_pFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
-	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	_pKinect->_pCurrFrame->renderCameraInWorldCVCV(_pGL.get(),_pGL->_bDisplayCamera,_pGL->_fSize,_pGL->_usLevel);
+	_pKinect->_pCurrFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	//_pKinect->_pFrame->render3DPtsInWorldCVCV(_pGL.get(),_pGL->_usPyrLevel,0,false);
 
 	//PRINTSTR("renderCameraInGLWorld");
@@ -164,7 +164,7 @@ void display ( void )
 	// render objects
     _pGL->renderAxisGL();
 	//render3DPts();
-	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pCurrFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel] );
 
     glutSwapBuffers();
@@ -194,8 +194,8 @@ void init ( ){
 	glShadeModel ( GL_FLAT );
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
+	_pKinect->getNextFrame(&_nStatus);
+	_pKinect->_pCurrFrame->gpuTransformToWorldCVCV(_pGL->_usLevel);
 	
 	_pGL->init();
 }

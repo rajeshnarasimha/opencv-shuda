@@ -4,29 +4,32 @@
 
 
 namespace btl{ namespace device{ namespace semidense{
+	void loadOrbPattern( short asOrbPatternX_[], short asOrbPatternY_[], const short sDesciptorByte_, const unsigned int uPyrHeight_ );
 	unsigned int cudaCalcSaliency(const cv::gpu::GpuMat& cvgmImage_, const unsigned short usHalfSizeRound_,
 									const unsigned char ucContrastThreshold_, const float& fSaliencyThreshold_, 
 									cv::gpu::GpuMat* pcvgmSaliency_, cv::gpu::GpuMat* pcvgmKeyPointLocations_);
 	unsigned int cudaNonMaxSupression(const cv::gpu::GpuMat& cvgmKeyPointLocation_, const unsigned int uMaxSalientPoints_, 
 										const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_);
 	void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
+	void thrustSort(float2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
 	void cudaCalcAngles(const cv::gpu::GpuMat& cvgmImage_, const short2* pdevFinalKeyPointsLocations_, const unsigned int uPoints_,  const unsigned short usHalf_, 
 						cv::gpu::GpuMat* pcvgmParticleAngle_);
 	void loadUMax(const int* pUMax_, int nCount_);
 	void cudaExtractAllDescriptorOrb(	const cv::gpu::GpuMat& cvgmImage_,
 										const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 
 										const unsigned int uTotalParticles_, const unsigned short usHalfPatchSize_,
-										const short* psPatternX_, const short* psPatternY_,
+										/*const short* psPatternX_, const short* psPatternY_,*/
+										const short sDescriptorByte_,
 										cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleAngle_, cv::gpu::GpuMat* pcvgmParticleDescriptor_);
 	//after tracking, the matched particles are filled into the pcvgmParticleResponsesCurr_, pcvgmParticlesAgeCurr_, pcvgmParticlesVelocityCurr_, 
 	//and pcvgmParticleOrbDescriptorsCurr_, moreover, the cvgmSaliencyCurr_
-	unsigned int cudaTrackOrb(  const short n_, const unsigned short usMatchThreshold_[4], const unsigned short usHalfSize_, const short sSearchRange_,
+	unsigned int cudaTrackOrb(  const short n_, const unsigned short usMatchThreshold_[4], const unsigned short usHalfSize_, const short sSearchRange_, const short sDescriptorByte_, unsigned int uPyrHeight_,
 								const cv::gpu::GpuMat cvgmParticleOrbDescriptorPrev_[4], const cv::gpu::GpuMat cvgmParticleResponsePrev_[4], 
 								const cv::gpu::GpuMat cvgmParticleDescriptorCurrTmp_[4],  const cv::gpu::GpuMat cvgmSaliencyCurr_[4],
 								cv::gpu::GpuMat pcvgmMinMatchDistance_[4], cv::gpu::GpuMat pcvgmMatchedLocationPrev_[4], cv::gpu::GpuMat pcvgmVelocityBuf_[4]);
 	//separate salient point into matched and newly added.
 	//for matched keypoints the velocity and age will be updated
-	void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_,
+	void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_, const short sDescritporByte_,
 										const cv::gpu::GpuMat& cvgmSaliency_,/*const cv::gpu::GpuMat& cvgmParticleResponseCurrTmp_,*/
 										const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
 										const cv::gpu::GpuMat& cvgmParticleVelocityPrev_,

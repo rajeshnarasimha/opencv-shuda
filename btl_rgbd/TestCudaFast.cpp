@@ -6,9 +6,9 @@
 
 #include "TestCudaFast.h"
 
-__device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
-__device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
-__device__ float2 operator * (const float fO1_, const short2 s2O2_);
+__device__ __host__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
+__device__ __host__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
+__device__ __host__ float2 operator * (const float fO1_, const short2 s2O2_);
 __device__ __host__ float2 operator + (const float2 f2O1_, const float2 f2O2_);
 __device__ __host__ float2 operator - (const float2 f2O1_, const float2 f2O2_);
 __device__  short2 convert2s2(const float2 f2O1_);

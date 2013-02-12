@@ -7,19 +7,17 @@
 
 //#include "CudaHelper.hpp"
 #include "pcl/vector_math.hpp"
-#include "SemiDenseTracker.cuh"
-#define GRAY
-
-
 using namespace pcl::device;
 
-		__device__ unsigned int _devuCounter = 0;
+#define GRAY
+__device__ unsigned int _devuCounter = 0;
 
-		__device__ unsigned int _devuNewlyAddedCounter = 0;
+__device__ unsigned int _devuNewlyAddedCounter = 0;
 
-		__device__ unsigned int _devuOther = 0;
+__device__ unsigned int _devuOther = 0;
 
-		__device__ unsigned int _devuTest1 = 0;
+__device__ unsigned int _devuTest1 = 0;
+
 
 namespace btl { namespace device {  namespace semidense  {
 
@@ -490,6 +488,15 @@ void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_
     thrust::sort_by_key(response_ptr, response_ptr + nCorners_, loc_ptr, thrust::greater<float>());
     return;
 }
+
+void thrustSort(float2* pnLoc_, float* pfResponse_, const unsigned int nCorners_)
+{
+    thrust::device_ptr<float2> loc_ptr(pnLoc_);
+    thrust::device_ptr<float> response_ptr(pfResponse_);
+    thrust::sort_by_key(response_ptr, response_ptr + nCorners_, loc_ptr, thrust::greater<float>());
+    return;
+}
+
 
 #define SHARE
 #ifdef SHARE

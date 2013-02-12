@@ -66,7 +66,7 @@ boost::shared_ptr<cv::gpu::GpuMat> btl::kinect::CKeyFrame::_pcvgmV;
 
 cv::gpu::GpuMat cvgmTest,cvgmTmp;
 
-btl::kinect::CKeyFrame::CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_/*float fCwX_, float fCwY_, float fCwZ_*/ )
+btl::kinect::CKeyFrame::CKeyFrame( btl::image::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_/*float fCwX_, float fCwY_, float fCwZ_*/ )
 :_pRGBCamera(pRGBCamera_),_uResolution(uResolution_),_uPyrHeight(uPyrLevel_),_eivInitCw(eivCw_){
 	allocate();
 	//_eivInitCw << fCwX_, fCwY_, fCwZ_; 
@@ -84,8 +84,8 @@ btl::kinect::CKeyFrame::CKeyFrame( CKeyFrame::tp_ptr pFrame_ )
 void btl::kinect::CKeyFrame::allocate(){
 	//disparity
 	for(int i=0; i<_uPyrHeight; i++){
-		int nRows = __aKinectH[_uResolution]>>i; 
-		int nCols = __aKinectW[_uResolution]>>i;
+		int nRows = _pRGBCamera->_sHeight >> i;
+		int nCols = _pRGBCamera->_sWidth >> i;//__aKinectW[_uResolution]>>i;
 		//host
 		_acvmShrPtrPyrPts[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
 		_acvmShrPtrPyrNls[i] .reset(new cv::Mat(nRows,nCols,CV_32FC3));
@@ -97,7 +97,7 @@ void btl::kinect::CKeyFrame::allocate(){
 		_acvgmShrPtrPyrNls[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC3));
 		_acvgmShrPtrPyrRGBs[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC3));
 		_acvgmShrPtrPyrBWs[i] .reset(new cv::gpu::GpuMat(nRows,nCols,CV_8UC1));
-		_acvgmShrPtrPyrDepths[i]	  .reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
+		_acvgmShrPtrPyrDepths[i].reset(new cv::gpu::GpuMat(nRows,nCols,CV_32FC1));
 		//plane detection
 		_acvmShrPtrNormalClusters[i].reset(new cv::Mat(nRows,nCols,CV_16SC1));
 		_acvmShrPtrDistanceClusters[i].reset(new cv::Mat(nRows,nCols,CV_32FC1));
@@ -119,7 +119,7 @@ void btl::kinect::CKeyFrame::allocate(){
 	glPixelStorei ( GL_UNPACK_ALIGNMENT, 4 ); // 4
 }
 
-void btl::kinect::CKeyFrame::setRT(float fXA_, float fYA_, float fZA_, float fCwX_,float fCwY_,float fCwZ_){
+void btl::kinect::CKeyFrame::setRTFromC(float fXA_, float fYA_, float fZA_, float fCwX_,float fCwY_,float fCwZ_){
 	cv::Mat_<float> cvmR,cvmRVec(3,1);
 	cvmRVec << fXA_,fYA_,fZA_;
 	cv::Rodrigues(cvmRVec,cvmR);
@@ -127,6 +127,19 @@ void btl::kinect::CKeyFrame::setRT(float fXA_, float fYA_, float fZA_, float fCw
 	_eimRw << cvmR;
 	Eigen::Vector3f eivC(fCwX_,fCwY_,fCwZ_); //camera location in the world cv-convention
 	_eivTw = -_eimRw*eivC;
+	updateMVInv();
+}
+
+void btl::kinect::CKeyFrame::setRTw(const Eigen::Matrix3f& eimRotation_, const Eigen::Vector3f& eivTw_){
+	_eimRw = eimRotation_;
+	_eivTw = eivTw_;
+	updateMVInv();
+}
+
+
+void btl::kinect::CKeyFrame::setRTFromC(const Eigen::Matrix3f& eimRotation_, const Eigen::Vector3f& eivCw_){
+	_eimRw = eimRotation_;
+	_eivTw = -_eimRw*eivCw_;
 	updateMVInv();
 }
 
@@ -140,14 +153,14 @@ void btl::kinect::CKeyFrame::initRT(){
 
 void btl::kinect::CKeyFrame::copyTo( CKeyFrame* pKF_, const short sLevel_ ) const{
 	//host
-	_acvmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrPts[sLevel_]);
-	_acvmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrNls[sLevel_]);
+	if( !_acvmShrPtrPyrPts[sLevel_]->empty()) _acvmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrPts[sLevel_]);
+	if( !_acvmShrPtrPyrNls[sLevel_]->empty()) _acvmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrNls[sLevel_]);
 	_acvmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrRGBs[sLevel_]);
 	_acvmShrPtrPyrBWs[sLevel_]->copyTo(*pKF_->_acvmShrPtrPyrBWs[sLevel_]);
 	_acvmShrPtrDistanceClusters[sLevel_]->copyTo(*pKF_->_acvmShrPtrDistanceClusters[sLevel_]);
 	//device
-	_acvgmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrPts[sLevel_]);
-	_acvgmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrNls[sLevel_]);
+	if( !_acvgmShrPtrPyrPts[sLevel_]->empty()) _acvgmShrPtrPyrPts[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrPts[sLevel_]);
+	if( !_acvgmShrPtrPyrNls[sLevel_]->empty()) _acvgmShrPtrPyrNls[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrNls[sLevel_]);
 	_acvgmShrPtrPyrRGBs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrRGBs[sLevel_]);
 	_acvgmShrPtrPyrBWs[sLevel_]->copyTo(*pKF_->_acvgmShrPtrPyrBWs[sLevel_]);
 	pKF_->_eConvention = _eConvention;

@@ -57,7 +57,7 @@ Eigen::Matrix< T , 4, 4 > setModelViewGLfromRCCV ( const Eigen::Matrix< T, 3, 3 
 template< class T1, class T2 >
 void unprojectCamera2World ( const int& nX_, const int& nY_, const unsigned short& nD_, const Eigen::Matrix< T1, 3, 3 >& mK_, Eigen::Matrix< T2, 3, 1 >* pVec_ )
 {
-	//the pixel coordinate is defined w.r.t. camera reference, which is defined as x-lef, y-downward and z-foward. It's
+	//the pixel coordinate is defined w.r.t. opencv camera reference, which is defined as x-left, y-downward and z-forward. It's
 	//a right hand system.
 	//when rendering the point using opengl's camera reference which is defined as x-left, y-upward and z-backward. the
 	//	glVertex3d ( Pt(0), -Pt(1), -Pt(2) );

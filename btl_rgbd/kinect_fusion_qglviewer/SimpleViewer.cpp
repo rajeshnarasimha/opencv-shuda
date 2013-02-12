@@ -71,7 +71,7 @@ Viewer::~Viewer()
 void Viewer::draw()
 {
 	//load data from video source and model
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+	_pKinect->getNextFrame(&_nStatus);
 	//_pKinect->_pFrame->gpuTransformToWorldCVCV();
 	//set viewport
 	//_pGL->timerStart();
@@ -81,7 +81,7 @@ void Viewer::draw()
 
 	if ( _bCapture )
 	{
-		_pTracker->track(&*_pKinect->_pFrame,_bTrackOnly);
+		_pTracker->track(&*_pKinect->_pCurrFrame,_bTrackOnly);
 		//PRINTSTR("trackICP done.");
 	}//if( _bCapture )
 	else{
@@ -207,7 +207,7 @@ void Viewer::draw()
 
 	_pGL->renderAxisGL();
 	//_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
-	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
+	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pCurrFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
 	update();
 }
@@ -246,7 +246,7 @@ void Viewer::reset(){
 
 	_pPrevFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));
 	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+	_pKinect->getNextFrame(&_nStatus);
 /*
 	_pKinect->_pFrame->gpuTransformToWorldCVCV();
 	_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
@@ -257,7 +257,7 @@ void Viewer::reset(){
 	//initialize the cubic grids
 	_pCubicGrids.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
 	//initialize the tracker
-	_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
+	_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pCurrFrame.get(),_pCubicGrids));
 	if (!_strTrackingMethod.compare("ICP")){
 		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);
 	}
@@ -276,7 +276,7 @@ void Viewer::reset(){
 	else{
 
 	}
-	_pTracker->init(_pKinect->_pFrame.get());
+	_pTracker->init(_pKinect->_pCurrFrame.get());
 	_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 
 
@@ -429,10 +429,10 @@ void Viewer::keyPressEvent(QKeyEvent *pEvent_)
 			_pKinect->initPlayer(_oniFileName,_bRepeat);
 			_nStatus = (_nStatus&(~btl::kinect::VideoSourceKinect::MASK1))|btl::kinect::VideoSourceKinect::CONTINUE;
 		};
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+		_pKinect->getNextFrame(&_nStatus);
 		_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 		//initialize the tracker
-		_pTracker->init(_pKinect->_pFrame.get());
+		_pTracker->init(_pKinect->_pCurrFrame.get());
 		_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 		updateGL();
 	}

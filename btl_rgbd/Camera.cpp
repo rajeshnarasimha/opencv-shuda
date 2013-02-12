@@ -2,20 +2,21 @@
 #include <gl/freeglut.h>
 #include <opencv2/core/core.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <opencv2/gpu/gpumat.hpp>
+#include <Eigen/Core>
 #include "Camera.h"
 #include <string>
-#include <Eigen/Core>
 #include "Kinect.h"
 #include "CVUtil.hpp"
 
-btl::kinect::SCamera::SCamera( const std::string& strCamParam_/*tp_camera eT_ = CAMERA_RGB*/, ushort uResolution_ )
+btl::image::SCamera::SCamera( const std::string& strCamParam_/*tp_camera eT_ = CAMERA_RGB*/, ushort uResolution_ )
 	:/*_eType(eT_),*/ _uResolution(uResolution_)
 {
 	importYML(strCamParam_);
 }
 
-void btl::kinect::SCamera::generateMapXY4Undistort()
+void btl::image::SCamera::generateMapXY4Undistort()
 {
 	cv::Mat_<float> cvmK(3,3); cvmK.setTo(0.f);
 	cvmK.at<float>(0,0) = _fFx;cvmK.at<float>(1,1) = _fFy;cvmK.at<float>(2,2) = 1.f;
@@ -28,7 +29,7 @@ void btl::kinect::SCamera::generateMapXY4Undistort()
 	_cvgmMapX.upload(_cvmMapX);
 	_cvgmMapY.upload(_cvmMapY);
 }
-void btl::kinect::SCamera::importYML(const std::string& strCamParam_)
+void btl::image::SCamera::importYML(const std::string& strCamParam_)
 {
 	std::string strFileName;
 	// create and open a character archive for output
@@ -39,14 +40,22 @@ void btl::kinect::SCamera::importYML(const std::string& strCamParam_)
 	strFileName = "C:\\csxsl\\src\\opencv-shuda\\Data\\";
 	//cv::FileStorage cFSRead ( "C:\\csxsl\\src\\opencv-shuda\\Data\\kinect_intrinsics.yml", cv::FileStorage::READ );
 #endif
-	/*if( btl::kinect::SCamera::CAMERA_RGB ==_eType ) {strFileName += "XtionRGB.yml";}
-	else if( btl::kinect::SCamera::CAMERA_IR ==_eType ) {strFileName += "XtionIR.yml";}*/
+	/*if( btl::image::SCamera::CAMERA_RGB ==_eType ) {strFileName += "XtionRGB.yml";}
+	else if( btl::image::SCamera::CAMERA_IR ==_eType ) {strFileName += "XtionIR.yml";}*/
 	strFileName += strCamParam_;
 	cv::FileStorage cFSRead ( strFileName, cv::FileStorage::READ );
 
 	if (!cFSRead.isOpened()) 
 	{
 		PRINTSTR("Load camera parameter failed.")
+		_fFx;
+		_fFy;
+		_u;
+		_v;
+		_sWidth;
+		_sHeight;
+		_cvmDistCoeffs;
+		return;
 	}
 
 	cFSRead ["_fFx"] >> _fFx;
@@ -71,7 +80,7 @@ void btl::kinect::SCamera::importYML(const std::string& strCamParam_)
 
 	return;
 }
-void btl::kinect::SCamera::setGLProjectionMatrix ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ )
+void btl::image::SCamera::setGLProjectionMatrix ( unsigned int nScaleViewport_, const double dNear_, const double dFar_ )
 {
 //    glutReshapeWindow( int ( dWidth ), int ( dHeight ) );
     glMatrixMode ( GL_PROJECTION );
@@ -97,7 +106,7 @@ void btl::kinect::SCamera::setGLProjectionMatrix ( unsigned int nScaleViewport_,
     return;
 }
 
-void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTexture_ )
+void btl::image::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTexture_ )
 {
 	glDeleteTextures( 1, puTexture_ );
 	glGenTextures ( 1, puTexture_ );
@@ -126,7 +135,7 @@ void btl::kinect::SCamera::LoadTexture ( const cv::Mat& cvmImg_, GLuint* puTextu
 	//}
     return;
 }
-void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, float fPhysicalFocalLength_ /*= .02f*/, bool bRenderTexture_/*=true*/ ) const 
+void btl::image::SCamera::renderCameraInGLLocal (const GLuint uTesture_, float fPhysicalFocalLength_ /*= .02f*/, bool bRenderTexture_/*=true*/ ) const 
 {
 	GLboolean bLightIsOn;
 	glGetBooleanv(GL_LIGHTING,&bLightIsOn);
@@ -229,7 +238,7 @@ void btl::kinect::SCamera::renderCameraInGLLocal (const GLuint uTesture_, float 
     return;
 }
 
-void btl::kinect::SCamera::renderOnImage ( int nX_, int nY_ )
+void btl::image::SCamera::renderOnImage ( int nX_, int nY_ )
 {
 	const double f = ( _fFx + _fFy ) / 2.;
 

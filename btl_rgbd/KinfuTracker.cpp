@@ -353,7 +353,7 @@ namespace btl{ namespace geometry
 		//integrate the frame into the world
 		_pCubicGrids->gpuIntegrateFrameIntoVolumeCVCV(*_pPrevFrameWorld);
 		//extract ORB features
-		_pSemiDenseOrb.reset(new btl::image::semidense::CSemiDenseTrackerOrb );
+		_pSemiDenseOrb.reset(new btl::image::semidense::CSemiDenseTrackerOrb(3) );
 		//extract features in the first frame
 		_pSemiDenseOrb->initialize(_pPrevFrameWorld->_acvgmShrPtrPyrBWs);
 	}

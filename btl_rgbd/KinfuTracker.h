@@ -50,7 +50,7 @@ namespace btl{ namespace geometry
 		CCubicGrids::tp_shared_ptr _pCubicGrids;
 		btl::kinect::CKeyFrame::tp_scoped_ptr _pPrevFrameWorld;
 
-		btl::kinect::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
+		btl::image::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
 		Eigen::Matrix4f _eimCurPose;
 		unsigned int _uViewNO;
 		std::vector<Eigen::Matrix4f> _veimPoses;
