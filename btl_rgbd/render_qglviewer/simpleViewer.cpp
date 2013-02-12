@@ -66,13 +66,13 @@ Viewer::~Viewer()
 void Viewer::draw()
 {
 	//load data from video source and model
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV();
+	_pKinect->getNextFrame(&_nStatus);
+	_pKinect->_pCurrFrame->gpuTransformToWorldCVCV();
 	//set viewport
 	_pGL->timerStart();
-	_pKinect->_pFrame->gpuBroxOpticalFlow(*_pPrevFrame,&*_pcvgmColorGraph);
+	_pKinect->_pCurrFrame->gpuBroxOpticalFlow(*_pPrevFrame,&*_pcvgmColorGraph);
 	_pGL->timerStop();
-	_pKinect->_pFrame->copyTo(&*_pPrevFrame);
+	_pKinect->_pCurrFrame->copyTo(&*_pPrevFrame);
 
 	glViewport (0, 0, width()/2, height());
 	glScissor  (0, 0, width()/2, height());
@@ -136,7 +136,7 @@ void Viewer::draw()
 
 	_pGL->renderAxisGL();
 	//_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
-	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
+	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pCurrFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
 	update();
 }
@@ -175,11 +175,11 @@ void Viewer::reset(){
 
 	_pPrevFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));
 
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV();
-	_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+	_pKinect->getNextFrame(&_nStatus);
+	_pKinect->_pCurrFrame->gpuTransformToWorldCVCV();
+	_pKinect->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 
-	_pKinect->_pFrame->copyTo(&*_pPrevFrame);
+	_pKinect->_pCurrFrame->copyTo(&*_pPrevFrame);
 
 	_pcvgmColorGraph.reset(new cv::gpu::GpuMat(btl::kinect::__aKinectH[_uResolution],btl::kinect::__aKinectW[_uResolution],CV_8UC3));
 	return;
@@ -291,7 +291,7 @@ void Viewer::keyPressEvent(QKeyEvent *pEvent_)
 	// Defines the Alt+R shortcut.
 	if (pEvent_->key() == Qt::Key_0) 
 	{
-		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pKinect->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 		updateGL(); // Refresh display
 	}

@@ -35,7 +35,7 @@ public:
 	void initPlayer(std::string& strPathFileName_,bool bRepeat_);
 	// 1. need to call getNextFrame() before hand
 	// 2. RGB color channel (rather than BGR as used by cv::imread())
-	virtual void getNextFrame(tp_frame eFrameType_, int* pnStatus_);
+	virtual void getNextFrame(int* pnStatus_);
 
 	// 0 VGA
 	// 1 QVGA
@@ -59,8 +59,8 @@ public:
 
 protected:
 
-	void getNextFrameRecording(tp_frame eFrameType_, int* pnStatus_, float* pfTimeLeft_);
-	void getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_);
+	void getNextFrameRecording( int* pnStatus_, float* pfTimeLeft_);
+	void getNextFrameNormal(int* pnStatus_);
 
 	void importYML();
 	// convert the depth map/ir camera to be aligned with the rgb camera
@@ -90,9 +90,9 @@ public:
 	unsigned int _uPyrHeight;//the height of pyramid
 	ushort _uResolution;//0 640x480; 1 320x240; 2 160x120 3 80x60
 	//cameras
-	boost::scoped_ptr<SCamera> _pRGBCamera;
-	boost::scoped_ptr<SCamera> _pIRCamera;
-	boost::scoped_ptr<CKeyFrame> _pFrame;
+	btl::image::SCamera::tp_scoped_ptr _pRGBCamera;
+	btl::image::SCamera::tp_scoped_ptr _pIRCamera;
+	btl::kinect::CKeyFrame::tp_scoped_ptr _pCurrFrame;
 protected:
 	//openni
     xn::Context        _cContext;

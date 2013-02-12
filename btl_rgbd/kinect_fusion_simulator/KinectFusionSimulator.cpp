@@ -93,7 +93,7 @@ void init ( ){
 
 	_pGL->init();
 
-	_pKinectSimulator->_pFrame->setView(&_pGL->_eimModelViewGL);
+	_pKinectSimulator->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 	_pGL->setInitialPos();
 	// store a frame and detect feature points for tracking.
 	btl::kinect::CKeyFrame::tp_shared_ptr& p1stKF = _aShrPtrKFs[_nRFIdx];
@@ -186,7 +186,7 @@ void normalKeys ( unsigned char key, int x, int y ){
 	case '0':
 		//_usViewNO = ++_usViewNO % _vShrPtrsKF.size(); 
 		//(*_vShrPtrsKF[ _usViewNO ])->setView(&_pGL->_eimModelViewGL);
-		_pKinectSimulator->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pKinectSimulator->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 		glutPostRedisplay();
 		break;
@@ -223,8 +223,8 @@ void display ( void ) {
 	_pGL->renderTeapot();
 	//_pGL->renderTestPlane();
 	int nStatus;
-	_pKinectSimulator->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&nStatus);//the current frame must be in camera coordinate
-	_pKinectSimulator->_pFrame->copyTo(&*_pPrevFrameWorld);
+	_pKinectSimulator->getNextFrame(&nStatus);//the current frame must be in camera coordinate
+	_pKinectSimulator->_pCurrFrame->copyTo(&*_pPrevFrameWorld);
 /*
 	if (_bCapture){
 		_pPrevFrameWorld->exportPCL(std::string(""),std::string(""));

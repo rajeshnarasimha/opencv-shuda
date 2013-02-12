@@ -20,7 +20,7 @@ using namespace btl::utility;
 
 void testSCamera()
 {
-	btl::kinect::SCamera sRGB;//import precomuputed parameters from yml file
+	btl::image::SCamera sRGB("XtionRGB.yml");//import precomuputed parameters from yml file
 	//sRGB.importYML();
 	PRINT(sRGB._fFx);
 	PRINT(sRGB._fFy);
@@ -30,7 +30,7 @@ void testSCamera()
 	PRINT(sRGB._sWidth);
 	PRINT(sRGB._cvmDistCoeffs);
 
-	btl::kinect::SCamera sIR(btl::kinect::SCamera::CAMERA_IR);
+	btl::image::SCamera sIR("XtionIR.yml");
 	//sIR.importYML();
 	PRINT(sIR._fFx);
 	PRINT(sIR._fFy);

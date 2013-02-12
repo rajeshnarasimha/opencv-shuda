@@ -85,11 +85,11 @@ VideoSourceKinect::VideoSourceKinect (ushort uResolution_, ushort uPyrHeight_, b
 	_cvgmUndistDepth    .create(__aKinectH[_uResolution], __aKinectW[_uResolution],CV_32FC1);
 
 	//import camera parameters
-	_pRGBCamera.reset(new SCamera("XtionRGB.yml"/*btl::kinect::SCamera::CAMERA_RGB*/,_uResolution));
-	_pIRCamera .reset(new SCamera("XtionIR.yml"/*btl::kinect::SCamera::CAMERA_IR*/, _uResolution));
+	_pRGBCamera.reset(new btl::image::SCamera("XtionRGB.yml"/*btl::kinect::SCamera::CAMERA_RGB*/,_uResolution));
+	_pIRCamera .reset(new btl::image::SCamera("XtionIR.yml"/*btl::kinect::SCamera::CAMERA_IR*/, _uResolution));
 
 	importYML();
-	_pFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,eivCw_));
+	_pCurrFrame.reset(new CKeyFrame(_pRGBCamera.get(),_uResolution,_uPyrHeight,eivCw_));
 
 	//other
 	//definition of parameters
@@ -287,15 +287,15 @@ void VideoSourceKinect::findRange(const cv::Mat& cvmMat_)
 	return;
 }
 
-void VideoSourceKinect::getNextFrame(tp_frame eFrameType_, int* pnStatus_){
+void VideoSourceKinect::getNextFrame(int* pnStatus_){
 	float fTimeLeft;
 	switch(_nMode){
 	case SIMPLE_CAPTURING:
 	case PLAYING_BACK:
-		getNextFrameNormal(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&*pnStatus_);
+		getNextFrameNormal(&*pnStatus_);
 		break;
 	case RECORDING://record the captured sequence from the camera
-		getNextFrameRecording(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&*pnStatus_,&fTimeLeft);
+		getNextFrameRecording(&*pnStatus_,&fTimeLeft);
 		break;
 	default:
 		PRINTSTR("Illigal mode.");
@@ -303,7 +303,7 @@ void VideoSourceKinect::getNextFrame(tp_frame eFrameType_, int* pnStatus_){
 	}
 }
 
-void VideoSourceKinect::getNextFrameRecording(tp_frame eFrameType_, int* pnStatus_, float* pfTimeLeft_){
+void VideoSourceKinect::getNextFrameRecording(int* pnStatus_, float* pfTimeLeft_){
 	XnStatus nRetVal = 0;
 	switch (*pnStatus_&MASK1)
 	{
@@ -371,7 +371,7 @@ void VideoSourceKinect::getNextFrameRecording(tp_frame eFrameType_, int* pnStatu
 	}//if (_nLastImageTime != 0 && nTimestamp - _nLastImageTime > 35000)
 	_nLastImageTime = nTimestamp;
 
-	_pFrame->initRT();
+	_pCurrFrame->initRT();
 
 	cv::Mat cvmRGB(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_8UC3, (unsigned char*)_cImgMD.WritableRGB24Data());
 	cv::Mat cvmDep(__aKinectH[_uResolution],__aKinectW[_uResolution],CV_16UC1,(unsigned short*)_cDepthMD.WritableData());
@@ -386,7 +386,7 @@ void VideoSourceKinect::getNextFrameRecording(tp_frame eFrameType_, int* pnStatu
     return;
 }
 
-void VideoSourceKinect::getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_)
+void VideoSourceKinect::getNextFrameNormal(int* pnStatus_)
 {
 	if(_bIsSequenceEnds) { *pnStatus_ = PAUSE; _bIsSequenceEnds = false; }
 	XnStatus nRetVal = 0;
@@ -419,7 +419,7 @@ void VideoSourceKinect::getNextFrameNormal(tp_frame eFrameType_, int* pnStatus_)
 		gpuBuildPyramidUseNICVm(_fCutOffDistance);
 	else
 		gpuBuildPyramidCVm();
-	_pFrame->initRT();
+	_pCurrFrame->initRT();
     return;
 }
 
@@ -445,88 +445,88 @@ void VideoSourceKinect::buildPyramid(btl::utility::tp_coordinate_convention eCon
 void VideoSourceKinect::gpuBuildPyramidUseNICVm(float fCutOffDistance_ ){
 	_cvgmRGB.upload(_cvmRGB);
 	_cvgmDepth.upload(_cvmDepth);
-	_pFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
-	cv::gpu::remap(_cvgmRGB, *_pFrame->_acvgmShrPtrPyrRGBs[0], _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
+	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
+	cv::gpu::remap(_cvgmRGB, *_pCurrFrame->_acvgmShrPtrPyrRGBs[0], _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 	
 	_cvgmUndistDepth.setTo(std::numeric_limits<float>::quiet_NaN());//clear(_cvgmUndistDepth)
 	cv::gpu::remap(_cvgmDepth, _cvgmUndistDepth, _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 	//bilateral filtering (comments off the following three lines to get raw depth map image of kinect)
-	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth,fCutOffDistance_, &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
-	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
-	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+	btl::device::cudaDepth2Disparity2(_cvgmUndistDepth,fCutOffDistance_, &*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[0]);//convert depth from mm to m
+	btl::device::cudaBilateralFiltering(*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pCurrFrame->_acvgmShrPtrPyrDisparity[0]);
+	btl::device::cudaDisparity2Depth(*_pCurrFrame->_acvgmShrPtrPyrDisparity[0],&*_pCurrFrame->_acvgmShrPtrPyrDepths[0]);
 	//get pts and nls
-	btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_pFrame->_acvgmShrPtrPyrPts[0] );
-	btl::device::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[0],&*_pFrame->_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
+	btl::device::unprojectRGBCVm(*_pCurrFrame->_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_pCurrFrame->_acvgmShrPtrPyrPts[0] );
+	btl::device::cudaFastNormalEstimation(*_pCurrFrame->_acvgmShrPtrPyrPts[0],&*_pCurrFrame->_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
 	//generate black and white
-	cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[0],*_pFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
+	cv::gpu::cvtColor(*_pCurrFrame->_acvgmShrPtrPyrRGBs[0],*_pCurrFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
 
 	//down-sampling
 	for( unsigned int i=1; i<_uPyrHeight; i++ )	{
-		_pFrame->_acvgmShrPtrPyrRGBs[i]->setTo(0);
-		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);
-		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
-		_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]->setTo(std::numeric_limits<float>::quiet_NaN());
+		_pCurrFrame->_acvgmShrPtrPyrRGBs[i]->setTo(0);
+		cv::gpu::pyrDown(*_pCurrFrame->_acvgmShrPtrPyrRGBs[i-1],*_pCurrFrame->_acvgmShrPtrPyrRGBs[i]);
+		cv::gpu::cvtColor(*_pCurrFrame->_acvgmShrPtrPyrRGBs[i],*_pCurrFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
+		_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i]->setTo(std::numeric_limits<float>::quiet_NaN());
 		//btl::device::cudaPyrDown( *_pFrame->_acvgmShrPtrPyrDisparity[i-1],_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]);//need to compare the performance of cudaPyDown() with resize()
-		cv::gpu::resize(*_pFrame->_acvgmShrPtrPyrDisparity[i-1],*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i],_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]->size(),0,0,cv::INTER_LINEAR);
-		btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[i]);
-		btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[i],&*_pFrame->_acvgmShrPtrPyrDepths[i]);
-		btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_pFrame->_acvgmShrPtrPyrPts[i] );
-		btl::device::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[i],&*_pFrame->_acvgmShrPtrPyrNls[i]);
+		cv::gpu::resize(*_pCurrFrame->_acvgmShrPtrPyrDisparity[i-1],*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i],_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i]->size(),0,0,cv::INTER_LINEAR);
+		btl::device::cudaBilateralFiltering(*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&*_pCurrFrame->_acvgmShrPtrPyrDisparity[i]);
+		btl::device::cudaDisparity2Depth(*_pCurrFrame->_acvgmShrPtrPyrDisparity[i],&*_pCurrFrame->_acvgmShrPtrPyrDepths[i]);
+		btl::device::unprojectRGBCVm(*_pCurrFrame->_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_pCurrFrame->_acvgmShrPtrPyrPts[i] );
+		btl::device::cudaFastNormalEstimation(*_pCurrFrame->_acvgmShrPtrPyrPts[i],&*_pCurrFrame->_acvgmShrPtrPyrNls[i]);
 	}	
 
 	for( unsigned int i=0; i<_uPyrHeight; i++ )	{
-		_pFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pFrame->_acvmShrPtrPyrRGBs[i]);
-		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
-		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
-		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);
+		_pCurrFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pCurrFrame->_acvmShrPtrPyrRGBs[i]);
+		_pCurrFrame->_acvgmShrPtrPyrBWs[i]->download(*_pCurrFrame->_acvmShrPtrPyrBWs[i]);
+		_pCurrFrame->_acvgmShrPtrPyrPts[i]->download(*_pCurrFrame->_acvmShrPtrPyrPts[i]);
+		_pCurrFrame->_acvgmShrPtrPyrNls[i]->download(*_pCurrFrame->_acvmShrPtrPyrNls[i]);
 	}
 	//scale the depth map
-	btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+	btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pCurrFrame->_acvgmShrPtrPyrDepths[0]);
 
 	return;
 }
 void VideoSourceKinect::gpuBuildPyramidCVm( ){
 	_cvgmRGB.upload(_cvmRGB);
 	_cvgmDepth.upload(_cvmDepth);
-	_pFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
-	cv::gpu::remap(_cvgmRGB, *_pFrame->_acvgmShrPtrPyrRGBs[0], _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
+	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
+	cv::gpu::remap(_cvgmRGB, *_pCurrFrame->_acvgmShrPtrPyrRGBs[0], _pRGBCamera->_cvgmMapX, _pRGBCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
 	_cvgmUndistDepth.setTo(std::numeric_limits<float>::quiet_NaN());//clear(_cvgmUndistDepth)
 	cv::gpu::remap(_cvgmDepth, _cvgmUndistDepth, _pIRCamera->_cvgmMapX, _pIRCamera->_cvgmMapY, cv::INTER_NEAREST, cv::BORDER_CONSTANT  );
-	gpuAlignDepthWithRGB( _cvgmUndistDepth, &*_pFrame->_acvgmShrPtrPyrDepths[0] );//_cvgmAlignedRawDepth cleaned inside
+	gpuAlignDepthWithRGB( _cvgmUndistDepth, &*_pCurrFrame->_acvgmShrPtrPyrDepths[0] );//_cvgmAlignedRawDepth cleaned inside
 	//bilateral filtering (comments off the following three lines to get raw depth map image of kinect)
-	btl::device::cudaDepth2Disparity(*_pFrame->_acvgmShrPtrPyrDepths[0], &*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0]);
-	btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[0]);
-	btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[0],&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+	btl::device::cudaDepth2Disparity(*_pCurrFrame->_acvgmShrPtrPyrDepths[0], &*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[0]);
+	btl::device::cudaBilateralFiltering(*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[0],_fSigmaSpace,_fSigmaDisparity,&*_pCurrFrame->_acvgmShrPtrPyrDisparity[0]);
+	btl::device::cudaDisparity2Depth(*_pCurrFrame->_acvgmShrPtrPyrDisparity[0],&*_pCurrFrame->_acvgmShrPtrPyrDepths[0]);
 	//get pts and nls
-	btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_pFrame->_acvgmShrPtrPyrPts[0] );
-	btl::device::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[0],&*_pFrame->_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
+	btl::device::unprojectRGBCVm(*_pCurrFrame->_acvgmShrPtrPyrDepths[0],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, 0,&*_pCurrFrame->_acvgmShrPtrPyrPts[0] );
+	btl::device::cudaFastNormalEstimation(*_pCurrFrame->_acvgmShrPtrPyrPts[0],&*_pCurrFrame->_acvgmShrPtrPyrNls[0]);//_vcvgmPyrNls[0]);
 	//generate black and white
-	cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[0],*_pFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
+	cv::gpu::cvtColor(*_pCurrFrame->_acvgmShrPtrPyrRGBs[0],*_pCurrFrame->_acvgmShrPtrPyrBWs[0],cv::COLOR_RGB2GRAY);
 
 	//down-sampling
 	for( unsigned int i=1; i<_uPyrHeight; i++ )	{
-		_pFrame->_acvgmShrPtrPyrRGBs[i]->setTo(0);
-		cv::gpu::pyrDown(*_pFrame->_acvgmShrPtrPyrRGBs[i-1],*_pFrame->_acvgmShrPtrPyrRGBs[i]);
-		cv::gpu::cvtColor(*_pFrame->_acvgmShrPtrPyrRGBs[i],*_pFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
-		_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]->setTo(std::numeric_limits<float>::quiet_NaN());
-		btl::device::cudaPyrDown( *_pFrame->_acvgmShrPtrPyrDisparity[i-1],_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i]);
-		btl::device::cudaBilateralFiltering(*_pFrame->_acvgmShrPtrPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&*_pFrame->_acvgmShrPtrPyrDisparity[i]);
-		btl::device::cudaDisparity2Depth(*_pFrame->_acvgmShrPtrPyrDisparity[i],&*_pFrame->_acvgmShrPtrPyrDepths[i]);
-		btl::device::unprojectRGBCVm(*_pFrame->_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_pFrame->_acvgmShrPtrPyrPts[i] );
-		btl::device::cudaFastNormalEstimation(*_pFrame->_acvgmShrPtrPyrPts[i],&*_pFrame->_acvgmShrPtrPyrNls[i]);
+		_pCurrFrame->_acvgmShrPtrPyrRGBs[i]->setTo(0);
+		cv::gpu::pyrDown(*_pCurrFrame->_acvgmShrPtrPyrRGBs[i-1],*_pCurrFrame->_acvgmShrPtrPyrRGBs[i]);
+		cv::gpu::cvtColor(*_pCurrFrame->_acvgmShrPtrPyrRGBs[i],*_pCurrFrame->_acvgmShrPtrPyrBWs[i],cv::COLOR_RGB2GRAY);
+		_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i]->setTo(std::numeric_limits<float>::quiet_NaN());
+		btl::device::cudaPyrDown( *_pCurrFrame->_acvgmShrPtrPyrDisparity[i-1],_fSigmaDisparity,&*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i]);
+		btl::device::cudaBilateralFiltering(*_pCurrFrame->_acvgmShrPtrPyr32FC1Tmp[i],_fSigmaSpace,_fSigmaDisparity,&*_pCurrFrame->_acvgmShrPtrPyrDisparity[i]);
+		btl::device::cudaDisparity2Depth(*_pCurrFrame->_acvgmShrPtrPyrDisparity[i],&*_pCurrFrame->_acvgmShrPtrPyrDepths[i]);
+		btl::device::unprojectRGBCVm(*_pCurrFrame->_acvgmShrPtrPyrDepths[i],_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v, i,&*_pCurrFrame->_acvgmShrPtrPyrPts[i] );
+		btl::device::cudaFastNormalEstimation(*_pCurrFrame->_acvgmShrPtrPyrPts[i],&*_pCurrFrame->_acvgmShrPtrPyrNls[i]);
 	}	
 
 	for( unsigned int i=0; i<_uPyrHeight; i++ )	{
-		_pFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pFrame->_acvmShrPtrPyrRGBs[i]);
-		_pFrame->_acvgmShrPtrPyrBWs[i]->download(*_pFrame->_acvmShrPtrPyrBWs[i]);
-		_pFrame->_acvgmShrPtrPyrPts[i]->download(*_pFrame->_acvmShrPtrPyrPts[i]);
-		_pFrame->_acvgmShrPtrPyrNls[i]->download(*_pFrame->_acvmShrPtrPyrNls[i]);	
+		_pCurrFrame->_acvgmShrPtrPyrRGBs[i]->download(*_pCurrFrame->_acvmShrPtrPyrRGBs[i]);
+		_pCurrFrame->_acvgmShrPtrPyrBWs[i]->download(*_pCurrFrame->_acvmShrPtrPyrBWs[i]);
+		_pCurrFrame->_acvgmShrPtrPyrPts[i]->download(*_pCurrFrame->_acvmShrPtrPyrPts[i]);
+		_pCurrFrame->_acvgmShrPtrPyrNls[i]->download(*_pCurrFrame->_acvmShrPtrPyrNls[i]);	
 	}
 #if !USE_PBO
 #endif
 	//scale the depth map
 	{
-		btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pFrame->_acvgmShrPtrPyrDepths[0]);
+		btl::device::scaleDepthCVmCVm(0,_pRGBCamera->_fFx,_pRGBCamera->_fFy,_pRGBCamera->_u,_pRGBCamera->_v,&*_pCurrFrame->_acvgmShrPtrPyrDepths[0]);
 		//for testing scaleDepthCVmCVm();
 		//cv::Mat cvmTest,cvmTestScaled;
 		//_pFrame->_acvgmShrPtrPyrDepths[i]->download(cvmTest);

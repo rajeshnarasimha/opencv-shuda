@@ -14,6 +14,7 @@ namespace btl{ namespace device{ namespace semidense{
 		const cv::gpu::GpuMat& cvgmSaliency_, short2* ps2devLocations_, float* pfdevResponse_);
 	//sort
 	void thrustSort(short2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
+	void thrustSort(float2* pnLoc_, float* pfResponse_, const unsigned int nCorners_);
 	unsigned int cudaPredictAndMatch(const unsigned int uFinalSalientPoints_, const cv::gpu::GpuMat& cvgmImage_,const cv::gpu::GpuMat& cvgmSaliency_, cv::gpu::GpuMat& cvgmFinalKeyPointsLocations_,cv::gpu::GpuMat& cvgmFinalKeyPointsResponse_,cv::gpu::GpuMat& cvgmParticlesAge_,cv::gpu::GpuMat& cvgmParticlesVelocity_, cv::gpu::GpuMat& cvgmParticlesDescriptors_);
 	void cudaExtractAllDescriptorFast(const cv::gpu::GpuMat& cvgmImage_, 
 									  const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, 

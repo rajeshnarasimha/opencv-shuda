@@ -17,6 +17,17 @@ public:
 	typedef boost::shared_ptr<CGLUtil> tp_shared_ptr;
 	typedef CGLUtil* tp_ptr;
 public:
+	//************************************
+	// Method:    CGLUtil
+	// FullName:  btl::gl_util::CGLUtil::CGLUtil
+	// Access:    public 
+	// Returns:   
+	// Qualifier:
+	// Parameter: ushort uResolution_
+	// Parameter: ushort uPyrLevel_
+	// Parameter: btl::utility::tp_coordinate_convention eConvention_: gl convention or cv convention
+	// Parameter: const Eigen::Vector3f & eivCentroid_: the viewing position 
+	//************************************
 	CGLUtil(ushort uResolution_, ushort uPyrLevel_,btl::utility::tp_coordinate_convention eConvention_ = btl::utility::BTL_GL,const Eigen::Vector3f& eivCentroid_ = Eigen::Vector3f(1.5f,1.5f,0.3f));
 	void clearColorDepth();
 	void init();
@@ -45,6 +56,8 @@ public:
 	void renderOctTree(const T& x, const T& y, const T& z, const T& dSize_, const unsigned short sLevel_ ) const;
 	template< typename T >
 	void renderVoxel( const T& x, const T& y, const T& z, const T& dSize_ ) const;
+	template< typename T >
+	void renderRectangle( const T* pPt1_, const T* pPt2_, const T* pPt3_, const T* pPt4_) const;
 	void renderTestPlane();
 	void renderTeapot();
 
@@ -222,6 +235,16 @@ void CGLUtil::renderOctTree(const T& x, const T& y, const T& z, const T& dSize_,
 	tCx = x + tS;  tCy = y - tS;  tCz = z - tS;
 	renderOctTree<T>(tCx,tCy,tCz,tL, sLevel_-1 );
 };	
+
+template< typename T >
+void CGLUtil::renderRectangle(const T* pPt1_, const T* pPt2_, const T* pPt3_, const T* pPt4_) const{
+	glBegin(GL_POLYGON);
+	glVertex3fv(pPt1_);
+	glVertex3fv(pPt2_);
+	glVertex3fv(pPt3_);
+	glVertex3fv(pPt4_);
+	glEnd();
+}
 
 }//gl_util
 }//btl

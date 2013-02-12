@@ -227,14 +227,14 @@ void init ( ){
 		break;
 	}
 	// store a frame and detect feature points for tracking.
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+	_pKinect->getNextFrame(&_nStatus);
 	_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
-	_pForDisplay.reset(new btl::kinect::CKeyFrame(_pKinect->_pFrame.get()));
-	_pKFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pFrame.get()));
+	_pForDisplay.reset(new btl::kinect::CKeyFrame(_pKinect->_pCurrFrame.get()));
+	_pKFrame.reset(new btl::kinect::CKeyFrame(_pKinect->_pCurrFrame.get()));
 	//initialize the cubic grids
 	_pCubicGrids.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
 	//initialize the tracker
-	_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGrids));
+	_pTracker.reset( new btl::geometry::CKinFuTracker(_pKinect->_pCurrFrame.get(),_pCubicGrids));
 	if (!_strTrackingMethod.compare("ICP")){
 		_pTracker->setMethod(btl::geometry::CKinFuTracker::ICP);
 	}
@@ -250,14 +250,14 @@ void init ( ){
 	else if(!_strTrackingMethod.compare("ORBICP")){
 		_pTracker->setMethod(btl::geometry::CKinFuTracker::ORBICP);
 	}
-	_pTracker->init(_pKinect->_pFrame.get());
+	_pTracker->init(_pKinect->_pCurrFrame.get());
 	_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 	//initialize the tracker ICP
 	_pVirtualFrameWorldICP.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 	_pCubicGridsICP.reset( new btl::geometry::CCubicGrids(_uCubicGridResolution,_fVolumeSize) );
-	_pTrackerICP.reset( new btl::geometry::CKinFuTracker(_pKinect->_pFrame.get(),_pCubicGridsICP));
+	_pTrackerICP.reset( new btl::geometry::CKinFuTracker(_pKinect->_pCurrFrame.get(),_pCubicGridsICP));
 	_pTrackerICP->setMethod(btl::geometry::CKinFuTracker::ICP);
-	_pTrackerICP->init(_pKinect->_pFrame.get());
+	_pTrackerICP->init(_pKinect->_pCurrFrame.get());
 	_pTrackerICP->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 	return;
 }
@@ -288,14 +288,14 @@ void normalKeys ( unsigned char key, int x, int y ){
 			_nStatus = btl::kinect::VideoSourceKinect::CONTINUE;
 		}*/
         //reset
-		_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
+		_pKinect->getNextFrame(&_nStatus);
 		_pVirtualFrameWorld.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 		_pVirtualFrameWorldICP.reset(new btl::kinect::CKeyFrame(_pKinect->_pRGBCamera.get(),_uResolution,_uPyrHeight,_eivCw));	
 		//initialize the tracker
-		_pTracker->init(_pKinect->_pFrame.get());
+		_pTracker->init(_pKinect->_pCurrFrame.get());
 		_pTracker->setNextView(&_pGL->_eimModelViewGL);//printVolume();
 		//
-		_pTrackerICP->init(_pKinect->_pFrame.get());
+		_pTrackerICP->init(_pKinect->_pCurrFrame.get());
 		_pTrackerICP->setNextView(&_pGL->_eimModelViewGL);
 
         glutPostRedisplay();
@@ -378,14 +378,14 @@ void display ( void ) {
 	_pGL->timerStart();
 
 // update frame
-    _pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);//the current frame must be in camera coordinate
-	_pKinect->_pFrame->copyTo(&*_pKFrame);
-	_pKinect->_pFrame->copyTo(&*_pForDisplay);
+    _pKinect->getNextFrame(&_nStatus);//the current frame must be in camera coordinate
+	_pKinect->_pCurrFrame->copyTo(&*_pKFrame);
+	_pKinect->_pCurrFrame->copyTo(&*_pForDisplay);
 	//PRINTSTR("Contruct pyramid.");
 	//_pGL->timerStop();
 
 	if ( _bCapture ){
-		_pTracker->track(&*_pKinect->_pFrame);
+		_pTracker->track(&*_pKinect->_pCurrFrame);
 		_pTrackerICP->track(&*_pKFrame);
 		//PRINTSTR("trackICP done.");
 		//_pGL->timerStop();
@@ -432,9 +432,9 @@ void display ( void ) {
 	glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 #if 1
-	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
+	_pGL->gpuMapRgb2PixelBufferObj(*_pKinect->_pCurrFrame->_acvgmShrPtrPyrRGBs[_pGL->_usLevel],_pGL->_usLevel);
 #else
-	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pCurrFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 #endif
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel], 0.2f );
 /*	

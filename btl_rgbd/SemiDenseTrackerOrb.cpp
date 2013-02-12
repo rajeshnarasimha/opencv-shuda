@@ -8,21 +8,20 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+//#include "Helper.hpp"
 #include "OtherUtil.hpp"
 
 #include <opencv2/gpu/device/common.hpp>
 #include "TestCudaOrb.h"
 #include "SemiDenseTrackerOrb.cuh"
 
-#define __float2int_rn short
-#include "pcl/vector_math.hpp"
-using namespace pcl::device;
-/*
 __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
-__device__ short2 operator * (const float fO1_, const short2 s2O2_);*/
+__device__ short2 operator * (const float fO1_, const short2 s2O2_);
 
-btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb()
+
+btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb(unsigned int uPyrHeight_)
+	:CSemiDenseTracker(uPyrHeight_)
 {
 	//Gaussian filter
 	_fSigma = 1.f; // page3: r=3/6 and sigma = 1.f/2.f respectively
@@ -34,10 +33,10 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb()
 	//saliency threshold
 	_fSaliencyThreshold = 0.2f;
 	//match threshold
-	_usMatchThreshod[0] = 9;
-	_usMatchThreshod[1] = 8;
-	_usMatchThreshod[2] = 8;
-	_usMatchThreshod[3] = 8; 
+	_usMatchThreshod[0] = 29;
+	_usMatchThreshod[1] = 28;
+	_usMatchThreshod[2] = 28;
+	_usMatchThreshod[3] = 28; 
 
 	//# of Max key points
 	_uMaxKeyPointsBeforeNonMax[0] = 80000;
@@ -55,8 +54,9 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb()
 	_uTotalParticles[2] =  500;
 	_uTotalParticles[3] =  100;
 
-	_usHalfPatchSize = 9; //the size of the orb feature
+	_usHalfPatchSize = 14; //the size of the orb feature
 	_sSearchRange = 7;
+	_sDescriptorByte =24;
 
 	_nFrameIdx = 0;
 }
@@ -77,6 +77,7 @@ void btl::image::semidense::CSemiDenseTrackerOrb::initUMax(){
 	}
 	btl::device::semidense::loadUMax(&u_max[0], static_cast<int>(u_max.size()));
 }
+
 void btl::image::semidense::CSemiDenseTrackerOrb::makeRandomPattern(unsigned short usHalfPatchSize_, int nPoints_, cv::Mat* pcvmPattern_)
 {
 	// we always start with a fixed seed,
@@ -88,14 +89,15 @@ void btl::image::semidense::CSemiDenseTrackerOrb::makeRandomPattern(unsigned sho
 		pcvmPattern_->ptr<short>(1)[i] = rng.uniform(- usHalfPatchSize_, usHalfPatchSize_ + 1);
 	}
 }
+
 void btl::image::semidense::CSemiDenseTrackerOrb::initOrbPattern(){
 	// Calc cvmPattern_
-	const int nPoints = 128; // 64 tests and each test requires 2 points 256x2 = 512
+	const int nPoints = 8*_sDescriptorByte*2; //128; // 64 tests and each test requires 2 points 256x2 = 512
 	cv::Mat cvmPattern; //2 x n : 1st row is x and 2nd row is y; test point1, test point2;
 	//assign cvmPattern_ from precomputed patterns
 	cvmPattern.create(2, nPoints, CV_16SC1);
 	makeRandomPattern(_usHalfPatchSize, nPoints, &cvmPattern );
-	_cvgmPattern.upload(cvmPattern);//2 x n : 1st row is x and 2nd row is y; test point1, test point2;
+	btl::device::semidense::loadOrbPattern(cvmPattern.ptr<short>(0),cvmPattern.ptr<short>(1),_sDescriptorByte,_uPyrHeight);
 	return;
 }
 
@@ -104,7 +106,7 @@ bool btl::image::semidense::CSemiDenseTrackerOrb::initialize( boost::shared_ptr<
 	_nFrameIdx = 0;
 	initUMax();
 	initOrbPattern();
-	for (int n = 3; n>-1; --n ){
+	for (int n = _uPyrHeight-1; n>-1; --n ){
 		_cvgmSaliency[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32FC1);
 		_cvgmInitKeyPointLocation[n].create(1, _uMaxKeyPointsBeforeNonMax[n], CV_16SC2);
 		_cvgmFinalKeyPointsLocationsAfterNonMax[n].create(1, _uMaxKeyPointsAfterNonMax[n], CV_16SC2);//short2 location;
@@ -119,15 +121,15 @@ bool btl::image::semidense::CSemiDenseTrackerOrb::initialize( boost::shared_ptr<
 		_cvgmParticleResponsePrev[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32FC1);	   _cvgmParticleResponsePrev[n].setTo(0);
 		_cvgmParticleVelocityPrev[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_16SC2);	   _cvgmParticleVelocityPrev[n].setTo(cv::Scalar::all(0));//float velocity; 
 		_cvgmParticleAgePrev[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_8UC1);			   _cvgmParticleAgePrev[n].setTo(0);//uchar age;
-		_cvgmParticleDescriptorPrev[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32SC2);    _cvgmParticleDescriptorPrev[n].setTo(cv::Scalar::all(0));
-
+		_cvgmParticleDescriptorPrev[n].create(_acvgmShrPtrPyrBW[n]->rows,_acvgmShrPtrPyrBW[n]->cols*_sDescriptorByte, CV_8UC1);    _cvgmParticleDescriptorPrev[n].setTo(cv::Scalar::all(0));
+		//in current frame
 		_cvgmParticleResponseCurr[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32FC1);	   _cvgmParticleResponseCurr[n].setTo(0);
 		_cvgmParticleAngleCurr[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32FC1);		   _cvgmParticleAngleCurr[n].setTo(0);
 		_cvgmParticleVelocityCurr[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_16SC2);	   _cvgmParticleVelocityCurr[n].setTo(cv::Scalar::all(0));//float velocity; 
 		_cvgmParticleAgeCurr[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_8UC1);		       _cvgmParticleAgeCurr[n].setTo(0);//uchar age;
-		_cvgmParticleDescriptorCurr[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32SC2);	   _cvgmParticleDescriptorCurr[n].setTo(cv::Scalar::all(0));
-		_cvgmParticleDescriptorCurrTmp[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_32SC2); _cvgmParticleDescriptorCurrTmp[n].setTo(cv::Scalar::all(0));
-
+		_cvgmParticleDescriptorCurr[n].create(_acvgmShrPtrPyrBW[n]->rows,_acvgmShrPtrPyrBW[n]->cols*_sDescriptorByte, CV_8UC1);	   _cvgmParticleDescriptorCurr[n].setTo(cv::Scalar::all(0));
+		_cvgmParticleDescriptorCurrTmp[n].create(_acvgmShrPtrPyrBW[n]->rows,_acvgmShrPtrPyrBW[n]->cols*_sDescriptorByte, CV_8UC1); _cvgmParticleDescriptorCurrTmp[n].setTo(cv::Scalar::all(0));
+		//other
 		_cvgmMinMatchDistance[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_8UC1);
 		_cvgmMatchedLocationPrev[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_16SC2);
 		_cvgmVelocityPrev2Curr[n].create(_acvgmShrPtrPyrBW[n]->size(),CV_16SC2);
@@ -160,22 +162,22 @@ bool btl::image::semidense::CSemiDenseTrackerOrb::initialize( boost::shared_ptr<
 		btl::device::semidense::cudaExtractAllDescriptorOrb(_cvgmBlurredPrev[n],
 															_cvgmFinalKeyPointsLocationsAfterNonMax[n].ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax[n].ptr<float>(),
 															_uTotalParticles[n],_usHalfPatchSize,
-															_cvgmPattern.ptr<short>(0),_cvgmPattern.ptr<short>(1),
+															_sDescriptorByte,
 															&_cvgmParticleResponsePrev[n], &_cvgmParticleAngleCurr[n], &_cvgmParticleDescriptorPrev[n]);
+		//for testing
 		/*int nCounter = 0;
-		bool bIsLegal = testCountResponseAndDescriptor(_cvgmParticleResponsePrev[n],_cvgmParticleDescriptorPrev[n],&nCounter);
+		bool bIsLegal = testCountResponseAndDescriptor(_cvgmParticleResponsePrev[n],_cvgmParticleDescriptorPrev[n],&nCounter,_sDescriptorByte);
 		//test
 		cv::gpu::GpuMat cvgmTestResponse(_cvgmParticleResponsePrev[n]); cvgmTestResponse.setTo(0.f);
 		cv::gpu::GpuMat cvgmTestOrbDescriptor(_cvgmParticleDescriptorPrev[n]);cvgmTestOrbDescriptor.setTo(cv::Scalar::all(0));
 		testCudaCollectParticlesAndOrbDescriptors(_cvgmFinalKeyPointsLocationsAfterNonMax[n],_cvgmFinalKeyPointsResponseAfterNonMax[n],_cvgmBlurredPrev[n],
-												 _uTotalParticles[n],_usHalfPatchSize,_cvgmPattern,
+												 _uTotalParticles[n],_usHalfPatchSize,_cvgmPattern, _sDescriptorByte,
 									  			 &cvgmTestResponse,&_cvgmParticleAngleCurr[n],&cvgmTestOrbDescriptor);
 		float fD1 = testMatDiff(_cvgmParticleResponsePrev[n], cvgmTestResponse);
 		float fD2 = testMatDiff(_cvgmParticleDescriptorPrev[n], cvgmTestOrbDescriptor);*/
-	
-		//store velocity
-		_cvgmParticleVelocityPrev[n].download(_cvmKeyPointVelocity[_nFrameIdx][n]);
 
+		//store velocity
+		_cvgmParticleVelocityCurr[n].download(_cvmKeyPointVelocity[_nFrameIdx][n]);
 	}
 	
 	return true;
@@ -183,9 +185,7 @@ bool btl::image::semidense::CSemiDenseTrackerOrb::initialize( boost::shared_ptr<
 
 void btl::image::semidense::CSemiDenseTrackerOrb::track( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] )
 {
-	btl::other::increase<int>(30,&_nFrameIdx);
-
-	for (short n = 3; n>-1; --n ) {
+	for (short n = _uPyrHeight-1; n>-1; --n ) {
 		//processing the frame
 		//Gaussian smoothes the input image 
 		_pBlurFilter->apply(*_acvgmShrPtrPyrBW[n] , _cvgmBlurredCurr[n], cv::Rect(0, 0, _acvgmShrPtrPyrBW[n]->cols, _acvgmShrPtrPyrBW[n]->rows));
@@ -204,22 +204,21 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( boost::shared_ptr<cv::g
 		btl::device::semidense::cudaExtractAllDescriptorOrb(_cvgmBlurredCurr[n],
 															_cvgmFinalKeyPointsLocationsAfterNonMax[n].ptr<short2>(),_cvgmFinalKeyPointsResponseAfterNonMax[n].ptr<float>(),
 															uFinalSalientPoints,_usHalfPatchSize,
-															_cvgmPattern.ptr<short>(0),_cvgmPattern.ptr<short>(1),
+															_sDescriptorByte,
 															&_cvgmSaliency[n], &_cvgmParticleAngleCurr[n], &_cvgmParticleDescriptorCurrTmp[n]);
-		/*
-		int nCounter = 0;
-		bool bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n],_cvgmParticleDescriptorCurrTmp[n],&nCounter);*/
+		/*int nCounter = 0;
+		bool bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n],_cvgmParticleDescriptorCurrTmp[n],&nCounter,_sDescriptorByte);*/
 
 		//track particles in previous frame by searching the candidates of current frame. 
 		//Note that _cvgmSaliency is the input as well as output, tracked particles are marked as negative scores
 		_cvgmMatchedLocationPrev[n].setTo(cv::Scalar::all(0));
-		_uMatchedPoints[n] = btl::device::semidense::cudaTrackOrb(  n, _usMatchThreshod, _usHalfPatchSize, _sSearchRange,
+		_uMatchedPoints[n] = btl::device::semidense::cudaTrackOrb(  n, _usMatchThreshod, _usHalfPatchSize, _sSearchRange, _sDescriptorByte, _uPyrHeight,
 																	_cvgmParticleDescriptorPrev,  _cvgmParticleResponsePrev, 
 																	_cvgmParticleDescriptorCurrTmp, _cvgmSaliency,
 																	_cvgmMinMatchDistance, _cvgmMatchedLocationPrev, _cvgmVelocityPrev2Curr );
 		
 		/*int nCounter = 0;
-		bool bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n],_cvgmParticleDescriptorCurrTmp[n],&nCounter);
+		bool bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n],_cvgmParticleDescriptorCurrTmp[n],&nCounter,_sDescriptorByte);
 		nCounter = 0;
 		bIsLegal = testCountMinDistAndMatchedLocation( _cvgmMinMatchDistance[n], _cvgmMatchedLocationPrev[n], &nCounter );
 
@@ -228,7 +227,7 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( boost::shared_ptr<cv::g
 		cvgmMinMatchDistanceTest[n]       .create(_cvgmBlurredCurr[n].size(),CV_8UC1);
 		cvgmMatchedLocationPrevTest[n]    .create(_cvgmBlurredCurr[n].size(),CV_16SC2);	cvgmMatchedLocationPrevTest[n].setTo(cv::Scalar::all(0));
 
-		unsigned int uMatchedPointsTest = testCudaTrackOrb( n, _usMatchThreshod, _usHalfPatchSize, _sSearchRange,
+		unsigned int uMatchedPointsTest = testCudaTrackOrb( n, _usMatchThreshod, _usHalfPatchSize, _sSearchRange, _sDescriptorByte,
 															_cvgmParticleDescriptorPrev, _cvgmParticleResponsePrev, 
 															_cvgmParticleDescriptorCurrTmp, _cvgmSaliency, 
 															cvgmMinMatchDistanceTest, cvgmMatchedLocationPrevTest, _cvgmVelocityPrev2Curr);
@@ -244,29 +243,28 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( boost::shared_ptr<cv::g
 		_cvgmMatchedKeyPointResponse   [n].setTo(0.f);
 		_cvgmNewlyAddedKeyPointLocation[n].setTo(cv::Scalar::all(0));//clear all memory
 		_cvgmNewlyAddedKeyPointResponse[n].setTo(0.f);
-		btl::device::semidense::cudaCollectKeyPointOrb( _uTotalParticles[n], _uMaxKeyPointsAfterNonMax[n], 0.75f,
+		btl::device::semidense::cudaCollectKeyPointOrb( _uTotalParticles[n], _uMaxKeyPointsAfterNonMax[n], 0.75f, _sDescriptorByte,
 														_cvgmSaliency[n], _cvgmParticleDescriptorCurrTmp[n],
 														_cvgmParticleVelocityPrev[n],_cvgmParticleAgePrev[n],
 														_cvgmMinMatchDistance[n],_cvgmMatchedLocationPrev[n],
-														&_cvgmNewlyAddedKeyPointLocation[n], &_cvgmNewlyAddedKeyPointResponse[n], 
+														&_cvgmNewlyAddedKeyPointLocation[n], &_cvgmNewlyAddedKeyPointResponse[n],
 														&_cvgmMatchedKeyPointLocation[n], &_cvgmMatchedKeyPointResponse[n],
 														&_cvgmParticleResponseCurr[n], &_cvgmParticleDescriptorCurr[n],
 														&_cvgmParticleVelocityCurr[n],&_cvgmParticleAgeCurr[n]);
-	/*
-		nCounter = 0;
-		bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n],_cvgmParticleDescriptorCurrTmp[n],&nCounter);
+		/*int nCounter = 0;
+		bool bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n],_cvgmParticleDescriptorCurrTmp[n],&nCounter,_sDescriptorByte);
 
 		nCounter = 0;
-		bIsLegal = testCountResponseAndDescriptor(_cvgmParticleResponseCurr[n],_cvgmParticleDescriptorCurr[n],&nCounter);
-		cv::gpu::GpuMat cvgmNewlyAddedKeyPointLocationTest(_cvgmNewlyAddedKeyPointLocation[n]), cvgmNewlyAddedKeyPointResponseTest(_cvgmNewlyAddedKeyPointResponse[n]), 
+		bIsLegal = testCountResponseAndDescriptor(_cvgmParticleResponseCurr[n],_cvgmParticleDescriptorCurr[n],&nCounter,_sDescriptorByte);*/
+		/*cv::gpu::GpuMat cvgmNewlyAddedKeyPointLocationTest(_cvgmNewlyAddedKeyPointLocation[n]), cvgmNewlyAddedKeyPointResponseTest(_cvgmNewlyAddedKeyPointResponse[n]), 
 						cvgmMatchedKeyPointLocationTest(_cvgmMatchedKeyPointLocation[n]), cvgmMatchedKeyPointResponseTest(_cvgmMatchedKeyPointResponse[n]),
 						cvgmParticleResponseCurrTest(_cvgmParticleResponseCurr[n]), cvgmParticleDescriptorCurrTest(_cvgmParticleDescriptorCurr[n]),
 						cvgmParticleVelocityCurrTest(_cvgmParticleVelocityCurr[n]), cvgmParticleAgeCurrTest(_cvgmParticleAgeCurr[n]);
 	
 		nCounter = 0;
-		bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n], _cvgmParticleDescriptorCurrTmp[n],&nCounter);
+		bIsLegal = testCountResponseAndDescriptor(_cvgmSaliency[n], _cvgmParticleDescriptorCurrTmp[n],&nCounter,_sDescriptorByte);
 
-		testCudaCollectNewlyAddedKeyPoints(_uTotalParticles[n], _uMaxKeyPointsAfterNonMax[n], 0.75f,
+		testCudaCollectNewlyAddedKeyPoints(_uTotalParticles[n], _uMaxKeyPointsAfterNonMax[n], 0.75f, _sDescriptorByte,
 										  _cvgmSaliency[n], _cvgmParticleDescriptorCurrTmp[n],
 										  _cvgmParticleVelocityPrev[n],_cvgmParticleAgePrev[n],
 										  _cvgmMinMatchDistance[n],_cvgmMatchedLocationPrev[n],
@@ -275,7 +273,7 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( boost::shared_ptr<cv::g
 										  &cvgmParticleResponseCurrTest, &cvgmParticleDescriptorCurrTest,
 										  &cvgmParticleVelocityCurrTest,&cvgmParticleAgeCurrTest);
 		nCounter = 0;
-		bIsLegal = testCountResponseAndDescriptor(_cvgmParticleResponseCurr[n],_cvgmParticleDescriptorCurr[n],&nCounter);
+		bIsLegal = testCountResponseAndDescriptor(_cvgmParticleResponseCurr[n],_cvgmParticleDescriptorCurr[n],&nCounter,_sDescriptorByte);
 		float fD3 = testMatDiff(cvgmNewlyAddedKeyPointLocationTest, _cvgmNewlyAddedKeyPointLocation[n]);
 		float fD4 = testMatDiff(cvgmNewlyAddedKeyPointResponseTest, _cvgmNewlyAddedKeyPointResponse[n]);
 		float fD5 = testMatDiff(cvgmMatchedKeyPointLocationTest, _cvgmMatchedKeyPointLocation[n]);
@@ -283,18 +281,16 @@ void btl::image::semidense::CSemiDenseTrackerOrb::track( boost::shared_ptr<cv::g
 		float fD7 = testMatDiff(cvgmParticleResponseCurrTest, _cvgmParticleResponseCurr[n]);
 		float fD8 = testMatDiff(cvgmParticleDescriptorCurrTest, _cvgmParticleDescriptorCurr[n]);
 		float fD9 = testMatDiff(cvgmParticleVelocityCurrTest, _cvgmParticleVelocityCurr[n]);
-		float fD10= testMatDiff(cvgmParticleAgeCurrTest, _cvgmParticleAgeCurr[n]);
-*/
+		float fD10= testMatDiff(cvgmParticleAgeCurrTest, _cvgmParticleAgeCurr[n]);*/
+
 		//h) assign the current frame to previous frame
 		_cvgmBlurredCurr		 [n].copyTo(_cvgmBlurredPrev[n]);
 		_cvgmParticleResponseCurr[n].copyTo(_cvgmParticleResponsePrev[n]);
 		_cvgmParticleAgeCurr	 [n].copyTo(_cvgmParticleAgePrev[n]);
 		_cvgmParticleVelocityCurr[n].copyTo(_cvgmParticleVelocityPrev[n]);
 		_cvgmParticleDescriptorCurr[n].copyTo(_cvgmParticleDescriptorPrev[n]);
-	}
+	}//for
 	
-	
-
 	return;
 }
 

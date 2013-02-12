@@ -46,20 +46,7 @@ namespace pcl
 		{
 			T c(a); a=b; b=c;
 		}
-        ////////////////////////////////
-        // one element vectors
-
-
-        ////////////////////////////////
-        // two element vectors
-
-
-        ////////////////////////////////
-        // three element vectors
-
-
-
-
+    
 		__device__ __host__ __forceinline__ short2 operator + (const short2 s2O1_, const short2 s2O2_){
 			return make_short2(s2O1_.x + s2O2_.x,s2O1_.y + s2O2_.y);
 		}
@@ -88,9 +75,9 @@ namespace pcl
 			return make_uchar3( uchar(uc3O1_.x * fO2_ +.5f), uchar(uc3O1_.y * fO2_+.5f),uchar(uc3O1_.z*fO2_+.5f) );
 		}
 
-		__device__  __forceinline__ short2 convert2s2(const float2 f2O1_){ //can be called from host and device
+		/*__device__  __forceinline__ short2 convert2s2(const float2 f2O1_){ //can be called from host and device
 			return make_short2(__float2int_rn(f2O1_.x), __float2int_rn(f2O1_.y));
-		}
+		}*/
 
 
 

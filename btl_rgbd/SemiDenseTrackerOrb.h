@@ -3,25 +3,24 @@
 
 
 namespace btl{	namespace image	{
-	namespace semidense {
+namespace semidense {
 
 class CSemiDenseTrackerOrb: public CSemiDenseTracker{
 public:
-	typedef boost::shared_ptr< CSemiDenseTrackerOrb > tp_shared_ptr;
-	typedef boost::scoped_ptr< CSemiDenseTrackerOrb > tp_scoped_ptr;
+	//type definition
+	typedef boost::scoped_ptr<CSemiDenseTrackerOrb> tp_scoped_ptr;
+	typedef boost::shared_ptr<CSemiDenseTrackerOrb> tp_shared_ptr;
 
 	unsigned short _usMatchThreshod[4];
-	cv::gpu::GpuMat _cvgmPattern;
 
-	CSemiDenseTrackerOrb();
+	CSemiDenseTrackerOrb(unsigned int uPyrHeight_);
 	virtual bool initialize( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
 	virtual void track( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
-
 private:
 	void initUMax();
 	void initOrbPattern();
 	void makeRandomPattern(unsigned short usHalfPatchSize_, int nPoints_, cv::Mat* pcvmPattern_);
-
+	short _sDescriptorByte;
 };//class CSemiDenseTrackerOrb
 
 }//semidense

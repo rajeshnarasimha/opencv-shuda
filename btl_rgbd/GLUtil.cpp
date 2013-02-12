@@ -726,12 +726,12 @@ namespace btl{	namespace gl_util
 		glLoadMatrixf(_eimModelViewGL.data());
 		
 		//rotation
-		Eigen::Matrix3f m;
+		Eigen::Matrix3f eimRotation;
 		if( btl::utility::BTL_GL == _eConvention ){
-			m = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
+			eimRotation = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
 		}//mouse x-movement is the rotation around y-axis
 		else if( btl::utility::BTL_CV == _eConvention )	{
-			m = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
+			eimRotation = Eigen::AngleAxisf(float(_dXAngle*M_PI/180.f), -Eigen::Vector3f::UnitY())* Eigen::AngleAxisf(float(_dYAngle*M_PI/180.f), Eigen::Vector3f::UnitX());                         // 3. rotate horizontally
 		}
 		//translation
 		/*_dZoom = _dZoom < 0.1? 0.1: _dZoom;
@@ -741,7 +741,7 @@ namespace btl{	namespace gl_util
 		Eigen::Affine3f M; M.matrix() = _eimModelViewGL;
 		Eigen::Matrix3f S;
 		Eigen::Vector3f T = M.translation();
-		Eigen::Matrix3f R; M.computeRotationScaling(&R,&S);
+		Eigen::Matrix3f R; M.computeRotationScaling( &R, &S ); //extract rotation and scale matrix
 		Eigen::Vector3f C = -R.transpose()*T;
 		Eigen::Vector3f N = _eivCentroid - C;
 		N = N/N.norm();
@@ -750,7 +750,7 @@ namespace btl{	namespace gl_util
 		_eimManipulate.translate(N*_dZoom);//(N*(1-_dZoom));  //use camera movement toward object for zoom in/out effects
 		_eimManipulate.translate(_eivCentroid);  // 5. translate back to the original camera pose
 		//_eimManipulate.scale(s);				 // 4. zoom in/out, never use scale to simulate camera movement, it affects z-buffer capturing. use translation instead
-		_eimManipulate.rotate(m);				 // 2. rotate vertically // 3. rotate horizontally
+		_eimManipulate.rotate(eimRotation);		 // 2. rotate vertically // 3. rotate horizontally
 		_eimManipulate.translate(-_eivCentroid); // 1. translate the camera center to align with object centroid*/
 		glMultMatrixf(_eimManipulate.data());
 
@@ -761,10 +761,11 @@ namespace btl{	namespace gl_util
 		glScaled( _dZoom, _dZoom, _dZoom );                      //  4. zoom in/out, 
 		if( btl::utility::BTL_GL == _eConvention )
 		glRotated ( _dXAngle, 0, 1 ,0 );                         // 3. rotate horizontally
-		else if( btl::utility::BTL_CV == _eConvention )						//mouse x-movement is the rotation around y-axis
+		else if( btl::utility::BTL_CV == _eConvention )			//mouse x-movement is the rotation around y-axis
 		glRotated ( _dXAngle, 0,-1 ,0 ); 
 		glRotated ( _dYAngle, 1, 0 ,0 );                             // 2. rotate vertically
-		glTranslated(-_aCentroid[0],-_aCentroid[1],-_aCentroid[2] ); // 1. translate the camera center to align with object centroid*/
+		glTranslated(-_aCentroid[0],-_aCentroid[1],-_aCentroid[2] ); // 1. translate the camera center to align with object centroid
+		*/
 
 		// light position in 3d
 		glLightfv(GL_LIGHT0, GL_POSITION, _aLight);

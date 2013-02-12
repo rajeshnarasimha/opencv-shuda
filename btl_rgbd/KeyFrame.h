@@ -27,7 +27,7 @@ public:
 	enum tp_cluster { NORMAL_CLUSTER, DISTANCE_CLUSTER};
 
 public:
-    CKeyFrame( btl::kinect::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_ );
+    CKeyFrame( btl::image::SCamera::tp_ptr pRGBCamera_, ushort uResolution_, ushort uPyrLevel_, const Eigen::Vector3f& eivCw_ );
 	CKeyFrame(CKeyFrame::tp_ptr pFrame_);
     ~CKeyFrame() {}
 	// detect the correspondences 
@@ -85,7 +85,9 @@ public:
 	void gpuTransformToWorldCVCV();
 	void updateMVInv();
 	void constructPyramid(const float fSigmaSpace_, const float fSigmaDisparity_);
-	void setRT(float fXA_, float fYA_, float fZA_, float fCwX_,float fCwY_,float fCwZ_);
+	void setRTFromC(float fXA_, float fYA_, float fZA_, float fCwX_,float fCwY_,float fCwZ_);
+	void setRTFromC(const Eigen::Matrix3f& eimRotation_, const Eigen::Vector3f& eivCw_);
+	void setRTw(const Eigen::Matrix3f& eimRotation_, const Eigen::Vector3f& eivTw_);
 	void gpuCreateVBO(btl::gl_util::CGLUtil::tp_ptr pGL_);
 	void gpuRenderPtsInWorldCVCV(btl::gl_util::CGLUtil::tp_ptr pGL_,const ushort usPyrLevel_);
 	void applyClassifier(btl::gl_util::CGLUtil::tp_ptr pGL_, float fThreshold_, const unsigned short usPyrLevel_);
@@ -115,7 +117,7 @@ private:
 	void gpuConvert2ColorGraph( cv::gpu::GpuMat* pcvgmU_, cv::gpu::GpuMat* pcvgmV_, cv::gpu::GpuMat* pcvgmColorGraph_ );
 
 public:
-	btl::kinect::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
+	btl::image::SCamera::tp_ptr _pRGBCamera; //share the content of the RGBCamera with those from VideoKinectSource
 	//host
 	boost::shared_ptr<cv::Mat> _acvmPyrDepths[4];
 	boost::shared_ptr<cv::Mat> _acvmShrPtrPyrPts[4]; //using pointer array is because the vector<cv::Mat> has problem when using it &vMat[0] in calling a function

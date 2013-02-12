@@ -7,9 +7,11 @@ namespace btl{	namespace image	{
 
 class CSemiDenseTracker{
 public:
-	CSemiDenseTracker();
+	//type definition
+	typedef boost::scoped_ptr<CSemiDenseTracker> tp_scoped_ptr;
+	typedef boost::shared_ptr<CSemiDenseTracker> tp_shared_ptr;
 
-
+	CSemiDenseTracker(unsigned int uPyrHeight_);
 	//Gaussian filter
 	float _fSigma; // page3: r=3/6 and sigma = 1.f/2.f respectively
 	unsigned int _uRadius; // radius of the fast corner
@@ -66,14 +68,14 @@ public:
 	cv::Mat _cvmKeyPointVelocity[30][4];
 
 	int _nFrameIdx;
-	bool init( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
-	void trackAll(boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
+	unsigned int _uPyrHeight;
 
 	virtual bool initialize( boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
 	virtual void track(boost::shared_ptr<cv::gpu::GpuMat> _acvgmShrPtrPyrBW[4] );
 
 	void displayCandidates( cv::Mat& cvmColorFrame_ );
 	virtual void display(cv::Mat& cvmColorFrame_);
+	cv::Mat calcHomography(const cv::Mat& cvmMaskCurr_, const cv::Mat& cvmMaskPrev_);
 
 };//class CSemiDenseTracker
 

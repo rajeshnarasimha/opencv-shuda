@@ -151,9 +151,9 @@ void init ( ){
 		break;
 	}
 	//capture the first frame
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV();
-	_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+	_pKinect->getNextFrame(&_nStatus);
+	_pKinect->_pCurrFrame->gpuTransformToWorldCVCV();
+	_pKinect->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 
 	return;
 }//init()
@@ -182,7 +182,7 @@ void normalKeys ( unsigned char key, int x, int y )
 		PRINT( _nDensity );
 		break;
 	case '0':
-		_pKinect->_pFrame->setView(&_pGL->_eimModelViewGL);
+		_pKinect->_pCurrFrame->setView(&_pGL->_eimModelViewGL);
 		_pGL->setInitialPos();
 		break;
 	case 's'://dump recording in RECORDING MODE
@@ -238,8 +238,8 @@ void mouseMotion ( int nX_, int nY_ )
 void display ( void )
 {
 	//load data from video source and model
-	_pKinect->getNextFrame(btl::kinect::VideoSourceKinect::GPU_PYRAMID_CV,&_nStatus);
-	_pKinect->_pFrame->gpuTransformToWorldCVCV();
+	_pKinect->getNextFrame(&_nStatus);
+	_pKinect->_pCurrFrame->gpuTransformToWorldCVCV();
 	//set viewport
     glMatrixMode ( GL_MODELVIEW );
 	glViewport (0, 0, _nWidth/2, _nHeight);
@@ -254,7 +254,7 @@ void display ( void )
 	_pGL->renderPatternGL(1.f,10,10);
 	_pGL->renderVoxelGL(_fVolumeSize);
 	//_pGL->timerStart();
-	_pKinect->_pFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
+	_pKinect->_pCurrFrame->gpuRenderPtsInWorldCVCV(_pGL.get(),_pGL->_usLevel);
 	//show text
 	float aColor[4] = {0.f,1.f,0.f,1.f};
 	switch(_nMode){ 
@@ -279,7 +279,7 @@ void display ( void )
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     _pGL->renderAxisGL();
-	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
+	_pKinect->_pRGBCamera->LoadTexture(*_pKinect->_pCurrFrame->_acvmShrPtrPyrRGBs[_pGL->_usLevel],&_pGL->_auTexture[_pGL->_usLevel]);
 	_pKinect->_pRGBCamera->renderCameraInGLLocal(_pGL->_auTexture[_pGL->_usLevel] );
 	
 	
