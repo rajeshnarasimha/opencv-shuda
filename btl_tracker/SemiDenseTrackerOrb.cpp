@@ -33,10 +33,10 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb(unsigned int u
 	//saliency threshold
 	_fSaliencyThreshold = 0.2f;
 	//match threshold
-	_usMatchThreshod[0] = 29;
-	_usMatchThreshod[1] = 28;
-	_usMatchThreshod[2] = 28;
-	_usMatchThreshod[3] = 28; 
+	_usMatchThreshod[0] = 19;
+	_usMatchThreshod[1] = 18;
+	_usMatchThreshod[2] = 18;
+	_usMatchThreshod[3] = 18; 
 
 	//# of Max key points
 	_uMaxKeyPointsBeforeNonMax[0] = 80000;
