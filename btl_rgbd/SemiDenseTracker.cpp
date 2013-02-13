@@ -18,6 +18,7 @@
 __device__ short2 operator + (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator - (const short2 s2O1_, const short2 s2O2_);
 __device__ short2 operator * (const float fO1_, const short2 s2O2_);
+__device__ short2 operator * (const short sO1_, const short2 s2O2_);
 __device__ float2 convert2f2(const short2 s2O1_);
 
 unsigned int testCudaTrack( const float fMatchThreshold_, const short sSearchRange_, 
@@ -252,7 +253,7 @@ void btl::image::semidense::CSemiDenseTracker::track(boost::shared_ptr<cv::gpu::
 
 void btl::image::semidense::CSemiDenseTracker::displayCandidates( cv::Mat& cvmColorFrame_ ){
 	cv::Mat cvmKeyPoint;
-	for( int n = 0; n< _uPyrHeight; n++ ){
+	for(unsigned int n = 0; n< _uPyrHeight; n++ ){
 		int t = 1<<n;
 		_cvgmFinalKeyPointsLocationsAfterNonMax[n].download(cvmKeyPoint);
 		for (unsigned int i=0;i<_uFinalSalientPoints[n]; i++){
@@ -267,24 +268,30 @@ void btl::image::semidense::CSemiDenseTracker::displayCandidates( cv::Mat& cvmCo
 	return;
 }
 cv::Mat btl::image::semidense::CSemiDenseTracker::calcHomography(const cv::Mat& cvmMaskCurr_, const cv::Mat& cvmMaskPrev_) {
-	int n = 0;
-	//get keypoints
-	cv::Mat cvmKeyPointAge, cvmKeyPointLocation, cvmKeyPointVelocity;
-	_cvgmMatchedKeyPointLocation[n].download(cvmKeyPointLocation);
-	_cvgmParticleAgeCurr[n].download(cvmKeyPointAge);
-	_cvgmParticleVelocityCurr[n].download(cvmKeyPointVelocity);
-
 	std::vector<short2> vKPCurr;
 	std::vector<short2> vKPPrev;
-	for (unsigned int i=0;i<_uMatchedPoints[n]; i+=1){
-		short2 s2KPCurr = cvmKeyPointLocation.ptr<short2>()[i];
-		short2 s2V = cvmKeyPointVelocity.ptr<short2>(s2KPCurr.y)[s2KPCurr.x];
-		short2 s2KPPrev = s2KPCurr - s2V;
-		if (cvmMaskCurr_.ptr(s2KPCurr.y)[s2KPCurr.x] == 255 && cvmMaskPrev_.ptr(s2KPCurr.y)[s2KPCurr.x] ==255 ){
-			vKPPrev.push_back(s2KPPrev);
-			vKPCurr.push_back(s2KPCurr);
+	for( int n = 0; n<2; n++ ){
+		short t = 1<<n;
+		//get keypoints
+		cv::Mat cvmKeyPointLocation, cvmKeyPointVelocity;
+		_cvgmMatchedKeyPointLocation[n].download(cvmKeyPointLocation);
+		_cvgmParticleVelocityCurr[n].download(cvmKeyPointVelocity);
+		
+		for (unsigned int i=0;i<_uMatchedPoints[n]; i+=1){
+			short2 s2KPCurr = cvmKeyPointLocation.ptr<short2>()[i];
+			short2 s2V = cvmKeyPointVelocity.ptr<short2>(s2KPCurr.y)[s2KPCurr.x];
+			short2 s2KPPrev = s2KPCurr - s2V;
+			s2KPCurr = t*s2KPCurr;
+			s2KPPrev = t*s2KPPrev;
+			if (s2KPPrev.x >=0 && s2KPPrev.x < cvmMaskPrev_.cols && s2KPPrev.y >=0 && s2KPPrev.y < cvmMaskPrev_.rows &&
+				cvmMaskCurr_.ptr(s2KPCurr.y)[s2KPCurr.x] == 255 && cvmMaskPrev_.ptr(s2KPPrev.y)[s2KPPrev.x] ==255 ){
+				vKPPrev.push_back(s2KPPrev);
+				vKPCurr.push_back(s2KPCurr);
+			}
 		}
 	}
+
+
 	if(vKPCurr.empty()){
 		PRINTSTR("Not KeyPoint detected");
 		return cv::Mat();
@@ -305,7 +312,7 @@ void btl::image::semidense::CSemiDenseTracker::display(cv::Mat& cvmColorFrame_) 
 	btl::other::increase<int>(30,&_nFrameIdx);
 	cvmColorFrame_.setTo(cv::Scalar::all(255));
 	float fAvgAge = 0.f; 
-	for(int n = 0; n< _uPyrHeight; n++ ) {
+	for(unsigned int n = 0; n< _uPyrHeight; n++ ) {
 		//store velocity
 		_cvgmParticleVelocityCurr[n].download(_cvmKeyPointVelocity[_nFrameIdx][n]);
 		//render keypoints
@@ -313,7 +320,7 @@ void btl::image::semidense::CSemiDenseTracker::display(cv::Mat& cvmColorFrame_) 
 		_cvgmParticleAgeCurr[n].download(_cvmKeyPointAge[n]);
 		
 
-		int t = 1<<n;
+		short t = 1<<n;
 		for (unsigned int i=0;i<_uMatchedPoints[n]; i+=1){
 			short2 ptCurr = _cvmKeyPointLocation[n].ptr<short2>()[i];
 			uchar ucAge = _cvmKeyPointAge[n].ptr(ptCurr.y)[ptCurr.x];
