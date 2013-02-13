@@ -38,15 +38,14 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-
-	btl::image::CORB orb(200,2.0,4,10,1,2,0,11);
+	btl::image::COrb cOrb(200,2.0,4,10,1,2,0,31);
 
     // detecting keypoints & computing descriptors
     GpuMat keypoints1GPU, keypoints2GPU;
     GpuMat descriptors1GPU, descriptors2GPU;
 
-    orb(img1, GpuMat(), &keypoints1GPU, &descriptors1GPU); 
-	orb(img2, GpuMat(), &keypoints2GPU, &descriptors2GPU);
+    cOrb(img1, GpuMat(), &keypoints1GPU, &descriptors1GPU); 
+	cOrb(img2, GpuMat(), &keypoints2GPU, &descriptors2GPU);
 
     cout << "FOUND " << keypoints1GPU.cols << " keypoints on first image" << endl;
     cout << "FOUND " << keypoints2GPU.cols << " keypoints on second image" << endl;
@@ -56,8 +55,8 @@ int main(int argc, char* argv[])
     vector<float> descriptors1, descriptors2;
     vector<DMatch> matches;
 	
-	orb.downloadKeyPoints(keypoints1GPU, &keypoints1);
-	orb.downloadKeyPoints(keypoints2GPU, &keypoints2);
+	cOrb.downloadKeyPoints(keypoints1GPU, &keypoints1);
+	cOrb.downloadKeyPoints(keypoints2GPU, &keypoints2);
 
 	BruteForceMatcher_GPU<HammingLUT> matcher;  
 	matcher.match(descriptors1GPU, descriptors2GPU, matches);  
@@ -67,7 +66,7 @@ int main(int argc, char* argv[])
 
     int nSize = matches.size();//>300?300:matches.size();
     cout << "matched point pairs: " << nSize << endl;
-	for( int i=0;i < nSize;i++)
+	for( int i=0;i < 30;i++)
     {
         closest.push_back( matches[i] );
         //cout << matches[i].distance << endl;
