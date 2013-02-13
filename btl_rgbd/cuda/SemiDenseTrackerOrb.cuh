@@ -30,22 +30,22 @@ namespace btl{ namespace device{ namespace semidense{
 	//separate salient point into matched and newly added.
 	//for matched keypoints the velocity and age will be updated
 	void cudaCollectKeyPointOrb(unsigned int uTotalParticles_, unsigned int uMaxNewKeyPoints_, const float fRho_, const short sDescritporByte_,
-										const cv::gpu::GpuMat& cvgmSaliency_,/*const cv::gpu::GpuMat& cvgmParticleResponseCurrTmp_,*/
-										const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
-										const cv::gpu::GpuMat& cvgmParticleVelocityPrev_,
-										const cv::gpu::GpuMat& cvgmParticleAgePrev_,
-										const cv::gpu::GpuMat& cvgmMinMatchDistance_,
-										const cv::gpu::GpuMat& cvgmMatchedLocationPrev_,
-										cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointLocation_, cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointResponse_,
-										cv::gpu::GpuMat* pcvgmMatchedKeyPointLocation_, cv::gpu::GpuMat* pcvgmMatchedKeyPointResponse_,
-										cv::gpu::GpuMat* pcvgmParticleResponseCurr_, cv::gpu::GpuMat* pcvgmParticleDescriptorCurr_,
-										cv::gpu::GpuMat* pcvgmParticleVelocityCurr_, cv::gpu::GpuMat* pcvgmParticleAgeCurr_);
-	void cudaCollectParticles(const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, 
-								cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleDescriptor_, const cv::gpu::GpuMat& cvgmImage_=cv::gpu::GpuMat() );
-	unsigned int cudaMatchedAndNewlyAddedKeyPointsCollection(cv::gpu::GpuMat& cvgmKeyPointLocation_, 
-																unsigned int* puMaxSalientPoints_, cv::gpu::GpuMat* pcvgmParticleResponsesCurr_, 
-																short2* ps2devMatchedKeyPointLocations_, float* pfdevMatchedKeyPointResponse_, 
-																short2* ps2devNewlyAddedKeyPointLocations_, float* pfdevNewlyAddedKeyPointResponse_);
+								const cv::gpu::GpuMat& cvgmSaliency_,/*const cv::gpu::GpuMat& cvgmParticleResponseCurrTmp_,*/
+								const cv::gpu::GpuMat& cvgmParticleDescriptorCurrTmp_,
+								const cv::gpu::GpuMat& cvgmParticleVelocityPrev_,
+								const cv::gpu::GpuMat& cvgmParticleAgePrev_,
+								const cv::gpu::GpuMat& cvgmMinMatchDistance_,
+								const cv::gpu::GpuMat& cvgmMatchedLocationPrev_,
+								cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointLocation_, cv::gpu::GpuMat* pcvgmNewlyAddedKeyPointResponse_,
+								cv::gpu::GpuMat* pcvgmMatchedKeyPointLocation_, cv::gpu::GpuMat* pcvgmMatchedKeyPointResponse_,
+								cv::gpu::GpuMat* pcvgmParticleResponseCurr_, cv::gpu::GpuMat* pcvgmParticleDescriptorCurr_,
+								cv::gpu::GpuMat* pcvgmParticleVelocityCurr_, cv::gpu::GpuMat* pcvgmParticleAgeCurr_);
+	void cudaCollectParticles( const short2* ps2KeyPointsLocations_, const float* pfKeyPointsResponse_, const unsigned int uTotalParticles_, 
+							   cv::gpu::GpuMat* pcvgmParticleResponses_, cv::gpu::GpuMat* pcvgmParticleDescriptor_, const cv::gpu::GpuMat& cvgmImage_=cv::gpu::GpuMat() );
+	unsigned int cudaMatchedAndNewlyAddedKeyPointsCollection( cv::gpu::GpuMat& cvgmKeyPointLocation_, 
+															  unsigned int* puMaxSalientPoints_, cv::gpu::GpuMat* pcvgmParticleResponsesCurr_, 
+															  short2* ps2devMatchedKeyPointLocations_, float* pfdevMatchedKeyPointResponse_, 
+															  short2* ps2devNewlyAddedKeyPointLocations_, float* pfdevNewlyAddedKeyPointResponse_);
 }//semidense
 }//device
 }//btl
