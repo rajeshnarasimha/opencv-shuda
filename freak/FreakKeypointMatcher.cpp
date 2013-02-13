@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
 	btl::image::CSurf surf(400,4,2,false,0.1f,true);
 	// detecting keypoints & computing descriptors
-	btl::image::FREAK *pFreak = new btl::image::FREAK();
+	btl::image::CFreak *pFreak = new btl::image::CFreak();
 	cvgmDescriptor1.create( 8000,512/8, CV_8U ); 
 	cvgmDescriptor2.create( 8000,512/8, CV_8U ); 
 	vector<DMatch> vMatches;
@@ -43,7 +43,6 @@ int main(int argc, char* argv[])
 
 	//for (;;)
 	{
-
 		surf(cvgmGray1, cv::gpu::GpuMat(), cvgmKeyPoint1);
 		/*cvgmDescriptor1.create( cvgmKeyPoint1.cols,512/8, CV_8U );*/ 	cvgmDescriptor1.setTo(0); //allocate memory
 		unsigned int uT1 = pFreak->gpuCompute( cvgmGray1, surf.getImgInt(), cvgmKeyPoint1, &cvgmDescriptor1 );
