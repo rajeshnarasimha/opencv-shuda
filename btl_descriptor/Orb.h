@@ -8,7 +8,7 @@ namespace image
 {
 ////////////////////////////////// ORB //////////////////////////////////////////
 
-class CORB
+class COrb
 {
 public:
 	enum
@@ -28,7 +28,7 @@ public:
 	};
 
 	//! Constructor
-	explicit CORB(int nFeatures = 500, float scaleFactor = 1.2f, int nLevels = 8, int edgeThreshold = 31,
+	explicit COrb(int nFeatures = 500, float scaleFactor = 1.2f, int nLevels = 8, int edgeThreshold = 31,
 		int firstLevel = 0, int WTA_K = 2, int scoreType = 0, int patchSize = 31);
 
 	//! Compute the ORB features on an image

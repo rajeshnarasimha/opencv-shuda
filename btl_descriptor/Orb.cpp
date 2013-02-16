@@ -341,7 +341,7 @@ void makeRandomPattern(int patchSize, cv::Point* pattern, int npoints)
 
 
 
-CORB::CORB(int nFeatures, float scaleFactor, int nLevels, int edgeThreshold, int firstLevel, int WTA_K, int scoreType, int patchSize) :
+COrb::COrb(int nFeatures, float scaleFactor, int nLevels, int edgeThreshold, int firstLevel, int WTA_K, int scoreType, int patchSize) :
 _nFeatures(nFeatures), _fScaleFactor(scaleFactor), _nLevels(nLevels), _nEdgeThreshold(edgeThreshold), _nFirstLevel(firstLevel), _nWTA_K(WTA_K),
 	_nScoreType(scoreType), _nPatchSize(patchSize),
 	_fastDetector(DEFAULT_FAST_THRESHOLD)
@@ -446,7 +446,7 @@ namespace
 	}
 }
 
-void CORB::buildScalePyramids(const cv::gpu::GpuMat& image, const cv::gpu::GpuMat& mask)
+void COrb::buildScalePyramids(const cv::gpu::GpuMat& image, const cv::gpu::GpuMat& mask)
 {
 	CV_Assert(image.type() == CV_8UC1);
 	CV_Assert(mask.empty() || (mask.type() == CV_8UC1 && mask.size() == image.size()));
@@ -497,7 +497,7 @@ void CORB::buildScalePyramids(const cv::gpu::GpuMat& image, const cv::gpu::GpuMa
 	}//for( int level = 0)
 }//build scale cvgmImage_
 
-void CORB::computeKeyPointsPyramid()
+void COrb::computeKeyPointsPyramid()
 {
 	using namespace btl::device::orb;
 
@@ -537,7 +537,7 @@ void CORB::computeKeyPointsPyramid()
 	return;
 }//computeKeyPointsPyramid()
 
-void CORB::computeDescriptors(cv::gpu::GpuMat* pcvgmDescriptors_)
+void COrb::computeDescriptors(cv::gpu::GpuMat* pcvgmDescriptors_)
 {
 	using namespace btl::device::orb;
 
@@ -574,7 +574,7 @@ void CORB::computeDescriptors(cv::gpu::GpuMat* pcvgmDescriptors_)
 	}
 }
 
-void CORB::mergeKeyPoints(cv::gpu::GpuMat* pcvgmKeyPoints_)
+void COrb::mergeKeyPoints(cv::gpu::GpuMat* pcvgmKeyPoints_)
 {
 	using namespace btl::device::orb;
 
@@ -616,7 +616,7 @@ void CORB::mergeKeyPoints(cv::gpu::GpuMat* pcvgmKeyPoints_)
 	}
 }
 
-void CORB::downloadKeyPoints(const cv::gpu::GpuMat &cvgmKeypoints_, std::vector<cv::KeyPoint>* pvKeypoints_)
+void COrb::downloadKeyPoints(const cv::gpu::GpuMat &cvgmKeypoints_, std::vector<cv::KeyPoint>* pvKeypoints_)
 {
 	if (cvgmKeypoints_.empty())
 	{
@@ -629,7 +629,7 @@ void CORB::downloadKeyPoints(const cv::gpu::GpuMat &cvgmKeypoints_, std::vector<
 	convertKeyPoints(cvmKeypoints, &*pvKeypoints_);
 }
 
-void CORB::convertKeyPoints(const cv::Mat &cvmKeypoints_, std::vector<cv::KeyPoint>* pvKeypoints_)
+void COrb::convertKeyPoints(const cv::Mat &cvmKeypoints_, std::vector<cv::KeyPoint>* pvKeypoints_)
 {
 	if (cvmKeypoints_.empty())
 	{
@@ -663,14 +663,14 @@ void CORB::convertKeyPoints(const cv::Mat &cvmKeypoints_, std::vector<cv::KeyPoi
 	}
 }
 
-void CORB::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, cv::gpu::GpuMat* pcvgmKeypoints_)
+void COrb::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, cv::gpu::GpuMat* pcvgmKeypoints_)
 {
 	buildScalePyramids(cvgmImage_, cvgmMask_);
 	computeKeyPointsPyramid();
 	mergeKeyPoints(&*pcvgmKeypoints_);
 }
 
-void CORB::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, cv::gpu::GpuMat* pcvgmKeypoints, cv::gpu::GpuMat* pcvgmDescriptors_)
+void COrb::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, cv::gpu::GpuMat* pcvgmKeypoints, cv::gpu::GpuMat* pcvgmDescriptors_)
 {
 	buildScalePyramids(cvgmImage_, cvgmMask_);
 	computeKeyPointsPyramid();
@@ -678,19 +678,19 @@ void CORB::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& 
 	mergeKeyPoints(&*pcvgmKeypoints);
 }
 
-void CORB::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, std::vector<cv::KeyPoint>* pvKeypoints_)
+void COrb::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, std::vector<cv::KeyPoint>* pvKeypoints_)
 {
 	(*this)(cvgmImage_, cvgmMask_, &_cvgmKeypoints);
 	downloadKeyPoints(_cvgmKeypoints, &*pvKeypoints_);
 }
 
-void CORB::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, std::vector<cv::KeyPoint>* pvKeypoints_, cv::gpu::GpuMat* pcvgmDescriptors_)
+void COrb::operator()(const cv::gpu::GpuMat& cvgmImage_, const cv::gpu::GpuMat& cvgmMask_, std::vector<cv::KeyPoint>* pvKeypoints_, cv::gpu::GpuMat* pcvgmDescriptors_)
 {
 	(*this)(cvgmImage_, cvgmMask_, &_cvgmKeypoints, &*pcvgmDescriptors_);
 	downloadKeyPoints(_cvgmKeypoints, &*pvKeypoints_);
 }
 
-void CORB::release()
+void COrb::release()
 {
 	_vcvgmImagePyr.clear();
 	_vcvgmMaskPyr.clear();
