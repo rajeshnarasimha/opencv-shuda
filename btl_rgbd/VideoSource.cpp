@@ -45,6 +45,7 @@ VideoSource::VideoSource(const std::string& strCameraParam_, ushort uResolution_
 	_uPyrHeight = uPyrHeight_;
 	_uFrameIdx = 0;
 	_eivCw = eivCw_;
+	_fScale = 1.f;
 }
 
 VideoSource::~VideoSource()
@@ -67,20 +68,23 @@ void VideoSource::getNextFrame(int* pnStatus_)
 {
 	_uFrameIdx++;
 	//capture a new frame
-	_pVideo->read(*_pCurrFrame->_acvmShrPtrPyrRGBs[0]); //load into cpu buffer
-	if (_pCurrFrame->_acvmShrPtrPyrRGBs[0]->empty()){
+	_pVideo->read(_cvmRGB); //load into cpu buffer
+	//ensure the capture image is valid
+	if (_cvmRGB.empty()){
 		_pVideo->set(CV_CAP_PROP_POS_AVI_RATIO,0);//replay at the end of the video
-		_pVideo->read(*_pCurrFrame->_acvmShrPtrPyrRGBs[0]);
+		_pVideo->read(_cvmRGB);
 		_uFrameIdx = 0;
 	}
+	//resize
+	cv::resize(_cvmRGB,*_pCurrFrame->_acvmShrPtrPyrRGBs[0],cv::Size(0,0),_fScale ,_fScale );	
 
 	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->upload(*_pCurrFrame->_acvmShrPtrPyrRGBs[0]); //load into gpu buffer
 	cv::gpu::cvtColor(*_pCurrFrame->_acvgmShrPtrPyrRGBs[0],_cvgmRGB,CV_BGR2RGB); 
-	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->setTo(0);//clear(RGB)
+	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->setTo(cv::Scalar::all(0));//clear(RGB)
 	//undistort the frame
 	cv::gpu::remap(_cvgmRGB, *_pCurrFrame->_acvgmShrPtrPyrRGBs[0], _pCamera->_cvgmMapX, _pCamera->_cvgmMapY, cv::INTER_LINEAR, cv::BORDER_CONSTANT  ); //undistort image
 	cv::gpu::cvtColor(*_pCurrFrame->_acvgmShrPtrPyrRGBs[0],*_pCurrFrame->_acvgmShrPtrPyrBWs[0],CV_RGB2GRAY); //convert to gray image
-	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->download(*_pCurrFrame->_acvmShrPtrPyrRGBs[0]);
+	_pCurrFrame->_acvgmShrPtrPyrRGBs[0]->download(*_pCurrFrame->_acvmShrPtrPyrRGBs[0]);//from bgr to rgb
 	_pCurrFrame->_acvgmShrPtrPyrBWs[0]->download(*_pCurrFrame->_acvmShrPtrPyrBWs[0]);
 
 	gpuBuildPyramid();

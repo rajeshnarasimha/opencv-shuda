@@ -109,15 +109,15 @@ struct SDeviceICPRegistration
 	    int nThrID = Block::flattenedThreadId ();
 
 		int nShift = 0;
-		for (int i = 0; i < 6; ++i){        //_nRows
+		for (int i = 0; i < 6; ++i){ //_nRows
 			#pragma unroll
-			for (int j = i; j < 7; ++j){          // _nCols + b
+			for (int j = i; j < 7; ++j){ // _nCols + b
 				__syncthreads ();
-				smem[nThrID] = row[i] * row[j];  //fill all the shared memory
+				smem[nThrID] = row[i] * row[j]; //fill all the shared memory
 				__syncthreads ();
 
 				Block::reduce<CTA_SIZE>(smem, SDevPlus ()); //reduce to thread 0;
-				if (nThrID == 0) _cvgmBuf.ptr(nShift++)[blockIdx.x + gridDim.x * blockIdx.y] = smem[0]; //nShift < 27 
+				if (nThrID == 0) _cvgmBuf.ptr(nShift++)[blockIdx.x + gridDim.x * blockIdx.y] = smem[0]; //nShift < 27 = 21 + 6, upper triangle of 6x6
 			}//for
 		}//for
 		return;

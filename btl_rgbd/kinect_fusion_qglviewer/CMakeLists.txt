@@ -19,7 +19,7 @@ if( UNIX )
     include_directories ( "/usr/local/include/eigen3" )
     include_directories ( "/usr/include/ni" )
     set( FLANN_LIBRARY "/usr/local/lib64/libflann.so" )
-
+	include_directories ( "C:\csxsl\src\opencv-shuda\btl_tracker" )
     # set collection of libraries
     set ( EXTRA_LIBS ${EXTRA_LIBS} BtlRgbd CudaLib OpenNI boost_system boost_filesystem boost_serialization yaml-cpp glut GLU opencv_core
     opencv_highgui opencv_calib3d opencv_features2d opencv_video opencv_imgproc GLEW)
@@ -42,13 +42,16 @@ elseif( WIN32 )
     link_directories ( $ENV{FREEGLUT_LIB_DIR} )
     link_directories ( $ENV{YAML-CPP_LIB_DIR} )
     link_directories ( $ENV{GLEW_LIB_DIR} )    
+    link_directories ( "C:/csxsl/src/opencv-shuda/btl_tracker/lib/" )
+
     if(MSVC)
         set(SHUDALIB optimized BtlRgbd debug BtlRgbdd)
 	    set(CUDALIB  optimized CudaLib  debug CudaLibd)
     	set(YAML-CPP optimized yaml-cpp debug yaml-cppd)
         set(QGLVIEWER  optimized QGLViewer2  debug QGLViewerd2 )
+        set(BTLTRACKERLIB optimized BtlTracker debug BtlTrackerd)
 	    set ( EXTRA_LIBS ${EXTRA_LIBS} ${SHUDALIB} ${CUDALIB} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY} OpenNI64
-        ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SERIALIZATION_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SERIALIZATION_LIBRARY} ${BTLTRACKERLIB}
         freeglut GLU32 ${OpenCV_LIBS} ${YAML-CPP} glew32 ${QT_LIBRARIES}  GLU32 opengl32 ${QGLVIEWER})#
     endif()
 

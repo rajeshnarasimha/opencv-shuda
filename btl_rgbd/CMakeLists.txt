@@ -28,6 +28,7 @@ elseif( WIN32 )
 	include_directories ( $ENV{CUDA_INC_PATH} )
 	include_directories ( $ENV{CUDALIB} )
 	include_directories ( $ENV{PCL_INC} )
+	include_directories ( "C:\csxsl\src\opencv-shuda\btl_tracker" )
 
 	link_directories ( $ENV{FREEGLUT_LIB_DIR} )
 endif()

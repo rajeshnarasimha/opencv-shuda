@@ -199,7 +199,7 @@ void btl::image::SCamera::renderCameraInGLLocal (const GLuint uTesture_, float f
         glTexEnvf ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
         glBindTexture ( GL_TEXTURE_2D, uTesture_ );
 
-        glColor4f(1.f, 1.f, 1.f, 1.f); glLineWidth(.5);
+        //glColor4f(1.f, 1.f, 1.f, 1.f); glLineWidth(.5);
         glBegin ( GL_QUADS );
         glTexCoord2f ( 0.0, 0.0 );
         glVertex3d ( dL, dT, -fPhysicalFocalLength_ );

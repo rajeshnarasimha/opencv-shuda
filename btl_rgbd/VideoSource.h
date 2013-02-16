@@ -28,6 +28,15 @@ public:
 	virtual void getNextFrame(int* pnStatus_);
 
 	void setDumpFileName( const std::string& strFileName_ ){_strDumpFileName = strFileName_;}
+	//************************************
+	// Method:    setSize
+	// FullName:  btl::video::VideoSource::setSize
+	// Access:    public 
+	// Returns:   void
+	// Qualifier:
+	// Parameter: const float & fSize_ range [1.0, 0.0) is the original_image_size * fSize = new_image_size
+	//************************************
+	void setSize( const float& fScale_ ) { _fScale = fScale_; }
 
 protected:
 
@@ -43,6 +52,7 @@ public:
 	unsigned int _uPyrHeight;//the height of pyramid
 	unsigned int _uResolution;
 	unsigned int _uFrameIdx;
+	float _fScale;
 	std::string _strVideoFileName;
 
 	//cameras
