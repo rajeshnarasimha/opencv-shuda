@@ -1,0 +1,14 @@
+%YAML:1.0
+_fFx: 869.57
+_fFy: 867.528
+_u: 299.748
+_v: 237.284
+_sWidth: 640
+_sHeight: 480
+_cvmDistCoeffs: !!opencv-matrix
+   rows: 5
+   cols: 1
+   dt: d
+   data: [ -0.0225415, -0.259618,
+           0.00320736, -0.000551689,
+           0 ]
