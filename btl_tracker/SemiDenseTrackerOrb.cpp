@@ -26,7 +26,7 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb(unsigned int u
 	//Gaussian filter
 	_fSigma = 1.f; // page3: r=3/6 and sigma = 1.f/2.f respectively
 	_uRadius = 3; // 
-	_uGaussianKernelSize = 2*_uRadius + 1;
+ 	_uGaussianKernelSize = 2*_uRadius + 1;
 	//contrast threshold
 	_ucContrastThresold = 5; // 255 * 0.02 = 5.1
 
@@ -55,7 +55,7 @@ btl::image::semidense::CSemiDenseTrackerOrb::CSemiDenseTrackerOrb(unsigned int u
 	_uTotalParticles[3] =  100;
 
 	_usHalfPatchSize = 14; //the size of the orb feature
-	_sSearchRange = 7;
+	_sSearchRange = 20;
 	_sDescriptorByte =24;
 
 	_nFrameIdx = 0;
