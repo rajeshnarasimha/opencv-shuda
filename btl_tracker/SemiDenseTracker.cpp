@@ -334,13 +334,13 @@ void btl::image::semidense::CSemiDenseTracker::display(cv::Mat& cvmColorFrame_) 
 			int nFrameCurr = _nFrameIdx;
 			fAvgAge += ucAge;
 			int nFrame = 0;
-			while (ucAge > 0 && nFrame < 10){//render trajectory 
+			while (ucAge > 0 && nFrame < 1){//render trajectory 
 				short2 ptPrev = ptCurr - vi;
 
-				if( n == 0) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(0,0,128));
-				if( n == 1) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(0,128,0));
-				if( n == 2) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(128,0,0));
-				if( n == 3) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(128,0,128));
+				if( n == 0) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(0,0,255));
+				if( n == 1) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(0,255,0));
+				if( n == 2) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(255,0,0));
+				if( n == 3) cv::line(cvmColorFrame_, cv::Point(ptCurr.x*t,ptCurr.y*t), cv::Point(ptPrev.x*t,ptPrev.y*t), cv::Scalar(255,0,255));
 				ptCurr = ptPrev;
 				btl::other::decrease<int>(30,&nFrameCurr);
 				vi = _cvmKeyPointVelocity[nFrameCurr][n].ptr<short2>(ptCurr.y)[ptCurr.x];
